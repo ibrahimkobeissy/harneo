@@ -4,7 +4,8 @@ Harneo is a harness manager for Claude Code: a Tauri desktop app that keeps a li
 
 ## Status
 - The repo is empty apart from `CONTEXT.md`, `LICENSE` (MIT) and `README.md`. No code, no build commands yet. Add them here once the Tauri scaffold exists.
-- Stack decided: Tauri 2. The frontend framework is not decided yet.
+- Stack decided: Tauri 2 + React + Vite + TypeScript, with a shared Rust core (`harneo-core`) for the app and the CLI.
+- Modules and build order: `CAPABILITIES.md`. Each module gets a `SPEC-<module-id>.md` before any tickets (Addy's spec → plan → tasks → build). `SPEC-app-shell.md` also holds the project-wide conventions: commands, structure, code style, testing, boundaries.
 - Cross-platform code, built and tested on Linux only. Distribution is source only (see `CONTEXT.md` §4–5).
 
 ## Tickets and workflow
