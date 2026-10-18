@@ -7,11 +7,13 @@ Harneo is a harness manager for Claude Code: a Tauri desktop app that keeps a li
 - Stack decided: Tauri 2. The frontend framework is not decided yet.
 - Cross-platform code, built and tested on Linux only. Distribution is source only (see `CONTEXT.md` §4–5).
 
-## Issue tracker
-- Tasks are tracked in **GitHub Issues** for `ibrahimkobeissy/harneo`, using the `gh` CLI. Do not write `tasks/todo.md`.
-- One issue per task: acceptance criteria and verification steps in the issue body; dependencies as "Blocked by #N".
-- Add every new issue to GitHub Project 5 ("Harneo", https://github.com/users/ibrahimkobeissy/projects/5): `gh project item-add 5 --owner ibrahimkobeissy --url <issue-url>`.
-- `tasks/plan.md` keeps only the ordered list of issue links, never a duplicate checklist.
+## Tickets and workflow
+- **Follow the `ticket-flow` skill** (`.claude/skills/ticket-flow/`) for all work. No change without a GitHub issue in `ibrahimkobeissy/harneo`.
+- Board: GitHub Project 5 ("Harneo", https://github.com/users/ibrahimkobeissy/projects/5), with Status Backlog → Ready → In progress → In review → Done. Config: `.claude/ticket-flow.conf`. Move statuses with `.claude/skills/ticket-flow/scripts/board.sh`.
+- Trunk-based: everything lands on `main`. No feature branches, no PRs. Subagents work in detached worktrees under `.claude/worktrees/`, and the orchestrator session validates, fixes, merges and pushes.
+- Tickets use `.claude/skills/ticket-flow/references/ticket-template.md`, with dependencies written as `Blocked by #N`, one per line. Never delete a ticket; close it as "not planned" or as a duplicate.
+- `tasks/plan.md` keeps only the ordered list of issue links, never a duplicate checklist. Do not write `tasks/todo.md` or use Addy's `/build auto`; the ticket-flow cycle replaces them.
+- Cloud sessions have no `gh` and no board access: use the GitHub MCP tools for issues and record statuses as `status:*` labels, which the next local session's `board.sh sync` applies to the board.
 
 ## Security Guardrails
 
