@@ -72,9 +72,16 @@
         "source": "git",
         "url": "https://github.com/addyosmani/agent-skills.git"
       }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
     }
   },
   "enabledPlugins": {
-    "agent-skills@addy-agent-skills": true
+    "agent-skills@addy-agent-skills": true,
+    "impeccable@impeccable": true
   }
 }
