@@ -1,0 +1,35 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "geist",
+        "files": [
+          ".impeccable/mocks/decision/challenger-console.html"
+        ],
+        "createdAt": "2026-10-19T21:51:56.677Z",
+        "reason": "intentional: decision-round sketch of the dark developer-console canon challenger; spent hand, not shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "geist mono",
+        "files": [
+          ".impeccable/mocks/decision/challenger-console.html"
+        ],
+        "createdAt": "2026-10-19T21:51:56.684Z",
+        "reason": "intentional: decision-round sketch of the dark developer-console canon challenger; spent hand, not shipped"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "files": [
+          ".impeccable/mocks/decision/canon.html"
+        ],
+        "createdAt": "2026-10-19T21:51:56.691Z",
+        "reason": "intentional: the category-standard card shows the familiar default by design"
+      }
+    ]
+  }
+}
