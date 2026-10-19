@@ -5,9 +5,13 @@ Harneo is a harness manager for Claude Code: a Tauri desktop app that keeps a li
 ## Status
 - The repo is empty apart from `CONTEXT.md`, `LICENSE` (MIT) and `README.md`. No code, no build commands yet. Add them here once the Tauri scaffold exists.
 - Stack decided: Tauri 2 + React + Vite + TypeScript, with a shared Rust core (`harneo-core`) for the app and the CLI.
-- Modules and build order: `CAPABILITIES.md`. Each module gets a `SPEC-<module-id>.md` before any tickets (Addy's spec → plan → tasks → build). `SPEC-app-shell.md` also holds the project-wide conventions: commands, structure, code style, testing, boundaries.
-- **Next (2026-10-18):** the user reviews and approves `SPEC-app-shell.md` on their PC. Then `planning-and-task-breakdown` turns it into tickets, `ticket-flow` builds it, and the design system is created with Impeccable (needs a full browser). One module at a time: spec → build → next spec. Don't draft later specs ahead.
+- Modules and build order: `spec/capabilities.md`. Each module gets `spec/<module-id>.md` before any tickets (Addy's spec → plan → tasks → build). `spec/app-shell.md` also holds the project-wide conventions: commands, structure, code style, testing, boundaries.
+- **Next (2026-10-19):** `spec/app-shell.md` is approved. Next, `planning-and-task-breakdown` turns it into tickets, `ticket-flow` builds it, and the design system is created with Impeccable (needs a full browser). One module at a time: spec → build → next spec. Don't draft later specs ahead.
 - Cross-platform code, built and tested on Linux only. Distribution is source only (see `CONTEXT.md` §4–5).
+
+## Specs and decisions
+- **Specs live in `spec/`**, never at the repo root. When `/spec` (Addy's `spec-driven-development`) writes a new spec, save it as `spec/<module-id>.md`, not `SPEC.md`. `spec/capabilities.md` is the index of modules and specs.
+- **ADRs only through Addy's framework:** write one with the `documentation-and-adrs` skill when a phase calls for it (e.g. a hard-to-reverse choice while specifying a module), in that skill's default location `docs/decisions/`. Never write ADRs by hand outside that flow.
 
 ## Tickets and workflow
 - **Follow the `ticket-flow` skill** (`.claude/skills/ticket-flow/`) for all work. No change without a GitHub issue in `ibrahimkobeissy/harneo`.

@@ -1,7 +1,7 @@
 # Spec: app-shell
 
-> Module `app-shell` of the [capability map](CAPABILITIES.md). Status: **draft, awaiting approval.**
-> Product context: [`CONTEXT.md`](CONTEXT.md), especially §4 (distribution, `BUILDING.md`) and §5 (build constraints).
+> Module `app-shell` of the [capability map](capabilities.md). Status: **approved 2026-10-19.**
+> Product context: [`CONTEXT.md`](../CONTEXT.md), especially §4 (distribution, `BUILDING.md`) and §5 (build constraints).
 > **The "Conventions" half of this spec applies to the whole project.** Later module specs follow it and only record exceptions.
 
 ## Objective
@@ -187,7 +187,7 @@ Conventions:
   - adding a dependency (Rust or npm) that isn't in this spec;
   - changing CI or `.claude/` config;
   - changing a convention in this spec;
-  - any change to a module boundary in `CAPABILITIES.md`.
+  - any change to a module boundary in `spec/capabilities.md`.
 - **Never:**
   - merge content into an existing user file;
   - write outside the target project and Harneo's data folder;

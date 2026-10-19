@@ -1,10 +1,10 @@
 # Capability Map: Harneo v1
 
-Approved 2026-10-18. This is the index of Harneo's modules and their specs. The product itself is described in [`CONTEXT.md`](CONTEXT.md); each module spec covers one module and points back to it. Module ids are fixed: never rename them.
+Approved 2026-10-18. This is the index of Harneo's modules and their specs. The product itself is described in [`CONTEXT.md`](../CONTEXT.md); each module spec covers one module and points back to it. Module ids are fixed: never rename them.
 
 | Module id | Responsibility | Depends on | Spec |
 |---|---|---|---|
-| `app-shell` | Tauri 2 + React scaffold, Rust core library + app + CLI layout, design system, navigation, `BUILDING.md`. Also sets the project-wide conventions | — | [`SPEC-app-shell.md`](SPEC-app-shell.md) (draft) |
+| `app-shell` | Tauri 2 + React scaffold, Rust core library + app + CLI layout, design system, navigation, `BUILDING.md`. Also sets the project-wide conventions | — | [`app-shell.md`](app-shell.md) (approved 2026-10-19) |
 | `artifact-model` | The 10 artifact types (`CONTEXT.md` §2): find them in a folder, parse them, check them; a Claude adapter behind an agent-neutral interface | — | — |
 | `library` | Harneo's own store; import from a local folder or git URL with provenance (URL, branch, subfolder, commit); browse by type and source; promote to library | `app-shell`, `artifact-model` | — |
 | `audit` | Trust score, security findings, permission transparency | `artifact-model` | — |
@@ -29,6 +29,6 @@ Approved 2026-10-18. This is the index of Harneo's modules and their specs. The 
 ## Workflow
 
 Each module goes through Addy Osmani's spec → plan → tasks → build steps, in build order, with the user's approval at each step:
-1. `SPEC-<module-id>.md` is written and approved.
+1. `spec/<module-id>.md` is written and approved.
 2. `planning-and-task-breakdown` adds the module's GitHub issues to `tasks/plan.md`.
 3. The `ticket-flow` cycle builds them.
