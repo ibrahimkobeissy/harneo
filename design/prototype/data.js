@@ -26,14 +26,14 @@
 
   const TAGS = [
     { id: "testing", color: "cyan" },
-    { id: "review", color: "violet" },
-    { id: "frontend", color: "pink" },
-    { id: "rust", color: "indigo" },
-    { id: "security", color: "violet" },
-    { id: "planning", color: "blue" },
-    { id: "daily", color: "teal" },
-    { id: "experimental", color: "pink" },
-    { id: "docs", color: "slate" },
+    { id: "review", color: "indigo" },
+    { id: "frontend", color: "violet" },
+    { id: "rust", color: "stone" },
+    { id: "security", color: "slate" },
+    { id: "planning", color: "sky" },
+    { id: "daily", color: "plain" },
+    { id: "experimental", color: "fuchsia" },
+    { id: "docs", color: "ink" },
   ];
 
   // Deterministic pseudo-random so the demo looks the same on every reload.

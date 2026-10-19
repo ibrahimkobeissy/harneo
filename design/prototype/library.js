@@ -48,7 +48,7 @@
       <h4>Type ${clear("types")}</h4>
       ${types.map(([t, n]) => fopt("types", t, H.T[t].plural, n, `<span class="ic sm t-${H.T[t].tint}" style="width:18px;height:18px">${ic(H.T[t].icon)}</span>`)).join("")}
       <h4>Tags ${clear("tags")}</h4>
-      ${tags.map(([t, n]) => fopt("tags", t, t, n, `<i class="dot" style="border-radius:50%;background:var(--tint-${H.tagColor(t)})"></i>`)).join("") || `<span class="muted">No tags yet</span>`}
+      ${tags.map(([t, n]) => fopt("tags", t, t, n, `<i class="dot tagdot-${H.tagColor(t)}" style="border-radius:50%;background:var(--tint-${H.tagColor(t)}-dot, var(--tint-${H.tagColor(t)}))"></i>`)).join("") || `<span class="muted">No tags yet</span>`}
       <h4>Status ${clear("status")}</h4>
       ${["findings", "outdated", "unused"].map((s) => fopt("status", s, STATUS_LABEL[s], count((a) => H.status(a) === s))).join("")}
       <h4>Source ${clear("sources")}</h4>
@@ -270,7 +270,7 @@
     return `<div class="menu">${opts.map((t) => `<button data-a="tag-add" data-tag="${esc(t.id)}">${H.tagChip(t.id)}</button>`).join("")}${!exact && /^[a-z0-9-]+$/.test(q) ? `<button data-a="tag-add" data-tag="${esc(q)}" data-new="1">${ic("plus")}Create tag “${esc(q)}”</button>` : ""}${!opts.length && (exact || !/^[a-z0-9-]+$/.test(q)) ? `<span class="muted" style="padding:6px 8px;display:block">${exact ? "Already tagged" : "Lowercase letters, digits and dashes"}</span>` : ""}</div>`;
   }
   // Never green, amber or red: those mean current, outdated and findings/loss.
-  const COLORS = ["blue", "violet", "pink", "teal", "indigo", "cyan", "slate"];
+  const COLORS = ["cyan", "sky", "indigo", "violet", "fuchsia", "stone"];
   H.inputs.tagq = (v) => { S().flow.tagq = v; H.render(); };
   H.actions["tag-add"] = (el) => {
     const a = H.art(S().selected), t = el.dataset.tag;
