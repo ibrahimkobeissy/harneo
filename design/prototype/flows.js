@@ -60,6 +60,16 @@
         <button class="btn primary" data-a="imp-next"${canNext ? "" : " disabled"}>${f.step === 2 ? ic("download") + "Import " + H.plural(f.items.filter((x) => x.on).length, "artifact") : "Continue"}</button></div></div>`;
   };
   const srcName = (f) => (f.source === "claude" ? "~/.claude" : f.source === "git" ? f.url : f.path);
+  // ~/.claude artifacts are already in use: their history comes from the session logs.
+  // Artifacts new to this machine start as "not used yet", never as unused.
+  function usageFor(f, it) {
+    if (f.source === "claude" && H.usageTypes.includes(it.type)) {
+      const base = 2 + (it.name.length % 4);
+      const usage = [0, 1, 2, 3, 4, 5, 6, 7].map((w) => base + Math.round(w * 0.6) + ((w * it.name.length) % 3));
+      return { usage, sessions: usage.reduce((s, n) => s + n, 0), lastUsed: "today", fresh: false };
+    }
+    return { usage: [0, 0, 0, 0, 0, 0, 0, 0], sessions: 0, lastUsed: "not used yet", fresh: true };
+  }
   H.actions["imp-src"] = (el) => { const f = imp(); f.source = el.dataset.v; f.err = null; };
   H.inputs["imp-url"] = (v) => { const f = imp(); f.url = v; f.err = null; H.render(); };
   H.actions["imp-url-pick"] = (el) => { const f = imp(); f.url = el.dataset.v; f.err = null; };
@@ -101,7 +111,7 @@
     sel.forEach((it) => {
       if (S().artifacts.some((a) => a.name === it.name)) return;
       const b = S().claudeCli ? f.bundles.find((x) => x.on && x.lead === it.name) : null;
-      S().artifacts.unshift({ id: H.uid("a"), name: it.name, type: it.type, source: srcKey, desc: "Imported from " + srcName(f) + ": " + it.note + ".", trust: it.trust, findings: it.trust < 60 ? [{ level: "high", title: "Remote code execution pattern", detail: "curl … | sh" }, { level: "high", title: "Unrestricted shell", detail: "allowed-tools: Bash(*)" }] : [], bundle: b ? b.members.map((m) => (S().artifacts.find((a) => a.name === m) || { id: m }).id) : [], tags: S().claudeCli ? (f.tagSugg[it.name] || []) : [], installedIn: [], reach: { files: "project files", shell: "none", network: "none", env: "none" }, invocation: it.type === "skill" || it.type === "subagent" ? "auto" : null, usage: [0, 0, 0, 0, 0, 0, 0, 0], sessions: 0, lastUsed: "never", latest: null, localEdits: false });
+      S().artifacts.unshift({ id: H.uid("a"), name: it.name, type: it.type, source: srcKey, desc: "Imported from " + srcName(f) + ": " + it.note + ".", trust: it.trust, findings: it.trust < 60 ? [{ level: "high", title: "Remote code execution pattern", detail: "curl … | sh" }, { level: "high", title: "Unrestricted shell", detail: "allowed-tools: Bash(*)" }] : [], bundle: b ? b.members.map((m) => (S().artifacts.find((a) => a.name === m) || { id: m }).id) : [], tags: S().claudeCli ? (f.tagSugg[it.name] || []) : [], installedIn: [], reach: { files: "project files", shell: "none", network: "none", env: "none" }, invocation: it.type === "skill" || it.type === "subagent" ? "auto" : null, ...usageFor(f, it), latest: null, localEdits: false });
     });
     const n = sel.length;
     S().flow.imp = null;
@@ -139,7 +149,7 @@
         <p>${H.plural(H.filesFor(p).length, "file")} written, including <span class="mono">HARNESS.md</span>. The project is in your registry.</p>
         <div style="display:flex;gap:8px"><a class="btn" href="#/projects/${f.newId}">${ic("folder-git-2")}Open project</a><button class="btn primary" data-a="sc-again">${ic("folder-plus")}Scaffold another</button></div></div>`;
     }
-    const can = f.step === 0 ? !!f.path : f.step === 1 ? !!f.profile : true;
+    const can = f.step === 0 ? !!f.path && !f.err : f.step === 1 ? !!f.profile : true;
     return `<div class="page narrow"><div class="crumb"><a href="#/projects" class="muted">${ic("arrow-left")} Projects</a></div>
       <div class="ph"><h1>Scaffold a new project</h1></div>${steps(["Folder", "Profile", "Preview", "Done"], f.step)}${body}
       ${f.step < 3 ? `<div class="flowfoot">${f.step ? `<button class="btn" data-a="sc-back">Back</button>` : ""}<span class="grow"></span>${f.step === 2 ? `<span class="muted">${esc(f.path)} · ${esc(p.name)} v${p.version}</span>` : ""}<button class="btn primary" data-a="sc-next"${can ? "" : " disabled"}>${f.step === 2 ? ic("download") + "Write " + H.plural(H.filesFor(p).length, "file") : "Continue"}</button></div>` : ""}</div>`;

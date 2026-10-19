@@ -113,7 +113,7 @@
         <div class="panel"><h2>Settings template <span class="muted">exactly one</span></h2><div class="optlist">${settingsOpts.map((a) => `<button class="opt${p.settings === a.id ? " on" : ""}" data-a="pk-settings" data-id="${a.id}"><i class="radio"></i><div style="min-width:0"><b>${esc(a.name)}</b><div class="sec" style="font-size:12px">${esc(a.desc)}</div></div></button>`).join("")}</div></div>
         <div class="panel"><h2>MCP servers <span class="muted">secrets as \${VAR} only</span></h2>
           ${p.mcp.map((m) => { const a = H.art(m.id); return `<div style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px">${H.typeIc("mcp", true)}<b>${esc(a ? a.name : m.id)}</b><button class="btn ghost sm" style="margin-left:auto" data-a="pk-mcp-remove" data-id="${m.id}" aria-label="Remove server">${ic("x")}</button></div>
-            ${Object.entries(m.env).map(([k, v]) => `<div class="envrow"><span class="mono">${esc(k)}</span><input class="input mono" style="height:28px" value="${esc(v)}" data-in="pk-env" data-m="${m.id}" data-k="${esc(k)}" id="env-${m.id}-${esc(k)}" aria-label="${esc(k)} value"></div>${err && err.m === m.id && err.k === k ? `<div class="field" style="margin:4px 0 0"><span class="err">${ic("circle-alert")}Secrets are never stored. Use a placeholder like \${${esc(k)}}.</span></div>` : ""}`).join("")}</div>`; }).join("") || `<p class="muted" style="margin-bottom:8px">No servers.</p>`}
+            ${Object.entries(m.env).map(([k, v]) => `<div class="envrow"><span class="mono">${esc(k)}</span><input class="input mono" style="height:28px" value="${esc(v)}" data-ch="pk-env" data-m="${m.id}" data-k="${esc(k)}" id="env-${m.id}-${esc(k)}" aria-label="${esc(k)} value"></div>${err && err.m === m.id && err.k === k ? `<div class="callout warn" style="margin-top:6px;padding:8px 10px">${ic("shield-alert")}<p>That looked like a real secret, so it wasn't saved. Kept <span class="mono">${esc(v)}</span>; Harneo stores placeholders only.</p></div>` : ""}`).join("")}</div>`; }).join("") || `<p class="muted" style="margin-bottom:8px">No servers.</p>`}
           ${mcpOpts.length ? `<label class="sr" for="mcpadd">Add MCP server</label><select class="sel" id="mcpadd" data-ch="pk-mcp-add" style="width:100%"><option value="">Add a server…</option>${mcpOpts.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select>` : ""}</div>
         <div class="panel"><h2>The project it produces <span class="muted">${files.length} files</span></h2>
           <div class="tree" id="treeview" style="background:transparent;border:0;padding:0;max-height:340px">${H.treeHtml(files, sel, "pk-file")}</div>
@@ -156,12 +156,11 @@
     const ok = /^\$\{[A-Z0-9_]+\}$/.test(v.trim());
     S().flow.envErr = ok ? null : { m: m.id, k };
     if (ok) { m.env[k] = v.trim(); p.dirty = true; }
-    H.render();
   };
   H.actions["pk-file"] = (el) => { S().flow.bsel = S().flow.bsel === el.dataset.path ? null : el.dataset.path; };
   H.actions["profile-save"] = (el) => {
     const p = H.profile(el.dataset.id);
-    if (S().flow.envErr) return H.toast("Fix the MCP secret first: placeholders like ${VAR} only.", { icon: "circle-alert" });
+    S().flow.envErr = null;
     if (!p.items.length) return H.toast("Add at least one artifact before saving.", { icon: "circle-alert" });
     if (p.isNew) { p.isNew = false; } else p.version += 1;
     p.dirty = false;

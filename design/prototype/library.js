@@ -78,18 +78,19 @@
     const issues = un + out + fi;
     const weeks = [0, 1, 2, 3, 4, 5, 6, 7].map((w) => all.reduce((s, a) => s + a.usage[w], 0));
     const max = Math.max(1, ...weeks);
-    const last = weeks[7], prev = weeks[6] || 1;
-    const delta = Math.round(((last - prev) / prev) * 100);
+    const last = weeks[7], prev = weeks[6];
+    const delta = prev ? Math.round(((last - prev) / prev) * 100) : null;
+    const noData = weeks.every((w) => w === 0);
     const legend = (s, color, label, v) => `<button data-a="status" data-v="${s}"><i class="dot" style="background:${color}"></i><b>${v}</b> ${label}</button>`;
     return `<div class="ins">
       <section class="panel" aria-label="Library health"><h2>Library health ${issues ? `<a href="#/cleanup">Review ${issues} issues</a>` : ""}</h2>
         <div class="stack" role="img" aria-label="${cur} current, ${un} unused, ${out} outdated, ${fi} with findings">
           <i style="flex:${cur};background:var(--green-fill)"></i><i style="flex:${un};background:var(--line2)"></i><i style="flex:${out};background:var(--amber-fill)"></i><i style="flex:${fi};background:var(--red-fill)"></i></div>
-        <div class="leg"><span style="display:flex;align-items:center;gap:6px"><i class="dot" style="background:var(--green-fill)"></i><b style="color:var(--t1)">${cur}</b> current</span>${legend("unused", "var(--line2)", "unused", un)}${legend("outdated", "var(--amber-fill)", "outdated", out)}${legend("findings", "var(--red-fill)", "findings", fi)}</div>
+        <div class="leg"><span style="display:flex;align-items:center;gap:6px"><i class="dot" style="background:var(--green-fill)"></i><b style="color:var(--t1)">${cur}</b> current</span>${legend("unused", "var(--line2)", "unused", un)}${legend("outdated", "var(--amber-fill)", "outdated", out)}${legend("findings", "var(--red-fill)", fi === 1 ? "with findings" : "with findings", fi)}</div>
       </section>
-      <section class="panel" aria-label="Activity"><h2>Sessions using library artifacts <span class="mono muted">${last} this week · ${delta >= 0 ? "+" : ""}${delta}%</span></h2>
-        <div class="bars" role="img" aria-label="Sessions per week for 8 weeks, latest ${last}">${weeks.map((w, i) => `<i class="${i === 7 ? "now" : ""}" style="height:${Math.round((w / max) * 100)}%" title="${w} sessions"></i>`).join("")}</div>
-        <div class="axis"><span>8 weeks ago</span><span>this week</span></div>
+      <section class="panel" aria-label="Activity"><h2>Sessions using library artifacts ${noData ? "" : `<span class="mono muted">${last} this week${delta == null ? "" : " · " + (delta >= 0 ? "+" : "") + delta + "%"}</span>`}</h2>
+        ${noData ? `<p class="sec" style="height:58px;display:flex;align-items:center;gap:8px">${ic("activity")}No sessions recorded yet. Counts come from Claude's session logs in <span class="mono">~/.claude/projects/</span>.</p>` : `<div class="bars" role="img" aria-label="Sessions per week for 8 weeks, latest ${last}">${weeks.map((w, i) => `<i class="${i === 7 ? "now" : ""}" style="height:${Math.round((w / max) * 100)}%" title="${w} sessions"></i>`).join("")}</div>
+        <div class="axis"><span>8 weeks ago</span><span>this week</span></div>`}
       </section></div>`;
   }
 
@@ -102,13 +103,13 @@
       <div class="head">${H.typeIc(a.type, false, gray)}<div><div class="nm">${esc(a.name)}</div><div class="srcline">${esc(H.srcLabel(a))}</div></div></div>
       <div class="desc">${esc(a.desc)}</div>
       <div class="tags">${tags}</div>
-      <div class="foot">${H.meter(a.trust, gray)}${usage ? (gray ? `<span class="m muted">0 sessions · ${esc(a.lastUsed)}</span>` : H.spark(a.usage) + `<span class="m muted">${a.sessions} sessions</span>`) : `<span class="m muted">${H.plural(a.installedIn.length, "project")}</span>`}${H.statusBadge(a)}</div>
+      <div class="foot">${H.meter(a.trust, gray)}${usage ? (gray ? `<span class="m muted">unused · ${esc(a.lastUsed)}</span>` : a.fresh && !a.sessions ? `<span class="m muted">not used yet</span>` : `<span class="m muted">${H.plural(a.sessions, "session")}</span>`) : `<span class="m muted">${H.plural(a.installedIn.length, "project")}</span>`}${H.statusBadge(a)}</div>
     </button>`;
   }
   function listView(list) {
-    return `<table class="listv"><thead><tr><th>Name</th><th>Type</th><th>Source</th><th>Tags</th><th>Trust</th><th>Sessions 8w</th><th>Status</th></tr></thead><tbody>
+    return `<table class="listv"><thead><tr><th>Name</th><th>Type</th><th>Source</th><th>Tags</th><th>Trust</th><th title="Sessions in the last 8 weeks">Sessions</th><th>Status</th></tr></thead><tbody>
       ${list.map((a) => `<tr class="${S().selected === a.id ? "sel" : ""}${H.status(a) === "unused" ? " unused" : ""}" data-a="open" data-id="${a.id}" tabindex="0" data-card id="card-${a.id}">
-        <td><span class="namecell">${H.typeIc(a.type, true, H.status(a) === "unused")}${esc(a.name)}</span></td><td>${H.T[a.type].label}</td><td class="mono muted">${esc(H.srcLabel(a))}</td>
+        <td class="cname"><span class="namecell">${H.typeIc(a.type, true, H.status(a) === "unused")}<span class="ell">${esc(a.name)}</span></span></td><td>${H.T[a.type].label}</td><td class="mono muted csrc"><span class="ell">${esc(H.srcLabel(a))}</span></td>
         <td>${a.tags.slice(0, 2).map((t) => H.tagChip(t)).join(" ")}</td><td>${H.meter(a.trust)}</td><td class="mono">${H.usageTypes.includes(a.type) ? a.sessions : "—"}</td><td>${H.statusBadge(a)}</td></tr>`).join("")}
     </tbody></table>`;
   }
@@ -268,7 +269,8 @@
     const exact = S().tags.some((t) => t.id === q);
     return `<div class="menu">${opts.map((t) => `<button data-a="tag-add" data-tag="${esc(t.id)}">${H.tagChip(t.id)}</button>`).join("")}${!exact && /^[a-z0-9-]+$/.test(q) ? `<button data-a="tag-add" data-tag="${esc(q)}" data-new="1">${ic("plus")}Create tag “${esc(q)}”</button>` : ""}${!opts.length && (exact || !/^[a-z0-9-]+$/.test(q)) ? `<span class="muted" style="padding:6px 8px;display:block">${exact ? "Already tagged" : "Lowercase letters, digits and dashes"}</span>` : ""}</div>`;
   }
-  const COLORS = ["blue", "green", "violet", "pink", "orange", "teal", "amber", "indigo", "cyan"];
+  // Never green, amber or red: those mean current, outdated and findings/loss.
+  const COLORS = ["blue", "violet", "pink", "teal", "indigo", "cyan", "slate"];
   H.inputs.tagq = (v) => { S().flow.tagq = v; H.render(); };
   H.actions["tag-add"] = (el) => {
     const a = H.art(S().selected), t = el.dataset.tag;

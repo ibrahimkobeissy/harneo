@@ -42,16 +42,17 @@
   H.status = (a) => {
     if (a.findings.length && a.trust < 60) return "findings";
     if (a.latest) return "outdated";
-    if (H.usageTypes.includes(a.type) && a.sessions === 0) return "unused";
+    if (H.usageTypes.includes(a.type) && a.sessions === 0 && !a.fresh) return "unused";
     return "current";
   };
   H.statusBadge = (a) => {
     const s = H.status(a);
-    if (s === "findings") return `<span class="badge bad">${a.findings.length} findings</span>`;
+    if (s === "findings") return `<span class="badge bad">${H.plural(a.findings.length, "finding")}</span>`;
     if (s === "outdated") return `<span class="badge warn">Update ${esc(a.latest)}</span>`;
     if (s === "unused") return `<span class="badge">Unused</span>`;
     const inv = a.invocation ? (a.invocation === "auto" ? "Auto" : "Manual") : D.TYPES[a.type].label;
-    return `<span class="badge">${inv}${a.bundle.length ? " · +" + a.bundle.length : ""}</span>`;
+    if (a.fresh && !a.sessions) return `<span class="badge info">New</span>`;
+    return `<span class="badge">${a.bundle.length ? "Bundle of " + (a.bundle.length + 1) : inv}</span>`;
   };
   H.srcLabel = (a) => {
     const s = D.SOURCES[a.source];
@@ -77,7 +78,7 @@
   H.logo = (size) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" fill="var(--blue)"/><path d="M7 6v12M17 6v12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M7 12h4.2" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="12" r="2.1" fill="#fff"/></svg>`;
   function sidebar(r) {
     const S = H.S;
-    const cols = S.collections.map((c) => navItem("#/collection/" + c.id, c.kind === "smart" ? "list-filter" : "bookmark", c.name, H.collectionItems(c).length, r.name === "collection" && r.id === c.id)).join("");
+    const cols = S.collections.map((c) => navItem("#/collection/" + c.id, c.kind === "smart" ? "list-filter" : "bookmark", c.name, H.collectionItems(c).length, r.name === "collection" && r.id === c.id).replace('class="nav', 'class="nav col').replace("<span class=\"lbl\">", `<span class="cinit" aria-hidden="true">${esc(c.name.charAt(0).toUpperCase())}</span><span class="lbl">`)).join("");
     return `<nav class="side" aria-label="Main">
       <a class="brand" href="#/library">${H.logo(24)}<span>Harneo</span></a>
       ${navItem("#/library", "layout-grid", "Library", S.artifacts.length, r.name === "library")}
