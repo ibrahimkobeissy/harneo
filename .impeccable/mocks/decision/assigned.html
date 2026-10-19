@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Harneo · Component Datasheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#F6F7F9;--ink:#14171C;--ink2:#4A5160;--rule:#C9CED6;--blue:#12408F;--blue2:#0C2E69;--amber:#8F5600;--red:#C2261D;--green:#236B40;--gray:#6A707C}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Archivo,sans-serif;font-stretch:100%;background:var(--paper);color:var(--ink);display:grid;grid-template-columns:208px 1fr 432px;font-size:13px}
+.rail{background:var(--blue);color:#fff;display:flex;flex-direction:column;padding:20px 0}
+.mark{font-stretch:125%;font-weight:800;font-size:22px;letter-spacing:.04em;padding:0 20px 22px}
+.rail h6{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#B8C8E8;padding:14px 20px 6px}
+.rail a{display:flex;justify-content:space-between;padding:8px 20px;color:#E6EDFA;text-decoration:none;font-size:14px}
+.rail a.on{background:var(--blue2);color:#fff;font-weight:600;box-shadow:inset 3px 0 0 #fff}
+.rail a span{font-family:'JetBrains Mono';font-size:12px;color:#B8C8E8}
+.rail .k{margin-top:auto;padding:12px 20px;font-size:12px;color:#B8C8E8;border-top:1px solid #3560A8}
+main{display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--rule)}
+.top{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--rule)}
+.top h1{font-stretch:112%;font-weight:700;font-size:24px}
+.top .count{font-family:'JetBrains Mono';color:var(--ink2);font-size:13px}
+.search{margin-left:auto;width:300px;height:34px;border:1px solid var(--rule);background:#fff;display:flex;align-items:center;padding:0 10px;color:var(--ink2)}
+.btn{height:34px;padding:0 14px;border:1px solid var(--blue);background:var(--blue);color:#fff;font-weight:600;display:flex;align-items:center}
+.chips{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:6px;height:28px;padding:0 10px;border:1px solid var(--rule);background:#fff;font-size:12.5px}
+.chip.on{border-color:var(--ink);background:var(--ink);color:#fff}
+.chip b{font-family:'JetBrains Mono';font-weight:500}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-stretch:88%;font-weight:600;text-align:left;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink2);padding:9px 12px;border-bottom:1px solid var(--ink)}
+td{padding:9px 12px;border-bottom:1px solid var(--rule);white-space:nowrap}
+td.m,.m{font-family:'JetBrains Mono';font-size:12px}
+tr.sel td{background:#E3EAF6}
+tr.out td{background:#FBF1DF}
+tr.bad td{background:#FBE7E5}
+tr.unused td{color:var(--gray)}
+.name{display:flex;align-items:center;gap:8px;font-weight:600}
+.st{font-weight:600;font-size:12px}
+.st.ok{color:var(--green)}.st.out{color:var(--amber)}.st.bad{color:var(--red)}
+.tr{font-family:'JetBrains Mono';font-weight:500}
+aside{background:#fff;display:flex;flex-direction:column}
+.band{background:var(--ink);color:#fff;padding:16px 20px}
+.band .pn{font-family:'JetBrains Mono';font-size:12px;color:#AEB6C4}
+.band h2{font-stretch:112%;font-size:26px;font-weight:700;margin:4px 0}
+.band .sub{font-size:13px;color:#D5DAE3}
+.sec{padding:14px 20px;border-bottom:1px solid var(--rule)}
+.sec h3{font-stretch:88%;font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.amr{border:1px solid var(--ink)}
+.amr div{display:grid;grid-template-columns:90px 1fr;border-top:1px solid var(--rule);padding:6px 10px}
+.amr div:first-child{border-top:0}
+.amr span:first-child{color:var(--ink2);font-weight:600}
+svg text{font-family:'JetBrains Mono';font-size:11px;fill:var(--ink)}
+.rev div{display:grid;grid-template-columns:70px 90px 1fr;padding:4px 0;border-top:1px solid var(--rule)}
+</style></head><body>
+<nav class="rail">
+ <div class="mark">HARNEO</div>
+ <h6>Places</h6>
+ <a class="on" href="#">Library <span>184</span></a>
+ <a href="#">Profiles <span>5</span></a>
+ <a href="#">Projects <span>9</span></a>
+ <h6>Actions</h6>
+ <a href="#">Import</a><a href="#">Scaffold project</a><a href="#">Refit project</a>
+ <div class="k">Ctrl K · every place and action</div>
+</nav>
+<main>
+ <div class="top"><h1>Library</h1><span class="count">184 artifacts · 6 sources</span><div class="search">Filter by name, source, path…</div><div class="btn">Import</div></div>
+ <div class="chips">
+  <span class="chip on">All <b>184</b></span><span class="chip">■ Skills <b>96</b></span><span class="chip">▲ Commands <b>18</b></span><span class="chip">● Subagents <b>22</b></span><span class="chip">◆ Settings <b>6</b></span><span class="chip">⬢ MCP <b>9</b></span><span class="chip">▬ Rules <b>12</b></span><span class="chip">Plugins <b>8</b></span><span class="chip">Outdated <b>7</b></span><span class="chip">Unused 8w <b>23</b></span>
+ </div>
+ <table>
+  <thead><tr><th>Name</th><th>Type</th><th>Source @ version</th><th>Trust</th><th>Invoke</th><th>Sessions 8w</th><th>Status</th></tr></thead>
+  <tbody>
+   <tr class="sel"><td><span class="name">■ test-driven-development</span></td><td>Skill</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="tr">88</td><td>auto</td><td class="m">54</td><td class="st ok">current</td></tr>
+   <tr><td><span class="name">■ grill-me</span></td><td>Skill</td><td class="m">mattpocock/skills @ a41c9e2</td><td class="tr">92</td><td>manual</td><td class="m">31</td><td class="st ok">current</td></tr>
+   <tr><td><span class="name">● code-reviewer</span></td><td>Subagent</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="tr">90</td><td>auto</td><td class="m">22</td><td class="st ok">current</td></tr>
+   <tr class="out"><td><span class="name">▲ /ship</span></td><td>Command</td><td class="m">pstack @ 3.2.0 → 3.4.1</td><td class="tr">84</td><td>manual</td><td class="m">12</td><td class="st out">outdated</td></tr>
+   <tr><td><span class="name">◆ strict-guard</span></td><td>Settings</td><td class="m">local · ~/dotfiles/claude</td><td class="tr">95</td><td>—</td><td class="m">—</td><td class="st ok">current</td></tr>
+   <tr><td><span class="name">⬢ github</span></td><td>MCP server</td><td class="m">local · ${GITHUB_TOKEN}</td><td class="tr">80</td><td>—</td><td class="m">40</td><td class="st ok">current</td></tr>
+   <tr class="bad"><td><span class="name">■ shell-runner</span></td><td>Skill</td><td class="m">gist.github.com/… @ 9c01d2f</td><td class="tr">41</td><td>auto</td><td class="m">3</td><td class="st bad">untrusted · 3 findings</td></tr>
+   <tr class="unused"><td><span class="name">■ webperf</span></td><td>Skill</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="tr">90</td><td>manual</td><td class="m">0</td><td class="st">unused 9w</td></tr>
+   <tr><td><span class="name">▬ rust-conventions</span></td><td>Rule</td><td class="m">local · harneo</td><td class="tr">97</td><td>path</td><td class="m">18</td><td class="st ok">current</td></tr>
+   <tr class="unused"><td><span class="name">● db-migrator</span></td><td>Subagent</td><td class="m">pstack @ 3.2.0</td><td class="tr">86</td><td>auto</td><td class="m">0</td><td class="st">unused 12w</td></tr>
+  </tbody>
+ </table>
+</main>
+<aside>
+ <div class="band"><div class="pn">SKL · addyosmani/agent-skills · rev aeac41d</div><h2>test-driven-development</h2><div class="sub">Red-green-refactor loop for any logic change · auto-invoked</div></div>
+ <div class="sec"><h3>Absolute reach</h3>
+  <div class="amr"><div><span>Files</span><span class="m">./src/**, ./tests/**</span></div><div><span>Shell</span><span class="m">npm test, cargo test</span></div><div><span>Network</span><span class="m">none</span></div><div><span>Env vars</span><span class="m">none</span></div></div></div>
+ <div class="sec"><h3>Pinout · bundle of 4</h3>
+  <svg width="392" height="150" viewBox="0 0 392 150"><rect x="146" y="20" width="100" height="110" fill="#fff" stroke="#14171C"/><text x="160" y="80">TDD</text>
+   <line x1="146" y1="45" x2="70" y2="45" stroke="#14171C"/><text x="4" y="49">code-review</text>
+   <line x1="146" y1="105" x2="70" y2="105" stroke="#14171C"/><text x="4" y="109">incremental</text>
+   <line x1="246" y1="45" x2="300" y2="45" stroke="#14171C"/><text x="306" y="49">test-eng</text>
+   <line x1="246" y1="105" x2="300" y2="105" stroke="#14171C"/><text x="306" y="109">/test</text></svg></div>
+ <div class="sec rev"><h3>Revision history</h3>
+  <div><span class="m">0.6.13</span><span class="m">2026-10-17</span><span>Imported; trust 88</span></div>
+  <div><span class="m">0.6.11</span><span class="m">2026-09-30</span><span>Upstream, not imported</span></div></div>
+</aside>
+</body></html>

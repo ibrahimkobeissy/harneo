@@ -32,6 +32,8 @@ A builder who works across many projects with Claude Code: a solo dev, a consult
 | **Profile** | A named selection of library artifacts and bundles that gets installed into projects. Unlimited. |
 | **Scaffold** | Installing a profile into a new, empty project. |
 | **Refit** | Installing or switching a profile in a project that already has a harness. |
+| **Tag** | A user-defined, colored label on a library artifact (e.g. `testing`, `rust`). Many per artifact. Library metadata only, never written into projects. |
+| **Collection** | A saved grouping of library artifacts: *smart* (a saved filter) or *manual* (hand-picked). Collections only organize; profiles install. |
 | **Project registry** | Harneo's list of the projects it has scaffolded or refitted, with the profile and version each one runs. |
 
 ## 2. The AI Artifacts
@@ -93,7 +95,8 @@ flowchart LR
    - source and version, plus an *outdated* flag;
    - trust score;
    - **usage**: sessions, last used, and an activity graph, read from Claude's session logs (`~/.claude/projects/`) so past sessions count without setup.
-3. **Promote to library:** found a good artifact inside a registered project? One click imports it, the same as importing any folder.
+3. **Tags and collections:** each artifact can carry many tags, created on the fly with a color, shown as chips on its card and usable as a filter. At import, the same Claude pass that detects bundles also suggests tags from each artifact's content, and the pack's own keywords are offered when its frontmatter has them; the user accepts or edits them. Collections, listed in the sidebar under Library, are either smart (a saved filter, e.g. `tag:rust`, or unused + outdated) or manual (hand-picked). A collection can seed a new profile. Tags and collections live in Harneo's library index and are never written into project files.
+4. **Promote to library:** found a good artifact inside a registered project? One click imports it, the same as importing any folder.
 
 ### Stage 3 — Profiles: "my factory, in several sizes"
 
@@ -152,6 +155,8 @@ flowchart LR
 | Outdated flag · protect local edits · usage tracking · cleanup suggestions | ✅ | |
 | Drift check · project registry · live rescan | ✅ | |
 | Invocation mode toggle · promote to library | ✅ | |
+| Tags (with AI suggestions at import) · collections (smart and manual) | ✅ | Decided 2026-10-19. Library metadata only, never written into projects |
+| Purpose categories · search syntax (`tag:` `is:` …) · group-by · bulk tagging | ❌ | Considered 2026-10-19, not in v1 |
 | Global vs project scope | ❌ → **one app library** | The library shows only what was imported |
 | Export / import profile · CLI companion | ✅ | |
 | Multi-agent ready | ✅ design only | Claude only in v1; any agent addable later as an adapter |

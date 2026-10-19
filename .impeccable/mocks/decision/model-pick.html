@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Harneo · Shadow Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--board:#DDE3DC;--board2:#CBD3CA;--ink:#1C211F;--ink2:#46504B;--orange:#9E3D08;--steel:#5F686E;--white:#F4F5F2;--line:#AEB8AE}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Barlow,sans-serif;background:var(--white);color:var(--ink);display:grid;grid-template-columns:200px 1fr 460px;font-size:13.5px}
+.rail{background:var(--ink);color:var(--white);padding:20px 0;display:flex;flex-direction:column}
+.mark{font-family:'Barlow Semi Condensed';font-weight:700;font-size:24px;letter-spacing:.06em;padding:0 20px 20px}
+.rail h6{font-family:'Barlow Semi Condensed';font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#A9B3AD;padding:14px 20px 6px}
+.rail a{display:flex;justify-content:space-between;padding:8px 20px;color:#DCE1DD;text-decoration:none;font-size:15px}
+.rail a.on{background:var(--board);color:var(--ink);font-weight:600}
+.rail a span{font-family:'JetBrains Mono';font-size:12px}
+.rail .k{margin-top:auto;padding:12px 20px;font-size:12px;color:#A9B3AD}
+main{display:flex;flex-direction:column;min-width:0}
+.top{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.top h1{font-family:'Barlow Semi Condensed';font-size:26px;font-weight:700}
+.search{margin-left:auto;width:300px;height:34px;border:1px solid var(--line);background:#fff;border-radius:4px;display:flex;align-items:center;padding:0 10px;color:var(--ink2)}
+.btn{height:34px;padding:0 14px;border-radius:4px;background:var(--ink);color:var(--white);font-weight:600;display:flex;align-items:center}
+.chips{display:flex;gap:6px;padding:10px 20px;border-bottom:1px solid var(--line)}
+.chip{height:28px;padding:0 10px;border-radius:14px;border:1px solid var(--line);background:#fff;display:flex;align-items:center;gap:6px;font-size:13px}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+table{width:100%;border-collapse:collapse}
+th{font-family:'Barlow Semi Condensed';text-align:left;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);padding:9px 12px;border-bottom:2px solid var(--ink)}
+td{padding:9px 12px;border-bottom:1px solid #E1E5E0;white-space:nowrap}
+.m{font-family:'JetBrains Mono';font-size:12px}
+tr.sel td{background:var(--board)}
+aside{background:var(--board);padding:18px 20px;display:flex;flex-direction:column;gap:14px;background-image:radial-gradient(circle,#BFC8BE 1.2px,transparent 1.4px);background-size:18px 18px}
+aside h2{font-family:'Barlow Semi Condensed';font-size:22px;font-weight:700}
+aside p{color:var(--ink2)}
+.boardcard{background:var(--white);border:1px solid var(--line);border-radius:6px;padding:12px}
+.boardcard h3{font-family:'Barlow Semi Condensed';font-size:16px;font-weight:700;display:flex;justify-content:space-between}
+.boardcard h3 span{font-family:'JetBrains Mono';font-size:11.5px;font-weight:400;color:var(--ink2)}
+.slots{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+.slot{height:46px;border-radius:5px;background:var(--steel);color:#fff;font-size:11.5px;display:flex;align-items:flex-end;padding:4px 5px;font-family:'JetBrains Mono'}
+.slot.miss{background:transparent;border:2px dashed var(--orange);color:var(--orange)}
+.slot.drift{background:transparent;border:2px solid var(--steel);color:var(--ink)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--ink2)}
+.alert{color:var(--orange);font-weight:600}
+</style></head><body>
+<nav class="rail"><div class="mark">HARNEO</div><h6>Places</h6>
+ <a class="on" href="#">Library <span>184</span></a><a href="#">Profiles <span>5</span></a><a href="#">Projects <span>9</span></a>
+ <h6>Actions</h6><a href="#">Import</a><a href="#">Scaffold project</a><a href="#">Refit project</a>
+ <div class="k">Ctrl K · every place and action</div></nav>
+<main>
+ <div class="top"><h1>Library</h1><span class="m">184 artifacts</span><div class="search">Filter by name, source, path…</div><div class="btn">Import</div></div>
+ <div class="chips"><span class="chip on">All 184</span><span class="chip">Skills 96</span><span class="chip">Commands 18</span><span class="chip">Subagents 22</span><span class="chip">Settings 6</span><span class="chip">MCP 9</span><span class="chip">Outdated 7</span><span class="chip">Unused 23</span></div>
+ <table><thead><tr><th>Name</th><th>Type</th><th>Source @ version</th><th>Trust</th><th>Installed in</th><th>Sessions 8w</th></tr></thead><tbody>
+  <tr class="sel"><td><b>test-driven-development</b></td><td>Skill</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="m">88</td><td>4 projects</td><td class="m">54</td></tr>
+  <tr><td><b>grill-me</b></td><td>Skill</td><td class="m">mattpocock/skills @ a41c9e2</td><td class="m">92</td><td>3 projects</td><td class="m">31</td></tr>
+  <tr><td><b>code-reviewer</b></td><td>Subagent</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="m">90</td><td>4 projects</td><td class="m">22</td></tr>
+  <tr><td><b>/ship</b></td><td>Command</td><td class="m">pstack @ 3.2.0 → 3.4.1</td><td class="m">84</td><td class="alert">2 projects · outdated</td><td class="m">12</td></tr>
+  <tr><td><b>strict-guard</b></td><td>Settings</td><td class="m">local · ~/dotfiles/claude</td><td class="m">95</td><td>5 projects</td><td class="m">—</td></tr>
+  <tr><td><b>github</b></td><td>MCP server</td><td class="m">local · ${GITHUB_TOKEN}</td><td class="m">80</td><td>6 projects</td><td class="m">40</td></tr>
+  <tr><td><b>shell-runner</b></td><td>Skill</td><td class="m">gist.github.com/… @ 9c01d2f</td><td class="m">41</td><td class="alert">untrusted</td><td class="m">3</td></tr>
+  <tr><td><b>webperf</b></td><td>Skill</td><td class="m">addyosmani/agent-skills @ 0.6.13</td><td class="m">90</td><td>0 projects</td><td class="m">0</td></tr>
+  <tr><td><b>rust-conventions</b></td><td>Rule</td><td class="m">local · harneo</td><td class="m">97</td><td>1 project</td><td class="m">18</td></tr>
+ </tbody></table>
+</main>
+<aside>
+ <div><h2>test-driven-development</h2><p>Skill · bundle of 4 · in 4 project boards</p></div>
+ <div class="legend"><span>■ in place</span><span>□ drifted</span><span class="alert">┅ missing</span></div>
+ <div class="boardcard"><h3>harneo <span>Heavy v4</span></h3><div class="slots"><div class="slot">tdd</div><div class="slot">review</div><div class="slot">incr</div><div class="slot">/test</div><div class="slot">guard</div><div class="slot">github</div></div></div>
+ <div class="boardcard"><h3>my-api <span>Heavy v4 · drift 2</span></h3><div class="slots"><div class="slot">tdd</div><div class="slot drift">review</div><div class="slot">incr</div><div class="slot miss">/test</div><div class="slot">guard</div><div class="slot">github</div></div></div>
+ <div class="boardcard"><h3>site <span>Light v2</span></h3><div class="slots"><div class="slot">tdd</div><div class="slot">review</div><div class="slot">guard</div></div></div>
+</aside>
+</body></html>

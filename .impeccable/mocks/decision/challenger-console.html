@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Harneo · Developer Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--g0:#141618;--g1:#1B1E21;--g2:#23272B;--seam:#2E3338;--t1:#E6E8EA;--t2:#A3AAB2;--blue:#7AA2F7;--green:#9ECE6A;--amber:#E0AF68;--red:#F7768E}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Geist,sans-serif;background:var(--g0);color:var(--t1);display:grid;grid-template-columns:56px 260px 1fr 420px;font-size:13px}
+.icons{background:var(--g0);border-right:1px solid var(--seam);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:14px}
+.ic{width:30px;height:30px;border-radius:6px;background:var(--g2)}.ic.on{background:var(--blue)}
+.side{background:var(--g1);border-right:1px solid var(--seam);padding:14px}
+.side h6{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin:12px 0 6px}
+.side a{display:flex;justify-content:space-between;padding:6px 8px;border-radius:5px;color:var(--t1);text-decoration:none}
+.side a.on{background:var(--g2)}
+.side a span{font-family:'Geist Mono';color:var(--t2);font-size:12px}
+main{display:flex;flex-direction:column;border-right:1px solid var(--seam)}
+.top{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--seam)}
+.top h1{font-size:16px;font-weight:600}
+.search{margin-left:auto;width:320px;height:30px;border:1px solid var(--seam);border-radius:6px;background:var(--g1);display:flex;align-items:center;padding:0 10px;color:var(--t2)}
+.btn{height:30px;padding:0 12px;border-radius:6px;background:var(--blue);color:#0B0F17;font-weight:600;display:flex;align-items:center}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--t2);padding:8px 14px;border-bottom:1px solid var(--seam);font-weight:500}
+td{padding:8px 14px;border-bottom:1px solid var(--seam);white-space:nowrap}
+.m{font-family:'Geist Mono';font-size:12px;color:var(--t2)}
+tr.sel td{background:var(--g2)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px}
+.ok{background:var(--green)}.out{background:var(--amber)}.bad{background:var(--red)}
+aside{background:var(--g1);padding:16px;display:flex;flex-direction:column;gap:14px}
+aside h2{font-size:20px;font-weight:600}
+.panel{border:1px solid var(--seam);border-radius:8px;padding:12px;background:var(--g0)}
+.panel h3{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);margin-bottom:8px;font-weight:500}
+.kv{display:grid;grid-template-columns:90px 1fr;row-gap:6px}
+.danger{margin-top:auto;display:flex;justify-content:flex-end}
+.danger span{border:1px solid var(--red);color:var(--red);padding:6px 12px;border-radius:6px}
+</style></head><body>
+<div class="icons"><div class="ic on"></div><div class="ic"></div><div class="ic"></div></div>
+<nav class="side"><h6>Places</h6><a class="on" href="#">Library <span>184</span></a><a href="#">Profiles <span>5</span></a><a href="#">Projects <span>9</span></a>
+ <h6>Types</h6><a href="#">Skills <span>96</span></a><a href="#">Commands <span>18</span></a><a href="#">Subagents <span>22</span></a><a href="#">Settings <span>6</span></a><a href="#">MCP servers <span>9</span></a><a href="#">Rules <span>12</span></a><a href="#">Plugins <span>8</span></a>
+ <h6>Actions</h6><a href="#">Import</a><a href="#">Scaffold project</a><a href="#">Refit project</a></nav>
+<main>
+ <div class="top"><h1>Library</h1><span class="m">184 artifacts</span><div class="search">Filter…  Ctrl K</div><div class="btn">Import</div></div>
+ <table><thead><tr><th>Name</th><th>Type</th><th>Source</th><th>Trust</th><th>Sessions 8w</th><th>Status</th></tr></thead><tbody>
+  <tr class="sel"><td>test-driven-development</td><td>Skill</td><td class="m">addyosmani/agent-skills@0.6.13</td><td class="m">88</td><td class="m">54</td><td><span class="dot ok"></span>current</td></tr>
+  <tr><td>grill-me</td><td>Skill</td><td class="m">mattpocock/skills@a41c9e2</td><td class="m">92</td><td class="m">31</td><td><span class="dot ok"></span>current</td></tr>
+  <tr><td>code-reviewer</td><td>Subagent</td><td class="m">addyosmani/agent-skills@0.6.13</td><td class="m">90</td><td class="m">22</td><td><span class="dot ok"></span>current</td></tr>
+  <tr><td>/ship</td><td>Command</td><td class="m">pstack@3.2.0 → 3.4.1</td><td class="m">84</td><td class="m">12</td><td><span class="dot out"></span>outdated</td></tr>
+  <tr><td>strict-guard</td><td>Settings</td><td class="m">local</td><td class="m">95</td><td class="m">—</td><td><span class="dot ok"></span>current</td></tr>
+  <tr><td>github</td><td>MCP server</td><td class="m">local · ${GITHUB_TOKEN}</td><td class="m">80</td><td class="m">40</td><td><span class="dot ok"></span>current</td></tr>
+  <tr><td>shell-runner</td><td>Skill</td><td class="m">gist@9c01d2f</td><td class="m">41</td><td class="m">3</td><td><span class="dot bad"></span>untrusted</td></tr>
+  <tr><td>webperf</td><td>Skill</td><td class="m">addyosmani/agent-skills@0.6.13</td><td class="m">90</td><td class="m">0</td><td><span class="dot ok"></span>unused 9w</td></tr>
+ </tbody></table>
+</main>
+<aside>
+ <h2>test-driven-development</h2><span class="m">Skill · auto · bundle of 4</span>
+ <div class="panel"><h3>Reach</h3><div class="kv"><span class="m">files</span><span>./src/**, ./tests/**</span><span class="m">shell</span><span>npm test, cargo test</span><span class="m">network</span><span>none</span></div></div>
+ <div class="panel"><h3>Bundle</h3><div class="kv"><span class="m">agent</span><span>code-reviewer</span><span class="m">agent</span><span>test-engineer</span><span class="m">skill</span><span>incremental-implementation</span></div></div>
+ <div class="danger"><span>Remove from library</span></div>
+</aside>
+</body></html>

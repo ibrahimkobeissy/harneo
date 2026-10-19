@@ -52,6 +52,7 @@ The only tool that holds a library of artifacts outside every project, ships it 
 - **Name:** Harneo. No logo or visual identity exists yet.
 - **Voice: terse and technical**, like a good CLI. Exact file paths, short labels, no hand-holding. Warnings are precise and quantified (e.g. "settings.json: 14 lines will be lost").
 - Free and open source (MIT). Not for sale.
+- **Visual preference (user, 2026-10-19):** the category standard executed at full craft, not an invented world: white and slate neutrals with one blue accent, following the OS light/dark setting. Craft benchmarks: **Vercel dashboard and Linear**. Artifacts are shown as **cards/tiles**, not table rows; the interface must carry real filters, insights and data visualization, and a logo.
 
 ## Evidence on Hand
 

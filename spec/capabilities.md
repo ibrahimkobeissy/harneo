@@ -6,9 +6,9 @@ Approved 2026-10-18. This is the index of Harneo's modules and their specs. The 
 |---|---|---|---|
 | `app-shell` | Tauri 2 + React scaffold, Rust core library + app + CLI layout, design system, navigation, `BUILDING.md`. Also sets the project-wide conventions | — | [`app-shell.md`](app-shell.md) (approved 2026-10-19) |
 | `artifact-model` | The 10 artifact types (`CONTEXT.md` §2): find them in a folder, parse them, check them; a Claude adapter behind an agent-neutral interface | — | — |
-| `library` | Harneo's own store; import from a local folder or git URL with provenance (URL, branch, subfolder, commit); browse by type and source; promote to library | `app-shell`, `artifact-model` | — |
+| `library` | Harneo's own store; import from a local folder or git URL with provenance (URL, branch, subfolder, commit); browse by type and source; tags and collections; promote to library | `app-shell`, `artifact-model` | — |
 | `audit` | Trust score, security findings, permission transparency | `artifact-model` | — |
-| `bundles` | AI dependency detection through the `claude` CLI; user confirms or edits | `library` | — |
+| `bundles` | AI dependency detection through the `claude` CLI, plus tag suggestions in the same pass; user confirms or edits | `library` | — |
 | `profiles` | Create and clone profiles, Settings template, MCP servers (as `${VAR}`), invocation mode, export/import | `library`, `bundles` | — |
 | `install-engine` | Scaffold and refit: dry-run preview/diff, keep/replace/delete, backups, whole-file writes, `HARNESS.md`, project registry, switch profile, clean removal | `profiles` | — |
 | `updates` | Outdated flag, update the library copy while protecting local edits | `library` | — |

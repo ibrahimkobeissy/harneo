@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Harneo · Library</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFFFFF;--side:#F8FAFC;--sunk:#F1F5F9;--t1:#0F172A;--t2:#475569;--t3:#64748B;--line:#E2E8F0;--line2:#CBD5E1;--blue:#2563EB;--blue-soft:#EFF6FF;--amber:#B45309;--amber-soft:#FEF3C7;--red:#B91C1C;--red-soft:#FEE2E2;--green:#15803D;--green-soft:#DCFCE7}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Inter,sans-serif;font-feature-settings:"tnum","cv11";background:var(--bg);color:var(--t1);display:grid;grid-template-columns:216px 224px 1fr;font-size:13px}
+.m{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--t3)}
+/* sidebar */
+.side{background:var(--side);border-right:1px solid var(--line);padding:16px 10px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:9px;padding:2px 8px 18px;font-weight:700;font-size:15px;letter-spacing:-.01em}
+.side h6{font-size:11.5px;color:var(--t3);font-weight:500;padding:12px 8px 4px}
+.side a{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:6px;color:var(--t1);text-decoration:none}
+.side a.on{background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.08),0 0 0 1px var(--line);font-weight:500}
+.side a .n{margin-left:auto;color:var(--t3);font-size:12px}
+.side a svg{width:15px;height:15px;stroke:var(--t2);fill:none;stroke-width:1.6}
+.kbd{margin-top:auto;display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--t3)}
+.kbd b{margin-left:auto;font-family:'JetBrains Mono';font-size:12px;border:1px solid var(--line2);border-radius:4px;padding:1px 5px;color:var(--t2);font-weight:400}
+/* filters */
+.filters{border-right:1px solid var(--line);padding:18px 16px;overflow:hidden}
+.filters h4{font-size:12px;font-weight:600;margin:16px 0 8px;display:flex;justify-content:space-between}
+.filters h4:first-child{margin-top:0}
+.filters h4 span{font-weight:400;color:var(--blue)}
+.f{display:flex;align-items:center;gap:8px;padding:4px 0;color:var(--t1)}
+.f .box{width:14px;height:14px;border:1px solid var(--line2);border-radius:4px;background:#fff}
+.f .box.on{background:var(--blue);border-color:var(--blue)}
+.f .n{margin-left:auto;color:var(--t3);font-size:12px}
+.g{width:10px;height:10px;display:inline-block}
+.range{height:4px;background:var(--line);border-radius:2px;position:relative;margin:10px 4px 6px}
+.range i{position:absolute;left:40%;right:0;top:0;bottom:0;background:var(--blue);border-radius:2px}
+.range b{position:absolute;top:-5px;width:14px;height:14px;border-radius:50%;background:#fff;border:1px solid var(--line2);box-shadow:0 1px 2px rgba(15,23,42,.15)}
+/* main */
+main{display:flex;flex-direction:column;min-width:0;padding:18px 24px 0}
+.top{display:flex;align-items:center;gap:10px}
+.top h1{font-size:20px;font-weight:600;letter-spacing:-.015em}
+.search{margin-left:auto;width:280px;height:32px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;padding:0 10px;color:var(--t3);gap:8px}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg span{padding:6px 10px;color:var(--t2)}.seg span.on{background:var(--sunk);color:var(--t1);font-weight:500}
+.btn{height:32px;padding:0 13px;border-radius:8px;background:var(--blue);color:#fff;font-weight:500;display:flex;align-items:center}
+/* insights */
+.ins{display:grid;grid-template-columns:1.25fr 1fr;gap:12px;margin:16px 0}
+.panel{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.panel h2{font-size:12px;font-weight:500;color:var(--t2);display:flex;justify-content:space-between;margin-bottom:10px}
+.panel h2 a{color:var(--blue);text-decoration:none}
+.stack{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.leg{display:flex;gap:16px;margin-top:9px;color:var(--t2)}
+.leg span{display:flex;align-items:center;gap:6px}
+.leg b{color:var(--t1);font-weight:600}
+.dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+.bars{display:flex;align-items:flex-end;gap:5px;height:38px}
+.bars i{flex:1;background:#BFDBFE;border-radius:2px 2px 0 0}.bars i.now{background:var(--blue)}
+.axis{display:flex;justify-content:space-between;margin-top:5px}
+/* tiles */
+.bar2{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:var(--t2)}
+.pill{display:flex;align-items:center;gap:6px;padding:3px 8px;border-radius:6px;background:var(--blue-soft);color:var(--blue);font-weight:500}
+.bar2 .sort{margin-left:auto}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;background:#fff}
+.tile.sel{border-color:var(--blue);box-shadow:0 0 0 3px #DBEAFE}
+.tile.unused{background:var(--side)}
+.tile.unused .nm{color:var(--t2)}
+.head{display:flex;align-items:center;gap:10px}
+.ic{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex:none}
+.ic svg{width:16px;height:16px}
+.nm{font-weight:600;font-size:13.5px;letter-spacing:-.005em}
+.desc{color:var(--t2);line-height:1.45;height:38px;overflow:hidden}
+.foot{display:flex;align-items:center;gap:10px;padding-top:8px;border-top:1px solid var(--line)}
+.trust{display:flex;align-items:center;gap:6px;font-weight:600}
+.meter{width:36px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}.meter i{display:block;height:100%;background:var(--green)}
+.spark{display:flex;align-items:flex-end;gap:2px;height:16px}.spark i{width:4px;background:#93C5FD;border-radius:1px}
+.tag{margin-left:auto;font-size:12px;font-weight:500;padding:2px 7px;border-radius:5px;background:var(--sunk);color:var(--t2)}
+.tag.warn{background:var(--amber-soft);color:var(--amber)}.tag.bad{background:var(--red-soft);color:var(--red)}
+</style></head><body>
+<nav class="side">
+ <div class="brand"><svg width="24" height="24" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#2563EB"/><path d="M7 6v12M17 6v12" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><path d="M7 12h4" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/><circle cx="14" cy="12" r="2.1" fill="#fff"/></svg>Harneo</div>
+ <a class="on" href="#"><svg viewBox="0 0 16 16"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>Library<span class="n">184</span></a>
+ <a href="#"><svg viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></svg>Profiles<span class="n">5</span></a>
+ <a href="#"><svg viewBox="0 0 16 16"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg>Projects<span class="n">9</span></a>
+ <h6>Actions</h6>
+ <a href="#"><svg viewBox="0 0 16 16"><path d="M8 2v8M5 7l3 3 3-3M3 13h10"/></svg>Import</a>
+ <a href="#"><svg viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></svg>Scaffold project</a>
+ <a href="#"><svg viewBox="0 0 16 16"><path d="M3 8a5 5 0 0 1 9-3M13 8a5 5 0 0 1-9 3M12 2v3h-3M4 14v-3h3"/></svg>Refit project</a>
+ <div class="kbd">Search & commands <b>Ctrl K</b></div>
+</nav>
+<aside class="filters">
+ <h4>Type <span>Clear</span></h4>
+ <div class="f"><i class="box on"></i><i class="g" style="background:#2563EB;border-radius:2px"></i>Skills<span class="n">96</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#7C3AED;border-radius:50%"></i>Subagents<span class="n">22</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#0891B2;transform:rotate(45deg) scale(.8)"></i>Commands<span class="n">18</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#475569"></i>Rules<span class="n">12</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#C2410C;border-radius:50%"></i>MCP servers<span class="n">9</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#0F766E"></i>Plugins<span class="n">8</span></div>
+ <div class="f"><i class="box"></i><i class="g" style="background:#334155"></i>Settings<span class="n">6</span></div>
+ <h4>Status</h4>
+ <div class="f"><i class="box"></i>Outdated<span class="n">7</span></div>
+ <div class="f"><i class="box"></i>Has findings<span class="n">3</span></div>
+ <div class="f"><i class="box"></i>Unused 8 weeks<span class="n">23</span></div>
+ <h4>Source</h4>
+ <div class="f"><i class="box"></i>addyosmani/agent-skills<span class="n">31</span></div>
+ <div class="f"><i class="box"></i>mattpocock/skills<span class="n">18</span></div>
+ <div class="f"><i class="box"></i>pstack<span class="n">42</span></div>
+ <div class="f"><i class="box"></i>Local<span class="n">88</span></div>
+ <h4>Trust score <span>≥ 40</span></h4>
+ <div class="range"><i></i><b style="left:38%"></b><b style="right:-4px"></b></div>
+ <h4>Invocation</h4>
+ <div class="f"><i class="box"></i>Auto<span class="n">71</span></div>
+ <div class="f"><i class="box"></i>Manual only<span class="n">25</span></div>
+</aside>
+<main>
+ <div class="top"><h1>Library</h1><span class="m">96 of 184</span><div class="search">Search artifacts, sources, paths</div><div class="seg"><span class="on">Cards</span><span>List</span></div><div class="btn">Import</div></div>
+ <div class="ins">
+  <div class="panel"><h2>Library health <a href="#">Review 10 issues</a></h2>
+   <div class="stack"><i style="flex:151;background:#16A34A"></i><i style="flex:23;background:#CBD5E1"></i><i style="flex:7;background:#F59E0B"></i><i style="flex:3;background:#DC2626"></i></div>
+   <div class="leg"><span><i class="dot" style="background:#16A34A"></i><b>151</b> current</span><span><i class="dot" style="background:#CBD5E1"></i><b>23</b> unused</span><span><i class="dot" style="background:#F59E0B"></i><b>7</b> outdated</span><span><i class="dot" style="background:#DC2626"></i><b>3</b> findings</span></div></div>
+  <div class="panel"><h2>Sessions using library artifacts <span class="m">312 this week · +18%</span></h2>
+   <div class="bars"><i style="height:40%"></i><i style="height:52%"></i><i style="height:47%"></i><i style="height:61%"></i><i style="height:58%"></i><i style="height:70%"></i><i style="height:82%"></i><i class="now" style="height:96%"></i></div>
+   <div class="axis m"><span>Aug 31</span><span>this week</span></div></div>
+ </div>
+ <div class="bar2"><span class="pill">Skills <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 2l6 6M8 2l-6 6" stroke="currentColor" stroke-width="1.5"/></svg></span><span>96 skills · 4 bundles</span><span class="sort">Sort: Most used <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.5" fill="none"/></svg></span></div>
+ <div class="grid">
+  <div class="tile sel"><div class="head"><span class="ic" style="background:#DBEAFE"><svg viewBox="0 0 16 16" fill="#2563EB"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">test-driven-development</div><div class="m">addyosmani/agent-skills · 0.6.13</div></div></div>
+   <div class="desc">Red-green-refactor loop for any logic change. Bundles code-reviewer, test-engineer, incremental-implementation.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:88%"></i></i>88</span><span class="spark"><i style="height:30%"></i><i style="height:45%"></i><i style="height:40%"></i><i style="height:60%"></i><i style="height:75%"></i><i style="height:70%"></i><i style="height:90%"></i><i style="height:100%"></i></span><span class="m">54 sessions</span><span class="tag">Auto · +3</span></div></div>
+  <div class="tile"><div class="head"><span class="ic" style="background:#DBEAFE"><svg viewBox="0 0 16 16" fill="#2563EB"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">grill-me</div><div class="m">mattpocock/skills · a41c9e2</div></div></div>
+   <div class="desc">Interviews you relentlessly about a plan until every branch of the decision tree is resolved.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:92%"></i></i>92</span><span class="spark"><i style="height:50%"></i><i style="height:40%"></i><i style="height:65%"></i><i style="height:55%"></i><i style="height:70%"></i><i style="height:60%"></i><i style="height:80%"></i><i style="height:75%"></i></span><span class="m">31 sessions</span><span class="tag">Manual</span></div></div>
+  <div class="tile"><div class="head"><span class="ic" style="background:#DBEAFE"><svg viewBox="0 0 16 16" fill="#2563EB"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">ship</div><div class="m">pstack · 3.2.0 → 3.4.1</div></div></div>
+   <div class="desc">Runs the release checklist: changelog, version bump, tag, and the pre-launch review.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:84%"></i></i>84</span><span class="spark"><i style="height:20%"></i><i style="height:35%"></i><i style="height:30%"></i><i style="height:25%"></i><i style="height:40%"></i><i style="height:30%"></i><i style="height:45%"></i><i style="height:35%"></i></span><span class="m">12 sessions</span><span class="tag warn">Update 3.4.1</span></div></div>
+  <div class="tile"><div class="head"><span class="ic" style="background:#DBEAFE"><svg viewBox="0 0 16 16" fill="#2563EB"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">shell-runner</div><div class="m">gist.github.com · 9c01d2f</div></div></div>
+   <div class="desc">Runs arbitrary shell commands suggested by the model, with curl piped to sh in its examples.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:41%;background:#DC2626"></i></i>41</span><span class="spark"><i style="height:10%"></i><i style="height:0"></i><i style="height:20%"></i><i style="height:10%"></i><i style="height:0"></i><i style="height:15%"></i><i style="height:10%"></i><i style="height:5%"></i></span><span class="m">3 sessions</span><span class="tag bad">3 findings</span></div></div>
+  <div class="tile"><div class="head"><span class="ic" style="background:#DBEAFE"><svg viewBox="0 0 16 16" fill="#2563EB"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">incremental-implementation</div><div class="m">addyosmani/agent-skills · 0.6.13</div></div></div>
+   <div class="desc">Delivers changes in thin, verifiable slices: implement, test, verify, commit.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:90%"></i></i>90</span><span class="spark"><i style="height:40%"></i><i style="height:55%"></i><i style="height:50%"></i><i style="height:65%"></i><i style="height:60%"></i><i style="height:80%"></i><i style="height:75%"></i><i style="height:85%"></i></span><span class="m">41 sessions</span><span class="tag">Auto</span></div></div>
+  <div class="tile unused"><div class="head"><span class="ic" style="background:var(--sunk)"><svg viewBox="0 0 16 16" fill="#64748B"><rect x="3" y="3" width="10" height="10" rx="2"/></svg></span><div><div class="nm">webperf</div><div class="m">addyosmani/agent-skills · 0.6.13</div></div></div>
+   <div class="desc">Web performance audit via the web-performance-auditor persona.</div>
+   <div class="foot"><span class="trust"><i class="meter"><i style="width:90%;background:#64748B"></i></i>90</span><span class="m">0 sessions in 9 weeks</span><span class="tag">Unused</span></div></div>
+ </div>
+</main>
+</body></html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Harneo · Category standard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FFFFFF;--side:#F1F5F9;--t1:#0F172A;--t2:#475569;--line:#E2E8F0;--blue:#2563EB}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden}
+body{font-family:Inter,sans-serif;background:var(--bg);color:var(--t1);display:grid;grid-template-columns:232px 1fr 400px;font-size:13.5px}
+.side{background:var(--side);border-right:1px solid var(--line);padding:18px 12px}
+.mark{font-weight:600;font-size:16px;padding:0 8px 18px}
+.side h6{font-size:11.5px;color:var(--t2);font-weight:500;padding:12px 8px 6px}
+.side a{display:flex;justify-content:space-between;padding:7px 8px;border-radius:6px;color:var(--t1);text-decoration:none}
+.side a.on{background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.08);font-weight:500}
+.side a span{color:var(--t2);font-size:12.5px}
+main{display:flex;flex-direction:column;border-right:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.top h1{font-size:20px;font-weight:600}
+.search{margin-left:auto;width:300px;height:34px;border:1px solid var(--line);border-radius:8px;display:flex;align-items:center;padding:0 12px;color:var(--t2)}
+.btn{height:34px;padding:0 14px;border-radius:8px;background:var(--blue);color:#fff;font-weight:500;display:flex;align-items:center}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;color:var(--t2);font-weight:500;padding:10px 16px;border-bottom:1px solid var(--line)}
+td{padding:10px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+.sub{color:var(--t2);font-size:12.5px}
+tr.sel td{background:#EFF6FF}
+.badge{font-size:12px;padding:2px 8px;border-radius:10px;background:#F1F5F9;color:var(--t2)}
+.badge.warn{background:#FEF3C7;color:#92400E}.badge.bad{background:#FEE2E2;color:#991B1B}
+aside{padding:20px;display:flex;flex-direction:column;gap:16px}
+aside h2{font-size:18px;font-weight:600}
+.card{border:1px solid var(--line);border-radius:10px;padding:14px}
+.card h3{font-size:12.5px;color:var(--t2);font-weight:500;margin-bottom:8px}
+.row{display:flex;justify-content:space-between;padding:4px 0}
+</style></head><body>
+<nav class="side"><div class="mark">Harneo</div><h6>Places</h6><a class="on" href="#">Library <span>184</span></a><a href="#">Profiles <span>5</span></a><a href="#">Projects <span>9</span></a>
+ <h6>Actions</h6><a href="#">Import</a><a href="#">Scaffold project</a><a href="#">Refit project</a></nav>
+<main>
+ <div class="top"><h1>Library</h1><div class="search">Search artifacts</div><div class="btn">Import</div></div>
+ <table><thead><tr><th>Name</th><th>Type</th><th>Source</th><th>Trust</th><th>Used (8w)</th><th>Status</th></tr></thead><tbody>
+  <tr class="sel"><td>test-driven-development</td><td>Skill</td><td class="sub">addyosmani/agent-skills · 0.6.13</td><td>88</td><td>54</td><td><span class="badge">Current</span></td></tr>
+  <tr><td>grill-me</td><td>Skill</td><td class="sub">mattpocock/skills · a41c9e2</td><td>92</td><td>31</td><td><span class="badge">Current</span></td></tr>
+  <tr><td>code-reviewer</td><td>Subagent</td><td class="sub">addyosmani/agent-skills · 0.6.13</td><td>90</td><td>22</td><td><span class="badge">Current</span></td></tr>
+  <tr><td>/ship</td><td>Command</td><td class="sub">pstack · 3.2.0</td><td>84</td><td>12</td><td><span class="badge warn">Update 3.4.1</span></td></tr>
+  <tr><td>strict-guard</td><td>Settings</td><td class="sub">Local</td><td>95</td><td>—</td><td><span class="badge">Current</span></td></tr>
+  <tr><td>github</td><td>MCP server</td><td class="sub">Local</td><td>80</td><td>40</td><td><span class="badge">Current</span></td></tr>
+  <tr><td>shell-runner</td><td>Skill</td><td class="sub">gist · 9c01d2f</td><td>41</td><td>3</td><td><span class="badge bad">3 findings</span></td></tr>
+  <tr><td>webperf</td><td>Skill</td><td class="sub">addyosmani/agent-skills · 0.6.13</td><td>90</td><td>0</td><td><span class="badge">Unused</span></td></tr>
+ </tbody></table>
+</main>
+<aside><h2>test-driven-development</h2><span class="sub">Skill · Auto-invoked · Bundle of 4</span>
+ <div class="card"><h3>Permissions</h3><div class="row"><span>Files</span><span class="sub">./src/**, ./tests/**</span></div><div class="row"><span>Shell</span><span class="sub">npm test, cargo test</span></div><div class="row"><span>Network</span><span class="sub">None</span></div></div>
+ <div class="card"><h3>Bundle</h3><div class="row"><span>code-reviewer</span><span class="sub">Subagent</span></div><div class="row"><span>test-engineer</span><span class="sub">Subagent</span></div><div class="row"><span>incremental-implementation</span><span class="sub">Skill</span></div></div>
+</aside>
+</body></html>
