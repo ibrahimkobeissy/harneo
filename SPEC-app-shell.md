@@ -212,7 +212,7 @@ Conventions:
 
 ## Decisions (2026-10-18)
 
-1. **App id:** `io.ibrahimkobeissy.harneo` (sets the data dir: `<OS data dir>/io.ibrahimkobeissy.harneo`).
+1. **App id:** `io.harneo`, also the data folder name: `<OS data dir>/io.harneo` (Linux: `~/.local/share/io.harneo`).
 2. **End-to-end tests of the real window:** left out for now, to be reconsidered when `library` import lands. Until then: frontend tests with mocked IPC plus manual runs.
 3. **Impeccable:** required. It is enabled as a plugin and designs every screen from `DESIGN.md`.
 4. **Design system:** created from scratch with Impeccable (no existing design system is used).
