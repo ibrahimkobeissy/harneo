@@ -29,6 +29,12 @@
         ],
         "createdAt": "2026-10-19T21:51:56.691Z",
         "reason": "intentional: the category-standard card shows the familiar default by design"
+      },
+      {
+        "rule": "overused-font",
+        "value": "inter",
+        "createdAt": "2026-10-19T21:53:05.791Z",
+        "reason": "user confirmed 2026-10-19: keep Inter, category-standard direction benchmarked on Linear"
       }
     ]
   }
