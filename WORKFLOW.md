@@ -8,3 +8,4 @@ How Harneo is built with Addy Osmani's agent-skills and Impeccable: one line per
 4. `/plan`: drafted 13 tasks in 3 phases with checkpoints; paused before creating issues, to see the design first → `tasks/plan.md` (draft)
 5. `/impeccable init`: product context for the designer (users, purpose, tone, constraints) → `PRODUCT.md`
 6. `/impeccable shape`: UX discovery (home, first run, navigation, library size, window, keyboard), then the visual direction round; the user took the category standard with cards, benchmarked on Vercel and Linear, and added tags and collections → the confirmed brief, `PRODUCT.md` visual preference, `CONTEXT.md` updates
+7. `/impeccable` build (code-led): direction contract written, prototype built and click-tested, finish review (fix → 2 verdict rounds, one small item left open), documenter → `design/prototype/`, `DESIGN.md`, `.impeccable/design.json`
