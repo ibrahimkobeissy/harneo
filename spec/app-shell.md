@@ -35,8 +35,8 @@ Give Harneo a working base on which each later module adds its own core logic an
   - light and dark themes that follow the OS setting.
 - Design system: **created with Impeccable**, recorded in the repo as `DESIGN.md`. Its tokens become CSS custom properties in `src/ui/tokens.css`, and a few base components (Button, Panel, EmptyState) are built from it. Impeccable designs and reviews every screen against it.
 - Tooling and docs:
-  - the `npm run check` script;
-  - a GitHub Actions workflow (Linux) running it;
+  - the `check:fast`, `check:task` and `check:full` scripts, with the tools and configs `CONSTRAINTS.md` names;
+  - a GitHub Actions workflow (Linux) running `check:full`;
   - `BUILDING.md`, plus build commands in `README.md` and `CLAUDE.md`;
   - the Impeccable plugin enabled for this repo in `.claude/settings.json` (from the `pbakaus/impeccable` marketplace). Done 2026-10-18.
 
@@ -50,8 +50,9 @@ Give Harneo a working base on which each later module adds its own core logic an
 | Core / CLI | Rust stable (pinned by `rust-toolchain.toml`), edition 2021; `serde`, `thiserror`; `clap` (CLI); `dirs` (data dir); `ts-rs` (TS bindings) |
 | Frontend | React 19, TypeScript (strict), Vite, React Router (screens), `@tauri-apps/api` |
 | Styling | Plain CSS: tokens from `DESIGN.md` in `src/ui/tokens.css` + CSS Modules per component. No CSS framework, no UI kit (keeps WebKitGTK, the weakest of the three engines, safe and the design system authoritative) |
-| Tests | `cargo test`; Vitest + React Testing Library + jsdom; Tauri's `mockIPC` for the frontend |
+| Tests | `cargo test`; Vitest + React Testing Library + jsdom; Tauri's `mockIPC` for the frontend; coverage with `@vitest/coverage-v8` and `cargo-llvm-cov` |
 | Lint / format | `cargo fmt`, `cargo clippy -D warnings`; ESLint (flat config) + Prettier; `tsc --noEmit` |
+| Quality gates | Set by `CONSTRAINTS.md`: `diff-cover` (changed-line coverage), `dependency-cruiser` (TS architecture), `gitleaks` (secrets), `osv-scanner` (dependencies), `semgrep` (code). Contributor tools only; not needed to build Harneo from source |
 | Package manager | npm (fewest prerequisites for people building from source). Node.js: current active LTS |
 
 Versions are the latest stable releases when the scaffold is created, locked by `Cargo.lock` and `package-lock.json`. Both lockfiles are committed.
@@ -63,16 +64,12 @@ npm install                          # once: JS deps (Rust deps build on first r
 npm run tauri dev                    # run the app with hot reload
 npm run tauri build -- --no-bundle   # release binary only, no installer (source-only distribution)
 cargo run -p harneo-cli -- --version # run the CLI
-npm run check                        # EVERYTHING below; the one command every ticket must pass
-
-# what `npm run check` runs, in order:
-npm run lint          # eslint . && prettier --check .
-npm run typecheck     # tsc --noEmit
-npm test              # vitest run
-cargo fmt --all --check
-cargo clippy --workspace --all-targets -- -D warnings
-cargo test --workspace
+npm run check:fast                   # after each edit (~15 s)
+npm run check:task                   # before a ticket is reported done (≤ 3 min)
+npm run check:full                   # before every merge to main, and in CI (no limit)
 ```
+
+What each script runs, and why, is defined in `CONSTRAINTS.md`; the scripts mirror it. The building blocks are also available alone: `npm run lint`, `npm run typecheck`, `npm test`.
 
 `npm run fix` applies `eslint --fix`, `prettier --write .` and `cargo fmt --all`.
 
@@ -102,7 +99,11 @@ src/                    → React frontend
 DESIGN.md               → the design system, created and maintained with Impeccable
 PRODUCT.md              → Impeccable's product context (written by `/impeccable init` from CONTEXT.md)
 BUILDING.md             → build-from-source guide, per OS
-.github/workflows/check.yml → `npm run check` on ubuntu-latest
+CONSTRAINTS.md          → the quality bar: every rule and the command that checks it
+scripts/                → check-floor.sh, check-arch.sh, coverage-ratchet.sh (used by the check scripts)
+.dependency-cruiser.cjs → TS architecture rules
+clippy.toml             → allow unwrap/expect in tests only
+.github/workflows/check.yml → `npm run check:full` on ubuntu-latest
 ```
 
 Rules:
@@ -164,8 +165,8 @@ Conventions:
 | Frontend | Vitest + React Testing Library, IPC mocked with `mockIPC` | screens render, user flows, error and empty states |
 
 - Write tests first (Addy's `test-driven-development`). Every bug fix starts with a failing test.
-- No coverage percentage target. The rule: every public core function and every IPC command has at least one test.
-- `npm run check` must pass before every commit to `main`. CI runs it again on every push.
+- Every public core function and every IPC command has at least one test. Changed lines must be at least 80% covered, and project coverage must never fall (`CONSTRAINTS.md`).
+- `npm run check:task` must pass before a ticket is reported done, and `npm run check:full` before every merge to `main`. CI runs `check:full` again on every push.
 
 **For app-shell itself:**
 - `paths::data_dir()` ends in the app id;
@@ -177,7 +178,7 @@ Conventions:
 ## Boundaries
 
 - **Always:**
-  - run `npm run check` before committing;
+  - follow `CONSTRAINTS.md`: `check:task` before reporting a ticket done, `check:full` before merging;
   - put logic in `harneo-core`;
   - resolve paths through core;
   - keep secrets as `${VAR}` placeholders;
@@ -205,10 +206,11 @@ Conventions:
 3. The About panel shows the version and data dir received from `app_info`.
 4. The theme follows the OS light/dark setting, and every color, font, spacing and radius value comes from the `DESIGN.md` tokens.
 5. `cargo run -p harneo-cli -- --version` prints the same version the About panel shows, and `harneo paths` prints the same data dir. That proves one shared core.
-6. `npm run check` passes locally, and the GitHub Actions workflow passes on `main`.
+6. `npm run check:fast`, `check:task` and `check:full` exist and run every check `CONSTRAINTS.md` lists, with its tools installed and configured. `check:full` passes locally, and the GitHub Actions workflow passes on `main`.
 7. `npm run tauri build -- --no-bundle` produces a runnable binary and no installer.
 8. `BUILDING.md` lists prerequisites for Linux (WebKitGTK and the other Tauri system packages), Windows (WebView2, MSVC build tools) and macOS (Xcode command line tools), with Windows and macOS marked "untested by the maintainer".
 9. `CLAUDE.md` and `README.md` list the commands, and the Impeccable plugin is enabled in `.claude/settings.json`.
+10. The project coverage ratchet is recorded in `CONSTRAINTS.md` once the scaffold's tests exist (`/constraints ratchet`).
 
 ## Decisions (2026-10-18)
 
@@ -216,6 +218,7 @@ Conventions:
 2. **End-to-end tests of the real window:** left out for now, to be reconsidered when `library` import lands. Until then: frontend tests with mocked IPC plus manual runs.
 3. **Impeccable:** required. It is enabled as a plugin and designs every screen from `DESIGN.md`.
 4. **Design system:** created from scratch with Impeccable (no existing design system is used).
+5. **Quality bar (2026-10-19):** set by `CONSTRAINTS.md` through Addy's `/constraints` (#5). The single `npm run check` became `check:fast` / `check:task` / `check:full`, and the gate tools it names are part of this module.
 
 ## Open Questions
 
