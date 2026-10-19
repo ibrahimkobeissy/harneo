@@ -7,6 +7,7 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 usage: board.sh <command>
+  init <project#> [owner] set up this repo: config, label, .gitignore, board options
   check                 verify config, gh auth and the board's Status options
   setup                 create the missing Status options (keeps every card's status)
   list [status]         list the repo's board items, optionally one status only
@@ -22,12 +23,45 @@ die() { echo "board.sh: $*" >&2; exit 1; }
 
 root=$(git rev-parse --show-toplevel)
 conf="$root/.claude/ticket-flow.conf"
-[ -f "$conf" ] || die "missing $conf (needs OWNER=, REPO=, PROJECT=)"
 conf_get() { sed -n "s/^$1=//p" "$conf" | head -n1 | tr -d '[:space:]'; }
-OWNER=$(conf_get OWNER)
-REPO=$(conf_get REPO)
-PROJECT=$(conf_get PROJECT)
-[ -n "$OWNER" ] && [ -n "$REPO" ] && [ -n "$PROJECT" ] || die "$conf must set OWNER, REPO and PROJECT"
+
+load_conf() {
+  [ -f "$conf" ] || die "missing $conf (run: board.sh init <project#>)"
+  OWNER=$(conf_get OWNER)
+  REPO=$(conf_get REPO)
+  PROJECT=$(conf_get PROJECT)
+  [ -n "$OWNER" ] && [ -n "$REPO" ] && [ -n "$PROJECT" ] || die "$conf must set OWNER, REPO and PROJECT"
+}
+
+# Everything ticket-flow needs in a repo. Safe to rerun: existing pieces are kept.
+init_repo() {
+  local project=$1 owner=${2:-} repo
+  command -v jq >/dev/null || die "jq is required"
+  if [ -f "$conf" ]; then
+    echo "config: keeping $conf"
+  else
+    repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner) || die "cannot read this repo from GitHub"
+    [ -n "$owner" ] || owner=${repo%%/*}
+    mkdir -p "$root/.claude"
+    printf 'OWNER=%s\nREPO=%s\nPROJECT=%s\n' "$owner" "$repo" "$project" >"$conf"
+    echo "config: wrote $conf"
+  fi
+  load_conf
+  gh label create needs-decision -R "$REPO" --color D93F0B --force \
+    --description "Waiting on a decision from the user" >/dev/null
+  echo "label: needs-decision"
+  if grep -qxF '.claude/worktrees/' "$root/.gitignore" 2>/dev/null; then
+    echo ".gitignore: already ignores .claude/worktrees/"
+  else
+    [ ! -s "$root/.gitignore" ] || [ -z "$(tail -c1 "$root/.gitignore")" ] || echo >>"$root/.gitignore"
+    echo '.claude/worktrees/' >>"$root/.gitignore"
+    echo ".gitignore: added .claude/worktrees/"
+  fi
+  setup_options
+  echo "left to do by hand:"
+  echo "  - add to CLAUDE.md: \"Tasks: follow the ticket-flow skill.\""
+  echo "  - optional: project settings > Workflows > Auto-add to project (new items in Backlog)"
+}
 
 STATUSES="backlog ready progress review done"
 
@@ -145,7 +179,12 @@ set_status() {
 }
 
 cmd=${1:-}
+[ "$cmd" = init ] || load_conf
 case "$cmd" in
+  init)
+    [ -n "${2:-}" ] || usage
+    init_repo "$2" "${3:-}"
+    ;;
   check)
     command -v jq >/dev/null || die "jq is required"
     gh project view "$PROJECT" --owner "$OWNER" --format json --jq '"board: " + .title' \

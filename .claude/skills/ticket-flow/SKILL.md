@@ -44,6 +44,7 @@ $S list              # every ticket on the board with its status
 $S list ready        # only Ready tickets
 $S add 12 ready      # put issue #12 on the board in Ready
 $S set 12 progress   # backlog | ready | progress | review | done
+$S init 5           # one-time setup of this repo for project board #5
 $S check             # verify config, auth and the board's Status options
 $S setup             # create missing Status options; keeps every card's status
 ```
@@ -125,16 +126,13 @@ Creating a ticket while planning (e.g. with Addy Osmani's `planning-and-task-bre
 
 ## Setup in a new project
 
-1. Copy this folder to `.claude/skills/ticket-flow/`. The script needs `gh` and `jq`.
-2. Create `.claude/ticket-flow.conf`:
-   ```
-   OWNER=<github user or org that owns the project board>
-   REPO=<owner>/<repo>
-   PROJECT=<project number>
-   ```
-3. Run `$S setup` to give the board's **Status** field the options Backlog, Ready, In progress, In review, Done. It keeps every card's current status and removes default options (such as `Todo`) that no card uses.
-4. In the project's settings → Workflows, turn on **Auto-add to project** for the repo, with new items set to Backlog. That way no issue is missed.
-5. Create the `needs-decision` label: `gh label create needs-decision -R <owner>/<repo> --color D93F0B`.
-6. Add `.claude/worktrees/` to `.gitignore`.
-7. Run `$S check`.
-8. Point the project's `CLAUDE.md` at this skill ("Tasks: follow the ticket-flow skill").
+1. Copy this folder to `.claude/skills/ticket-flow/`. The script needs `gh` (with `gh auth refresh -s project`) and `jq`.
+2. Create a GitHub project board for the repo, then run `.claude/skills/ticket-flow/scripts/board.sh init <project-number>`. Add the owner as a second argument if the board belongs to someone other than the repo owner. It:
+   - writes `.claude/ticket-flow.conf` (OWNER, REPO, PROJECT);
+   - creates the `needs-decision` label;
+   - adds `.claude/worktrees/` to `.gitignore`;
+   - gives the board's Status field the options Backlog, Ready, In progress, In review, Done, keeping every card's status and removing default options (such as `Todo`) that no card uses.
+
+   It's safe to run again.
+3. Point the project's `CLAUDE.md` at this skill ("Tasks: follow the ticket-flow skill").
+4. Optional: in the project's settings → Workflows, turn on **Auto-add to project** for the repo, with new items set to Backlog, so no issue is missed.
