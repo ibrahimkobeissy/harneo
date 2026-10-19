@@ -15,6 +15,8 @@
 
 A builder who works across many projects with Claude Code: a solo dev, a consultant, or a tech lead. They've collected skills, hooks and agents from public packs (Matt Pocock's skills, pstack, Addy Osmani's agent-skills) and from their own work.
 
+**Design target (decided 2026-10-19):** others first. Harneo is designed for developers who discover it on GitHub and have never heard of a bundle, a profile or a refit; the maintainer's own workflow comes second.
+
 **Their pain:**
 - Every new repo means copying `.claude/` by hand.
 - They forget where each artifact came from and don't know what's outdated, unused or unsafe.
