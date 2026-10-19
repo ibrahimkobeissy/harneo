@@ -45,6 +45,7 @@ $S list ready        # only Ready tickets
 $S add 12 ready      # put issue #12 on the board in Ready
 $S set 12 progress   # backlog | ready | progress | review | done
 $S check             # verify config, auth and the board's Status options
+$S setup             # create missing Status options; keeps every card's status
 ```
 
 ## The cycle (orchestrator)
@@ -131,7 +132,7 @@ Creating a ticket while planning (e.g. with Addy Osmani's `planning-and-task-bre
    REPO=<owner>/<repo>
    PROJECT=<project number>
    ```
-3. Use a board whose **Status** field has the options Backlog, Ready, In progress, In review, Done. GitHub's "Kanban" project template has exactly these. Otherwise, add them in the project's settings.
+3. Run `$S setup` to give the board's **Status** field the options Backlog, Ready, In progress, In review, Done. It keeps every card's current status and removes default options (such as `Todo`) that no card uses.
 4. In the project's settings → Workflows, turn on **Auto-add to project** for the repo, with new items set to Backlog. That way no issue is missed.
 5. Create the `needs-decision` label: `gh label create needs-decision -R <owner>/<repo> --color D93F0B`.
 6. Add `.claude/worktrees/` to `.gitignore`.

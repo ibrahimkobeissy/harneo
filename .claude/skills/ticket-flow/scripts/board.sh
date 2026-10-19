@@ -8,6 +8,7 @@ usage() {
   cat <<'EOF'
 usage: board.sh <command>
   check                 verify config, gh auth and the board's Status options
+  setup                 create the missing Status options (keeps every card's status)
   list [status]         list the repo's board items, optionally one status only
   add <issue#> [status] add an issue to the board (default status: backlog)
   set <issue#> <status> set an issue's status (adds it to the board if missing)
@@ -63,6 +64,68 @@ item_id() {
     --jq ".items[] | select(.content.repository == \"$REPO\" and .content.number == $1) | .id"
 }
 
+graphql() { gh api graphql --input -; } # request body on stdin
+
+# Status options with color and description (field-list only gives id and name).
+field_options() {
+  jq -n --arg id "$1" '{
+      query: "query($id: ID!) { node(id: $id) { ... on ProjectV2SingleSelectField { options { id name color description } } } }",
+      variables: {id: $id}}' \
+    | graphql | jq '.data.node.options'
+}
+
+WANTED='[
+  {"name": "Backlog", "color": "GRAY", "description": "Blocked, waiting on a decision, or not triaged"},
+  {"name": "Ready", "color": "BLUE", "description": "Not blocked, no decision pending: can be picked"},
+  {"name": "In progress", "color": "YELLOW", "description": "A subagent or the orchestrator is working on it"},
+  {"name": "In review", "color": "PURPLE", "description": "Finished, waiting for the orchestrator to validate and merge"},
+  {"name": "Done", "color": "GREEN", "description": "Merged to main and pushed; issue closed"}
+]'
+
+# GitHub can only replace the whole option list, and replaced options get new ids,
+# which can clear cards' statuses. So snapshot every card's status, replace the
+# list (the five wanted options, plus any other option still in use), then
+# re-apply each card's status by name.
+setup_options() {
+  local field_id current items used new dropped kept pid item name opt
+  field_id=$(status_field | jq -r .id)
+  [ -n "$field_id" ] || die "board has no Status field"
+  current=$(field_options "$field_id")
+  items=$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 1000 --format json \
+    | jq '[.items[] | select(.status != null) | {id, status}]')
+  used=$(echo "$items" | jq '[.[].status] | unique')
+  new=$(jq -n --argjson cur "$current" --argjson want "$WANTED" --argjson used "$used" '
+    ($want | map(.name | ascii_downcase)) as $wn
+    | [$want[] as $w
+        | ($cur | map(select((.name | ascii_downcase) == ($w.name | ascii_downcase))))[0] as $c
+        | {name: ($c.name // $w.name), color: ($c.color // $w.color),
+           description: (if ($c.description // "") == "" then $w.description else $c.description end)}]
+    + [$cur[] | select(.name | ascii_downcase | IN($wn[]) | not) | select(.name | IN($used[]))
+        | {name, color, description}]')
+  missing=$(jq -rn --argjson cur "$current" --argjson want "$WANTED" \
+    '$want[].name | select(ascii_downcase | IN($cur[].name | ascii_downcase) | not)')
+  dropped=$(jq -rn --argjson cur "$current" --argjson new "$new" '$cur[].name | select(IN($new[].name) | not)')
+  kept=$(jq -rn --argjson cur "$current" --argjson want "$WANTED" --argjson used "$used" \
+    '$cur[].name | select(ascii_downcase | IN($want[].name | ascii_downcase) | not) | select(IN($used[]))')
+  if [ -z "$missing" ] && [ -z "$dropped" ]; then
+    echo "Status options OK, nothing to do"
+  else
+    [ -n "$missing" ] && echo "$missing" | sed 's/^/adding: /'
+    [ -n "$dropped" ] && echo "$dropped" | sed 's/^/removing unused: /'
+    jq -n --arg f "$field_id" --argjson o "$new" '{
+        query: "mutation($f: ID!, $o: [ProjectV2SingleSelectFieldOptionInput!]) { updateProjectV2Field(input: {fieldId: $f, singleSelectOptions: $o}) { clientMutationId } }",
+        variables: {f: $f, o: $o}}' | graphql >/dev/null
+    pid=$(project_id)
+    echo "$items" | jq -r '.[] | [.id, .status] | @tsv' | while IFS=$'\t' read -r item name; do
+      opt=$(option_id "$name")
+      gh project item-edit --id "$item" --project-id "$pid" \
+        --field-id "$field_id" --single-select-option-id "$opt" >/dev/null
+    done
+    echo "restored the status of $(echo "$items" | jq length) card(s)"
+  fi
+  [ -z "$kept" ] || echo "$kept" | sed 's/^/kept (still used by cards, move them and rerun setup to remove): /'
+}
+
 add_item() {
   gh project item-add "$PROJECT" --owner "$OWNER" \
     --url "https://github.com/$REPO/issues/$1" --format json --jq .id
@@ -97,7 +160,11 @@ case "$cmd" in
         missing=1
       fi
     done
-    [ "$missing" -eq 0 ] && echo "Status options OK" || die "add the missing options in the project's settings"
+    [ "$missing" -eq 0 ] && echo "Status options OK" || die "run: board.sh setup"
+    ;;
+  setup)
+    command -v jq >/dev/null || die "jq is required"
+    setup_options
     ;;
   list)
     filter=""
