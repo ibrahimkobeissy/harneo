@@ -13,6 +13,7 @@ Harneo is a harness manager for Claude Code: a Tauri desktop app that keeps a li
 
 ## Specs and decisions
 - **Specs live in `spec/`**, never at the repo root. When `/spec` (Addy's `spec-driven-development`) writes a new spec, save it as `spec/<module-id>.md`, not `SPEC.md`. `spec/capabilities.md` is the index of modules and specs.
+- **`WORKFLOW.md` is the user's log of the framework:** one line per step run (Addy's commands and Impeccable's), with what it produced. Add a line every time a step runs.
 - **ADRs only through Addy's framework:** write one with the `documentation-and-adrs` skill when a phase calls for it (e.g. a hard-to-reverse choice while specifying a module), in that skill's default location `docs/decisions/`. Never write ADRs by hand outside that flow.
 
 ## Tickets and workflow
