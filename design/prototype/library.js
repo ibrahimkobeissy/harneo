@@ -29,7 +29,7 @@
   const STATUS_ORDER = { findings: 0, outdated: 1, current: 2, unused: 3 };
   const libVal = (a, k) => (k === "name" ? a.name.replace(/^\//, "") : k === "type" ? H.T[a.type].label : k === "source" ? H.srcLabel(a) : k === "tags" ? a.tags.length : k === "status" ? STATUS_ORDER[H.status(a)] : k === "sessions" ? (H.usageTypes.includes(a.type) ? a.sessions : -1) : a[k]);
   const sorted = (list) => H.sortBy(list, S().libSort, libVal);
-  const PER_PAGE = { cards: 24, list: 50 };
+  const PER_PAGE = { cards: 24, list: 25 };
   // Pages a list; keeps the current page inside range when filters shrink it.
   function paged(list) {
     const per = PER_PAGE[S().view], pages = Math.max(1, Math.ceil(list.length / per));
