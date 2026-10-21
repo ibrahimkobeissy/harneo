@@ -24,7 +24,7 @@ export default tseslint.config(
     languageOptions: { globals: globals.browser },
   },
   {
-    files: ["*.config.{js,ts}"],
+    files: ["*.config.{js,ts}", ".dependency-cruiser.cjs"],
     languageOptions: { globals: globals.node },
   },
   prettier,
