@@ -34,6 +34,7 @@ impl AgentAdapter for ClaudeAdapter {
         kinds::agent::scan(&mut walker, &mut report);
         kinds::output_style::scan(&mut walker, &mut report);
         kinds::mcp::scan(&mut walker, &mut report);
+        kinds::workflow::scan(&mut walker, &mut report);
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)

@@ -8,3 +8,4 @@ pub(super) mod output_style;
 pub(super) mod rule;
 pub(super) mod settings;
 pub(super) mod skill;
+pub(super) mod workflow;
