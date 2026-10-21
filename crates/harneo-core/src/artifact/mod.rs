@@ -4,6 +4,7 @@
 pub mod adapter;
 pub mod claude;
 pub mod frontmatter;
+pub mod walk;
 
 use std::path::Path;
 

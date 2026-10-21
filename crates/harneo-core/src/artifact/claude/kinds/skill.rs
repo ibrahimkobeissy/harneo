@@ -1,12 +1,12 @@
 //! Skills: a folder holding `SKILL.md` (YAML frontmatter plus body) and its supporting files.
 
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::Value;
 
 use crate::artifact::frontmatter::{self, Frontmatter};
-use crate::artifact::{rel_string, Artifact, ArtifactKind, Diagnostic, ScanOptions, ScanReport};
+use crate::artifact::walk::Walker;
+use crate::artifact::{rel_string, Artifact, ArtifactKind, Diagnostic, ScanReport};
 
 const MANIFEST: &str = "SKILL.md";
 /// Where Claude Code looks for skills, relative to a project or `~/.claude`-like root.
@@ -66,69 +66,30 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
 }
 
 /// Finds the skills under `skills/` and `.claude/skills/`.
-pub(crate) fn scan(root: &Path, options: &ScanOptions, report: &mut ScanReport) {
+pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     for dir in SKILL_DIRS {
-        let Ok(entries) = fs::read_dir(root.join(dir)) else {
-            continue;
-        };
-        let mut folders: Vec<PathBuf> = entries
-            .flatten()
-            .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
-            .map(|e| Path::new(dir).join(e.file_name()))
-            .collect();
-        folders.sort();
-        for folder in folders {
-            read_skill(root, &folder, options, report);
+        for folder in walker.list_dirs(Path::new(dir)) {
+            read_skill(walker, &folder, report);
         }
     }
 }
 
-fn read_skill(root: &Path, folder: &Path, options: &ScanOptions, report: &mut ScanReport) {
+fn read_skill(walker: &mut Walker, folder: &Path, report: &mut ScanReport) {
     let manifest = folder.join(MANIFEST);
-    let abs = root.join(&manifest);
-    if !abs.is_file() || fs::symlink_metadata(&abs).is_ok_and(|m| m.file_type().is_symlink()) {
+    if !walker.exists(&manifest) {
         return;
     }
-    let mut files = Vec::new();
-    list_files(root, folder, &options.skip_dirs, &mut files);
-    files.sort();
-    let too_big = fs::metadata(&abs).map_or(true, |m| m.len() as usize > options.max_file_bytes);
-    if too_big {
-        report.diagnostics.push(Diagnostic::warning(
-            "skill.file-too-large",
-            &manifest,
-            "SKILL.md is unreadable or over the size limit, so it was not parsed",
-        ));
-        report.artifacts.push(Artifact {
-            diagnostics: Vec::new(),
-            ..parse(folder, files, "")
-        });
-        return;
+    let mut walk_diagnostics = Vec::new();
+    let files = walker.list_files(folder, &mut walk_diagnostics);
+    let text = walker.read_text(&manifest, &mut walk_diagnostics);
+    let read = text.is_some();
+    let mut artifact = parse(folder, files, &text.unwrap_or_default());
+    if !read {
+        // Not parsed: the walk's diagnostic says why, so no "missing description" on top.
+        artifact.diagnostics.clear();
     }
-    let contents = fs::read(&abs).map(|b| String::from_utf8_lossy(&b).into_owned());
-    report
-        .artifacts
-        .push(parse(folder, files, &contents.unwrap_or_default()));
-}
-
-/// Lists regular files below `dir` (relative to `root`). Symlinks are never followed or listed.
-fn list_files(root: &Path, dir: &Path, skip: &[String], out: &mut Vec<String>) {
-    let Ok(entries) = fs::read_dir(root.join(dir)) else {
-        return;
-    };
-    for entry in entries.flatten() {
-        let Ok(kind) = entry.file_type() else {
-            continue;
-        };
-        let rel = dir.join(entry.file_name());
-        if kind.is_dir() {
-            if !skip.iter().any(|s| entry.file_name() == s.as_str()) {
-                list_files(root, &rel, skip, out);
-            }
-        } else if kind.is_file() {
-            out.push(rel_string(&rel));
-        }
-    }
+    artifact.diagnostics.extend(walk_diagnostics);
+    report.artifacts.push(artifact);
 }
 
 /// `CONTEXT.md` §2: skills install to `.claude/skills/<name>/`.

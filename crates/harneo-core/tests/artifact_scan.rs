@@ -69,8 +69,8 @@ fn malformed_and_oversized_skills_become_diagnostics() -> Result<(), Box<dyn std
         .flat_map(|a| a.diagnostics.iter())
         .map(|d| d.code.as_str())
         .collect();
-    assert_eq!(codes, ["skill.invalid-frontmatter"]);
-    assert_eq!(report.diagnostics[0].code, "skill.file-too-large");
+    assert_eq!(codes, ["skill.invalid-frontmatter", "walk.file-too-large"]);
+    assert!(report.diagnostics.is_empty());
     Ok(())
 }
 

@@ -5,6 +5,7 @@ mod kinds;
 
 use std::path::{Path, PathBuf};
 
+use super::walk::Walker;
 use super::{AgentAdapter, Artifact, ArtifactKind, ScanOptions, ScanReport};
 use crate::{Error, Result};
 
@@ -24,7 +25,9 @@ impl AgentAdapter for ClaudeAdapter {
             });
         }
         let mut report = ScanReport::default();
-        kinds::skill::scan(root, options, &mut report);
+        let mut walker = Walker::new(root, options);
+        kinds::skill::scan(&mut walker, &mut report);
+        report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
     }
