@@ -64,6 +64,7 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria 
 
 - [#21](https://github.com/ibrahimkobeissy/harneo/issues/21) T11: Design tokens from `DESIGN.md`
 - [#22](https://github.com/ibrahimkobeissy/harneo/issues/22) T12: Base components and the frame styled like the prototype
+- [#25](https://github.com/ibrahimkobeissy/harneo/issues/25) T14: Setup script for building Harneo from source (and contributor tools)
 - [#23](https://github.com/ibrahimkobeissy/harneo/issues/23) T13: `BUILDING.md`, README and CLAUDE.md commands
 
 **Checkpoint: app-shell complete** (after T11–T13)
@@ -82,7 +83,7 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria 
 | 5. CLI and About show the same values | T2, T3 |
 | 6. `check:*` scripts and CI | T5–T9 |
 | 7. `--no-bundle` binary, no installer | T1 |
-| 8. `BUILDING.md` per OS | T13 |
+| 8. `BUILDING.md` per OS, starting with the setup script | T14, T13 |
 | 9. Commands documented, Impeccable enabled | T13 (Impeccable already done) |
 | 10. Coverage baseline recorded | T10 |
 

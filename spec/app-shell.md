@@ -37,7 +37,8 @@ Give Harneo a working base on which each later module adds its own core logic an
 - Tooling and docs:
   - the `check:fast`, `check:task` and `check:full` scripts, with the tools and configs `CONSTRAINTS.md` names;
   - a GitHub Actions workflow (Linux) running `check:full`;
-  - `BUILDING.md`, plus build commands in `README.md` and `CLAUDE.md`;
+  - `scripts/setup.sh` (Linux, macOS) and `scripts/setup.ps1` (Windows): check and install the build prerequisites, `--dev` for the contributor gate tools, `--check` to only report;
+  - `BUILDING.md`, starting with the setup script, plus build commands in `README.md` and `CLAUDE.md`;
   - the Impeccable plugin enabled for this repo in `.claude/settings.json` (from the `pbakaus/impeccable` marketplace). Done 2026-10-18.
 
 **Out of scope:** any artifact, library or profile logic; installers and app bundles (distribution is source only); macOS/Windows testing; end-to-end tests of the real window (see Decisions).
@@ -222,6 +223,8 @@ Conventions:
 5. **Quality bar (2026-10-19):** set by `CONSTRAINTS.md` through Addy's `/constraints` (#5). The single `npm run check` became `check:fast` / `check:task` / `check:full`, and the gate tools it names are part of this module.
 
 6. **Frame and design follow the validated prototype (2026-10-21):** `design/prototype/` is the visual reference and `DESIGN.md` the system; `lucide-react` and `@fontsource` join the stack so icons and fonts are bundled.
+
+7. **Setup script (2026-10-21):** builders get one command that checks and installs prerequisites; contributors add `--dev` for the gate tools (T14).
 
 ## Open Questions
 
