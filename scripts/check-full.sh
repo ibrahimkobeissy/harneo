@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-for tool in cargo osv-scanner semgrep; do
+for tool in cargo osv-scanner jq semgrep; do
   command -v "$tool" >/dev/null 2>&1 || {
     echo "check:full: '$tool' is not installed. Install $tool (see BUILDING.md)." >&2
     exit 1
@@ -17,8 +17,8 @@ npx vitest run --passWithNoTests
 echo "== cargo test --workspace"
 cargo test --workspace
 
-echo "== osv-scanner"
-osv-scanner scan source -r .
+echo "== dependency scan"
+bash scripts/check-deps.sh
 echo "== semgrep"
 semgrep scan --config p/default --config p/rust --config p/typescript --severity ERROR --error
 
