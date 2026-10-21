@@ -87,6 +87,11 @@ impl<'a> Walker<'a> {
         fs::symlink_metadata(self.root.join(rel)).is_ok()
     }
 
+    /// True when `rel` is a regular file (a symlink is not, and is not followed).
+    pub(crate) fn is_file(&self, rel: &Path) -> bool {
+        fs::symlink_metadata(self.root.join(rel)).is_ok_and(|m| m.file_type().is_file())
+    }
+
     /// The real sub-folders of `rel`, sorted, as paths relative to the root. Symlinks and
     /// skipped folders are left out.
     pub(crate) fn list_dirs(&self, rel: &Path) -> Vec<PathBuf> {

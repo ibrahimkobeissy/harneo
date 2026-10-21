@@ -27,6 +27,7 @@ impl AgentAdapter for ClaudeAdapter {
         let mut report = ScanReport::default();
         let mut walker = Walker::new(root, options);
         kinds::skill::scan(&mut walker, &mut report);
+        kinds::settings::scan(&mut walker, &mut report);
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
