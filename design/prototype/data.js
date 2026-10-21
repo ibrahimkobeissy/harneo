@@ -352,5 +352,26 @@
     ],
   };
 
+  // ---- What each Settings template contains (one whole settings.json) ----
+  const CONFIG = {
+    "strict-guard": { allow: ["Bash(npm test:*)", "Bash(cargo test:*)", "Bash(git diff:*)", "Bash(git status)"], ask: ["Bash(git push:*)", "Bash(npm publish:*)"], deny: ["Read(./.env)", "Read(./.env.*)", "Read(~/.ssh/**)", "Read(~/.aws/**)", "Bash(rm -rf:*)", "Bash(curl:* | sh)"], hooks: [{ event: "PreToolUse", matcher: "Bash|Read|Edit", script: ".claude/hooks/guard.py", what: "blocks reads of credential files" }], statusLine: ".claude/hooks/status.sh", outputStyle: "terse", plugins: [], env: [], model: null, source: "~/dotfiles/claude/settings.json" },
+    relaxed: { allow: ["Bash(*)", "Edit(*)", "Write(*)"], ask: [], deny: ["Read(./.env)"], hooks: [], statusLine: null, outputStyle: null, plugins: [], env: [], model: null, source: "~/dotfiles/claude/relaxed.json" },
+    "ci-bot": { allow: ["Bash(npm ci)", "Bash(npm test:*)", "Bash(cargo test:*)"], ask: [], deny: ["WebFetch(*)", "Bash(curl:*)", "Bash(git push:*)", "Read(~/.ssh/**)", "Read(./.env)"], hooks: [{ event: "Stop", matcher: "", script: ".claude/hooks/report.sh", what: "writes a CI summary" }], statusLine: null, outputStyle: null, plugins: [], env: ["CI=true"], model: "claude-sonnet-5-5", source: "pstack/.claude/settings.ci.json" },
+    "readonly-audit": { allow: ["Read(*)", "Grep(*)", "Glob(*)"], ask: [], deny: ["Edit(*)", "Write(*)", "Bash(*)"], hooks: [], statusLine: null, outputStyle: "review-notes", plugins: [], env: [], model: null, source: "~/dotfiles/claude/audit.json" },
+    "team-default": { allow: ["Bash(npm run:*)", "Bash(git diff:*)"], ask: ["Bash(git push:*)"], deny: ["Read(./.env)", "Read(~/.ssh/**)"], hooks: [{ event: "PreToolUse", matcher: "Bash|Read", script: ".claude/hooks/guard.py", what: "blocks reads of credential files" }, { event: "PostToolUse", matcher: "Edit|Write", script: ".claude/hooks/format.sh", what: "runs the formatter" }], statusLine: ".claude/hooks/status.sh", outputStyle: null, plugins: ["agent-skills@addy-agent-skills"], env: [], model: null, source: "pstack/.claude/settings.json" },
+    "solo-fast": { allow: ["Bash(npm:*)", "Bash(cargo:*)", "Bash(git:*)", "Edit(./src/**)"], ask: ["Bash(git push:*)"], deny: ["Read(./.env)"], hooks: [], statusLine: ".claude/hooks/status.sh", outputStyle: "terse", plugins: [], env: [], model: null, source: "~/dotfiles/claude/solo.json" },
+  };
+  A.filter((a) => a.type === "settings").forEach((a) => { a.config = CONFIG[a.name] || CONFIG.relaxed; });
+
+  // ---- Extra audit findings below the "untrusted" line (synthetic) ----
+  const extra = {
+    github: [{ level: "low", title: "Broad token scope", detail: "Works with any GITHUB_TOKEN; a fine-grained token is safer" }],
+    sentry: [{ level: "low", title: "Third-party host", detail: "Sends error context to sentry.io" }],
+    ship: [{ level: "medium", title: "Lifecycle scripts", detail: "`npm version` runs package.json scripts without asking" }],
+    "release-flow": [{ level: "medium", title: "Push without ask rule", detail: "step('tag') runs `git push --tags`" }],
+    "agent-skills-plugin": [{ level: "low", title: "Session hook", detail: "SessionStart hook runs hooks/session-start.sh" }],
+  };
+  Object.keys(extra).forEach((id) => { const a = A.find((x) => x.id === id); if (a) a.findings = a.findings.concat(extra[id]); });
+
   window.HARNEO_DATA = { TYPES, SOURCES, TAGS, ARTIFACTS: A, PROFILES, PROJECTS, COLLECTIONS, SCAN };
 })();

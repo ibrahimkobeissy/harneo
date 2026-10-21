@@ -26,11 +26,27 @@
     return S().artifacts.filter((a) => matches(a, f));
   };
   const filtersActive = (f) => f.types.length || f.tags.length || f.status.length || f.sources.length || f.inv.length || f.trustMin > 0 || f.q;
-  function sorted(list) {
-    const s = S().sort;
-    const by = { used: (a, b) => b.sessions - a.sessions, name: (a, b) => a.name.localeCompare(b.name), trust: (a, b) => b.trust - a.trust, risk: (a, b) => a.trust - b.trust };
-    return list.slice().sort(by[s] || by.used);
+  const STATUS_ORDER = { findings: 0, outdated: 1, current: 2, unused: 3 };
+  const libVal = (a, k) => (k === "name" ? a.name.replace(/^\//, "") : k === "type" ? H.T[a.type].label : k === "source" ? H.srcLabel(a) : k === "tags" ? a.tags.length : k === "status" ? STATUS_ORDER[H.status(a)] : k === "sessions" ? (H.usageTypes.includes(a.type) ? a.sessions : -1) : a[k]);
+  const sorted = (list) => H.sortBy(list, S().libSort, libVal);
+  const PER_PAGE = { cards: 24, list: 50 };
+  // Pages a list; keeps the current page inside range when filters shrink it.
+  function paged(list) {
+    const per = PER_PAGE[S().view], pages = Math.max(1, Math.ceil(list.length / per));
+    if (S().page > pages) S().page = pages;
+    const start = (S().page - 1) * per;
+    return { items: list.slice(start, start + per), pages, start, per };
   }
+  function pager(total, p) {
+    if (p.pages < 2) return "";
+    const cur = S().page, nums = [];
+    for (let i = 1; i <= p.pages; i++) if (i === 1 || i === p.pages || Math.abs(i - cur) <= 1) nums.push(i); else if (nums[nums.length - 1] !== "…") nums.push("…");
+    return `<nav class="pager" aria-label="Pages"><span class="sec">${p.start + 1}–${Math.min(p.start + p.per, total)} of ${total}</span>
+      <div class="pages"><button class="btn sm" data-a="page" data-v="${cur - 1}"${cur === 1 ? " disabled" : ""} aria-label="Previous page">${ic("chevron-left")}</button>
+      ${nums.map((n) => (n === "…" ? `<span class="muted">…</span>` : `<button class="pg${n === cur ? " on" : ""}" data-a="page" data-v="${n}"${n === cur ? ' aria-current="page"' : ""}>${n}</button>`)).join("")}
+      <button class="btn sm" data-a="page" data-v="${cur + 1}"${cur === p.pages ? " disabled" : ""} aria-label="Next page">${ic("chevron-right")}</button></div></nav>`;
+  }
+  H.actions.page = (el) => { S().page = +el.dataset.v; const v = document.getElementById("view"); if (v) v.scrollTop = 0; };
 
   // --------------------------------------------------------- filter column
   function fopt(group, value, label, n, extra) {
@@ -44,7 +60,7 @@
     const tags = S().tags.map((t) => [t.id, count((a) => a.tags.includes(t.id))]).filter((x) => x[1]);
     const srcs = Object.keys(H.SRC).map((s) => [s, count((a) => a.source === s)]).filter((x) => x[1]);
     const clear = (g) => (f[g].length ? `<button data-a="filter-clear" data-g="${g}">Clear</button>` : "");
-    return `<aside class="filters${S().ui.filtersOpen ? " open" : ""}" aria-label="Filters">
+    return `<aside class="filters${S().ui.filtersOpen ? " open" : ""}" id="filtercol" aria-label="Filters">
       <h4>Type ${clear("types")}</h4>
       ${types.map(([t, n]) => fopt("types", t, H.T[t].plural, n, `<span class="ic sm t-${H.T[t].tint}" style="width:18px;height:18px">${ic(H.T[t].icon)}</span>`)).join("")}
       <h4>Tags ${clear("tags")}</h4>
@@ -60,16 +76,17 @@
       ${fopt("inv", "manual", "Manual only", count((a) => a.invocation === "manual"))}
     </aside>`;
   }
-  H.actions.filter = (el) => { const g = el.dataset.g, v = el.dataset.v, arr = S().f[g]; const i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); };
-  H.actions["filter-clear"] = (el) => { S().f[el.dataset.g] = []; };
-  H.actions["filters-all-clear"] = () => { Object.assign(S().f, { types: [], tags: [], status: [], sources: [], inv: [], trustMin: 0, q: "" }); };
+  H.actions.filter = (el) => { const g = el.dataset.g, v = el.dataset.v, arr = S().f[g]; const i = arr.indexOf(v); i < 0 ? arr.push(v) : arr.splice(i, 1); S().page = 1; };
+  H.actions["filter-clear"] = (el) => { S().f[el.dataset.g] = []; S().page = 1; };
+  H.actions["filters-all-clear"] = () => { Object.assign(S().f, { types: [], tags: [], status: [], sources: [], inv: [], trustMin: 0, q: "" }); S().page = 1; };
   H.actions["filters-open"] = () => { S().ui.filtersOpen = true; };
   H.actions["filters-close"] = () => { S().ui.filtersOpen = false; };
-  H.inputs.trust = (v) => { S().f.trustMin = +v; H.render(); };
-  H.inputs.q = (v) => { S().f.q = v; H.render(); };
-  H.inputs.sort = (v) => { S().sort = v; };
-  H.actions.view = (el) => { S().view = el.dataset.v; };
-  H.actions.status = (el) => { S().f.status = [el.dataset.v]; if (H.route().name !== "library") location.hash = "#/library"; };
+  H.inputs.trust = (v) => { S().f.trustMin = +v; S().page = 1; H.render(); };
+  H.inputs.q = (v) => { S().f.q = v; S().page = 1; H.render(); };
+  const SORTS = { used: ["sessions", "desc"], name: ["name", "asc"], trust: ["trust", "desc"], risk: ["trust", "asc"] };
+  H.inputs.sort = (v) => { const s = SORTS[v]; if (s) S().libSort = { key: s[0], dir: s[1] }; S().page = 1; };
+  H.actions.view = (el) => { S().view = el.dataset.v; S().page = 1; };
+  H.actions.status = (el) => { S().f.status = [el.dataset.v]; S().page = 1; if (H.route().name !== "library") location.hash = "#/library"; };
 
   // ----------------------------------------------------------- insights
   function insights(all) {
@@ -107,7 +124,7 @@
     </button>`;
   }
   function listView(list) {
-    return `<table class="listv"><thead><tr><th>Name</th><th>Type</th><th>Source</th><th>Tags</th><th>Trust</th><th title="Sessions in the last 8 weeks">Sessions</th><th>Status</th></tr></thead><tbody>
+    return `<table class="listv"><thead><tr>${H.th("lib", "name", "Name")}${H.th("lib", "type", "Type")}${H.th("lib", "source", "Source")}${H.th("lib", "tags", "Tags")}${H.th("lib", "trust", "Trust")}${H.th("lib", "sessions", "Sessions", ' title="Sessions in the last 8 weeks"')}${H.th("lib", "status", "Status")}</tr></thead><tbody>
       ${list.map((a) => `<tr class="${S().selected === a.id ? "sel" : ""}${H.status(a) === "unused" ? " unused" : ""}" data-a="open" data-id="${a.id}" tabindex="0" data-card id="card-${a.id}">
         <td class="cname"><span class="namecell">${H.typeIc(a.type, true, H.status(a) === "unused")}<span class="ell">${esc(a.name)}</span></span></td><td>${H.T[a.type].label}</td><td class="mono muted csrc"><span class="ell">${esc(H.srcLabel(a))}</span></td>
         <td>${a.tags.slice(0, 2).map((t) => H.tagChip(t)).join(" ")}</td><td>${H.meter(a.trust)}</td><td class="mono">${H.usageTypes.includes(a.type) ? a.sessions : "—"}</td><td>${H.statusBadge(a)}</td></tr>`).join("")}
@@ -129,11 +146,13 @@
       ${filtersActive(f) ? `<button class="btn ghost sm" data-a="filters-all-clear">Clear all</button>${!isCol ? `<button class="btn ghost sm" data-a="collection-from-filters">${ic("list-filter")}Save as collection</button>` : ""}` : ""}
       <span class="grow"></span>
       <label class="sr" for="sortsel">Sort</label><select class="sel" id="sortsel" data-ch="sort">
-        ${[["used", "Most used"], ["name", "Name"], ["trust", "Highest trust"], ["risk", "Lowest trust"]].map((o) => `<option value="${o[0]}"${S().sort === o[0] ? " selected" : ""}>Sort: ${o[1]}</option>`).join("")}</select></div>`;
+        ${(() => { const ls = S().libSort; const curKey = Object.keys(SORTS).find((k) => SORTS[k][0] === ls.key && SORTS[k][1] === ls.dir); return (curKey ? "" : `<option value="" selected>Sort: column (${esc(ls.key)})</option>`) + [["used", "Most used"], ["name", "Name"], ["trust", "Highest trust"], ["risk", "Lowest trust"]].map((o) => `<option value="${o[0]}"${curKey === o[0] ? " selected" : ""}>Sort: ${o[1]}</option>`).join(""); })()}</select></div>`;
+    const settingsHelp = f.types.length === 1 && f.types[0] === "settings" ? `<div class="callout info" style="margin-bottom:12px">${ic("sliders-horizontal")}<div style="flex:1"><b>Settings templates</b><p>A template is one whole <span class="mono">.claude/settings.json</span>: permissions, hooks (their scripts travel with it), status line, output style, plugins and env. Each profile uses exactly one. Get templates by importing a <span class="mono">settings.json</span> (from <span class="mono">~/.claude</span> or a repo), promoting one from a project, or duplicating one here; edit them in your own editor.</p></div><div style="display:flex;gap:6px;flex-direction:column"><a class="btn sm" href="#/import">${ic("download")}Import</a></div></div>` : "";
     if (!list.length) {
       return toolbar + `<div class="empty"><div class="ico">${ic("search-x")}</div><h3>No artifacts match</h3><p>Nothing in ${isCol ? "this collection" : "the library"} matches these filters${f.q ? ` and “${esc(f.q)}”` : ""}.</p><button class="btn" data-a="filters-all-clear">Clear filters</button></div>`;
     }
-    return toolbar + (S().view === "cards" ? `<div class="grid" id="cardgrid">${list.map(tile).join("")}</div>` : listView(list));
+    const p = paged(list);
+    return toolbar + settingsHelp + (S().view === "cards" ? `<div class="grid" id="cardgrid">${p.items.map(tile).join("")}</div>` : listView(p.items)) + pager(list.length, p);
   }
   function topbar(title, extra) {
     return `<div class="libtop">${title}
@@ -172,27 +191,49 @@
   };
 
   // ---------------------------------------------------------- collections
-  H.actions["collection-new"] = () => H.modal({
-    title: "New collection",
-    sub: "Collections organize your library. They never install anything.",
-    body: () => `<div class="field"><label for="colname">Name</label><input class="input" id="colname" data-in="colname" value="${esc(S().flow.colname || "")}" placeholder="e.g. Review kit" autofocus></div>
-      <div class="optlist">
-        <button class="opt${(S().flow.colkind || "manual") === "manual" ? " on" : ""}" data-a="colkind" data-v="manual"><i class="radio"></i><div><b>Manual</b><div class="sec">Hand-pick artifacts from their detail panel.</div></div></button>
-        <button class="opt${S().flow.colkind === "smart" ? " on" : ""}" data-a="colkind" data-v="smart"${filtersActive(S().f) ? "" : " disabled"}><i class="radio"></i><div><b>Smart</b><div class="sec">${filtersActive(S().f) ? "Saves the library's current filters; updates itself." : "Set filters in the library first, then save them as a smart collection."}</div></div></button>
-      </div>`,
-    foot: `<button class="btn" data-a="modal-close">Cancel</button><button class="btn primary" data-a="collection-create">Create collection</button>`,
-  });
+  const emptyRule = () => ({ types: [], tags: [], status: [], sources: [], inv: [], trustMin: 0, q: "" });
+  function ruleBuilder() {
+    const r = S().flow.colrule;
+    const n = S().artifacts.filter((a) => matches(a, r)).length;
+    const chip = (g, v, label) => { const on = r[g].includes(v); return `<button class="rchip${on ? " on" : ""}" data-a="colrule" data-g="${g}" data-v="${esc(v)}" aria-pressed="${on}">${on ? ic("check") : ""}${esc(label)}</button>`; };
+    return `<div class="rulebox">
+      <div class="rrow"><span>Type</span><div>${Object.keys(H.T).map((t) => chip("types", t, H.T[t].plural)).join("")}</div></div>
+      <div class="rrow"><span>Tag</span><div>${S().tags.map((t) => chip("tags", t.id, "#" + t.id)).join("")}</div></div>
+      <div class="rrow"><span>Status</span><div>${["findings", "outdated", "unused"].map((s) => chip("status", s, STATUS_LABEL[s])).join("")}</div></div>
+      <div class="rrow"><span>Source</span><div>${Object.keys(H.SRC).map((s) => chip("sources", s, H.SRC[s].label)).join("")}</div></div>
+      <div class="rrow"><span>Trust</span><div style="display:flex;align-items:center;gap:10px;flex:1"><input type="range" min="0" max="100" step="5" value="${r.trustMin}" data-in="colrule-trust" id="coltrust" aria-label="Minimum trust" style="flex:1;accent-color:var(--blue)"><span class="mono">≥ ${r.trustMin}</span></div></div>
+      <p class="${n ? "sec" : "err"}" style="margin-top:8px;display:flex;align-items:center;gap:6px">${ic(n ? "list-filter" : "circle-alert")}${filtersActive(r) ? (n ? `Matches <b>${H.plural(n, "artifact")}</b> now. New imports that match join automatically.` : "Nothing matches this rule yet. It will fill as you import.") : "Pick at least one condition. Conditions in different rows must all match; within a row, any."}</p></div>`;
+  }
+  H.actions["collection-new"] = () => {
+    S().flow.colrule = filtersActive(S().f) ? JSON.parse(JSON.stringify(S().f)) : emptyRule();
+    H.modal({
+      title: "New collection",
+      sub: "Collections organize your library: they group artifacts so you find them faster. They never install anything.",
+      wide: S().flow.colkind === "smart",
+      body: () => `<div class="field"><label for="colname">Name</label><input class="input" id="colname" data-in="colname" value="${esc(S().flow.colname || "")}" placeholder="${S().flow.colkind === "smart" ? "e.g. Rust tooling" : "e.g. My review kit"}" autofocus></div>
+        <div class="kinds">
+          <button class="opt${(S().flow.colkind || "manual") === "manual" ? " on" : ""}" data-a="colkind" data-v="manual"><i class="radio"></i><div><b>Manual: a list you pick</b><div class="sec">Starts empty. You add artifacts one by one from their detail panel (<b>Add to… → collection</b>). It only changes when you change it.</div><div class="muted" style="margin-top:4px">Example: “My review kit”: code-reviewer, /review, security-auditor, grill-me.</div></div></button>
+          <button class="opt${S().flow.colkind === "smart" ? " on" : ""}" data-a="colkind" data-v="smart"><i class="radio"></i><div><b>Smart: a saved rule</b><div class="sec">Holds every artifact that matches the conditions you set, now and later: when you import something that matches, it appears on its own.</div><div class="muted" style="margin-top:4px">Example: “Rust tooling” = everything tagged #rust.</div></div></button>
+        </div>
+        ${S().flow.colkind === "smart" ? `<h3 class="h" style="margin:16px 0 8px">Rule${filtersActive(S().f) ? ` <span class="muted" style="font-weight:400">pre-filled from your current filters</span>` : ""}</h3>${ruleBuilder()}` : ""}`,
+      foot: `<button class="btn" data-a="modal-close">Cancel</button><button class="btn primary" data-a="collection-create">Create collection</button>`,
+    });
+  };
+  H.actions.colrule = (el) => { const r = S().flow.colrule, arr = r[el.dataset.g], i = arr.indexOf(el.dataset.v); i < 0 ? arr.push(el.dataset.v) : arr.splice(i, 1); };
+  H.inputs["colrule-trust"] = (v) => { S().flow.colrule.trustMin = +v; H.render(); };
   H.inputs.colname = (v) => { S().flow.colname = v; };
-  H.actions.colkind = (el) => { S().flow.colkind = el.dataset.v; };
-  H.actions["collection-from-filters"] = () => { S().flow.colkind = "smart"; S().flow.colname = ""; H.actions["collection-new"](); };
+  H.actions.colkind = (el) => { S().flow.colkind = el.dataset.v; S().ui.modal.wide = el.dataset.v === "smart"; };
+  H.actions["collection-from-filters"] = () => { S().flow.colkind = "smart"; S().flow.colname = ""; S().flow.colrule = null; H.actions["collection-new"](); };
   H.actions["collection-create"] = () => {
     const name = (S().flow.colname || "").trim() || "Untitled collection";
     const kind = S().flow.colkind || "manual";
-    const f = S().f;
+    const f = S().flow.colrule || emptyRule();
+    if (kind === "smart" && !filtersActive(f)) { H.toast("Add at least one condition to the rule.", { icon: "circle-alert" }); return; }
     const rule = {};
     ["types", "tags", "status", "sources", "inv"].forEach((k) => { if (f[k].length) rule[k] = f[k].slice(); });
     if (f.trustMin) rule.trustMin = f.trustMin;
     if (f.q) rule.q = f.q;
+    S().flow.colrule = null;
     const c = kind === "smart" ? { id: H.uid("c"), name, kind, rule } : { id: H.uid("c"), name, kind, items: [] };
     S().collections.push(c);
     S().flow.colname = ""; S().flow.colkind = null; S().ui.modal = null;
@@ -216,9 +257,16 @@
   };
 
   // --------------------------------------------------------------- drawer
-  H.openDrawer = (id) => { S().selected = id; S().ui.enter = "drawer"; H.later(); };
-  H.actions.open = (el) => H.openDrawer(el.dataset.id);
-  H.actions["drawer-close"] = () => { const id = S().selected; S().selected = null; S().ui.focus = id ? "card-" + id : null; };
+  // Opening from inside the panel (a bundle member) keeps a trail so Back returns to it.
+  H.openDrawer = (id, fromPanel) => {
+    if (fromPanel && S().selected && S().selected !== id) S().trail = (S().trail || []).concat(S().selected);
+    else if (!fromPanel) { S().trail = []; S().ui.enter = "drawer"; }
+    S().selected = id; S().flow.tagq = ""; H.later();
+    const b = document.getElementById("dbody"); if (b) b.scrollTop = 0;
+  };
+  H.actions.open = (el) => { H.openDrawer(el.dataset.id, !!el.closest(".drawer")); if (el.closest(".drawer")) S().ui.focus = "drawer-back"; };
+  H.actions["drawer-back"] = () => { const t = S().trail || []; if (!t.length) return; S().selected = t.pop(); S().ui.focus = t.length ? "drawer-back" : null; };
+  H.actions["drawer-close"] = () => { const id = (S().trail && S().trail[0]) || S().selected; S().selected = null; S().trail = []; S().ui.focus = id ? "card-" + id : null; };
 
   H.screens.drawer = function (id) {
     const a = H.art(id);
@@ -229,8 +277,10 @@
     const max = Math.max(1, ...a.usage);
     const cols = S().collections.filter((c) => c.kind === "manual" && c.items.includes(a.id));
     const menu = S().ui.menu;
+    const trail = S().trail || [];
+    const prev = trail.length ? H.art(trail[trail.length - 1]) : null;
     return `<aside class="drawer${H.enter("drawer")}" role="dialog" aria-label="${esc(a.name)} details">
-      <div class="dhead"><div class="row">${H.typeIc(a.type)}<div style="min-width:0"><h2>${esc(a.name)}</h2><div class="sec">${H.T[a.type].label}${a.invocation ? " · " + (a.invocation === "auto" ? "auto-invoked" : "manual only") : ""}${a.bundle.length ? " · bundle of " + (a.bundle.length + 1) : ""}</div></div>
+      <div class="dhead">${prev ? `<button class="backlink" id="drawer-back" data-a="drawer-back">${ic("arrow-left")}Back to ${esc(prev.name)}</button>` : ""}<div class="row">${H.typeIc(a.type)}<div style="min-width:0"><h2>${esc(a.name)}</h2><div class="sec">${H.T[a.type].label}${a.invocation ? " · " + (a.invocation === "auto" ? "auto-invoked" : "manual only") : ""}${a.bundle.length ? " · bundle of " + (a.bundle.length + 1) : ""}</div></div>
         <button class="btn ghost sm x" data-a="drawer-close" aria-label="Close details">${ic("x")}</button></div>
         <div class="dactions">
           <button class="btn sm" data-a="toast" data-msg="Opened ${esc(a.name)} in $EDITOR">${ic("square-pen")}Open in editor</button>
@@ -247,7 +297,8 @@
           <span class="suggest"><label class="sr" for="tagin">Add tag</label><input class="input" id="tagin" placeholder="Add tag…" data-in="tagq" value="${esc(S().flow.tagq || "")}" autocomplete="off">${tagMenu(a)}</span></div></div>
         ${a.type === "skill" ? `<div class="dsec"><div class="switchrow"><div><h3 style="margin:0">Manual only</h3><p class="sec">Never auto-invoked. Sets <span class="mono">disable-model-invocation: true</span>.</p></div><button class="toggle${a.invocation === "manual" ? " on" : ""}" data-a="toggle-inv" data-id="${a.id}" role="switch" aria-checked="${a.invocation === "manual"}" aria-label="Manual only"><i></i></button></div></div>` : ""}
         ${a.findings.length ? `<div class="dsec"><h3>Security findings</h3>${a.findings.map((x) => `<div class="finding ${x.level}">${ic(x.level === "high" ? "octagon-alert" : "triangle-alert")}<div><b>${esc(x.title)}</b><span class="mono">${esc(x.detail)}</span></div></div>`).join("")}</div>` : ""}
-        <div class="dsec"><h3>Trust and reach ${H.meter(a.trust)}</h3><div class="kv">
+        ${a.type === "settings" && a.config ? H.settingsDetail(a) : ""}
+        <div class="dsec"><h3>Trust and reach <span style="display:flex;align-items:center;gap:8px">${H.meter(a.trust)}<a href="#/security" style="font-weight:400">Security</a></span></h3><div class="kv">
           <span>Files</span><span class="mono">${esc(a.reach.files)}</span><span>Shell</span><span class="mono">${esc(a.reach.shell)}</span>
           <span>Network</span><span class="mono">${esc(a.reach.network)}</span><span>Env vars</span><span class="mono">${esc(a.reach.env)}</span></div></div>
         ${a.bundle.length ? `<div class="dsec"><h3>Bundle <span class="muted" style="font-weight:400">installed together, always</span></h3><div class="pins">${a.bundle.map((b) => { const x = H.art(b); return x ? `<button class="pin" data-a="open" data-id="${x.id}">${H.typeIc(x.type, true)}<span>${esc(x.name)}</span><span class="muted">${H.T[x.type].label}</span></button>` : ""; }).join("")}</div></div>` : ""}

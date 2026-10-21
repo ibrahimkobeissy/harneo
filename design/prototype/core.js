@@ -16,7 +16,9 @@
       tags: clone(D.TAGS),
       f: { types: [], tags: [], status: [], sources: [], trustMin: 0, inv: [], q: "" },
       view: "cards",
-      sort: "used",
+      libSort: { key: "sessions", dir: "desc" },
+      sorts: {},
+      page: 1,
       selected: null,
       claudeCli: true,
       ui: { modal: null, palette: null, menu: null, filtersOpen: false, enter: null },
@@ -65,6 +67,26 @@
   H.project = (id) => H.S.projects.find((p) => p.id === id);
   H.uid = (p) => p + "-" + Math.random().toString(36).slice(2, 8);
 
+  // ------------------------------------------------- sortable table headers
+  // Every table column sorts: click once for the natural order, again to reverse.
+  const NUMERIC = ["trust", "sessions", "tags", "severity", "count", "lost"];
+  H.getSort = (t) => (t === "lib" ? H.S.libSort : H.S.sorts[t] || (H.S.sorts[t] = { key: null, dir: "asc" }));
+  H.th = (t, key, label, extra) => {
+    const cur = H.getSort(t), on = cur.key === key;
+    return `<th aria-sort="${on ? (cur.dir === "asc" ? "ascending" : "descending") : "none"}"${extra || ""}><button class="thsort${on ? " on" : ""}" data-a="sort-col" data-t="${t}" data-k="${key}">${esc(label)}${H.icon(on ? (cur.dir === "asc" ? "arrow-up" : "arrow-down") : "arrow-up-down")}</button></th>`;
+  };
+  H.actions["sort-col"] = (el) => {
+    const t = el.dataset.t, k = el.dataset.k, cur = H.getSort(t);
+    if (cur.key === k) cur.dir = cur.dir === "asc" ? "desc" : "asc";
+    else { cur.key = k; cur.dir = NUMERIC.includes(k) ? "desc" : "asc"; }
+    if (t === "lib") H.S.page = 1;
+  };
+  H.sortBy = (list, cur, val) => {
+    if (!cur.key) return list;
+    const m = cur.dir === "asc" ? 1 : -1;
+    return list.slice().sort((a, b) => { const x = val(a, cur.key), y = val(b, cur.key); return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * m; });
+  };
+
   // --------------------------------------------------------------- router
   H.route = () => {
     const h = (location.hash || "#/library").slice(2).split("/");
@@ -84,6 +106,7 @@
       ${navItem("#/library", "layout-grid", "Library", S.artifacts.length, r.name === "library")}
       ${navItem("#/profiles", "layers", "Profiles", S.profiles.length, r.name === "profiles")}
       ${navItem("#/projects", "folder-git-2", "Projects", S.projects.length, r.name === "projects")}
+      ${navItem("#/security", "shield-check", "Security", S.artifacts.reduce((n, a) => n + a.findings.length, 0) || null, r.name === "security")}
       <h6><span>Collections</span><button data-a="collection-new" aria-label="New collection" title="New collection">${H.icon("plus")}</button></h6>
       ${cols || `<span class="muted" style="padding:2px 8px;font-size:12px">None yet</span>`}
       <h6><span>Actions</span></h6>
@@ -92,6 +115,7 @@
       ${navItem("#/refit", "refresh-cw", "Refit project", null, r.name === "refit")}
       ${navItem("#/cleanup", "sparkles", "Cleanup", null, r.name === "cleanup")}
       <div class="side-foot">
+        <button class="kbdbar" data-a="shortcuts" title="Keyboard shortcuts (?)">${H.icon("keyboard")}<span class="lbl">Keyboard shortcuts</span><kbd>?</kbd></button>
         <button class="kbdbar" data-a="palette-open" title="Search and commands (Ctrl K)">${H.icon("search")}<span class="lbl">Search</span><kbd>Ctrl K</kbd></button>
         ${navItem("#/settings", "settings", "Settings", null, r.name === "settings")}
         <div class="demo" title="Prototype controls"><span class="lbl">Prototype</span>
@@ -116,7 +140,7 @@
     el.focus({ preventScroll: true });
     if (f.s != null && el.setSelectionRange) try { el.setSelectionRange(f.s, f.e); } catch (e) { /* not a text input */ }
   }
-  const keepScroll = ["view", "dbody", "codeview", "treeview", "palres", "mbody"];
+  const keepScroll = ["view", "dbody", "codeview", "treeview", "palres", "mbody", "filtercol"];
   H.render = function () {
     const S = H.S, r = H.route();
     const focus = captureFocus();
@@ -191,7 +215,7 @@
   function palItems(q) {
     const S = H.S;
     const items = [
-      ["Places", "layout-grid", "Library", "#/library"], ["Places", "layers", "Profiles", "#/profiles"], ["Places", "folder-git-2", "Projects", "#/projects"], ["Places", "sparkles", "Cleanup", "#/cleanup"], ["Places", "settings", "Settings", "#/settings"],
+      ["Places", "layout-grid", "Library", "#/library"], ["Places", "layers", "Profiles", "#/profiles"], ["Places", "folder-git-2", "Projects", "#/projects"], ["Places", "sparkles", "Cleanup", "#/cleanup"], ["Places", "shield-check", "Security", "#/security"], ["Places", "settings", "Settings", "#/settings"],
       ["Actions", "download", "Import artifacts", "#/import"], ["Actions", "folder-plus", "Scaffold a new project", "#/scaffold"], ["Actions", "refresh-cw", "Refit an existing project", "#/refit"], ["Actions", "plus", "New profile", "act:profile-new"], ["Actions", "bookmark-plus", "New collection", "act:collection-new"], ["Actions", "sun-moon", "Toggle theme", "act:theme-cycle"], ["Actions", "keyboard", "Keyboard shortcuts", "act:shortcuts"],
     ];
     S.collections.forEach((c) => items.push(["Collections", c.kind === "smart" ? "list-filter" : "bookmark", c.name, "#/collection/" + c.id]));
