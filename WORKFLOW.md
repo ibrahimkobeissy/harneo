@@ -19,3 +19,4 @@ How Harneo is built with Addy Osmani's agent-skills and Impeccable: one line per
 15. `ticket-flow` build cycle #25: setup scripts for building from source (`--check`, `--dev`, per-OS package lists, 33 stubbed tests in `check:fast`) → `scripts/setup.sh`, `scripts/setup.ps1`, `scripts/setup.test.sh`
 16. `ticket-flow` build cycle #23: `BUILDING.md` (setup script, per-OS prerequisites, build and run, gate tools), README and `CLAUDE.md` commands; release build verified (`target/release/harneo-app`, `target/release/harneo`) → `BUILDING.md`, `README.md`, `CLAUDE.md`
 17. `/spec` artifact-model: spec drafted from the user's answers (all folder shapes, structured references only, `harneo scan` CLI, literal secrets as warnings) → `spec/artifact-model.md`, approved by the user
+18. `/plan` artifact-model: 12 tasks (A1–A12) with dependency graph, three checkpoints and risks, awaiting approval → `tasks/plan.md` (artifact-model section)

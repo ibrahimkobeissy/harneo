@@ -101,3 +101,102 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria 
 ## Open Questions
 
 None.
+
+---
+
+# Implementation Plan: artifact-model
+
+> Module `artifact-model` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/artifact-model.md`](../spec/artifact-model.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
+> **Tasks are tracked in GitHub Issues** (`ibrahimkobeissy/harneo`, Project 5) and built by the `ticket-flow` cycle. Task ids are `A1`–`A12` so they don't clash with app-shell's `T1`–`T14`.
+> Status: **draft, awaiting approval** ([#27](https://github.com/ibrahimkobeissy/harneo/issues/27)).
+
+## Overview
+
+Teach `harneo-core` to find, parse and check the 10 artifact types in a local folder, behind an agent-neutral `AgentAdapter`, safely (the folder is untrusted), and expose it as `harneo scan <path> [--json]`. No screens.
+
+## Architecture Decisions
+
+- **One thin path first.** A1 builds the types, the adapter trait, frontmatter parsing and one type (skills) end to end; A2 puts `harneo scan` on top. Every later type is then "one more file in `claude/kinds/` plus one dispatch line", which keeps parallel tickets small and their merges trivial.
+- **Safety is early, not last.** A3 (the safe walk and the hostile fixture) comes straight after the first slice, so every later parser reads files only through `walk.rs` and inherits the limits.
+- **The types are complete from A1.** `ArtifactKind` lists all 10 types and `Artifact`/`Reference`/`Diagnostic`/`ScanReport` are final in A1, so later tickets add parsers, not fields. A field that turns out to be missing is a change to A1's types, made by the orchestrator, not inside a parallel ticket.
+- **One secret detector.** A6 (Settings) writes the literal-secret check in a shared helper; A7 (MCP) reuses it, so A7 is blocked by A6.
+- **Cross-artifact work waits for the parsers:** reference resolution and duplicate checks (A10) need the references the parsers produce; the all-shapes fixture test and `install_path` for every type (A12) close the module.
+- **Dependencies** are the ones the spec approves (`serde`, `serde_json`, `serde-saphyr`, `sha2`, `ts-rs`, `tempfile` dev). Versions checked on crates.io when A1 starts.
+
+## Dependency graph
+
+```
+A1 types + adapter + frontmatter + skills ─┬─ A2 harneo scan CLI
+                                            ├─ A3 safe walk + hostile fixture ─┬─ A11 digest
+                                            │                                  └─ A9 plugins, marketplace, ~/.claude, loose skills
+                                            ├─ A4 rules, commands, subagents, output styles
+                                            ├─ A5 CLAUDE.md + @imports (+A3)
+                                            ├─ A6 Settings + secret helper ── A7 MCP servers
+                                            └─ A8 workflows
+A4, A5, A6, A7, A9 ── A10 reference resolution + duplicate checks
+A2, A8, A10, A11 ── A12 install_path + all-shapes fixture test
+```
+
+Parallel after A1: A2, A3, A4, A6, A8. After A3: A5, A9, A11.
+
+## Tasks
+
+| Id | Title | Size | Blocked by | Acceptance (summary) |
+|---|---|---|---|---|
+| A1 | Artifact types, `AgentAdapter`, frontmatter, and skills found in a folder | M | — | All public types with `Serialize` + `TS` (bindings in `src/bindings/`); `ClaudeAdapter::scan` finds skills in `skills/` and `.claude/skills/` with name, description, files and the `skill.*` diagnostics; malformed YAML is a diagnostic, never a panic |
+| A2 | `harneo scan <path> [--json]` | S | A1 | Human summary and `--json` `ScanReport`; exit 0 when the scan ran, 1 when the path is missing or not a folder (`assert_cmd`) |
+| A3 | Safe walk and the hostile fixture | M | A1 | `walk.rs`: no symlinks followed, size and total limits, skip `.git`/`node_modules`/`target`, secret-pattern files listed not read, `..` never resolved, YAML limits on; hostile fixture (generated at test time) scans to completion and reports each problem |
+| A4 | Rules, commands, subagents, output styles | M | A1 | Each type parsed with its fields and checks (`agent.missing-name`, `agent.missing-description`, `rule.*`, …); subagent `skills`/`mcpServers` and a command's/skill's `agent` field become references |
+| A5 | CLAUDE.md and its `@imports` | S | A1, A3 | Imported files join `files`; missing import and import outside the root are warnings; nested imports followed with a depth limit |
+| A6 | Settings template and the literal-secret check | M | A1 | `settings.json` kept whole; hook and status-line script paths become files + references (missing script is an error); `outputStyle`/`enabledPlugins` references; a literal secret in `env` is `settings.literal-secret`, the value appears nowhere in the report or JSON |
+| A7 | MCP servers from `.mcp.json` | S | A6 | One artifact per server; neither `command` nor `url` is an error; literal secret in `env`/`headers` is `mcp.literal-secret` via A6's helper |
+| A8 | Workflows | S | A1 | `meta` read as text (name, description), JS never run; missing `meta` is a warning |
+| A9 | Plugins, marketplaces, `~/.claude`-like folders, loose skills | M | A1, A3 | `plugin.json` → one Plugin, scan doesn't descend; each `marketplace.json` entry → one Plugin, remote sources recorded not fetched; `~/.claude` and pack shapes; loose `SKILL.md` up to depth 4 |
+| A10 | Reference resolution and cross-artifact checks | S | A4, A5, A6, A7, A9 | References marked resolved when the target is in the scan; duplicate names per type and skill/command clashes are warnings |
+| A11 | Artifact digest | S | A3 | SHA-256 over sorted path + content; deterministic; one byte changed in a skill's script changes that skill's digest only; secret-pattern files excluded |
+| A12 | `install_path` for every type and the all-shapes fixture test | S | A2, A8, A10, A11 | `install_path` matches `CONTEXT.md` §2 for all 10 types; one integration test per shape (project, `~/.claude`, pack, plugin, marketplace) lists exactly the expected artifacts; same folder → same report |
+
+Each issue's body holds the full acceptance criteria and verification (`cargo test -p harneo-core artifact`, `npm run check:task`).
+
+## Checkpoints
+
+**Checkpoint: first slice** (after A1–A3)
+- [ ] `harneo scan` on a folder of skills prints them; the hostile fixture is safe
+- [ ] `check:full` passes; coverage ratchet holds
+
+**Checkpoint: every type** (after A4–A9)
+- [ ] All 10 types parse with their checks; the secret warning never leaks the value (spec criteria 2, 3, 4)
+- [ ] The user runs `harneo scan` on a real source of their choice and says what looks wrong
+
+**Checkpoint: artifact-model complete** (after A10–A12)
+- [ ] Every success criterion in `spec/artifact-model.md` (1–9) is met
+- [ ] The user runs `harneo scan` on their `~/.claude`, an Addy `agent-skills` clone and the Impeccable plugin (criterion 8); anything wrong becomes a fixture and a fix
+- [ ] `spec/capabilities.md` marks artifact-model done; the `library` spec starts
+
+## Spec coverage
+
+| Spec success criterion | Tasks |
+|---|---|
+| 1. Every shape lists the expected artifacts | A9, A12 |
+| 2. Every check has a code and both tests | A1, A4–A8, A10 |
+| 3. Hostile fixture safe | A3 |
+| 4. Literal secret never leaks | A6, A7 |
+| 5. `install_path` per type | A12 |
+| 6. Deterministic report and digests | A11, A12 |
+| 7. TS bindings compile | A1 |
+| 8. Real sources, under 2 s | checkpoint (user) |
+| 9. `check:full` and the ratchet | every task |
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Claude Code's file formats differ from what we assume (field names, which are required) | High | Each kind ticket checks the current docs at code.claude.com before coding, and HarnessKit's Claude adapter for reference (Apache-2.0, attribute anything borrowed) |
+| `serde-saphyr`'s API or limit options aren't what the spec expects | Med | A1 verifies it first; if it falls short, stop and raise it with the user before picking another crate |
+| Parallel kind tickets conflicting in `claude/mod.rs` dispatch | Low | A1 sets the one-line-per-type dispatch; the orchestrator resolves the one-line rebases |
+| Hostile fixture tripping gitleaks or the secret-path guard hook | Med | Secret-pattern files are generated in a temp dir at test time, never committed |
+| Rust coverage ratchet (74.58%) falls | Low | Parsers are pure and unit-tested; every diagnostic code has both tests |
+
+## Open Questions
+
+None for this module. The literal-secret import behaviour is the `library` spec's question (see `spec/artifact-model.md`).
