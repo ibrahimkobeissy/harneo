@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Changed-line coverage: TS (vitest + v8) and Rust (cargo llvm-cov), gated by diff-cover.
-# Usage: coverage.sh "<space-separated touched crates, or empty>" [changed TS/TSX files...]
+# Usage: coverage.sh "<space-separated touched crates, or empty>" [changed TS/TSX files...]  (the files only decide whether TS is checked)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -15,13 +15,17 @@ crates=$1
 shift
 ts_files=("$@")
 
+# diff-cover only sees tracked files: mark untracked ones as intent-to-add (no content staged).
+git ls-files -z --others --exclude-standard | xargs -0 -r git add -N --
+
 rm -rf coverage
 mkdir -p coverage
 reports=()
 
 if ((${#ts_files[@]})); then
-  echo "== vitest coverage (related tests)"
-  npx vitest related --run --passWithNoTests --coverage "${ts_files[@]}"
+  # Full run, not "related": a new file nothing imports has no related tests but must show as uncovered.
+  echo "== vitest run --coverage"
+  npx vitest run --passWithNoTests --coverage
   [[ -f coverage/lcov.info ]] && reports+=(coverage/lcov.info)
 fi
 
