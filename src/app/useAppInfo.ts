@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AppInfo } from "../bindings/AppInfo";
 import { appInfo } from "../lib/ipc";
 
@@ -7,8 +7,10 @@ export type AppInfoState =
   | { status: "ready"; info: AppInfo }
   | { status: "error"; message: string };
 
-export function useAppInfo(): AppInfoState {
+/** The app's version and data folder, with a retry for when the backend call fails. */
+export function useAppInfo(): AppInfoState & { retry: () => void } {
   const [state, setState] = useState<AppInfoState>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -23,7 +25,12 @@ export function useAppInfo(): AppInfoState {
     return () => {
       active = false;
     };
+  }, [attempt]);
+
+  const retry = useCallback(() => {
+    setState({ status: "loading" });
+    setAttempt((n) => n + 1);
   }, []);
 
-  return state;
+  return { ...state, retry };
 }

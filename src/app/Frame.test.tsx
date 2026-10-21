@@ -53,7 +53,7 @@ describe("routing", () => {
 
   it("shows the About panel on Settings", async () => {
     renderAt("/settings");
-    expect(await screen.findByText(/Version 1\.2\.3/)).toBeInTheDocument();
+    expect(await screen.findByText("1.2.3")).toBeInTheDocument();
   });
 
   it("lists the empty Collections section", () => {
@@ -80,7 +80,8 @@ describe("shortcuts dialog", () => {
     renderAt("/library");
     const button = screen.getByRole("button", { name: /Keyboard shortcuts/ });
     await user.click(button);
-    expect(screen.getByRole("dialog")).toHaveFocus();
+    // Focus lands on the dialog's first control, so it is visible right away.
+    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(button).toHaveFocus();
   });

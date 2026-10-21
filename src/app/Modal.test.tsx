@@ -15,9 +15,7 @@ describe("Modal", () => {
         </Modal>
       </>,
     );
-    const dialog = screen.getByRole("dialog", { name: "Test dialog" });
-    expect(dialog).toHaveFocus();
-    await user.tab();
+    // Focus starts on the first control, then Tab cycles inside the dialog.
     expect(screen.getByRole("button", { name: "first" })).toHaveFocus();
     await user.tab();
     expect(screen.getByRole("button", { name: "last" })).toHaveFocus();
@@ -25,6 +23,8 @@ describe("Modal", () => {
     expect(screen.getByRole("button", { name: "first" })).toHaveFocus();
     await user.tab({ shift: true });
     expect(screen.getByRole("button", { name: "last" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "first" })).toHaveFocus();
   });
 
   it("restores focus on unmount and closes from the scrim", async () => {

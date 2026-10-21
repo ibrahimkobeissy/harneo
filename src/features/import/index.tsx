@@ -5,7 +5,8 @@ export function ImportScreen() {
   return (
     <Screen title="Import">
       <EmptyState icon={Download} title="Not built yet">
-        Importing artifacts arrives with the import module.
+        Bring artifacts into the library from ~/.claude, a git URL or a folder.
+        Claude suggests bundles and tags; nothing in your projects changes.
       </EmptyState>
     </Screen>
   );

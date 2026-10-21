@@ -1,6 +1,9 @@
 .page {
-  padding: var(--space-lg) var(--space-page-x) var(--space-xl);
+  padding: var(--space-page-top) var(--space-page-x) var(--space-page-bottom);
   max-width: var(--size-page-max);
+}
+.narrow {
+  max-width: var(--size-page-narrow);
 }
 .head {
   display: flex;

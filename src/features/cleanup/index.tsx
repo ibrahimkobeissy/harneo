@@ -1,11 +1,12 @@
-import { Sparkles } from "lucide-react";
+import { Eraser } from "lucide-react";
 import { EmptyState, Screen } from "../../ui";
 
 export function CleanupScreen() {
   return (
     <Screen title="Cleanup">
-      <EmptyState icon={Sparkles} title="Not built yet">
-        Cleanup arrives with the cleanup module.
+      <EmptyState icon={Eraser} title="Not built yet">
+        Find what is unused, outdated, repeated or untrusted across your library
+        and profiles, and prune it.
       </EmptyState>
     </Screen>
   );

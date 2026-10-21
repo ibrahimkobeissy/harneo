@@ -15,3 +15,23 @@
     grid-template-columns: var(--size-rail) 1fr;
   }
 }
+
+/* Visible only when focused: lets keyboard users jump past the sidebar. */
+.skip {
+  position: absolute;
+  left: var(--space-sm);
+  top: var(--space-sm);
+  z-index: 100;
+  padding: var(--space-xs) var(--space-md);
+  border-radius: var(--radius);
+  background: var(--blue);
+  color: var(--on-blue);
+  font-weight: 500;
+  transform: translateY(-200%);
+}
+.skip:focus-visible {
+  transform: none;
+}
+.main:focus {
+  outline: none;
+}

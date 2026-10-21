@@ -1,5 +1,6 @@
 import {
   Download,
+  Eraser,
   FolderGit2,
   FolderPlus,
   Layers,
@@ -7,7 +8,6 @@ import {
   RefreshCw,
   Settings,
   ShieldCheck,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 
@@ -28,7 +28,7 @@ export const actions: readonly Destination[] = [
   { label: "Import", path: "/import", icon: Download },
   { label: "Scaffold project", path: "/scaffold", icon: FolderPlus },
   { label: "Refit project", path: "/refit", icon: RefreshCw },
-  { label: "Cleanup", path: "/cleanup", icon: Sparkles },
+  { label: "Cleanup", path: "/cleanup", icon: Eraser },
 ];
 
 export const settingsDestination: Destination = {

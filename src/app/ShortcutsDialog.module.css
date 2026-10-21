@@ -15,6 +15,9 @@
   padding: var(--space-xs) 0;
   border-bottom: var(--hairline) solid var(--line);
 }
+.row:last-child {
+  border-bottom: 0;
+}
 .foot {
   padding: var(--space-md) var(--space-lg);
   border-top: var(--hairline) solid var(--line);

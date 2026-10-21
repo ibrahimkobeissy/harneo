@@ -1,21 +1,17 @@
 import type { ReactNode } from "react";
 import styles from "./Tag.module.css";
 
+// Tags never use green, amber, red or the accent blue: those mean state or selection.
 export type TagTint =
-  | "slate"
-  | "blue"
-  | "violet"
   | "cyan"
-  | "orange"
-  | "teal"
-  | "pink"
-  | "indigo"
-  | "amber"
-  | "green"
-  | "red"
   | "sky"
+  | "indigo"
+  | "violet"
   | "fuchsia"
-  | "stone";
+  | "stone"
+  | "slate"
+  | "plain"
+  | "ink";
 
 export function Tag({
   tint = "slate",

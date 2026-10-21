@@ -108,7 +108,7 @@ describe("NavItem", () => {
     );
     const active = screen.getByRole("link", { name: "Profiles" });
     expect(active).toHaveAttribute("aria-current", "page");
-    expect(active).toHaveAttribute("title", "Profiles");
+    expect(active).toHaveAttribute("data-tip", "Profiles");
     expect(screen.getByRole("link", { name: "Library" })).not.toHaveAttribute(
       "aria-current",
     );

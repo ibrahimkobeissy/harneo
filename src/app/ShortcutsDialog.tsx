@@ -1,14 +1,14 @@
 import { Button, Kbd } from "../ui";
 import { Modal } from "./Modal";
+import { searchShortcut } from "./platform";
 import styles from "./ShortcutsDialog.module.css";
 
-const shortcuts: readonly { keys: string; does: string }[] = [
-  { keys: "Ctrl K", does: "Search and commands" },
-  { keys: "?", does: "This list" },
-  { keys: "Esc", does: "Close dialog or palette" },
-];
-
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
+  const shortcuts: readonly { keys: string; does: string }[] = [
+    { keys: searchShortcut(), does: "Search and commands" },
+    { keys: "?", does: "This list" },
+    { keys: "Esc", does: "Close dialog or palette" },
+  ];
   return (
     <Modal label="Keyboard shortcuts" onClose={onClose}>
       <h2 className={styles.title}>Keyboard shortcuts</h2>

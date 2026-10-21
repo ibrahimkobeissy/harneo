@@ -17,6 +17,7 @@
   --blue-soft: #eff6ff;
   --blue-ring: #dbeafe;
   --on-blue: #ffffff;
+  --on-danger: #ffffff;
   --green: #15803d;
   --green-fill: #16a34a;
   --green-soft: #dcfce7;
@@ -38,7 +39,6 @@
   --diff-del: #fdecec;
   --radius: 8px;
   --radius-lg: 10px;
-  --mono: "JetBrains Mono", ui-monospace, monospace;
   /* type tints: soft background / ink */
   --tint-blue-bg: #dbeafe;
   --tint-blue: #1d4ed8;
@@ -58,10 +58,6 @@
   --tint-indigo: #4338ca;
   --tint-amber-bg: #fef3c7;
   --tint-amber: #b45309;
-  --tint-green-bg: #dcfce7;
-  --tint-green: #15803d;
-  --tint-red-bg: #fee2e2;
-  --tint-red: #b91c1c;
   --tint-sky-bg: #e0f2fe;
   --tint-sky: #0369a1;
   --tint-fuchsia-bg: #fae8ff;
@@ -87,6 +83,12 @@
   --space-lg: 16px;
   --space-xl: 24px;
   --space-page-x: 28px;
+  --space-page-top: 20px;
+  --space-page-bottom: 48px;
+  --space-empty: 48px;
+  --space-control-sm-x: 9px;
+  --space-tag-l: 6px;
+  --space-tag-r: 7px;
   --text-display: 26px;
   --text-headline: 20px;
   --text-title-lg: 17px;
@@ -117,6 +119,7 @@
   --size-palette-input: 52px;
   --size-gutter: 32px;
   --size-page-max: 1400px;
+  --size-page-narrow: 1040px;
   --features: "tnum", "cv11";
   color-scheme: light;
 }
@@ -136,6 +139,7 @@
     --blue-soft: #14213d;
     --blue-ring: #1e3a8a;
     --on-blue: #ffffff;
+    --on-danger: #ffffff;
     --green: #4ade80;
     --green-fill: #22c55e;
     --green-soft: #12301f;
@@ -171,10 +175,6 @@
     --tint-indigo: #a5b4fc;
     --tint-amber-bg: #451a03;
     --tint-amber: #fcd34d;
-    --tint-green-bg: #052e16;
-    --tint-green: #86efac;
-    --tint-red-bg: #450a0a;
-    --tint-red: #fca5a5;
     --tint-sky-bg: #082f49;
     --tint-sky: #7dd3fc;
     --tint-fuchsia-bg: #4a044e;
@@ -204,6 +204,7 @@
   --blue-soft: #14213d;
   --blue-ring: #1e3a8a;
   --on-blue: #ffffff;
+  --on-danger: #ffffff;
   --green: #4ade80;
   --green-fill: #22c55e;
   --green-soft: #12301f;
@@ -239,10 +240,6 @@
   --tint-indigo: #a5b4fc;
   --tint-amber-bg: #451a03;
   --tint-amber: #fcd34d;
-  --tint-green-bg: #052e16;
-  --tint-green: #86efac;
-  --tint-red-bg: #450a0a;
-  --tint-red: #fca5a5;
   --tint-sky-bg: #082f49;
   --tint-sky: #7dd3fc;
   --tint-fuchsia-bg: #4a044e;
@@ -280,8 +277,7 @@ body {
   background: var(--blue-ring);
   color: var(--t1);
 }
-:focus-visible {
+:where(:focus-visible) {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
-  border-radius: var(--radius-xs);
 }

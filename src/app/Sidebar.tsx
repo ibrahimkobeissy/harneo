@@ -1,6 +1,7 @@
 import { Keyboard, Search } from "lucide-react";
-import { NavLink } from "react-router";
+import { Link } from "react-router";
 import { Kbd, Logo, NavItem } from "../ui";
+import { searchShortcut } from "./platform";
 import { actions, places, settingsDestination } from "./routes";
 import styles from "./Sidebar.module.css";
 
@@ -10,17 +11,25 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
+  const search = searchShortcut();
   return (
     <nav className={styles.side} aria-label="Main">
-      <NavLink to="/library" end aria-label="Harneo" className={styles.brand}>
+      {/* The brand goes home but is not a nav item, so only Library carries aria-current. */}
+      <Link
+        to="/library"
+        aria-label="Harneo, go to Library"
+        className={styles.brand}
+      >
         <Logo />
         <span className={styles.brandName}>Harneo</span>
-      </NavLink>
+      </Link>
       {places.map((d) => (
         <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />
       ))}
       <h2 className={styles.heading}>Collections</h2>
-      <p className={styles.none}>None yet</p>
+      <p className={styles.none}>
+        None yet. Saved groupings of library artifacts appear here.
+      </p>
       <h2 className={styles.heading}>Actions</h2>
       {actions.map((d) => (
         <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />
@@ -29,7 +38,8 @@ export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
         <button
           type="button"
           className={styles.kbdbar}
-          title="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+          data-tip="Keyboard shortcuts  ?"
           onClick={onShortcuts}
         >
           <Keyboard size={16} aria-hidden="true" />
@@ -41,13 +51,14 @@ export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
         <button
           type="button"
           className={styles.kbdbar}
-          title="Search and commands (Ctrl K)"
+          aria-label="Search and commands"
+          data-tip={`Search and commands  ${search}`}
           onClick={onSearch}
         >
           <Search size={16} aria-hidden="true" />
           <span className={styles.lbl}>Search</span>
           <span className={styles.hint}>
-            <Kbd>Ctrl K</Kbd>
+            <Kbd>{search}</Kbd>
           </span>
         </button>
         <NavItem

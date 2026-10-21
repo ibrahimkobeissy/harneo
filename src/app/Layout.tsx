@@ -41,15 +41,20 @@ export function Layout() {
 
   return (
     <div className={styles.frame}>
+      <a href="#main" className={styles.skip}>
+        Skip to content
+      </a>
       <Sidebar
         onShortcuts={() => setOverlay("shortcuts")}
         onSearch={() => setOverlay("palette")}
       />
-      <main className={styles.main}>
+      <main id="main" tabIndex={-1} className={styles.main}>
         <Outlet />
       </main>
       {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
-      {overlay === "palette" && <Palette onClose={close} />}
+      {overlay === "palette" && (
+        <Palette onClose={close} onShortcuts={() => setOverlay("shortcuts")} />
+      )}
     </div>
   );
 }

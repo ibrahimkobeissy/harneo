@@ -31,7 +31,9 @@ export function Modal({
   useEffect(() => {
     const previous = document.activeElement;
     const node = ref.current;
-    if (node && !node.contains(document.activeElement)) node.focus();
+    if (node && !node.contains(document.activeElement)) {
+      (node.querySelector<HTMLElement>(focusable) ?? node).focus();
+    }
     return () => {
       if (previous instanceof HTMLElement) previous.focus();
     };

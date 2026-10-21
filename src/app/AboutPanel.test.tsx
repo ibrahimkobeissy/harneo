@@ -12,7 +12,8 @@ describe("AboutPanel", () => {
     render(<AboutPanel />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading");
-    expect(await screen.findByText(/Version 1\.2\.3/)).toBeInTheDocument();
+    expect(await screen.findByText("1.2.3")).toBeInTheDocument();
+    expect(screen.getByText("Version")).toBeInTheDocument();
     expect(screen.getByText(/\/data\/harneo/)).toBeInTheDocument();
   });
 

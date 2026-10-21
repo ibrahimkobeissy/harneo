@@ -6,7 +6,7 @@
   align-items: center;
   gap: var(--space-xs);
   font: inherit;
-  font-size: var(--text-body);
+  font-size: var(--text-label);
   font-weight: 500;
   border: var(--hairline) solid var(--line);
   background: var(--raised);
@@ -43,7 +43,7 @@
 .danger-solid {
   background: var(--red-fill);
   border-color: var(--red-fill);
-  color: var(--on-blue);
+  color: var(--on-danger);
 }
 .danger-solid:hover {
   background: var(--red-fill);
@@ -62,8 +62,7 @@
 }
 .sm {
   height: var(--size-control-sm);
-  padding: 0 var(--space-sm);
-  font-size: var(--text-label);
+  padding: 0 var(--space-control-sm-x);
 }
 .btn:disabled {
   opacity: 0.5;

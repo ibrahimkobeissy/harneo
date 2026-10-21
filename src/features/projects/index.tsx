@@ -5,7 +5,8 @@ export function ProjectsScreen() {
   return (
     <Screen title="Projects">
       <EmptyState icon={FolderGit2} title="Not built yet">
-        Projects arrive with the projects module.
+        The projects Harneo has scaffolded or refitted, the profile and version
+        each one runs, and any drift from it.
       </EmptyState>
     </Screen>
   );

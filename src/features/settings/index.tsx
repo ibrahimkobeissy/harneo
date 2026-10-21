@@ -3,7 +3,7 @@ import { Screen } from "../../ui";
 
 export function SettingsScreen() {
   return (
-    <Screen title="Settings">
+    <Screen title="Settings" narrow>
       <AboutPanel />
     </Screen>
   );

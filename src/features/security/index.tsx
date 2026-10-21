@@ -5,7 +5,8 @@ export function SecurityScreen() {
   return (
     <Screen title="Security">
       <EmptyState icon={ShieldCheck} title="Not built yet">
-        The security overview arrives with the security module.
+        Every artifact is audited on import: a trust score, its findings, and
+        exactly which files, commands, hosts and env vars it can reach.
       </EmptyState>
     </Screen>
   );

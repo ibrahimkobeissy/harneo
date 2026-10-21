@@ -36,10 +36,11 @@
 .act {
   background: var(--blue-soft);
 }
-.group {
-  margin-left: auto;
+.grp {
+  font-size: var(--text-label-quiet);
   color: var(--t3);
-  font-size: var(--text-label);
+  font-weight: 500;
+  padding: var(--space-sm) var(--space-sm) var(--space-xxs);
 }
 .none {
   padding: var(--space-md) var(--space-lg);

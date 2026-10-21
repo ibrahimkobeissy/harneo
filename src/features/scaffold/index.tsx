@@ -5,7 +5,8 @@ export function ScaffoldScreen() {
   return (
     <Screen title="Scaffold project">
       <EmptyState icon={FolderPlus} title="Not built yet">
-        Scaffolding arrives with the scaffold module.
+        Install a profile into a new, empty project. You see every file before
+        anything is written.
       </EmptyState>
     </Screen>
   );

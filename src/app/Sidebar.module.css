@@ -69,13 +69,49 @@
     padding: var(--space-xxs) 0 var(--space-md);
   }
   .brandName,
-  .heading,
   .none,
   .lbl,
   .hint {
     display: none;
   }
+  /* Group headings become hairline dividers so the rail keeps its structure. */
+  .heading {
+    font-size: 0;
+    padding: 0;
+    width: 60%;
+    height: var(--hairline);
+    background: var(--line2);
+    margin: var(--space-sm) auto;
+  }
+  .side {
+    overflow: visible;
+  }
   .kbdbar {
     justify-content: center;
+  }
+}
+
+/* Rail tooltip: the item's name (and shortcut) on hover and keyboard focus. */
+@media (max-width: 62.5rem) {
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]:hover::after,
+  [data-tip]:focus-visible::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: calc(100% + var(--space-sm));
+    top: 50%;
+    transform: translateY(-50%);
+    padding: var(--space-xxs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    background: var(--t1);
+    color: var(--bg);
+    font-size: var(--text-label);
+    font-weight: 500;
+    white-space: pre;
+    box-shadow: var(--shadow-md);
+    pointer-events: none;
+    z-index: 10;
   }
 }
