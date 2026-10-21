@@ -16,7 +16,8 @@
     "test:floor": "bash scripts/check-floor.test.sh",
     "check:fast": "bash scripts/check-fast.sh",
     "check:arch": "depcruise --validate .dependency-cruiser.cjs src && bash scripts/check-arch.sh",
-    "check:task": "bash scripts/check-task.sh"
+    "check:task": "bash scripts/check-task.sh",
+    "check:full": "bash scripts/check-full.sh"
   },
   "dependencies": {
     "@fontsource/inter": "^5.3.0",
