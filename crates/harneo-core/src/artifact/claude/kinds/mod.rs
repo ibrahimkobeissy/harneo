@@ -3,6 +3,7 @@
 pub(super) mod agent;
 pub(super) mod claude_md;
 pub(super) mod command;
+pub(super) mod mcp;
 pub(super) mod output_style;
 pub(super) mod rule;
 pub(super) mod settings;
