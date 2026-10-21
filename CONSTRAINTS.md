@@ -49,8 +49,8 @@ The task budget is 3 minutes instead of the usual 90 seconds because Rust compil
 
 | Metric | Today | Direction | Checked by |
 |---|---|---|---|
-| Project coverage, Rust | Not measured yet: recorded after the first `app-shell` ticket lands (`/constraints ratchet`) | Must not fall | `scripts/coverage-ratchet.sh` in `check:full` |
-| Project coverage, TypeScript | Not measured yet: same | Must not fall | `scripts/coverage-ratchet.sh` in `check:full` |
+| Project coverage, Rust | 74.58% (2026-10-21, commit 8718bed) | Must not fall | `scripts/coverage-ratchet.sh` in `check:full` |
+| Project coverage, TypeScript | 95.17% (2026-10-21, commit 8718bed) | Must not fall | `scripts/coverage-ratchet.sh` in `check:full` |
 
 ## Dropped on purpose
 
