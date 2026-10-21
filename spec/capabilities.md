@@ -5,7 +5,7 @@ Approved 2026-10-18. This is the index of Harneo's modules and their specs. The 
 | Module id | Responsibility | Depends on | Spec |
 |---|---|---|---|
 | `app-shell` | Tauri 2 + React scaffold, Rust core library + app + CLI layout, design system, navigation, `BUILDING.md`. Also sets the project-wide conventions | — | [`app-shell.md`](app-shell.md) (approved 2026-10-19) |
-| `artifact-model` | The 10 artifact types (`CONTEXT.md` §2): find them in a folder, parse them, check them; a Claude adapter behind an agent-neutral interface | — | [`artifact-model.md`](artifact-model.md) (draft) |
+| `artifact-model` | The 10 artifact types (`CONTEXT.md` §2): find them in a folder, parse them, check them; a Claude adapter behind an agent-neutral interface | — | [`artifact-model.md`](artifact-model.md) (approved 2026-10-21) |
 | `library` | Harneo's own store; import from a local folder or git URL with provenance (URL, branch, subfolder, commit); browse by type and source; tags and collections; promote to library | `app-shell`, `artifact-model` | — |
 | `audit` | Trust score, security findings, permission transparency | `artifact-model` | — |
 | `bundles` | AI dependency detection through the `claude` CLI, plus tag suggestions in the same pass; user confirms or edits | `library` | — |

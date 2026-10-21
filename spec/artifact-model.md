@@ -1,6 +1,6 @@
 # Spec: artifact-model
 
-> Module `artifact-model` of the [capability map](capabilities.md). Status: **draft, awaiting approval.**
+> Module `artifact-model` of the [capability map](capabilities.md). Status: **approved 2026-10-21.**
 > Product context: [`CONTEXT.md`](../CONTEXT.md) §2 (the 10 artifact types, what travels with each) and §5 (constraints).
 > Project-wide conventions (commands, structure, code style, testing, boundaries) are in [`app-shell.md`](app-shell.md). This spec only records what this module adds or changes.
 
