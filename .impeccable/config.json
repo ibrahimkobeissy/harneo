@@ -35,6 +35,33 @@
         "value": "inter",
         "createdAt": "2026-10-19T21:53:05.791Z",
         "reason": "user confirmed 2026-10-19: keep Inter, category-standard direction benchmarked on Linear"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-21T18:56:24.182Z",
+        "reason": "intentional: unchosen decision-round sketch with its own direction's fonts; spent hand, not shipped"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-21T18:56:24.189Z",
+        "reason": "intentional: unchosen decision-round sketch with its own direction's fonts; spent hand, not shipped"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-console.html"
+        ],
+        "createdAt": "2026-10-21T18:56:24.196Z",
+        "reason": "intentional: unchosen decision-round sketch with its own direction's fonts; spent hand, not shipped"
       }
     ]
   }
