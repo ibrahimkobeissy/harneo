@@ -37,8 +37,8 @@ impl AgentAdapter for ClaudeAdapter {
         kinds::mcp::scan(&mut walker, &mut report);
         kinds::workflow::scan(&mut walker, &mut report);
         // Keep last: it removes what the kinds found inside a plugin.
-        super::digest::fill(&mut walker, &mut report);
         layout::scan(&mut walker, options, &mut report);
+        super::digest::fill(&mut walker, &mut report);
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
