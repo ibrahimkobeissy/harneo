@@ -1,0 +1,40 @@
+//! Claude Code's side of the artifact model: where its artifacts live and how to read them.
+//! Each artifact type is one file in `kinds/` and one line in `scan`.
+
+mod kinds;
+
+use std::path::{Path, PathBuf};
+
+use super::{AgentAdapter, Artifact, ArtifactKind, ScanOptions, ScanReport};
+use crate::{Error, Result};
+
+/// The adapter for Claude Code.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct ClaudeAdapter;
+
+impl AgentAdapter for ClaudeAdapter {
+    fn id(&self) -> &'static str {
+        "claude"
+    }
+
+    fn scan(&self, root: &Path, options: &ScanOptions) -> Result<ScanReport> {
+        if !root.is_dir() {
+            return Err(Error::NotAFolder {
+                path: root.display().to_string(),
+            });
+        }
+        let mut report = ScanReport::default();
+        kinds::skill::scan(root, options, &mut report);
+        report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
+        Ok(report)
+    }
+
+    fn install_path(&self, artifact: &Artifact) -> PathBuf {
+        match artifact.kind {
+            ArtifactKind::Skill => kinds::skill::install_path(artifact),
+            // The other types are completed with the install-path ticket; until then they
+            // stay where they were found.
+            _ => PathBuf::from(&artifact.path),
+        }
+    }
+}
