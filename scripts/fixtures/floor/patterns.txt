@@ -1,0 +1,20 @@
+ts|ts-ignore|// @ts-ignore
+ts|ts-nocheck|// @ts-nocheck
+ts|ts-expect-error|// @ts-expect-error because
+ts|eslint-disable|/* eslint-disable no-console */
+ts|eslint-disable-next-line|// eslint-disable-next-line no-console
+rs|rust-allow|#[allow(dead_code)]
+rs|rust-inner-allow|#![allow(unused)]
+rs|todo|    todo!();
+rs|unimplemented|    unimplemented!();
+ts|not-implemented-double|throw new Error("Not implemented");
+ts|not-implemented-single|throw new Error('Not implemented');
+ts|empty-catch|try { run(); } catch {}
+ts|empty-catch-binding|try { run(); } catch (e) {}
+ts|it-skip|it.skip("later", () => {});
+ts|test-skip|test.skip("later", () => {});
+ts|describe-skip|describe.skip("later", () => {});
+ts|only|it.only("focus", () => {});
+ts|xit|xit("later", () => {});
+ts|xdescribe|xdescribe("later", () => {});
+rs|rust-ignore|#[ignore]

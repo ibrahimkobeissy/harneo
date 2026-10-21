@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check:fast - types, TS lint and format on changed files, cargo check, leak scan.
+# check:fast - types, TS lint and format on changed files, floor guard, cargo check, leak scan.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -45,6 +45,9 @@ if ((${#formattable[@]})); then
   echo "== prettier --check (changed files)"
   npx prettier --check --ignore-unknown "${formattable[@]}"
 fi
+
+echo "== check-floor"
+bash scripts/check-floor.sh
 
 echo "== cargo check --workspace"
 cargo check --workspace

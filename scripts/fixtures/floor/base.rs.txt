@@ -1,0 +1,3 @@
+pub fn a() {}
+#[test]
+fn keeps_working() {}
