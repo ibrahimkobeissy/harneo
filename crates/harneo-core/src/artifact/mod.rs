@@ -3,6 +3,7 @@
 
 pub mod adapter;
 pub mod claude;
+pub mod digest;
 pub mod frontmatter;
 pub mod literal_secret;
 pub mod walk;

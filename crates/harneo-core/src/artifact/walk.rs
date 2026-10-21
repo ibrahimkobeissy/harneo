@@ -63,6 +63,10 @@ pub(crate) struct Walker<'a> {
     options: &'a ScanOptions,
     total_read: usize,
     exhausted: bool,
+    /// Bytes read by the digest step, budgeted apart from the parse reads so a file is not
+    /// charged twice against `max_total_bytes` (the digest has its own, equal, allowance).
+    digest_read: usize,
+    digest_exhausted: bool,
     root_diagnostics: Vec<Diagnostic>,
 }
 
@@ -73,6 +77,8 @@ impl<'a> Walker<'a> {
             options,
             total_read: 0,
             exhausted: false,
+            digest_read: 0,
+            digest_exhausted: false,
             root_diagnostics: Vec::new(),
         }
     }
@@ -204,7 +210,41 @@ impl<'a> Walker<'a> {
         rel: &Path,
         diagnostics: &mut Vec<Diagnostic>,
     ) -> Option<String> {
-        if self.exhausted {
+        let bytes = self.read_raw(rel, diagnostics, false)?;
+        match String::from_utf8(bytes) {
+            Ok(text) => Some(text),
+            Err(_) => {
+                push_unique(
+                    diagnostics,
+                    Diagnostic::warning(
+                        "walk.invalid-utf8",
+                        rel,
+                        "the file is not valid UTF-8, so it was not parsed",
+                    ),
+                );
+                None
+            }
+        }
+    }
+
+    /// Reads a file's raw bytes for the digest, with the same refusals as [`Self::read_text`]
+    /// (symlink, secret, local, too large, unreadable) but charged to the digest's own budget.
+    /// Reasons are not reported again: the listing and the parse already did.
+    pub(crate) fn read_bytes(&mut self, rel: &Path) -> Option<Vec<u8>> {
+        self.read_raw(rel, &mut Vec::new(), true)
+    }
+
+    fn read_raw(
+        &mut self,
+        rel: &Path,
+        diagnostics: &mut Vec<Diagnostic>,
+        for_digest: bool,
+    ) -> Option<Vec<u8>> {
+        if if for_digest {
+            self.digest_exhausted
+        } else {
+            self.exhausted
+        } {
             return None;
         }
         let meta = match fs::symlink_metadata(self.root.join(rel)) {
@@ -223,16 +263,25 @@ impl<'a> Walker<'a> {
             return None;
         }
         let size = usize::try_from(meta.len()).unwrap_or(usize::MAX);
-        if self.total_read.saturating_add(size) > self.options.max_total_bytes {
-            self.exhausted = true;
-            push_unique(
-                &mut self.root_diagnostics,
-                Diagnostic::warning(
-                    "walk.scan-limit-reached",
-                    Path::new(""),
-                    "the read limit for one scan was reached; the remaining files were not read",
-                ),
-            );
+        let spent = if for_digest {
+            self.digest_read
+        } else {
+            self.total_read
+        };
+        if spent.saturating_add(size) > self.options.max_total_bytes {
+            if for_digest {
+                self.digest_exhausted = true;
+            } else {
+                self.exhausted = true;
+                push_unique(
+                    &mut self.root_diagnostics,
+                    Diagnostic::warning(
+                        "walk.scan-limit-reached",
+                        Path::new(""),
+                        "the read limit for one scan was reached; the remaining files were not read",
+                    ),
+                );
+            }
             return None;
         }
         let mut bytes = Vec::new();
@@ -248,21 +297,12 @@ impl<'a> Walker<'a> {
             push_unique(diagnostics, too_large(rel));
             return None;
         }
-        self.total_read += bytes.len();
-        match String::from_utf8(bytes) {
-            Ok(text) => Some(text),
-            Err(_) => {
-                push_unique(
-                    diagnostics,
-                    Diagnostic::warning(
-                        "walk.invalid-utf8",
-                        rel,
-                        "the file is not valid UTF-8, so it was not parsed",
-                    ),
-                );
-                None
-            }
+        if for_digest {
+            self.digest_read += bytes.len();
+        } else {
+            self.total_read += bytes.len();
         }
+        Some(bytes)
     }
 
     fn is_skipped(&self, name: &str) -> bool {
