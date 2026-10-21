@@ -26,6 +26,7 @@ impl AgentAdapter for ClaudeAdapter {
         }
         let mut report = ScanReport::default();
         let mut walker = Walker::new(root, options);
+        kinds::claude_md::scan(&mut walker, &mut report);
         kinds::skill::scan(&mut walker, &mut report);
         kinds::settings::scan(&mut walker, &mut report);
         kinds::rule::scan(&mut walker, &mut report);
