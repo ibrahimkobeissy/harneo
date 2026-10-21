@@ -108,7 +108,7 @@ None.
 
 > Module `artifact-model` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/artifact-model.md`](../spec/artifact-model.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
 > **Tasks are tracked in GitHub Issues** (`ibrahimkobeissy/harneo`, Project 5) and built by the `ticket-flow` cycle. Task ids are `A1`–`A12` so they don't clash with app-shell's `T1`–`T14`.
-> Status: **draft, awaiting approval** ([#27](https://github.com/ibrahimkobeissy/harneo/issues/27)).
+> Status: **approved 2026-10-21**; tasks created as issues #28–#39.
 
 ## Overview
 
@@ -139,24 +139,22 @@ A2, A8, A10, A11 ── A12 install_path + all-shapes fixture test
 
 Parallel after A1: A2, A3, A4, A6, A8. After A3: A5, A9, A11.
 
-## Tasks
+## Task list
 
-| Id | Title | Size | Blocked by | Acceptance (summary) |
-|---|---|---|---|---|
-| A1 | Artifact types, `AgentAdapter`, frontmatter, and skills found in a folder | M | — | All public types with `Serialize` + `TS` (bindings in `src/bindings/`); `ClaudeAdapter::scan` finds skills in `skills/` and `.claude/skills/` with name, description, files and the `skill.*` diagnostics; malformed YAML is a diagnostic, never a panic |
-| A2 | `harneo scan <path> [--json]` | S | A1 | Human summary and `--json` `ScanReport`; exit 0 when the scan ran, 1 when the path is missing or not a folder (`assert_cmd`) |
-| A3 | Safe walk and the hostile fixture | M | A1 | `walk.rs`: no symlinks followed, size and total limits, skip `.git`/`node_modules`/`target`, secret-pattern files listed not read, `..` never resolved, YAML limits on; hostile fixture (generated at test time) scans to completion and reports each problem |
-| A4 | Rules, commands, subagents, output styles | M | A1 | Each type parsed with its fields and checks (`agent.missing-name`, `agent.missing-description`, `rule.*`, …); subagent `skills`/`mcpServers` and a command's/skill's `agent` field become references |
-| A5 | CLAUDE.md and its `@imports` | S | A1, A3 | Imported files join `files`; missing import and import outside the root are warnings; nested imports followed with a depth limit |
-| A6 | Settings template and the literal-secret check | M | A1 | `settings.json` kept whole; hook and status-line script paths become files + references (missing script is an error); `outputStyle`/`enabledPlugins` references; a literal secret in `env` is `settings.literal-secret`, the value appears nowhere in the report or JSON |
-| A7 | MCP servers from `.mcp.json` | S | A6 | One artifact per server; neither `command` nor `url` is an error; literal secret in `env`/`headers` is `mcp.literal-secret` via A6's helper |
-| A8 | Workflows | S | A1 | `meta` read as text (name, description), JS never run; missing `meta` is a warning |
-| A9 | Plugins, marketplaces, `~/.claude`-like folders, loose skills | M | A1, A3 | `plugin.json` → one Plugin, scan doesn't descend; each `marketplace.json` entry → one Plugin, remote sources recorded not fetched; `~/.claude` and pack shapes; loose `SKILL.md` up to depth 4 |
-| A10 | Reference resolution and cross-artifact checks | S | A4, A5, A6, A7, A9 | References marked resolved when the target is in the scan; duplicate names per type and skill/command clashes are warnings |
-| A11 | Artifact digest | S | A3 | SHA-256 over sorted path + content; deterministic; one byte changed in a skill's script changes that skill's digest only; secret-pattern files excluded |
-| A12 | `install_path` for every type and the all-shapes fixture test | S | A2, A8, A10, A11 | `install_path` matches `CONTEXT.md` §2 for all 10 types; one integration test per shape (project, `~/.claude`, pack, plugin, marketplace) lists exactly the expected artifacts; same folder → same report |
+Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria, verification and `Blocked by` links. The `ticket-flow` cycle picks Ready issues.
 
-Each issue's body holds the full acceptance criteria and verification (`cargo test -p harneo-core artifact`, `npm run check:task`).
+- [#28](https://github.com/ibrahimkobeissy/harneo/issues/28) A1: Artifact types, `AgentAdapter`, frontmatter, and skills found in a folder
+- [#29](https://github.com/ibrahimkobeissy/harneo/issues/29) A2: `harneo scan <path> [--json]`
+- [#30](https://github.com/ibrahimkobeissy/harneo/issues/30) A3: Safe walk and the hostile fixture
+- [#31](https://github.com/ibrahimkobeissy/harneo/issues/31) A4: Rules, commands, subagents, output styles
+- [#32](https://github.com/ibrahimkobeissy/harneo/issues/32) A5: CLAUDE.md and its `@imports`
+- [#33](https://github.com/ibrahimkobeissy/harneo/issues/33) A6: Settings template and the literal-secret check
+- [#34](https://github.com/ibrahimkobeissy/harneo/issues/34) A7: MCP servers from `.mcp.json`
+- [#35](https://github.com/ibrahimkobeissy/harneo/issues/35) A8: Workflows
+- [#36](https://github.com/ibrahimkobeissy/harneo/issues/36) A9: Plugins, marketplaces, `~/.claude`-like folders, loose skills
+- [#37](https://github.com/ibrahimkobeissy/harneo/issues/37) A10: Reference resolution and cross-artifact checks
+- [#38](https://github.com/ibrahimkobeissy/harneo/issues/38) A11: Artifact digest
+- [#39](https://github.com/ibrahimkobeissy/harneo/issues/39) A12: `install_path` for every type and the all-shapes fixture test
 
 ## Checkpoints
 
