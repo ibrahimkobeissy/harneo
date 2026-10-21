@@ -15,6 +15,7 @@
     "fix": "eslint . --fix && prettier --write . && cargo fmt --all",
     "test:floor": "bash scripts/check-floor.test.sh",
     "check:fast": "bash scripts/check-fast.sh",
+    "check:arch": "depcruise --validate .dependency-cruiser.cjs src && bash scripts/check-arch.sh",
     "check:task": "bash scripts/check-task.sh"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
     "@vitest/coverage-v8": "^5.0.5",
+    "dependency-cruiser": "^18.7.0",
     "eslint": "^10.13.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",

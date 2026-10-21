@@ -29,7 +29,10 @@ cargo fmt --all --check
 echo "== cargo clippy"
 cargo clippy --workspace --all-targets -- -D warnings
 
-# Architecture gates (TS and Rust, ticket #18) go here, before the tests.
+echo "== architecture (TS)"
+npx depcruise --validate .dependency-cruiser.cjs src
+echo "== architecture (Rust)"
+bash scripts/check-arch.sh
 
 if ((${#ts[@]})); then
   echo "== vitest related"
