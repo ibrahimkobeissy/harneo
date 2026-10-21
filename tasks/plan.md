@@ -2,7 +2,7 @@
 
 > Module `app-shell` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/app-shell.md`](../spec/app-shell.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
 > **Tasks are tracked in GitHub Issues** (`ibrahimkobeissy/harneo`, Project 5) and built by the `ticket-flow` cycle. This file holds the approach and the ordered index of issues, never a duplicate checklist.
-> Status: **DRAFT, awaiting the user's review.** The tasks below (T1–T13) become issues once approved.
+> Status: **DRAFT v2, awaiting the user's approval** (revised 2026-10-21 after the prototype was validated, #7 #9). The tasks below (T1–T13) become issues once approved.
 
 ## Overview
 
@@ -14,20 +14,21 @@ Build Harneo's base: a Cargo workspace (`harneo-core`, `harneo-cli`, `harneo-app
 - **Vertical slices first.** The first tasks push one value (the version and data dir) through every layer (core → CLI, core → IPC → React) so the whole stack is proven before anything is added to it.
 - **Gates arrive early, one script at a time.** `check:fast` lands right after the scaffold, then `check:task`, then `check:full` + CI. Until a gate exists, the task's own verification commands stand in for it, and the Floor applies by review.
 - **Tasks that edit `package.json` scripts are chained** (T5 → T6 → T7 → T8 → T9), so parallel subagents never conflict on it.
-- **The design system needs the user.** T11 is the user and the orchestrator working with Impeccable in a browser, not a subagent ticket; it carries the `needs-decision` label so the cycle never hands it to a subagent.
+- **The design is done.** `DESIGN.md` and the validated clickable prototype (`design/prototype/`) are the reference for every UI ticket. T11 turns `DESIGN.md` into tokens and is an ordinary ticket; UI tickets run under Impeccable's checks and get a `/impeccable critique` in the running app.
+- **The frame follows the prototype:** Security, Collections, Cleanup, the shortcuts button and Search are in the sidebar from the start (placeholders until their modules land); About lives on the Settings screen.
 
 ## Dependency graph
 
 ```
-T1 scaffold
+T1 scaffold ── T11 tokens from DESIGN.md (fonts, icons bundled)
  ├── T2 core version+paths → CLI ── T3 app_info IPC → About panel ── T4 app frame
- │                                                                     └── T11 design system (user + Impeccable) ── T12 apply design
+ │                                                                     └── T12 components + styled frame (+T11)
  └── T5 lint/format + check:fast ── T6 floor guard ── T7 check:task (+T2,T3) ── T8 architecture gates (+T4)
                                                                                  └── T9 check:full + CI (+T6) ── T10 coverage ratchet
                                                                                                                 └── T13 docs (+T12)
 ```
 
-Parallel after T1: T2 and T5. After T4: T11 runs with the user while subagents take the gate tasks.
+Parallel after T1: T2 and T5. T11 can start right after T1, in parallel with T2 and T5.
 
 ## Draft tasks
 
@@ -67,15 +68,15 @@ Parallel after T1: T2 and T5. After T4: T11 runs with the user while subagents t
 - **Estimated scope:** M
 
 #### T4: App frame and navigation
-- **Description:** React Router; a sidebar with Library, Profiles, Projects and About; empty placeholder screens in `src/features/library/`, `src/features/profiles/`, `src/features/projects/`. Unstyled beyond layout: the design comes in T11–T12.
+- **Description:** React Router and the app frame from the validated prototype (`design/prototype/`), unstyled beyond layout (the design lands in T11–T12). Sidebar: places **Library**, **Profiles**, **Projects**, **Security**; a **Collections** section (empty for now); actions **Import**, **Scaffold project**, **Refit project**, **Cleanup**; footer **Keyboard shortcuts**, **Search** (Ctrl K) and **Settings**. Every entry routes to a placeholder screen in its own `src/features/<module>/` folder. Settings hosts T3's About panel. The shortcuts dialog (`?`) and a navigation-only Ctrl K palette (places and actions) work from the keyboard.
 - **Acceptance criteria:**
-  - [ ] The sidebar shows the four entries; clicking each shows its screen
-  - [ ] Each feature has its own folder; no feature imports another
-  - [ ] Tests cover rendering the frame and switching screens
-- **Verification:** `npx vitest run`; manual: click through the four screens.
+  - [ ] Every sidebar entry routes to its placeholder screen; the About panel sits on the Settings screen
+  - [ ] `?` opens the shortcuts dialog and Ctrl K opens the palette, which navigates to places and actions; Esc closes both
+  - [ ] Each feature has its own folder and no feature imports another; tests cover routing, the dialog and the palette
+- **Verification:** `npx vitest run`; manual: click and keyboard through every entry.
 - **Dependencies:** T3
-- **Files likely touched:** `src/App.tsx`, `src/app/Layout.tsx`, `src/app/Sidebar.tsx`, `src/features/*/index.tsx`, `src/app/Layout.test.tsx`
-- **Estimated scope:** M
+- **Files likely touched:** `src/App.tsx`, `src/app/{Layout,Sidebar,ShortcutsDialog,Palette}.tsx`, `src/features/*/index.tsx`, `src/app/*.test.tsx`
+- **Estimated scope:** M (many small placeholder files)
 
 **Checkpoint: Foundation** (after T1–T4)
 - [ ] The window opens; the four screens switch; the About panel and the CLI show the same version and data dir (spec criteria 1, 2, 3, 5)
@@ -154,28 +155,28 @@ Parallel after T1: T2 and T5. After T4: T11 runs with the user while subagents t
 - [ ] Every gate was seen failing on a planted violation
 - [ ] From here, every ticket passes `check:task` before review and `check:full` before merge
 
-### Phase 3: Design and docs
+### Phase 3: Design system in code, and docs
 
-#### T11: Design system with Impeccable (user + orchestrator) · `needs-decision`
-- **Description:** In a browser session with the user: `/impeccable init` writes `PRODUCT.md` from `CONTEXT.md`; Impeccable proposes a design direction, the user picks; the result is `DESIGN.md` and the tokens in `src/ui/tokens.css` (color in light and dark, type, spacing, radius). Not a subagent task.
-- **Decision needed:** the visual direction, chosen by the user with Impeccable.
+#### T11: Design tokens from `DESIGN.md`
+- **Description:** Turn `DESIGN.md` (the system documented from the validated prototype) into code: `src/ui/tokens.css` with every colour, type, spacing, radius and shadow token for light and dark; the theme follows the OS (`prefers-color-scheme`) with a `data-theme` override. The app must work offline, so fonts and icons are bundled: Inter and JetBrains Mono through `@fontsource` packages, icons through `lucide-react` (both added to the spec's stack in this revision).
 - **Acceptance criteria:**
-  - [ ] `PRODUCT.md` and `DESIGN.md` exist and the user approved the direction
-  - [ ] `src/ui/tokens.css` defines every token for light and dark
-- **Verification:** the user reviews the direction rendered in the browser; `npm run check:task`.
-- **Dependencies:** T4
-- **Files likely touched:** `PRODUCT.md`, `DESIGN.md`, `src/ui/tokens.css`
-- **Estimated scope:** S (files), but needs the user's time
+  - [ ] Every `DESIGN.md` token exists in `tokens.css` for both themes, with the same names
+  - [ ] No network request at runtime for fonts or icons
+  - [ ] Impeccable's detector reports 0 findings on `src/`
+- **Verification:** `npm run check:task`; detector run; manual: start the app with networking off.
+- **Dependencies:** T1
+- **Files likely touched:** `src/ui/tokens.css`, `src/main.tsx`, `package.json`
+- **Estimated scope:** S
 
-#### T12: Base components and the design applied to the frame
-- **Description:** `Button`, `Panel` and `EmptyState` in `src/ui/` from `DESIGN.md`; the frame, sidebar, placeholder screens and About panel restyled with them; the theme follows the OS light/dark setting. Reviewed with `/impeccable critique` and `polish`.
+#### T12: Base components and the frame styled like the prototype
+- **Description:** The base components from `DESIGN.md` in `src/ui/` (Button, Panel, EmptyState, Badge, Tag, Kbd, NavItem); the frame, sidebar, placeholder screens, Settings/About, shortcuts dialog and palette styled with them, matching the prototype's frame (`design/prototype/`, the visual reference). Reviewed with `/impeccable critique` and `polish` in the running app.
 - **Acceptance criteria:**
-  - [ ] Every color, font, spacing and radius value comes from tokens (no raw hex or px in components)
-  - [ ] Light and dark follow the OS setting
+  - [ ] Every colour, font, spacing and radius value comes from tokens (no raw hex or px in components); detector 0 findings
+  - [ ] Light and dark follow the OS; the frame matches the prototype at full width and at ~960px
   - [ ] The components have tests; `check:task` passes
-- **Verification:** `npm run check:task`; manual: switch the OS theme, check every screen.
-- **Dependencies:** T11
-- **Files likely touched:** `src/ui/{Button,Panel,EmptyState}.tsx` + tests, `src/app/Layout.module.css`, `src/app/Sidebar.tsx`
+- **Verification:** `npm run check:task`; manual: compare with `design/prototype/` side by side, switch the OS theme, resize to ~960px.
+- **Dependencies:** T11, T4
+- **Files likely touched:** `src/ui/*.tsx` + tests, `src/app/Layout.module.css`, `src/app/Sidebar.tsx`
 - **Estimated scope:** M
 
 #### T13: `BUILDING.md`, README and CLAUDE.md commands
@@ -189,7 +190,7 @@ Parallel after T1: T2 and T5. After T4: T11 runs with the user while subagents t
 - **Estimated scope:** S
 
 **Checkpoint: app-shell complete** (after T11–T13)
-- [ ] Every success criterion in `spec/app-shell.md` (1–10) is met
+- [ ] Every success criterion in `spec/app-shell.md` (1–10) is met, and the frame matches the prototype
 - [ ] `check:full` and CI green on `main`
 - [ ] The user reviews the running app; then `spec/capabilities.md` marks app-shell done and the next module's spec starts
 
@@ -198,7 +199,7 @@ Parallel after T1: T2 and T5. After T4: T11 runs with the user while subagents t
 | Spec success criterion | Tasks |
 |---|---|
 | 1. Window opens following `BUILDING.md` | T1, T13 |
-| 2. Sidebar with three screens | T4 |
+| 2. Sidebar and screens from the prototype's frame | T4, T12 |
 | 3. About panel shows `app_info` | T3 |
 | 4. OS theme, all values from tokens | T11, T12 |
 | 5. CLI and About show the same values | T2, T3 |

@@ -30,8 +30,8 @@ Give Harneo a working base on which each later module adds its own core logic an
   - TypeScript types generated from the Rust types.
 - `harneo-cli`: `harneo --version` and `harneo paths` (prints the data dir), both read from `harneo-core`.
 - Frontend:
-  - React app frame with a sidebar for **Library**, **Profiles** and **Projects** (empty placeholder screens);
-  - an **About** panel showing the version and data dir from `app_info`;
+  - React app frame following the validated prototype (`design/prototype/`): sidebar with **Library**, **Profiles**, **Projects**, **Security**, a **Collections** section, actions (**Import**, **Scaffold project**, **Refit project**, **Cleanup**), and **Keyboard shortcuts**, **Search** (Ctrl K, navigation only) and **Settings** in the footer; every entry opens an empty placeholder screen;
+  - an **About** panel on the Settings screen showing the version and data dir from `app_info`;
   - light and dark themes that follow the OS setting.
 - Design system: **created with Impeccable**, recorded in the repo as `DESIGN.md`. Its tokens become CSS custom properties in `src/ui/tokens.css`, and a few base components (Button, Panel, EmptyState) are built from it. Impeccable designs and reviews every screen against it.
 - Tooling and docs:
@@ -49,6 +49,7 @@ Give Harneo a working base on which each later module adds its own core logic an
 | Desktop | Tauri 2 (latest 2.x) |
 | Core / CLI | Rust stable (pinned by `rust-toolchain.toml`), edition 2021; `serde`, `thiserror`; `clap` (CLI); `dirs` (data dir); `ts-rs` (TS bindings) |
 | Frontend | React 19, TypeScript (strict), Vite, React Router (screens), `@tauri-apps/api` |
+| Icons and fonts | `lucide-react` (bundled icons); Inter and JetBrains Mono through `@fontsource` packages (self-hosted, the app works offline) |
 | Styling | Plain CSS: tokens from `DESIGN.md` in `src/ui/tokens.css` + CSS Modules per component. No CSS framework, no UI kit (keeps WebKitGTK, the weakest of the three engines, safe and the design system authoritative) |
 | Tests | `cargo test`; Vitest + React Testing Library + jsdom; Tauri's `mockIPC` for the frontend; coverage with `@vitest/coverage-v8` and `cargo-llvm-cov` |
 | Lint / format | `cargo fmt`, `cargo clippy -D warnings`; ESLint (flat config) + Prettier; `tsc --noEmit` |
@@ -202,7 +203,7 @@ Conventions:
 ## Success Criteria
 
 1. On a clean Linux machine, following `BUILDING.md` alone, `npm install && npm run tauri dev` opens the Harneo window.
-2. The window shows a sidebar with Library, Profiles and Projects. Clicking each one shows its placeholder screen.
+2. The window shows the prototype's frame: every sidebar entry opens its placeholder screen, `?` opens the shortcuts dialog and Ctrl K the navigation palette.
 3. The About panel shows the version and data dir received from `app_info`.
 4. The theme follows the OS light/dark setting, and every color, font, spacing and radius value comes from the `DESIGN.md` tokens.
 5. `cargo run -p harneo-cli -- --version` prints the same version the About panel shows, and `harneo paths` prints the same data dir. That proves one shared core.
@@ -219,6 +220,8 @@ Conventions:
 3. **Impeccable:** required. It is enabled as a plugin and designs every screen from `DESIGN.md`.
 4. **Design system:** created from scratch with Impeccable (no existing design system is used).
 5. **Quality bar (2026-10-19):** set by `CONSTRAINTS.md` through Addy's `/constraints` (#5). The single `npm run check` became `check:fast` / `check:task` / `check:full`, and the gate tools it names are part of this module.
+
+6. **Frame and design follow the validated prototype (2026-10-21):** `design/prototype/` is the visual reference and `DESIGN.md` the system; `lucide-react` and `@fontsource` join the stack so icons and fonts are bundled.
 
 ## Open Questions
 
