@@ -1,0 +1,15 @@
+.page {
+  padding: var(--space-lg) var(--space-page-x) var(--space-xl);
+  max-width: var(--size-page-max);
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+.title {
+  font-size: var(--text-headline);
+  font-weight: 600;
+  letter-spacing: var(--tracking-headline);
+}

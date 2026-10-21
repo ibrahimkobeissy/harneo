@@ -1,0 +1,23 @@
+.title {
+  padding: var(--space-lg) var(--space-lg) var(--space-md);
+  font-size: var(--text-title-lg);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title-lg);
+}
+.keys {
+  padding: 0 var(--space-lg) var(--space-lg);
+  overflow-y: auto;
+}
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-xs) 0;
+  border-bottom: var(--hairline) solid var(--line);
+}
+.foot {
+  padding: var(--space-md) var(--space-lg);
+  border-top: var(--hairline) solid var(--line);
+  display: flex;
+  justify-content: flex-end;
+}

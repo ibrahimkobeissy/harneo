@@ -1,0 +1,81 @@
+.side {
+  background: var(--side);
+  border-right: var(--hairline) solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-md) var(--space-sm);
+  min-height: 0;
+  overflow-y: auto;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xxs) var(--space-sm) var(--space-lg);
+  font-weight: 700;
+  font-size: var(--text-title);
+  letter-spacing: var(--tracking-title);
+  color: var(--t1);
+  text-decoration: none;
+}
+.heading {
+  font-size: var(--text-label-quiet);
+  color: var(--t3);
+  font-weight: 500;
+  padding: var(--space-md) var(--space-sm) var(--space-xxs);
+}
+.none {
+  color: var(--t3);
+  font-size: var(--text-label);
+  padding: var(--space-xxs) var(--space-sm);
+}
+.foot {
+  margin-top: auto;
+  padding-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.kbdbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t3);
+  font: inherit;
+  width: 100%;
+  cursor: pointer;
+}
+.kbdbar:hover {
+  border-color: var(--line2);
+  color: var(--t2);
+}
+.lbl {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hint {
+  margin-left: auto;
+}
+@media (max-width: 62.5rem) {
+  .side {
+    align-items: center;
+  }
+  .brand {
+    padding: var(--space-xxs) 0 var(--space-md);
+  }
+  .brandName,
+  .heading,
+  .none,
+  .lbl,
+  .hint {
+    display: none;
+  }
+  .kbdbar {
+    justify-content: center;
+  }
+}

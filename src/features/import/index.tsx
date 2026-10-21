@@ -1,8 +1,12 @@
+import { Download } from "lucide-react";
+import { EmptyState, Screen } from "../../ui";
+
 export function ImportScreen() {
   return (
-    <section aria-labelledby="import-title">
-      <h1 id="import-title">Import</h1>
-      <p>Importing artifacts arrives with the import module.</p>
-    </section>
+    <Screen title="Import">
+      <EmptyState icon={Download} title="Not built yet">
+        Importing artifacts arrives with the import module.
+      </EmptyState>
+    </Screen>
   );
 }

@@ -1,3 +1,4 @@
+import { Panel } from "../ui";
 import { useAppInfo } from "./useAppInfo";
 
 export function AboutPanel() {
@@ -8,10 +9,9 @@ export function AboutPanel() {
     return <p role="alert">Could not load app info: {state.message}</p>;
   }
   return (
-    <section aria-labelledby="about-title">
-      <h2 id="about-title">About Harneo</h2>
+    <Panel title="About Harneo" titleId="about-title">
       <p>Version {state.info.version}</p>
       <p>Data folder: {state.info.dataDir}</p>
-    </section>
+    </Panel>
   );
 }

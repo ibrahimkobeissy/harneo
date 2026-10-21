@@ -1,0 +1,28 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  font-size: var(--text-label);
+  font-weight: 500;
+  padding: var(--hairline) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--t2);
+  white-space: nowrap;
+}
+.warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.bad {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.info {
+  background: var(--blue-soft);
+  color: var(--blue);
+}

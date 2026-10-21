@@ -1,8 +1,12 @@
+import { FolderGit2 } from "lucide-react";
+import { EmptyState, Screen } from "../../ui";
+
 export function ProjectsScreen() {
   return (
-    <section aria-labelledby="projects-title">
-      <h1 id="projects-title">Projects</h1>
-      <p>Projects arrive with the projects module.</p>
-    </section>
+    <Screen title="Projects">
+      <EmptyState icon={FolderGit2} title="Not built yet">
+        Projects arrive with the projects module.
+      </EmptyState>
+    </Screen>
   );
 }

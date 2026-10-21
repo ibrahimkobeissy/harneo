@@ -1,4 +1,6 @@
+import { Button, Kbd } from "../ui";
 import { Modal } from "./Modal";
+import styles from "./ShortcutsDialog.module.css";
 
 const shortcuts: readonly { keys: string; does: string }[] = [
   { keys: "Ctrl K", does: "Search and commands" },
@@ -8,21 +10,21 @@ const shortcuts: readonly { keys: string; does: string }[] = [
 
 export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   return (
-    <Modal label="Keyboard shortcuts">
-      <h2>Keyboard shortcuts</h2>
-      <dl>
+    <Modal label="Keyboard shortcuts" onClose={onClose}>
+      <h2 className={styles.title}>Keyboard shortcuts</h2>
+      <dl className={styles.keys}>
         {shortcuts.map((s) => (
-          <div key={s.keys}>
-            <dt>
-              <kbd>{s.keys}</kbd>
-            </dt>
-            <dd>{s.does}</dd>
+          <div key={s.keys} className={styles.row}>
+            <dt>{s.does}</dt>
+            <dd>
+              <Kbd>{s.keys}</Kbd>
+            </dd>
           </div>
         ))}
       </dl>
-      <button type="button" onClick={onClose}>
-        Close
-      </button>
+      <div className={styles.foot}>
+        <Button onClick={onClose}>Close</Button>
+      </div>
     </Modal>
   );
 }

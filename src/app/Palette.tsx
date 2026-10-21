@@ -1,6 +1,9 @@
+import { Search } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
+import { Kbd } from "../ui";
 import { Modal } from "./Modal";
+import styles from "./Palette.module.css";
 import { actions, places, type Destination } from "./routes";
 
 const entries: readonly (Destination & { group: string })[] = [
@@ -39,40 +42,65 @@ export function Palette({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal label="Search and commands">
-      <input
-        type="text"
-        role="combobox"
-        aria-label="Search places and actions"
-        aria-expanded="true"
-        aria-controls="palette-list"
-        aria-activedescendant={
-          matches[current] ? `palette-${matches[current].path}` : undefined
-        }
-        placeholder="Search places and actions"
-        autoComplete="off"
-        autoFocus
-        value={query}
-        onChange={(ev) => {
-          setQuery(ev.target.value);
-          setActive(0);
-        }}
-        onKeyDown={onKeyDown}
-      />
-      <ul id="palette-list" role="listbox" aria-label="Results">
+    <Modal label="Search and commands" variant="palette" onClose={onClose}>
+      <div className={styles.field}>
+        <Search size={16} aria-hidden="true" />
+        <input
+          type="text"
+          role="combobox"
+          aria-label="Search places and actions"
+          aria-expanded="true"
+          aria-controls="palette-list"
+          aria-activedescendant={
+            matches[current] ? `palette-${matches[current].path}` : undefined
+          }
+          placeholder="Search places and actions"
+          autoComplete="off"
+          autoFocus
+          className={styles.input}
+          value={query}
+          onChange={(ev) => {
+            setQuery(ev.target.value);
+            setActive(0);
+          }}
+          onKeyDown={onKeyDown}
+        />
+      </div>
+      <ul
+        id="palette-list"
+        role="listbox"
+        aria-label="Results"
+        className={styles.results}
+      >
         {matches.map((m, i) => (
           <li
             key={m.path}
             id={`palette-${m.path}`}
             role="option"
             aria-selected={i === current}
+            className={
+              i === current ? `${styles.item} ${styles.act}` : styles.item
+            }
             onClick={() => go(m)}
           >
-            {m.label} <small>{m.group}</small>
+            <m.icon size={16} aria-hidden="true" />
+            {m.label}
+            <small className={styles.group}>{m.group}</small>
           </li>
         ))}
       </ul>
-      {matches.length === 0 && <p>No matches.</p>}
+      {matches.length === 0 && <p className={styles.none}>No matches.</p>}
+      <div className={styles.foot}>
+        <span>
+          <Kbd>↑</Kbd> <Kbd>↓</Kbd> move
+        </span>
+        <span>
+          <Kbd>Enter</Kbd> open
+        </span>
+        <span>
+          <Kbd>Esc</Kbd> close
+        </span>
+      </div>
     </Modal>
   );
 }

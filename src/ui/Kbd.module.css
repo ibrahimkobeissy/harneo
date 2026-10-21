@@ -1,0 +1,11 @@
+.kbd {
+  font-family: var(--font-mono);
+  font-size: var(--text-label-quiet);
+  border: var(--hairline) solid var(--line2);
+  border-bottom-width: var(--hairline-strong);
+  border-radius: var(--radius-xs);
+  padding: 0 var(--space-xs);
+  color: var(--t2);
+  background: var(--raised);
+  white-space: nowrap;
+}

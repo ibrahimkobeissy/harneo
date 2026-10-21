@@ -1,9 +1,17 @@
 .frame {
   display: grid;
-  grid-template-columns: auto 1fr;
-  min-height: 100vh;
+  grid-template-columns: var(--size-sidebar) 1fr;
+  height: 100vh;
 }
 
 .main {
-  padding: var(--space-xl) var(--space-page-x);
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 62.5rem) {
+  .frame {
+    grid-template-columns: var(--size-rail) 1fr;
+  }
 }

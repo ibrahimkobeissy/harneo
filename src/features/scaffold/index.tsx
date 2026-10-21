@@ -1,8 +1,12 @@
+import { FolderPlus } from "lucide-react";
+import { EmptyState, Screen } from "../../ui";
+
 export function ScaffoldScreen() {
   return (
-    <section aria-labelledby="scaffold-title">
-      <h1 id="scaffold-title">Scaffold project</h1>
-      <p>Scaffolding arrives with the scaffold module.</p>
-    </section>
+    <Screen title="Scaffold project">
+      <EmptyState icon={FolderPlus} title="Not built yet">
+        Scaffolding arrives with the scaffold module.
+      </EmptyState>
+    </Screen>
   );
 }

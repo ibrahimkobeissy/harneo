@@ -1,10 +1,10 @@
 import { AboutPanel } from "../../app/AboutPanel";
+import { Screen } from "../../ui";
 
 export function SettingsScreen() {
   return (
-    <section aria-labelledby="settings-title">
-      <h1 id="settings-title">Settings</h1>
+    <Screen title="Settings">
       <AboutPanel />
-    </section>
+    </Screen>
   );
 }

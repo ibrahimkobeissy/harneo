@@ -1,0 +1,51 @@
+.scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 40;
+  animation: fade 0.16s ease-out;
+}
+.box {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - var(--size-gutter));
+  display: flex;
+  flex-direction: column;
+  background: var(--raised);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  animation: pop 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.box:focus-visible {
+  outline: none;
+}
+.dialog {
+  top: 10vh;
+  width: var(--size-modal);
+  max-height: 80vh;
+}
+.palette {
+  top: 12vh;
+  width: var(--size-palette);
+  overflow: hidden;
+}
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(var(--space-xs)) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scrim,
+  .box {
+    animation: none;
+  }
+}

@@ -104,6 +104,19 @@
   --tracking-title-lg: -0.01em;
   --tracking-title: -0.01em;
   --tracking-title-sm: -0.005em;
+  --hairline: 1px;
+  --hairline-strong: 2px;
+  --size-control: 32px;
+  --size-control-sm: 26px;
+  --size-sidebar: 220px;
+  --size-rail: 60px;
+  --size-logo: 24px;
+  --size-modal: 560px;
+  --size-palette: 620px;
+  --size-empty-icon: 44px;
+  --size-palette-input: 52px;
+  --size-gutter: 32px;
+  --size-page-max: 1400px;
   --features: "tnum", "cv11";
   color-scheme: light;
 }

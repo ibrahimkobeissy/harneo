@@ -1,0 +1,71 @@
+.btn {
+  height: var(--size-control);
+  padding: 0 var(--space-md);
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font: inherit;
+  font-size: var(--text-body);
+  font-weight: 500;
+  border: var(--hairline) solid var(--line);
+  background: var(--raised);
+  color: var(--t1);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.btn:hover {
+  border-color: var(--line2);
+  background: var(--sunk);
+}
+.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: var(--on-blue);
+}
+.primary:hover {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
+}
+.secondary {
+  background: var(--raised);
+}
+.danger {
+  color: var(--red);
+}
+.danger:hover {
+  background: var(--red-soft);
+  border-color: var(--red-soft);
+}
+.danger-solid {
+  background: var(--red-fill);
+  border-color: var(--red-fill);
+  color: var(--on-blue);
+}
+.danger-solid:hover {
+  background: var(--red-fill);
+  border-color: var(--red-fill);
+  opacity: 0.9;
+}
+.ghost {
+  border-color: transparent;
+  background: transparent;
+  color: var(--t2);
+}
+.ghost:hover {
+  border-color: transparent;
+  background: var(--sunk);
+  color: var(--t1);
+}
+.sm {
+  height: var(--size-control-sm);
+  padding: 0 var(--space-sm);
+  font-size: var(--text-label);
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
