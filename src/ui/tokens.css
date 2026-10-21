@@ -1,0 +1,209 @@
+/* Design tokens from DESIGN.md. Light is the default; dark follows the OS
+   (prefers-color-scheme) unless data-theme="light" forces light, and
+   data-theme="dark" forces dark. Colour names mirror DESIGN.md (dark-* twins
+   share the name here, redefined under the dark selectors). */
+:root {
+  --bg: #ffffff;
+  --side: #f8fafc;
+  --sunk: #f1f5f9;
+  --raised: #ffffff;
+  --t1: #0f172a;
+  --t2: #475569;
+  --t3: #64748b;
+  --line: #e2e8f0;
+  --line2: #cbd5e1;
+  --blue: #2563eb;
+  --blue-hover: #1d4ed8;
+  --blue-soft: #eff6ff;
+  --blue-ring: #dbeafe;
+  --on-blue: #ffffff;
+  --green: #15803d;
+  --green-fill: #16a34a;
+  --green-soft: #dcfce7;
+  --amber: #b45309;
+  --amber-fill: #f59e0b;
+  --amber-soft: #fef3c7;
+  --red: #b91c1c;
+  --red-fill: #dc2626;
+  --red-soft: #fee2e2;
+  --chart: #bfdbfe;
+  --chart-strong: #2563eb;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 24px 48px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.08);
+  --scrim: rgba(15, 23, 42, 0.32);
+  --diff-add: #e6f6ec;
+  --diff-del: #fdecec;
+  --radius: 8px;
+  --radius-lg: 10px;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+  /* type tints: soft background / ink */
+  --tint-blue-bg: #dbeafe; --tint-blue: #1d4ed8;
+  --tint-violet-bg: #ede9fe; --tint-violet: #6d28d9;
+  --tint-cyan-bg: #cffafe; --tint-cyan: #0e7490;
+  --tint-slate-bg: #e2e8f0; --tint-slate: #334155;
+  --tint-orange-bg: #ffedd5; --tint-orange: #c2410c;
+  --tint-teal-bg: #ccfbf1; --tint-teal: #0f766e;
+  --tint-pink-bg: #fce7f3; --tint-pink: #be185d;
+  --tint-indigo-bg: #e0e7ff; --tint-indigo: #4338ca;
+  --tint-amber-bg: #fef3c7; --tint-amber: #b45309;
+  --tint-green-bg: #dcfce7; --tint-green: #15803d;
+  --tint-red-bg: #fee2e2; --tint-red: #b91c1c;
+  --tint-sky-bg: #e0f2fe; --tint-sky: #0369a1;
+  --tint-fuchsia-bg: #fae8ff; --tint-fuchsia: #a21caf;
+  --tint-stone-bg: #f5f5f4; --tint-stone: #57534e;
+  --tint-plain-bg: transparent; --tint-plain: #475569;
+  --tint-ink-bg: #1e293b; --tint-ink: #f1f5f9;
+  --tint-ink-dot: #1e293b;
+  --font-sans: Inter, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-xl: 12px;
+  --radius-welcome: 14px;
+  --radius-pill: 10px;
+  --space-xxs: 4px;
+  --space-xs: 6px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-page-x: 28px;
+  --text-display: 26px;
+  --text-headline: 20px;
+  --text-title-lg: 17px;
+  --text-title: 15px;
+  --text-section: 14px;
+  --text-title-sm: 13.5px;
+  --text-body: 13px;
+  --text-label: 12px;
+  --text-label-quiet: 11.5px;
+  --text-mono: 12px;
+  --leading: 1.45;
+  --leading-code: 1.6;
+  --tracking-display: -0.02em;
+  --tracking-headline: -0.015em;
+  --tracking-title-lg: -0.01em;
+  --tracking-title: -0.01em;
+  --tracking-title-sm: -0.005em;
+  --features: "tnum", "cv11";
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1120;
+    --side: #0f172a;
+    --sunk: #111a2e;
+    --raised: #131c31;
+    --t1: #e2e8f0;
+    --t2: #a3b0c2;
+    --t3: #8794a8;
+    --line: #1f2a40;
+    --line2: #2c3a55;
+    --blue: #3b82f6;
+    --blue-hover: #60a5fa;
+    --blue-soft: #14213d;
+    --blue-ring: #1e3a8a;
+    --on-blue: #ffffff;
+    --green: #4ade80;
+    --green-fill: #22c55e;
+    --green-soft: #12301f;
+    --amber: #fbbf24;
+    --amber-fill: #f59e0b;
+    --amber-soft: #33270c;
+    --red: #f87171;
+    --red-fill: #ef4444;
+    --red-soft: #3a1416;
+    --chart: #1e3a8a;
+    --chart-strong: #60a5fa;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.6);
+    --scrim: rgba(2, 6, 23, 0.6);
+    --diff-add: #0f2a1b;
+    --diff-del: #2e1214;
+    --tint-blue-bg: #172554; --tint-blue: #93c5fd;
+    --tint-violet-bg: #2e1065; --tint-violet: #c4b5fd;
+    --tint-cyan-bg: #083344; --tint-cyan: #67e8f9;
+    --tint-slate-bg: #1e293b; --tint-slate: #cbd5e1;
+    --tint-orange-bg: #431407; --tint-orange: #fdba74;
+    --tint-teal-bg: #042f2e; --tint-teal: #5eead4;
+    --tint-pink-bg: #500724; --tint-pink: #f9a8d4;
+    --tint-indigo-bg: #1e1b4b; --tint-indigo: #a5b4fc;
+    --tint-amber-bg: #451a03; --tint-amber: #fcd34d;
+    --tint-green-bg: #052e16; --tint-green: #86efac;
+    --tint-red-bg: #450a0a; --tint-red: #fca5a5;
+    --tint-sky-bg: #082f49; --tint-sky: #7dd3fc;
+    --tint-fuchsia-bg: #4a044e; --tint-fuchsia: #f0abfc;
+    --tint-stone-bg: #292524; --tint-stone: #d6d3d1;
+    --tint-plain-bg: transparent; --tint-plain: #a3b0c2;
+    --tint-ink-bg: #e2e8f0; --tint-ink: #0f172a;
+    --tint-ink-dot: #e2e8f0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1120;
+  --side: #0f172a;
+  --sunk: #111a2e;
+  --raised: #131c31;
+  --t1: #e2e8f0;
+  --t2: #a3b0c2;
+  --t3: #8794a8;
+  --line: #1f2a40;
+  --line2: #2c3a55;
+  --blue: #3b82f6;
+  --blue-hover: #60a5fa;
+  --blue-soft: #14213d;
+  --blue-ring: #1e3a8a;
+  --on-blue: #ffffff;
+  --green: #4ade80;
+  --green-fill: #22c55e;
+  --green-soft: #12301f;
+  --amber: #fbbf24;
+  --amber-fill: #f59e0b;
+  --amber-soft: #33270c;
+  --red: #f87171;
+  --red-fill: #ef4444;
+  --red-soft: #3a1416;
+  --chart: #1e3a8a;
+  --chart-strong: #60a5fa;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 24px 48px rgba(0, 0, 0, 0.6);
+  --scrim: rgba(2, 6, 23, 0.6);
+  --diff-add: #0f2a1b;
+  --diff-del: #2e1214;
+  --tint-blue-bg: #172554; --tint-blue: #93c5fd;
+  --tint-violet-bg: #2e1065; --tint-violet: #c4b5fd;
+  --tint-cyan-bg: #083344; --tint-cyan: #67e8f9;
+  --tint-slate-bg: #1e293b; --tint-slate: #cbd5e1;
+  --tint-orange-bg: #431407; --tint-orange: #fdba74;
+  --tint-teal-bg: #042f2e; --tint-teal: #5eead4;
+  --tint-pink-bg: #500724; --tint-pink: #f9a8d4;
+  --tint-indigo-bg: #1e1b4b; --tint-indigo: #a5b4fc;
+  --tint-amber-bg: #451a03; --tint-amber: #fcd34d;
+  --tint-green-bg: #052e16; --tint-green: #86efac;
+  --tint-red-bg: #450a0a; --tint-red: #fca5a5;
+  --tint-sky-bg: #082f49; --tint-sky: #7dd3fc;
+  --tint-fuchsia-bg: #4a044e; --tint-fuchsia: #f0abfc;
+  --tint-stone-bg: #292524; --tint-stone: #d6d3d1;
+  --tint-plain-bg: transparent; --tint-plain: #a3b0c2;
+  --tint-ink-bg: #e2e8f0; --tint-ink: #0f172a;
+  --tint-ink-dot: #e2e8f0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--leading);
+  font-feature-settings: var(--features);
+  background: var(--bg);
+  color: var(--t1);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--blue-ring); color: var(--t1); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: var(--radius-xs); }
