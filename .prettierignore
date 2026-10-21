@@ -8,3 +8,4 @@ node_modules/
 *.md
 package-lock.json
 Cargo.lock
+src/bindings/

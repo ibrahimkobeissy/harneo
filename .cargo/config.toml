@@ -1,0 +1,3 @@
+[env]
+# ts-rs writes generated TypeScript types here when `cargo test` runs (the committed bindings).
+TS_RS_EXPORT_DIR = { value = "src/bindings", relative = true }
