@@ -8,6 +8,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "src/test/setup.ts",
+    // Only this checkout's tests: subagent worktrees under .claude/ hold copies of them.
+    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["lcov"],

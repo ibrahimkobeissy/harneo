@@ -8,4 +8,5 @@ paths = [
   '''(^|/)target/''',
   '''(^|/)dist/''',
   '''(^|/)\.impeccable/review/''',
+  '''(^|/)\.impeccable/questions/''',
 ]
