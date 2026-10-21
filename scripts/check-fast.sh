@@ -40,6 +40,9 @@ fi
 echo "== check-floor"
 bash scripts/check-floor.sh
 
+echo "== setup self-test"
+bash scripts/setup.test.sh
+
 echo "== cargo check --workspace"
 cargo check --workspace
 
