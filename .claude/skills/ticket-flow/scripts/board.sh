@@ -12,7 +12,7 @@ usage: board.sh <command>
   setup                 create the missing Status options (keeps every card's status)
   list [status]         list the repo's board items, optionally one status only
   add <issue#> [status] add an issue to the board (default status: backlog)
-  set <issue#> <status> set an issue's status (adds it to the board if missing)
+  set <issue#>... <status> set the status of one or more issues (adds them to the board if missing)
   sync                  apply status:* labels (left by cloud sessions) to the board, then remove them
 statuses: backlog | ready | progress | review | done
 EOF
@@ -77,14 +77,19 @@ status_name() {
   esac
 }
 
-project_id() {
-  gh project view "$PROJECT" --owner "$OWNER" --format json --jq .id
-}
-
-status_field() {
+# Board data is fetched once per run: GitHub rate-limits bursts of Projects API calls.
+PROJECT_ID="" FIELD_JSON="" ITEMS_JSON=""
+fetch_field() {
   gh project field-list "$PROJECT" --owner "$OWNER" --format json \
     --jq '.fields[] | select(.name == "Status")'
 }
+load_board() {
+  [ -n "$PROJECT_ID" ] || PROJECT_ID=$(gh project view "$PROJECT" --owner "$OWNER" --format json --jq .id)
+  [ -n "$FIELD_JSON" ] || FIELD_JSON=$(fetch_field)
+  [ -n "$ITEMS_JSON" ] || ITEMS_JSON=$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 1000 --format json)
+}
+project_id() { echo "$PROJECT_ID"; }
+status_field() { echo "$FIELD_JSON"; }
 
 # Option id for a board option name, matched case-insensitively.
 option_id() {
@@ -94,8 +99,8 @@ option_id() {
 }
 
 item_id() {
-  gh project item-list "$PROJECT" --owner "$OWNER" --limit 1000 --format json \
-    --jq ".items[] | select(.content.repository == \"$REPO\" and .content.number == $1) | .id"
+  echo "$ITEMS_JSON" | jq -r --arg repo "$REPO" --argjson n "$1" \
+    '.items[] | select(.content.repository == $repo and .content.number == $n) | .id'
 }
 
 graphql() { gh api graphql --input -; } # request body on stdin
@@ -122,11 +127,11 @@ WANTED='[
 # re-apply each card's status by name.
 setup_options() {
   local field_id current items used new dropped kept pid item name opt
+  load_board
   field_id=$(status_field | jq -r .id)
   [ -n "$field_id" ] || die "board has no Status field"
   current=$(field_options "$field_id")
-  items=$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 1000 --format json \
-    | jq '[.items[] | select(.status != null) | {id, status}]')
+  items=$(echo "$ITEMS_JSON" | jq '[.items[] | select(.status != null) | {id, status}]')
   used=$(echo "$items" | jq '[.[].status] | unique')
   new=$(jq -n --argjson cur "$current" --argjson want "$WANTED" --argjson used "$used" '
     ($want | map(.name | ascii_downcase)) as $wn
@@ -149,6 +154,7 @@ setup_options() {
     jq -n --arg f "$field_id" --argjson o "$new" '{
         query: "mutation($f: ID!, $o: [ProjectV2SingleSelectFieldOptionInput!]) { updateProjectV2Field(input: {fieldId: $f, singleSelectOptions: $o}) { clientMutationId } }",
         variables: {f: $f, o: $o}}' | graphql >/dev/null
+    FIELD_JSON=$(fetch_field) # option ids changed
     pid=$(project_id)
     echo "$items" | jq -r '.[] | [.id, .status] | @tsv' | while IFS=$'\t' read -r item name; do
       opt=$(option_id "$name")
@@ -189,6 +195,7 @@ case "$cmd" in
     command -v jq >/dev/null || die "jq is required"
     gh project view "$PROJECT" --owner "$OWNER" --format json --jq '"board: " + .title' \
       || die "cannot read project $PROJECT of $OWNER (gh auth refresh -s project?)"
+    load_board
     field=$(status_field)
     [ -n "$field" ] || die "board has no Status field"
     missing=0
@@ -208,7 +215,8 @@ case "$cmd" in
   list)
     filter=""
     [ -n "${2:-}" ] && filter=$(status_name "$2")
-    gh project item-list "$PROJECT" --owner "$OWNER" --limit 1000 --format json \
+    load_board
+    echo "$ITEMS_JSON" \
       | jq -r --arg repo "$REPO" --arg f "$filter" '
           .items[]
           | select(.content.repository == $repo)
@@ -217,13 +225,19 @@ case "$cmd" in
     ;;
   add)
     [ -n "${2:-}" ] || usage
+    load_board
     set_status "$2" "${3:-backlog}"
     ;;
   set)
-    [ -n "${2:-}" ] && [ -n "${3:-}" ] || usage
-    set_status "$2" "$3"
+    # set <issue#>... <status>: several issues in one run share the fetched board data
+    [ $# -ge 3 ] || usage
+    status=${!#}
+    status_name "$status" >/dev/null
+    load_board
+    for n in "${@:2:$(($# - 2))}"; do set_status "$n" "$status"; done
     ;;
   sync)
+    load_board
     for s in $STATUSES; do
       for n in $(gh issue list -R "$REPO" --state all --label "status:$s" --json number --jq '.[].number'); do
         set_status "$n" "$s"
