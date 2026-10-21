@@ -3,10 +3,18 @@
 Harneo is a harness manager for Claude Code: a Tauri desktop app that keeps a library of AI Artifacts, composes profiles from it, and scaffolds or refits projects from a profile. **Read `CONTEXT.md` before designing or building anything.** It is the product source of truth: artifacts, user journey, feature decisions and constraints.
 
 ## Status
-- No app code yet. The repo holds the product context, specs (`spec/`), the quality bar (`CONSTRAINTS.md`), the design system (`DESIGN.md`, `PRODUCT.md`) and the validated clickable prototype (`design/prototype/`, the visual reference for every UI ticket). Add build commands here once the Tauri scaffold exists.
+- The `app-shell` module exists: the Tauri app frame (`src-tauri/`, `src/`), `harneo-core` and the `harneo` CLI (`crates/`), the quality gates (`scripts/check-*.sh`, `CONSTRAINTS.md`) and the setup script (`scripts/setup.sh`). Library, profile and project features are not built yet. The repo also holds the product context, specs (`spec/`), the design system (`DESIGN.md`, `PRODUCT.md`) and the validated clickable prototype (`design/prototype/`, the visual reference for every UI ticket).
 - Stack decided: Tauri 2 + React + Vite + TypeScript, with a shared Rust core (`harneo-core`) for the app and the CLI.
 - Modules and build order: `spec/capabilities.md`. Each module gets `spec/<module-id>.md` before any tickets (Addy's spec → plan → tasks → build). `spec/app-shell.md` also holds the project-wide conventions: commands, structure, code style, testing, boundaries.
 - Cross-platform code, built and tested on Linux only. Distribution is source only (see `CONTEXT.md` §4–5).
+
+## Commands
+Setup and per-OS prerequisites: `BUILDING.md` (start with `./scripts/setup.sh`, then `npm ci`).
+- `npm run tauri dev`: run the app with hot reload.
+- `npm run tauri build -- --no-bundle`: release binary, no installer.
+- `cargo run -p harneo-cli -- --version`: run the CLI (`paths` prints the data folder).
+- `npm run check:fast`: after each edit. `npm run check:task`: before a ticket is reported done. `npm run check:full`: before any merge to `main`.
+- `npm test`, `npm run lint`, `npm run typecheck`, `npm run fix`: the building blocks. Shells may need `eval "$(mise env -s bash)"` to see the gate tools.
 
 ## Quality bar
 - **Read `CONSTRAINTS.md` before writing code. Do not weaken it to make a change pass.** Every rule blocks: `npm run check:task` must pass before a ticket is reported done, and `npm run check:full` before any merge to `main`.
