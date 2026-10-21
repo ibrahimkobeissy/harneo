@@ -1,0 +1,17 @@
+[package]
+name = "harneo-cli"
+description = "The harneo command: argument parsing and printing over harneo-core."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "harneo"
+path = "src/main.rs"
+
+[dependencies]
+harneo-core = { path = "../harneo-core" }
+
+[lints]
+workspace = true

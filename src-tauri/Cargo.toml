@@ -1,0 +1,28 @@
+[package]
+name = "harneo-app"
+description = "Harneo desktop app: Tauri setup and thin IPC commands over harneo-core."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+# The _lib suffix keeps the library name from colliding with the binary on Windows.
+name = "harneo_app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "harneo-app"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+harneo-core = { path = "../crates/harneo-core" }
+
+[lints]
+workspace = true

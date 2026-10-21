@@ -1,0 +1,12 @@
+[package]
+name = "harneo-core"
+description = "Harneo's engine: all logic, shared by the app and the CLI."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+
+[lints]
+workspace = true

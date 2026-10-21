@@ -1,2 +1,6 @@
 .claude/worktrees/
 .impeccable/review/
+node_modules/
+dist/
+target/
+src-tauri/gen/schemas/
