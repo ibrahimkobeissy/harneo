@@ -1,0 +1,10 @@
+design/
+.impeccable/
+.claude/
+dist/
+target/
+src-tauri/gen/
+node_modules/
+*.md
+package-lock.json
+Cargo.lock
