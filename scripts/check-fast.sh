@@ -11,16 +11,7 @@ for tool in cargo gitleaks; do
 done
 
 # Changed files: committed since the merge-base with main, staged, unstaged, untracked.
-base=$(git merge-base HEAD main 2>/dev/null || git rev-parse HEAD)
-changed=()
-while IFS= read -r -d '' f; do
-  [[ -f "$f" ]] && changed+=("$f")
-done < <(
-  {
-    git diff --name-only -z --diff-filter=d "$base"
-    git ls-files -z --others --exclude-standard
-  } | sort -zu
-)
+mapfile -d '' changed < <(bash scripts/changed-files.sh)
 
 lintable=()
 formattable=()
