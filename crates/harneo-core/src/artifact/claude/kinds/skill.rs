@@ -74,7 +74,7 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     }
 }
 
-fn read_skill(walker: &mut Walker, folder: &Path, report: &mut ScanReport) {
+pub(crate) fn read_skill(walker: &mut Walker, folder: &Path, report: &mut ScanReport) {
     let manifest = folder.join(MANIFEST);
     if !walker.exists(&manifest) {
         return;

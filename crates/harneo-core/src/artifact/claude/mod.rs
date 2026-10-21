@@ -2,6 +2,7 @@
 //! Each artifact type is one file in `kinds/` and one line in `scan`.
 
 mod kinds;
+mod layout;
 
 use std::path::{Path, PathBuf};
 
@@ -35,6 +36,8 @@ impl AgentAdapter for ClaudeAdapter {
         kinds::output_style::scan(&mut walker, &mut report);
         kinds::mcp::scan(&mut walker, &mut report);
         kinds::workflow::scan(&mut walker, &mut report);
+        // Keep last: it removes what the kinds found inside a plugin.
+        layout::scan(&mut walker, options, &mut report);
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
