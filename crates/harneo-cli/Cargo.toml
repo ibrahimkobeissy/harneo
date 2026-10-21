@@ -14,6 +14,8 @@ path = "src/main.rs"
 anyhow = "1.0.104"
 clap = { version = "4.6.7", features = ["derive"] }
 harneo-core = { path = "../harneo-core" }
+serde = "1.0.229"
+serde_json = "1.0.154"
 
 [lints]
 workspace = true
@@ -22,3 +24,4 @@ workspace = true
 assert_cmd = "2.2.2"
 harneo-core = { path = "../harneo-core" }
 predicates = "3.1.4"
+tempfile = "3.27.0"
