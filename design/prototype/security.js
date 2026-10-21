@@ -32,7 +32,7 @@
     return `<div class="page">
       <div class="ph"><h1>Security</h1><span class="muted">Every artifact is audited when it's imported or updated: trust score, findings, and exactly what it can reach.</span><span class="grow"></span>
         <button class="btn" data-a="toast" data-msg="Re-audited ${arts.length} artifacts: no new findings">${ic("refresh-cw")}Re-run audit</button></div>
-      <div class="ins" style="grid-template-columns:1fr 1fr 1fr;margin-top:0">
+      <div class="ins ins3">
         <section class="panel"><h2>Trust scores <span class="muted">${arts.length} artifacts</span></h2>
           <div class="bars" style="height:48px" role="img" aria-label="Trust score distribution">${hist.map((n, i) => `<i style="height:${Math.max(4, Math.round((n / hmax) * 100))}%;background:${i < 6 ? "var(--red-fill)" : i < 8 ? "var(--amber-fill)" : "var(--green-fill)"};opacity:${n ? 1 : 0.25}" title="${i * 10}–${i * 10 + 9}: ${n}"></i>`).join("")}</div>
           <div class="axis"><span>0</span><span>50</span><span>100</span></div>

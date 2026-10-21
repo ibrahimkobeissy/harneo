@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-19T22:24:45+00:00",
+  "generatedAt": "2026-10-21T00:00:00+00:00",
   "title": "Design System: Harneo",
   "extensions": {
     "colorMeta": {
@@ -1636,7 +1636,7 @@
       },
       "title-lg": {
         "displayName": "Title large",
-        "purpose": "Drawer headings. Modals use 16px/600."
+        "purpose": "Drawer and modal headings."
       },
       "title": {
         "displayName": "Title",
@@ -1656,7 +1656,7 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Badges, table headers, panel and filter headings."
+        "purpose": "Badges, sortable table headers, panel and filter headings."
       },
       "label-quiet": {
         "displayName": "Label quiet",
@@ -1733,12 +1733,12 @@
       {
         "name": "half-screen",
         "value": "1180px",
-        "purpose": "max-width: card grids to 2 columns, filter column becomes an overlay sheet, cart 360px."
+        "purpose": "max-width: card grids to 2 columns, filter column stops being sticky and becomes an overlay sheet, cart 360px."
       },
       {
         "name": "rail",
         "value": "1000px",
-        "purpose": "max-width: sidebar collapses to a 60px icon rail, insight row stacks, single-column choices and split views, cart 300px."
+        "purpose": "max-width: sidebar collapses to a 60px icon rail, insight row stacks, single-column choices (including the collection kind selector) and split views, cart 300px."
       }
     ],
     "fonts": [
@@ -1824,7 +1824,43 @@
     "openItems": [
       "rust (stone) and security (slate) tag treatments read too close in both themes; give them distinct treatments (finish review)."
     ],
-    "darkTheme": "Every color key has a dark- twin in the frontmatter; :root[data-theme=dark] applies them when the OS is dark or the user toggles."
+    "darkTheme": "Every color key has a dark- twin in the frontmatter; :root[data-theme=dark] applies them when the OS is dark or the user toggles.",
+    "radiusScale": {
+      "steps": [
+        "4px",
+        "6px",
+        "8px",
+        "10px",
+        "12px",
+        "14px",
+        "pill",
+        "circle"
+      ],
+      "note": "Closed scale; round 2 snapped every off-scale corner onto it. Pills: tags and toggles 10px at 20px tall, rule chips 999px at 26px. Status dots are 8px circles."
+    },
+    "pagination": {
+      "cardsPerPage": 24,
+      "rowsPerPage": 25,
+      "readout": "x–y of n",
+      "current": "blue wash, blue 600 text, inset 1px blue-ring, aria-current=page"
+    },
+    "trustBands": [
+      {
+        "name": "untrusted",
+        "range": "0-59",
+        "color": "red-fill"
+      },
+      {
+        "name": "review",
+        "range": "60-79",
+        "color": "amber-fill"
+      },
+      {
+        "name": "trusted",
+        "range": "80-100",
+        "color": "green-fill"
+      }
+    ]
   },
   "components": [
     {
@@ -1873,7 +1909,7 @@
       "refersTo": "tag",
       "description": "Tags are dotted pills in non-state families; badges carry state in reserved washes.",
       "html": "<div class=\"ds-row\"><span class=\"ds-tag ds-cyan\"><i></i>testing</span><span class=\"ds-tag ds-plain\"><i></i>daily</span><span class=\"ds-tag ds-ink\"><i></i>docs</span><span class=\"ds-badge\">Bundle of 4</span><span class=\"ds-badge ds-warn\">Update 3.4.1</span><span class=\"ds-badge ds-bad\">3 findings</span></div>",
-      "css": ".ds-row { display: flex; gap: 6px; align-items: center; font: 400 13px/1.45 Inter, system-ui, sans-serif; } .ds-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 7px 1px 6px; border-radius: 10px; } .ds-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-cyan { background: var(--tint-cyan-bg, #cffafe); color: var(--tint-cyan, #0e7490); } .ds-plain { background: transparent; color: var(--tint-plain, #475569); box-shadow: inset 0 0 0 1px var(--line2, #cbd5e1); } .ds-ink { background: var(--tint-ink-bg, #1e293b); color: var(--tint-ink, #f1f5f9); } .ds-badge { display: inline-flex; font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 5px; background: var(--sunk, #f1f5f9); color: var(--t2, #475569); } .ds-warn { background: var(--amber-soft, #fef3c7); color: var(--amber, #b45309); } .ds-bad { background: var(--red-soft, #fee2e2); color: var(--red, #b91c1c); }"
+      "css": ".ds-row { display: flex; gap: 6px; align-items: center; font: 400 13px/1.45 Inter, system-ui, sans-serif; } .ds-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; padding: 1px 7px 1px 6px; border-radius: 10px; } .ds-tag i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; } .ds-cyan { background: var(--tint-cyan-bg, #cffafe); color: var(--tint-cyan, #0e7490); } .ds-plain { background: transparent; color: var(--tint-plain, #475569); box-shadow: inset 0 0 0 1px var(--line2, #cbd5e1); } .ds-ink { background: var(--tint-ink-bg, #1e293b); color: var(--tint-ink, #f1f5f9); } .ds-badge { display: inline-flex; font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 6px; background: var(--sunk, #f1f5f9); color: var(--t2, #475569); } .ds-warn { background: var(--amber-soft, #fef3c7); color: var(--amber, #b45309); } .ds-bad { background: var(--red-soft, #fee2e2); color: var(--red, #b91c1c); }"
     },
     {
       "name": "Artifact Card",
@@ -1881,7 +1917,7 @@
       "refersTo": "card-artifact",
       "description": "Library card: tinted type icon, name, mono source line, description, tags, proof footer.",
       "html": "<button class=\"ds-tile\"><div class=\"ds-head\"><span class=\"ds-ic\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linejoin=\"round\"><path d=\"M9.94 14.06 4 12l5.94-2.06L12 4l2.06 5.94L20 12l-5.94 2.06L12 20z\"/></svg></span><div><div class=\"ds-nm\">test-driven-development</div><div class=\"ds-src\">addyosmani/agent-skills · 0.6.13</div></div></div><p class=\"ds-desc\">Red-green-refactor loop for any logic change. Write a failing test first.</p><div><span class=\"ds-tg\">testing</span></div><div class=\"ds-foot\"><span class=\"ds-meter\"><i></i></span><b>88</b><span class=\"ds-src\">54 sessions</span><span class=\"ds-bd\">Bundle of 4</span></div></button>",
-      "css": ".ds-tile { width: 320px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--raised, #fff); color: var(--t1, #0f172a); text-align: left; font: 400 13px/1.45 Inter, system-ui, sans-serif; font-feature-settings: 'tnum', 'cv11'; cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s; } .ds-tile:hover { border-color: var(--line2, #cbd5e1); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); } .ds-tile:focus-visible { outline: none; border-color: var(--blue, #2563eb); box-shadow: 0 0 0 3px var(--blue-ring, #dbeafe); } .ds-head { display: flex; align-items: center; gap: 10px; } .ds-ic { width: 30px; height: 30px; border-radius: 7px; display: flex; align-items: center; justify-content: center; background: var(--tint-blue-bg, #dbeafe); color: var(--tint-blue, #1d4ed8); } .ds-nm { font-weight: 600; font-size: 13.5px; letter-spacing: -0.005em; } .ds-src { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--t3, #64748b); } .ds-desc { margin: 0; color: var(--t2, #475569); } .ds-tg { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--tint-cyan-bg, #cffafe); color: var(--tint-cyan, #0e7490); } .ds-foot { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line, #e2e8f0); } .ds-meter { width: 36px; height: 5px; border-radius: 3px; background: var(--line, #e2e8f0); overflow: hidden; } .ds-meter i { display: block; width: 88%; height: 100%; background: var(--green-fill, #16a34a); } .ds-bd { margin-left: auto; font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 5px; background: var(--sunk, #f1f5f9); color: var(--t2, #475569); }"
+      "css": ".ds-tile { width: 320px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--raised, #fff); color: var(--t1, #0f172a); text-align: left; font: 400 13px/1.45 Inter, system-ui, sans-serif; font-feature-settings: 'tnum', 'cv11'; cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s; } .ds-tile:hover { border-color: var(--line2, #cbd5e1); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06); } .ds-tile:focus-visible { outline: none; border-color: var(--blue, #2563eb); box-shadow: 0 0 0 3px var(--blue-ring, #dbeafe); } .ds-head { display: flex; align-items: center; gap: 10px; } .ds-ic { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--tint-blue-bg, #dbeafe); color: var(--tint-blue, #1d4ed8); } .ds-nm { font-weight: 600; font-size: 13.5px; letter-spacing: -0.005em; } .ds-src { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12px; color: var(--t3, #64748b); } .ds-desc { margin: 0; color: var(--t2, #475569); } .ds-tg { font-size: 12px; padding: 1px 7px; border-radius: 10px; background: var(--tint-cyan-bg, #cffafe); color: var(--tint-cyan, #0e7490); } .ds-foot { display: flex; align-items: center; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line, #e2e8f0); } .ds-meter { width: 36px; height: 5px; border-radius: 4px; background: var(--line, #e2e8f0); overflow: hidden; } .ds-meter i { display: block; width: 88%; height: 100%; background: var(--green-fill, #16a34a); } .ds-bd { margin-left: auto; font-size: 12px; font-weight: 500; padding: 1px 7px; border-radius: 6px; background: var(--sunk, #f1f5f9); color: var(--t2, #475569); }"
     },
     {
       "name": "Library Health Bar",
@@ -1889,7 +1925,31 @@
       "refersTo": "panel",
       "description": "Stacked status bar with a clickable legend: current, unused, outdated, findings.",
       "html": "<div class=\"ds-panel\"><h2>Library health</h2><div class=\"ds-stack\"><i style=\"flex:153;background:var(--green-fill,#16a34a)\"></i><i style=\"flex:21;background:var(--line2,#cbd5e1)\"></i><i style=\"flex:9;background:var(--amber-fill,#f59e0b)\"></i><i style=\"flex:1;background:var(--red-fill,#dc2626)\"></i></div><div class=\"ds-leg\"><span><i style=\"background:var(--green-fill,#16a34a)\"></i><b>153</b> current</span><span><i style=\"background:var(--line2,#cbd5e1)\"></i><b>21</b> unused</span><span><i style=\"background:var(--amber-fill,#f59e0b)\"></i><b>9</b> outdated</span><span><i style=\"background:var(--red-fill,#dc2626)\"></i><b>1</b> with findings</span></div></div>",
-      "css": ".ds-panel { width: 480px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 14px 16px; background: var(--raised, #fff); font: 400 13px/1.45 Inter, system-ui, sans-serif; font-feature-settings: 'tnum'; } .ds-panel h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 500; color: var(--t2, #475569); } .ds-stack { display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px; } .ds-stack i { display: block; } .ds-leg { display: flex; gap: 6px 16px; margin-top: 10px; color: var(--t2, #475569); flex-wrap: wrap; } .ds-leg span { display: flex; align-items: center; gap: 6px; } .ds-leg i { width: 8px; height: 8px; border-radius: 2px; } .ds-leg b { color: var(--t1, #0f172a); font-weight: 600; }"
+      "css": ".ds-panel { width: 480px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 14px 16px; background: var(--raised, #fff); font: 400 13px/1.45 Inter, system-ui, sans-serif; font-feature-settings: 'tnum'; } .ds-panel h2 { margin: 0 0 10px; font-size: 12.5px; font-weight: 500; color: var(--t2, #475569); } .ds-stack { display: flex; height: 10px; border-radius: 6px; overflow: hidden; gap: 2px; } .ds-stack i { display: block; } .ds-leg { display: flex; gap: 6px 16px; margin-top: 10px; color: var(--t2, #475569); flex-wrap: wrap; } .ds-leg span { display: flex; align-items: center; gap: 6px; } .ds-leg i { width: 8px; height: 8px; border-radius: 4px; } .ds-leg b { color: var(--t1, #0f172a); font-weight: 600; }"
+    },
+    {
+      "name": "Sortable Table",
+      "kind": "custom",
+      "refersTo": "table-sortable",
+      "description": "Bordered standalone table; every header sorts, the active column shows a blue arrow and aria-sort.",
+      "html": "<table class=\"ds-tbl\"><thead><tr><th aria-sort=\"descending\"><button class=\"ds-th ds-on\">Severity<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 5v14\"/><path d=\"m19 12-7 7-7-7\"/></svg></button></th><th aria-sort=\"none\"><button class=\"ds-th\">Artifact<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m21 16-4 4-4-4\"/><path d=\"M17 20V4\"/><path d=\"m3 8 4-4 4 4\"/><path d=\"M7 4v16\"/></svg></button></th><th aria-sort=\"none\"><button class=\"ds-th\">Trust<svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m21 16-4 4-4-4\"/><path d=\"M17 20V4\"/><path d=\"m3 8 4-4 4 4\"/><path d=\"M7 4v16\"/></svg></button></th></tr></thead><tbody><tr class=\"ds-flag\"><td>High</td><td>shell-runner</td><td>41</td></tr><tr><td>Medium</td><td>/ship</td><td>84</td></tr></tbody></table>",
+      "css": ".ds-tbl { width: 420px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; border-collapse: separate; border-spacing: 0; overflow: hidden; background: var(--raised, #fff); font: 400 13px/1.45 Inter, system-ui, sans-serif; font-feature-settings: 'tnum'; color: var(--t1, #0f172a); } .ds-tbl th { text-align: left; padding: 8px 12px; background: var(--side, #f8fafc); border-bottom: 1px solid var(--line, #e2e8f0); } .ds-tbl td { padding: 9px 12px; border-bottom: 1px solid var(--line, #e2e8f0); } .ds-tbl tr:last-child td { border-bottom: 0; } .ds-flag td { background: var(--red-soft, #fee2e2); } .ds-th { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; padding: 0; font: 500 12px/1.45 Inter, system-ui, sans-serif; color: var(--t2, #475569); cursor: pointer; } .ds-th svg { opacity: 0.45; } .ds-th:hover { color: var(--t1, #0f172a); } .ds-th:hover svg { opacity: 0.8; } .ds-th:focus-visible { outline: 2px solid var(--blue, #2563eb); outline-offset: 2px; border-radius: 4px; } .ds-th.ds-on { color: var(--t1, #0f172a); } .ds-th.ds-on svg { opacity: 1; color: var(--blue, #2563eb); }"
+    },
+    {
+      "name": "Pager",
+      "kind": "nav",
+      "refersTo": "pager-page-current",
+      "description": "Range readout and page buttons below a list; the current page sits in the blue wash.",
+      "html": "<nav class=\"ds-pager\" aria-label=\"Pages\"><span class=\"ds-rng\">25–48 of 184</span><div class=\"ds-pages\"><button class=\"ds-pgb\" aria-label=\"Previous page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m15 18-6-6 6-6\"/></svg></button><button class=\"ds-pg\">1</button><button class=\"ds-pg ds-on\" aria-current=\"page\">2</button><button class=\"ds-pg\">3</button><span class=\"ds-ell\">…</span><button class=\"ds-pg\">8</button><button class=\"ds-pgb\" aria-label=\"Next page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"m9 18 6-6-6-6\"/></svg></button></div></nav>",
+      "css": ".ds-pager { width: 520px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line, #e2e8f0); font: 400 13px/1.45 Inter, system-ui, sans-serif; } .ds-rng { color: var(--t2, #475569); font-variant-numeric: tabular-nums; } .ds-pages { display: flex; align-items: center; gap: 4px; } .ds-pg { min-width: 30px; height: 30px; padding: 0 8px; border: 0; border-radius: 6px; background: transparent; color: var(--t2, #475569); font: inherit; font-variant-numeric: tabular-nums; cursor: pointer; } .ds-pg:hover { background: var(--sunk, #f1f5f9); color: var(--t1, #0f172a); } .ds-pg:focus-visible, .ds-pgb:focus-visible { outline: 2px solid var(--blue, #2563eb); outline-offset: 2px; } .ds-pg.ds-on { background: var(--blue-soft, #eff6ff); color: var(--blue, #2563eb); font-weight: 600; box-shadow: inset 0 0 0 1px var(--blue-ring, #dbeafe); } .ds-pgb { height: 26px; padding: 0 6px; display: inline-flex; align-items: center; border: 1px solid var(--line, #e2e8f0); border-radius: 8px; background: var(--raised, #fff); color: var(--t1, #0f172a); cursor: pointer; } .ds-pgb:hover { background: var(--sunk, #f1f5f9); border-color: var(--line2, #cbd5e1); } .ds-ell { color: var(--t3, #64748b); }"
+    },
+    {
+      "name": "Rule Chips",
+      "kind": "chip",
+      "refersTo": "rule-chip-on",
+      "description": "Multi-select pill toggles inside the smart-collection rule box; on is the blue wash with a check.",
+      "html": "<div class=\"ds-rbox\"><div class=\"ds-rrow\"><span>Type</span><div><button class=\"ds-rchip ds-on\" aria-pressed=\"true\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>Skills</button><button class=\"ds-rchip\" aria-pressed=\"false\">Subagents</button><button class=\"ds-rchip\" aria-pressed=\"false\">Commands</button></div></div><div class=\"ds-rrow\"><span>Tag</span><div><button class=\"ds-rchip\" aria-pressed=\"false\">#testing</button><button class=\"ds-rchip ds-on\" aria-pressed=\"true\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 6 9 17l-5-5\"/></svg>#rust</button></div></div></div>",
+      "css": ".ds-rbox { width: 480px; border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 10px 12px; background: var(--side, #f8fafc); font: 400 13px/1.45 Inter, system-ui, sans-serif; } .ds-rrow { display: flex; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line, #e2e8f0); align-items: flex-start; } .ds-rrow:last-child { border-bottom: 0; } .ds-rrow > span { width: 56px; flex: none; color: var(--t3, #64748b); padding-top: 4px; } .ds-rrow > div { display: flex; flex-wrap: wrap; gap: 6px; } .ds-rchip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px; border-radius: 999px; border: 1px solid var(--line, #e2e8f0); background: var(--raised, #fff); color: var(--t2, #475569); font: 400 12.5px/1 Inter, system-ui, sans-serif; cursor: pointer; } .ds-rchip:hover { border-color: var(--line2, #cbd5e1); color: var(--t1, #0f172a); } .ds-rchip:focus-visible { outline: 2px solid var(--blue, #2563eb); outline-offset: 2px; } .ds-rchip.ds-on { background: var(--blue-soft, #eff6ff); border-color: var(--blue-ring, #dbeafe); color: var(--blue, #2563eb); font-weight: 500; }"
     }
   ],
   "narrative": {
@@ -1933,6 +1993,11 @@
         "name": "The Hairline First Rule",
         "body": "Separate with a 1px `line` border before reaching for a shadow. Resting cards have no shadow.",
         "section": "elevation"
+      },
+      {
+        "name": "The Every Column Sorts Rule",
+        "body": "A new table gets sortable headers on every column, with the arrow icon, the blue active arrow and `aria-sort`. A table with a fixed order is the exception and must say why.",
+        "section": "components"
       }
     ],
     "dos": [
@@ -1941,6 +2006,8 @@
       "Do give each artifact type its own tinted rounded-square Lucide icon, and use the same icon and tint everywhere that type appears.",
       "Do show a quantified red warning for every line or file a write would lose.",
       "Do define both light and dark values for every new token and test at 1180px and 960px.",
+      "Do make every table column sortable, with the arrow-up-down icon, a blue arrow on the active column and `aria-sort`.",
+      "Do pick corners from the existing scale (4, 6, 8, 10, 12, 14px, pill, circle); never introduce an in-between radius.",
       "Do self-host Inter and JetBrains Mono and bundle Lucide in the app (`src/ui/tokens.css` per `spec/app-shell.md`); the prototype's Google Fonts and CDN links are prototype-only."
     ],
     "donts": [
