@@ -15,9 +15,6 @@ crates=$1
 shift
 ts_files=("$@")
 
-# diff-cover only sees tracked files: mark untracked ones as intent-to-add (no content staged).
-git ls-files -z --others --exclude-standard | xargs -0 -r git add -N --
-
 rm -rf coverage
 mkdir -p coverage
 reports=()
@@ -45,4 +42,5 @@ if ((${#reports[@]} == 0)); then
 fi
 
 echo "== diff-cover (changed lines >= 80%)"
-diff-cover "${reports[@]}" --compare-branch=main --fail-under=80
+# --include-untracked: a brand-new file counts too, without touching the git index.
+diff-cover "${reports[@]}" --compare-branch=main --include-untracked --fail-under=80
