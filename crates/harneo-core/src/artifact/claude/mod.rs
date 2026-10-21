@@ -28,6 +28,10 @@ impl AgentAdapter for ClaudeAdapter {
         let mut walker = Walker::new(root, options);
         kinds::skill::scan(&mut walker, &mut report);
         kinds::settings::scan(&mut walker, &mut report);
+        kinds::rule::scan(&mut walker, &mut report);
+        kinds::command::scan(&mut walker, &mut report);
+        kinds::agent::scan(&mut walker, &mut report);
+        kinds::output_style::scan(&mut walker, &mut report);
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
