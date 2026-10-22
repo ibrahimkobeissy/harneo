@@ -16,6 +16,9 @@ mod git_tests;
 pub mod ids;
 #[cfg(test)]
 mod import_tests;
+mod query;
+#[cfg(test)]
+mod query_tests;
 mod records;
 #[cfg(test)]
 mod secrets_tests;
@@ -35,6 +38,10 @@ use crate::error::{Error, Result};
 use copy::{copy_artifact, ImportHooks, NoHooks};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
+pub use query::{
+    Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
+    TagChip, TagCount, MAX_LIMIT,
+};
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
 pub use source::Source;
 use store::Store;
@@ -382,6 +389,14 @@ fn git_subfolder(subfolder: Option<&str>) -> Result<PathBuf> {
         Err(Error::UnsafePath {
             path: text.to_owned(),
         })
+    }
+}
+
+impl Library {
+    /// One page of the library: filtered, sorted, with the total and the facet counts (see
+    /// `query` for the semantics).
+    pub fn list(&self, query: &Query) -> Result<Page> {
+        query::list(&self.store.conn, query)
     }
 }
 
