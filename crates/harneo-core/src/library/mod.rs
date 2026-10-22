@@ -13,6 +13,8 @@ mod collections;
 #[cfg(test)]
 mod collections_tests;
 mod copy;
+#[cfg(test)]
+mod find_tests;
 mod git;
 #[cfg(test)]
 mod git_tests;
@@ -455,6 +457,32 @@ fn git_subfolder(subfolder: Option<&str>) -> Result<PathBuf> {
         Err(Error::UnsafePath {
             path: text.to_owned(),
         })
+    }
+}
+
+impl Library {
+    /// The id of the artifact of `kind` named `name` (the newest when several sources hold
+    /// one), for opening what a reference points at.
+    pub fn find(
+        &self,
+        kind: crate::artifact::ArtifactKind,
+        name: &str,
+    ) -> Result<Option<ArtifactId>> {
+        let kind = serde_json::to_value(kind)
+            .ok()
+            .and_then(|v| v.as_str().map(str::to_owned))
+            .unwrap_or_default();
+        let found = self.store.conn.query_row(
+            "SELECT id FROM artifacts WHERE kind = ?1 AND name = ?2
+             ORDER BY imported_at DESC, id LIMIT 1",
+            rusqlite::params![kind, name],
+            |row| row.get::<_, String>(0),
+        );
+        match found {
+            Ok(id) => Ok(Some(id)),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 

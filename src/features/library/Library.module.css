@@ -11,13 +11,14 @@
 
 /* Filter column: sticks under the top of the scrolling main area and scrolls on its own. */
 .filters {
+  border-right: var(--hairline) solid var(--line);
+}
+.filtersIn {
   position: sticky;
   top: 0;
-  align-self: start;
   max-height: 100vh;
   overflow-y: auto;
   overscroll-behavior: contain;
-  border-right: var(--hairline) solid var(--line);
   padding: var(--space-page-top) var(--space-lg) var(--space-page-bottom);
   display: flex;
   flex-direction: column;

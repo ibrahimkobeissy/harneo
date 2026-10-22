@@ -53,6 +53,7 @@ export function ItemTable({
           <tr
             key={item.id}
             tabIndex={0}
+            data-item-id={item.id}
             className={styles.row}
             onClick={() => onOpen(item)}
             onKeyDown={(event) => {

@@ -9,7 +9,10 @@ pub fn run() {
         .manage(commands::LibraryState::open())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
-            commands::library_list
+            commands::library_list,
+            commands::library_detail,
+            commands::library_remove,
+            commands::library_find
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

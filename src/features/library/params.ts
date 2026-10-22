@@ -15,6 +15,8 @@ export interface LibraryParams {
   types: ArtifactKind[];
   tags: string[];
   sources: string[];
+  /** The artifact open in the detail panel. */
+  open: string | null;
 }
 
 export const PER_PAGE: Record<View, number> = { cards: 24, list: 25 };
@@ -56,6 +58,7 @@ export function parseParams(sp: URLSearchParams): LibraryParams {
     types: sp.getAll("type").filter((t): t is ArtifactKind => t in kinds),
     tags: sp.getAll("tag"),
     sources: sp.getAll("source"),
+    open: sp.get("open") || null,
   };
 }
 
@@ -72,6 +75,7 @@ export function toSearchParams(p: LibraryParams): URLSearchParams {
   p.types.forEach((t) => sp.append("type", t));
   p.tags.forEach((t) => sp.append("tag", t));
   p.sources.forEach((s) => sp.append("source", s));
+  if (p.open) sp.set("open", p.open);
   return sp;
 }
 

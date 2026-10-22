@@ -12,7 +12,12 @@ export function ItemCard({
   onOpen: (item: LibraryItem) => void;
 }) {
   return (
-    <button type="button" className={styles.tile} onClick={() => onOpen(item)}>
+    <button
+      type="button"
+      className={styles.tile}
+      data-item-id={item.id}
+      onClick={() => onOpen(item)}
+    >
       <span className={styles.tileHead}>
         <KindChip kind={item.kind} />
         <span className={styles.tileTitle}>

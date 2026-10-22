@@ -6,13 +6,14 @@ import {
   SearchX,
   TriangleAlert,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Page } from "../../bindings/Page";
 import type { SortKey } from "../../bindings/SortKey";
 import { libraryList } from "../../lib/ipc";
 import { Button, EmptyState } from "../../ui";
+import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { ItemCard } from "./ItemCard";
 import { ItemTable } from "./ItemTable";
@@ -82,7 +83,8 @@ function useLibraryPage(key: string): [Load, () => void] {
 
 /**
  * The library: filter column, search, cards or list, pager. Everything the user chooses lives
- * in the URL query so Back restores it. `onOpen` is the hook for the detail drawer (L9).
+ * in the URL query so Back restores it, including the artifact open in the detail panel
+ * (`?open=<id>`). `onOpen` is also told when a card is opened.
  */
 export function LibraryScreen({
   onOpen = noop,
@@ -95,6 +97,35 @@ export function LibraryScreen({
   const [load, reload] = useLibraryPage(JSON.stringify(query));
   const page = load.status === "error" ? null : load.page;
   const perPage = PER_PAGE[params.view];
+  // Artifacts left behind by following references, newest last; Back pops one.
+  const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
+  // The card to give focus back to once the panel has closed.
+  const returnTo = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (params.open !== null || returnTo.current === null) return;
+    const id = returnTo.current;
+    returnTo.current = null;
+    document
+      .querySelector<HTMLElement>(`[data-item-id="${CSS.escape(id)}"]`)
+      ?.focus();
+  });
+
+  function openPanel(id: string | null) {
+    update({ open: id, page: params.page });
+  }
+
+  function openItem(item: LibraryItem) {
+    setTrail([]);
+    openPanel(item.id);
+    onOpen(item);
+  }
+
+  function closePanel() {
+    returnTo.current = trail[0]?.id ?? params.open;
+    setTrail([]);
+    openPanel(null);
+  }
 
   function update(
     patch: Partial<LibraryParams>,
@@ -274,7 +305,7 @@ export function LibraryScreen({
           {page && page.items.length > 0 && params.view === "cards" && (
             <div className={styles.grid}>
               {page.items.map((item) => (
-                <ItemCard key={item.id} item={item} onOpen={onOpen} />
+                <ItemCard key={item.id} item={item} onOpen={openItem} />
               ))}
             </div>
           )}
@@ -284,7 +315,7 @@ export function LibraryScreen({
               sort={params.sort}
               descending={params.descending}
               onSort={sortBy}
-              onOpen={onOpen}
+              onOpen={openItem}
             />
           )}
           {page && (
@@ -297,6 +328,28 @@ export function LibraryScreen({
           )}
         </div>
       </div>
+      {params.open && (
+        <DetailPanel
+          id={params.open}
+          previousName={trail.at(-1)?.name ?? null}
+          onOpen={(id, fromName) => {
+            setTrail((t) => [...t, { id: params.open ?? "", name: fromName }]);
+            openPanel(id);
+          }}
+          onBack={() => {
+            const previous = trail.at(-1);
+            if (!previous) return;
+            setTrail(trail.slice(0, -1));
+            openPanel(previous.id);
+          }}
+          onClose={closePanel}
+          onRemoved={() => {
+            setTrail([]);
+            openPanel(null);
+            reload();
+          }}
+        />
+      )}
     </section>
   );
 }

@@ -82,60 +82,66 @@ export function FilterColumn({
 }) {
   return (
     <aside className={styles.filters} aria-label="Filters">
-      {filtered && (
-        <Button small variant="ghost" onClick={onClearAll}>
-          Clear filters
-        </Button>
-      )}
-      <GroupHead
-        title="Type"
-        active={params.types.length > 0}
-        onClear={() => onClearGroup("types")}
-      />
-      {facets.kinds.map(({ kind, count }) => (
-        <Option
-          key={kind}
-          on={params.types.includes(kind)}
-          label={kinds[kind].plural}
-          count={count}
-          lead={<KindChip kind={kind} small />}
-          onToggle={() => onToggle("types", kind)}
+      <div className={styles.filtersIn}>
+        {filtered && (
+          <Button small variant="ghost" onClick={onClearAll}>
+            Clear filters
+          </Button>
+        )}
+        <GroupHead
+          title="Type"
+          active={params.types.length > 0}
+          onClear={() => onClearGroup("types")}
         />
-      ))}
-      <GroupHead
-        title="Tag"
-        active={params.tags.length > 0}
-        onClear={() => onClearGroup("tags")}
-      />
-      {facets.tags.length === 0 && (
-        <span className={styles.muted}>No tags yet</span>
-      )}
-      {facets.tags.map((t) => (
-        <Option
-          key={t.name}
-          on={params.tags.some((x) => x.toLowerCase() === t.name.toLowerCase())}
-          label={t.name}
-          count={t.count}
-          lead={<i className={styles.tagDot} data-tint={tagTint(t.color)} />}
-          onToggle={() => onToggle("tags", t.name)}
+        {facets.kinds.map(({ kind, count }) => (
+          <Option
+            key={kind}
+            on={params.types.includes(kind)}
+            label={kinds[kind].plural}
+            count={count}
+            lead={<KindChip kind={kind} small />}
+            onToggle={() => onToggle("types", kind)}
+          />
+        ))}
+        <GroupHead
+          title="Tag"
+          active={params.tags.length > 0}
+          onClear={() => onClearGroup("tags")}
         />
-      ))}
-      <GroupHead
-        title="Source"
-        active={params.sources.length > 0}
-        onClear={() => onClearGroup("sources")}
-      />
-      {facets.sources.map(({ source, count }) => (
-        <Option
-          key={source.id}
-          on={params.sources.includes(source.id)}
-          label={
-            source.branch ? `${source.label} @ ${source.branch}` : source.label
-          }
-          count={count}
-          onToggle={() => onToggle("sources", source.id)}
+        {facets.tags.length === 0 && (
+          <span className={styles.muted}>No tags yet</span>
+        )}
+        {facets.tags.map((t) => (
+          <Option
+            key={t.name}
+            on={params.tags.some(
+              (x) => x.toLowerCase() === t.name.toLowerCase(),
+            )}
+            label={t.name}
+            count={t.count}
+            lead={<i className={styles.tagDot} data-tint={tagTint(t.color)} />}
+            onToggle={() => onToggle("tags", t.name)}
+          />
+        ))}
+        <GroupHead
+          title="Source"
+          active={params.sources.length > 0}
+          onClear={() => onClearGroup("sources")}
         />
-      ))}
+        {facets.sources.map(({ source, count }) => (
+          <Option
+            key={source.id}
+            on={params.sources.includes(source.id)}
+            label={
+              source.branch
+                ? `${source.label} @ ${source.branch}`
+                : source.label
+            }
+            count={count}
+            onToggle={() => onToggle("sources", source.id)}
+          />
+        ))}
+      </div>
     </aside>
   );
 }
