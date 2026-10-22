@@ -45,7 +45,7 @@ pub(crate) fn is_secret_name(name: &str) -> bool {
         || matches!(n.as_str(), ".pgpass" | ".my.cnf" | ".vault-token")
 }
 
-fn is_local_name(name: &str) -> bool {
+pub(crate) fn is_local_name(name: &str) -> bool {
     LOCAL_FILES.iter().any(|l| name.eq_ignore_ascii_case(l))
 }
 

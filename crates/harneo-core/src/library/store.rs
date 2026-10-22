@@ -6,7 +6,7 @@
 //! than this build is refused rather than guessed at.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use rusqlite::Connection;
@@ -100,7 +100,8 @@ pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
 /// The open index database.
 #[derive(Debug)]
 pub(crate) struct Store {
-    conn: Connection,
+    pub(crate) conn: Connection,
+    root: PathBuf,
 }
 
 impl Store {
@@ -116,9 +117,19 @@ impl Store {
         let conn = Connection::open(root.join(DB_FILE))?;
         conn.busy_timeout(BUSY_TIMEOUT)?;
         conn.pragma_update(None, "foreign_keys", true)?;
-        let mut store = Self { conn };
+        let mut store = Self { conn, root };
         store.migrate()?;
         Ok(store)
+    }
+
+    /// `<data dir>/library`.
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// `<data dir>/library/artifacts`, one folder per artifact id.
+    pub(crate) fn artifacts_dir(&self) -> PathBuf {
+        self.root.join(ARTIFACTS_DIR)
     }
 
     pub(crate) fn schema_version(&self) -> Result<u32> {

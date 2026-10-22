@@ -36,6 +36,29 @@ pub enum Error {
         /// The newest version this build can read.
         supported: u32,
     },
+    /// An import asked for an artifact that is not in the preview it was given, or whose id does
+    /// not match its source and path.
+    #[error("artifact {id} is not part of this preview")]
+    NotInPreview {
+        /// The id that was selected.
+        id: String,
+    },
+    /// A path from a scanned source was absolute, climbed out with `..`, or went through a
+    /// symlink, so it was not copied.
+    #[error("unsafe path in the source: {path}")]
+    UnsafePath {
+        /// The path as the scan reported it.
+        path: String,
+    },
+    /// The artifact is not in the library.
+    #[error("artifact {id} is not in the library")]
+    NotInLibrary {
+        /// The id that was asked for.
+        id: String,
+    },
+    /// A stored artifact record could not be read back.
+    #[error("library record is damaged: {0}")]
+    BadRecord(#[from] serde_json::Error),
 }
 
 /// Result alias used across `harneo-core`.

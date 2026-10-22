@@ -10,14 +10,14 @@ pub mod walk;
 
 use std::path::Path;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use adapter::AgentAdapter;
 pub use claude::ClaudeAdapter;
 
 /// The 10 artifact types of `CONTEXT.md` §2.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum ArtifactKind {
@@ -34,7 +34,7 @@ pub enum ArtifactKind {
 }
 
 /// How serious a finding is. Nothing fails a scan; the severity is for the reader.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, TS)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum Severity {
@@ -44,7 +44,7 @@ pub enum Severity {
 
 /// One finding. The `code` (`<kind>.<kebab-problem>`) is stable once released, because the audit
 /// and the UI key on it; the message is for people and may change.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct Diagnostic {
@@ -77,7 +77,7 @@ impl Diagnostic {
 }
 
 /// A dependency an artifact declares in a structured field (never free text).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct Reference {
@@ -90,7 +90,7 @@ pub struct Reference {
 }
 
 /// One artifact found in a folder, ready for the library, the audit and bundles.
-#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct Artifact {
@@ -111,7 +111,7 @@ pub struct Artifact {
 }
 
 /// Everything one scan found.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, TS)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct ScanReport {
@@ -121,7 +121,7 @@ pub struct ScanReport {
 }
 
 /// The limits that keep a scan of an untrusted folder cheap and safe.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct ScanOptions {
