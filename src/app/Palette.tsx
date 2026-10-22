@@ -143,13 +143,13 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
         <input
           type="text"
           role="combobox"
-          aria-label="Search places and actions"
+          aria-label="Search places, actions, artifacts…"
           aria-expanded="true"
           aria-controls="palette-list"
           aria-activedescendant={
             activeEntry ? optionId(activeEntry) : undefined
           }
-          placeholder="Search places and actions"
+          placeholder="Search places, actions, artifacts…"
           autoComplete="off"
           autoFocus
           className={styles.input}
