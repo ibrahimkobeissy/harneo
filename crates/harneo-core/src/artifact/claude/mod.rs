@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 
 use super::walk::Walker;
 use super::{AgentAdapter, Artifact, ArtifactKind, ScanOptions, ScanReport};
+use crate::audit::Audit;
 use crate::{Error, Result};
 
 /// The adapter for Claude Code.
@@ -46,6 +47,10 @@ impl AgentAdapter for ClaudeAdapter {
         report.diagnostics.extend(walker.finish());
         report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(report)
+    }
+
+    fn audit(&self, artifact: &Artifact, root: &Path, options: &ScanOptions) -> Audit {
+        crate::audit::audit(artifact, root, options)
     }
 
     fn install_path(&self, artifact: &Artifact) -> PathBuf {

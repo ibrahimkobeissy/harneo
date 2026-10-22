@@ -2,6 +2,7 @@
 //! `harneo` CLI run the same code; they only convert arguments and results.
 
 pub mod artifact;
+pub mod audit;
 pub mod error;
 pub mod library;
 pub mod paths;
