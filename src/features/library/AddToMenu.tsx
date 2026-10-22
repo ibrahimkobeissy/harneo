@@ -6,7 +6,7 @@ import {
   collectionAdd,
   collectionRemove,
 } from "../../lib/ipc";
-import { Button } from "../../ui";
+import { Button, announce } from "../../ui";
 import styles from "./Collections.module.css";
 
 /**
@@ -63,12 +63,15 @@ export function AddToMenu({
     const n = Number(id);
     setError(null);
     try {
+      const name = collections.find((c) => c.id === id)?.name ?? "collection";
       if (member.includes(n)) {
         await collectionRemove(id, artifactId);
         setMember(member.filter((m) => m !== n));
+        announce(`Removed from ${name}`);
       } else {
         await collectionAdd(id, artifactId);
         setMember([...member, n]);
+        announce(`Added to ${name}`);
       }
       refresh();
       onChanged();

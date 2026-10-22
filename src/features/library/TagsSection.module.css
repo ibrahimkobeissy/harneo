@@ -69,6 +69,31 @@
   background: var(--raised);
   box-shadow: var(--shadow-md);
 }
+.create {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.create > svg {
+  flex: none;
+}
+.createName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.colorName {
+  order: 1;
+  margin-left: auto;
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.menu[data-align="end"] {
+  left: auto;
+  right: 0;
+}
 .search {
   width: 100%;
   height: var(--size-control);
@@ -110,6 +135,7 @@
 }
 .colors {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-sm) var(--space-xs);
   border-top: var(--hairline) solid var(--line);

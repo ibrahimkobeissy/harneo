@@ -19,7 +19,7 @@ import {
   libraryFind,
   libraryRemove,
 } from "../../lib/ipc";
-import { Button } from "../../ui";
+import { Button, announce } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
 import styles from "./Detail.module.css";
 import { KindChip } from "./KindChip";
@@ -295,6 +295,7 @@ export function DetailPanel({
     setRemoveError(null);
     try {
       await collectionRemove(collection.id, id);
+      announce(`Removed from ${collection.name}`);
       onLeftCollection();
     } catch (err) {
       setRemoveError(String(err));
@@ -374,7 +375,7 @@ export function DetailPanel({
                 }}
               >
                 <Trash2 size={14} aria-hidden="true" />
-                Remove
+                Delete from library…
               </Button>
             </div>
           )}
@@ -426,9 +427,9 @@ export function DetailPanel({
         </div>
       </aside>
       {confirming && detail && (
-        <Modal label={`Remove ${detail.artifact.name}`}>
+        <Modal label={`Delete ${detail.artifact.name}`}>
           <div className={styles.confirm}>
-            <h2>Remove {detail.artifact.name}?</h2>
+            <h2>Delete {detail.artifact.name} from your library?</h2>
             <p>
               This deletes {detail.artifact.name} from your library, with its
               tags and collection entries. The original at its source is not
@@ -448,7 +449,7 @@ export function DetailPanel({
                 onClick={() => void remove()}
                 disabled={busy}
               >
-                Remove
+                Delete
               </Button>
             </div>
           </div>

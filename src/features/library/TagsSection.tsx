@@ -1,5 +1,5 @@
 import { Plus, X } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Tag as TagRecord } from "../../bindings/Tag";
 import type { TagColor } from "../../bindings/TagColor";
 import type { TagWithCount } from "../../bindings/TagWithCount";
@@ -10,7 +10,7 @@ import {
   tagCreate,
   tagsList,
 } from "../../lib/ipc";
-import { Tag } from "../../ui";
+import { Tag, announce } from "../../ui";
 import { tagTint } from "./kinds";
 import styles from "./TagsSection.module.css";
 
@@ -69,6 +69,8 @@ export function TagsSection({
   const wrap = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [alignEnd, setAlignEnd] = useState(false);
   const listId = useId();
 
   async function refresh() {
@@ -107,6 +109,15 @@ export function TagsSection({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // Flip to the trigger's right edge when the menu would run past the window.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const node = menuRef.current;
+    const left = wrap.current?.getBoundingClientRect().left;
+    if (!node || left === undefined) return;
+    setAlignEnd(left + node.offsetWidth > window.innerWidth - 8);
+  }, [open]);
+
   const { options, note } = optionsFor(query, all, mine ?? []);
   const at = Math.min(active, Math.max(options.length - 1, 0));
 
@@ -125,12 +136,16 @@ export function TagsSection({
     trigger.current?.focus();
   }
 
-  async function change(action: () => Promise<void>): Promise<boolean> {
+  async function change(
+    action: () => Promise<void>,
+    message: string,
+  ): Promise<boolean> {
     setError(null);
     try {
       await action();
       await refresh();
       onChanged();
+      announce(message);
       return true;
     } catch (err) {
       setError(String(err));
@@ -139,6 +154,7 @@ export function TagsSection({
   }
 
   async function pick(option: Option) {
+    const label = option.kind === "existing" ? option.tag.name : option.name;
     const done = await change(async () => {
       if (option.kind === "existing") {
         await artifactTagAdd(artifactId, option.tag.id);
@@ -146,7 +162,7 @@ export function TagsSection({
         const created = await tagCreate(option.name, color);
         await artifactTagAdd(artifactId, created.id);
       }
-    });
+    }, `Added #${label}`);
     if (done) {
       setQuery("");
       setActive(0);
@@ -184,7 +200,10 @@ export function TagsSection({
               className={styles.remove}
               aria-label={`Remove tag ${t.name}`}
               onClick={() =>
-                void change(() => artifactTagRemove(artifactId, t.id))
+                void change(
+                  () => artifactTagRemove(artifactId, t.id),
+                  `Removed #${t.name}`,
+                )
               }
             >
               <X size={11} aria-hidden="true" />
@@ -206,7 +225,9 @@ export function TagsSection({
           </button>
           {open && (
             <div
+              ref={menuRef}
               className={styles.menu}
+              data-align={alignEnd ? "end" : "start"}
               role="presentation"
               onKeyDown={onKeyDown}
             >
@@ -256,10 +277,12 @@ export function TagsSection({
                         <span className={styles.count}>{option.tag.count}</span>
                       </>
                     ) : (
-                      <>
+                      <span className={styles.create}>
                         <Plus size={13} aria-hidden="true" />
-                        {`Create “${option.name}”`}
-                      </>
+                        <span className={styles.createName}>
+                          {`Create “${option.name}”`}
+                        </span>
+                      </span>
                     )}
                   </div>
                 ))}
@@ -278,6 +301,7 @@ export function TagsSection({
                   role="radiogroup"
                   aria-label="Color of the new tag"
                 >
+                  <span className={styles.colorName}>{color}</span>
                   {tagColors.map((c) => (
                     <button
                       key={c}

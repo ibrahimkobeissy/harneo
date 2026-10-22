@@ -154,6 +154,9 @@
   border-radius: var(--radius);
   background: var(--sunk);
 }
+.diag[data-severity="warning"] {
+  background: var(--amber-soft);
+}
 .diag[data-severity="error"] {
   background: var(--red-soft);
 }
@@ -176,7 +179,7 @@
   color: var(--t1);
 }
 .file {
-  color: var(--t3);
+  color: var(--t2);
 }
 .ref,
 .refPlain {

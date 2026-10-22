@@ -464,6 +464,9 @@ describe("collection screen", () => {
       collectionId: 1,
       artifactId: "id-alpha",
     });
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Removed from Review kit",
+    );
     await waitFor(() =>
       expect(
         screen.queryByRole("button", { name: /alpha/ }),

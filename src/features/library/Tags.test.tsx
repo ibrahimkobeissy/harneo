@@ -131,6 +131,7 @@ describe("tags in the detail panel", () => {
       ).toBeInTheDocument(),
     );
     expect(calls).toEqual(["add:2"]);
+    expect(screen.getByRole("status")).toHaveTextContent("Added #web");
     // The card and the filter column (from facets) follow after the list reloads.
     await waitFor(() =>
       expect(screen.getAllByText("web").length).toBeGreaterThan(2),
@@ -150,6 +151,7 @@ describe("tags in the detail panel", () => {
     );
     await user.click(screen.getByRole("radio", { name: "fuchsia" }));
     expect(screen.getByRole("radio", { name: "fuchsia" })).toBeChecked();
+    expect(screen.getByText("fuchsia")).toBeVisible();
     await user.click(screen.getByRole("option", { name: /Create “docs”/ }));
     await waitFor(() =>
       expect(
@@ -172,6 +174,7 @@ describe("tags in the detail panel", () => {
       ).toBeNull(),
     );
     expect(calls).toEqual(["remove:1"]);
+    expect(screen.getByRole("status")).toHaveTextContent("Removed #rust");
   });
 
   it("never offers Create for a name that exists, ignoring what else is typed", async () => {

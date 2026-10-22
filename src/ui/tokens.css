@@ -145,9 +145,9 @@
     --line2: #2c3a55;
     --blue: #3b82f6;
     --blue-hover: #60a5fa;
-    --blue-soft: #14213d;
+    --blue-soft: #101b33;
     --blue-ring: #1e3a8a;
-    --on-blue: #ffffff;
+    --on-blue: #0b1120;
     --on-danger: #ffffff;
     --green: #4ade80;
     --green-fill: #22c55e;
@@ -210,9 +210,9 @@
   --line2: #2c3a55;
   --blue: #3b82f6;
   --blue-hover: #60a5fa;
-  --blue-soft: #14213d;
+  --blue-soft: #101b33;
   --blue-ring: #1e3a8a;
-  --on-blue: #ffffff;
+  --on-blue: #0b1120;
   --on-danger: #ffffff;
   --green: #4ade80;
   --green-fill: #22c55e;
@@ -289,4 +289,8 @@ body {
 :where(:focus-visible) {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
+}
+::placeholder {
+  color: var(--t3);
+  opacity: 1;
 }

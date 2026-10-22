@@ -201,23 +201,27 @@ describe("detail panel", () => {
     const user = userEvent.setup();
     const { removed } = setup("/library?open=id-alpha");
     await screen.findByRole("dialog", { name: "alpha details" });
-    await user.click(screen.getByRole("button", { name: "Remove" }));
-    const confirm = await screen.findByRole("dialog", { name: "Remove alpha" });
+    await user.click(
+      screen.getByRole("button", { name: "Delete from library…" }),
+    );
+    const confirm = await screen.findByRole("dialog", { name: "Delete alpha" });
     expect(removed).toEqual([]);
     // Esc cancels the confirmation only, not the panel.
     await user.keyboard("{Escape}");
     await waitFor(() =>
       expect(
-        screen.queryByRole("dialog", { name: "Remove alpha" }),
+        screen.queryByRole("dialog", { name: "Delete alpha" }),
       ).not.toBeInTheDocument(),
     );
     expect(
       screen.getByRole("dialog", { name: "alpha details" }),
     ).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Remove" }));
-    const again = await screen.findByRole("dialog", { name: "Remove alpha" });
+    await user.click(
+      screen.getByRole("button", { name: "Delete from library…" }),
+    );
+    const again = await screen.findByRole("dialog", { name: "Delete alpha" });
     expect(confirm).not.toBe(again);
-    await user.click(within(again).getByRole("button", { name: "Remove" }));
+    await user.click(within(again).getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(removed).toEqual(["id-alpha"]));
     await waitFor(() =>
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),

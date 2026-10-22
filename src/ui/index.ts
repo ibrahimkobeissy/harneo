@@ -1,3 +1,4 @@
+export { announce } from "./Announcer";
 export { Badge, type BadgeTone } from "./Badge";
 export { Button, type ButtonVariant } from "./Button";
 export { EmptyState } from "./EmptyState";
