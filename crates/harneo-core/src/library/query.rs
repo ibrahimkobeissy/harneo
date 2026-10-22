@@ -60,6 +60,9 @@ pub enum SortKey {
     Source,
     TagCount,
     ImportedAt,
+    /// A manual collection's own order. Only meaningful in `Library::collection_page` of a
+    /// manual collection; everywhere else it sorts like `Name`.
+    Position,
 }
 
 /// One list request. The default is the first 50 artifacts by name.
@@ -176,6 +179,16 @@ pub struct Page {
     pub facets: Facets,
 }
 
+/// An extra restriction ANDed to the query's own filter (and to every facet), with the manual
+/// collection whose order `SortKey::Position` follows, if any.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Scope {
+    /// A condition over `artifacts a JOIN sources s`, with `?` placeholders for `params`.
+    pub clause: String,
+    pub params: Vec<Value>,
+    pub manual_collection: Option<i64>,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Facet {
     Types,
@@ -211,10 +224,14 @@ fn escape_like(text: &str) -> String {
 /// Always a valid condition (`1` when the filter is empty). Values are only ever bound, never
 /// spliced in. Smart collections evaluate their rule with this.
 pub(crate) fn filter_clause(filter: &Filter) -> Result<(String, Vec<Value>)> {
-    build(filter, None)
+    build(filter, None, None)
 }
 
-fn build(filter: &Filter, omit: Option<Facet>) -> Result<(String, Vec<Value>)> {
+fn build(
+    filter: &Filter,
+    omit: Option<Facet>,
+    scope: Option<&Scope>,
+) -> Result<(String, Vec<Value>)> {
     let mut parts: Vec<String> = Vec::new();
     let mut params: Vec<Value> = Vec::new();
     if omit != Some(Facet::Types) && !filter.types.is_empty() {
@@ -252,6 +269,10 @@ fn build(filter: &Filter, omit: Option<Facet>) -> Result<(String, Vec<Value>)> {
                         WHERE x.artifact_id = a.id AND t.name LIKE ? ESCAPE '\\'))"
         ));
         params.extend(std::iter::repeat_n(Value::Text(like), 4));
+    }
+    if let Some(scope) = scope.filter(|s| !s.clause.is_empty()) {
+        parts.push(format!("({})", scope.clause));
+        params.extend(scope.params.iter().cloned());
     }
     let clause = if parts.is_empty() {
         "1".to_owned()
@@ -296,7 +317,12 @@ fn parse_kind(name: String) -> Result<ArtifactKind> {
 
 /// Runs `query` against the library index.
 pub(crate) fn list(conn: &Connection, query: &Query) -> Result<Page> {
-    let (clause, filter_params) = filter_clause(&query.filter)?;
+    list_in(conn, query, None)
+}
+
+/// Like [`list`], restricted by `scope` too (rows, total and facets alike).
+pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -> Result<Page> {
+    let (clause, filter_params) = build(&query.filter, None, scope)?;
     let total: i64 = conn.query_row(
         &format!(
             "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id WHERE {clause}"
@@ -313,6 +339,13 @@ pub(crate) fn list(conn: &Connection, query: &Query) -> Result<Page> {
             "(SELECT COUNT(*) FROM artifact_tags x WHERE x.artifact_id = a.id)".to_owned()
         }
         SortKey::ImportedAt => "a.imported_at".to_owned(),
+        SortKey::Position => match scope.and_then(|s| s.manual_collection) {
+            Some(id) => format!(
+                "(SELECT position FROM collection_items \
+                  WHERE collection_id = {id} AND artifact_id = a.id)"
+            ),
+            None => "a.name COLLATE NOCASE".to_owned(),
+        },
     };
     let direction = if query.descending { "DESC" } else { "ASC" };
     let mut params = filter_params;
@@ -386,7 +419,7 @@ pub(crate) fn list(conn: &Connection, query: &Query) -> Result<Page> {
     Ok(Page {
         items,
         total: count(total),
-        facets: facets(conn, &query.filter)?,
+        facets: facets(conn, &query.filter, scope)?,
     })
 }
 
@@ -420,9 +453,9 @@ fn attach_tags(conn: &Connection, items: &mut [LibraryItem]) -> Result<()> {
     Ok(())
 }
 
-fn facets(conn: &Connection, filter: &Filter) -> Result<Facets> {
+fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<Facets> {
     // Kinds.
-    let (clause, params) = build(filter, Some(Facet::Types))?;
+    let (clause, params) = build(filter, Some(Facet::Types), scope)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT a.kind, COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
          WHERE {clause} GROUP BY a.kind"
@@ -450,7 +483,7 @@ fn facets(conn: &Connection, filter: &Filter) -> Result<Facets> {
     drop(stmt);
 
     // Tags.
-    let (clause, params) = build(filter, Some(Facet::Tags))?;
+    let (clause, params) = build(filter, Some(Facet::Tags), scope)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT t.name, t.color, COUNT(f.id) FROM tags t
          LEFT JOIN artifact_tags x ON x.tag_id = t.id
@@ -469,7 +502,7 @@ fn facets(conn: &Connection, filter: &Filter) -> Result<Facets> {
     drop(stmt);
 
     // Sources.
-    let (clause, params) = build(filter, Some(Facet::Sources))?;
+    let (clause, params) = build(filter, Some(Facet::Sources), scope)?;
     let mut stmt = conn.prepare(&format!(
         "SELECT s.id, s.kind, s.location, s.branch, COUNT(f.id) FROM sources s
          LEFT JOIN (SELECT a.id, a.source_id FROM artifacts a JOIN sources s ON s.id = a.source_id

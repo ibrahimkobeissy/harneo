@@ -141,6 +141,24 @@ pub enum Error {
         /// The id that was asked for.
         id: i64,
     },
+    /// A collection name, rule or order is not acceptable.
+    #[error("invalid collection: {reason}")]
+    InvalidCollection {
+        /// What is wrong, ready to show.
+        reason: String,
+    },
+    /// Another collection already has this name (names are unique ignoring case).
+    #[error("a collection named {name} already exists")]
+    CollectionExists {
+        /// The name that clashed.
+        name: String,
+    },
+    /// No collection has this id.
+    #[error("collection {id} does not exist")]
+    CollectionNotFound {
+        /// The id that was asked for.
+        id: i64,
+    },
 }
 
 /// Result alias used across `harneo-core`.

@@ -9,6 +9,9 @@
 //! Importing is two steps: [`Library::preview`] scans a [`Source`] and lists [`Candidate`]s,
 //! then [`Library::import`] copies the ticked ones (see `copy`).
 
+mod collections;
+#[cfg(test)]
+mod collections_tests;
 mod copy;
 mod git;
 #[cfg(test)]
@@ -38,6 +41,7 @@ use ts_rs::TS;
 
 use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions};
 use crate::error::{Error, Result};
+pub use collections::{Collection, CollectionKind};
 use copy::{copy_artifact, ImportHooks, NoHooks};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
@@ -459,6 +463,63 @@ impl Library {
     /// `query` for the semantics).
     pub fn list(&self, query: &Query) -> Result<Page> {
         query::list(&self.store.conn, query)
+    }
+}
+
+impl Library {
+    /// Every collection by name, with its member count (smart ones are evaluated now).
+    pub fn collections(&self) -> Result<Vec<Collection>> {
+        collections::list(&self.store.conn)
+    }
+
+    /// Creates an empty manual collection. The name is trimmed, 1 to 60 characters, unique
+    /// ignoring case.
+    pub fn create_manual_collection(&self, name: &str) -> Result<Collection> {
+        collections::create_manual(&self.store.conn, name)
+    }
+
+    /// Creates a smart collection whose members are whatever matches `rule` when it is read.
+    /// An empty rule is refused.
+    pub fn create_smart_collection(&self, name: &str, rule: Filter) -> Result<Collection> {
+        collections::create_smart(&self.store.conn, name, rule)
+    }
+
+    /// Renames a collection (same rules as on creation).
+    pub fn rename_collection(&self, id: i64, name: &str) -> Result<Collection> {
+        collections::rename(&self.store.conn, id, name)
+    }
+
+    /// Replaces a smart collection's rule; a manual collection has none.
+    pub fn update_rule(&self, id: i64, rule: Filter) -> Result<Collection> {
+        collections::update_rule(&self.store.conn, id, rule)
+    }
+
+    /// Deletes a collection; its artifacts stay in the library.
+    pub fn delete_collection(&self, id: i64) -> Result<()> {
+        collections::delete(&self.store.conn, id)
+    }
+
+    /// Appends an artifact to a manual collection; one already there stays where it is.
+    pub fn add_to_collection(&self, collection_id: i64, artifact_id: &str) -> Result<()> {
+        collections::add(&self.store.conn, collection_id, artifact_id)
+    }
+
+    /// Takes an artifact out of a manual collection; one not in it is fine.
+    pub fn remove_from_collection(&self, collection_id: i64, artifact_id: &str) -> Result<()> {
+        collections::remove(&self.store.conn, collection_id, artifact_id)
+    }
+
+    /// Sets a manual collection's order. `ordered_ids` must hold each current member once.
+    pub fn reorder_collection(&self, collection_id: i64, ordered_ids: &[String]) -> Result<()> {
+        collections::reorder(&self.store.conn, collection_id, ordered_ids)
+    }
+
+    /// One page of a collection's members, through the same filters, sort, pages and facets as
+    /// [`Library::list`]. A smart collection's rule is ANDed with the query's own filter. For a
+    /// manual collection `SortKey::Position` keeps its manual order (ascending is first to
+    /// last); for a smart one `Position` sorts by name.
+    pub fn collection_page(&self, collection_id: i64, query: &Query) -> Result<Page> {
+        collections::page(&self.store.conn, collection_id, query)
     }
 }
 
