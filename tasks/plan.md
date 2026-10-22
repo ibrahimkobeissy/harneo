@@ -301,3 +301,62 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria,
 ## Open Questions
 
 None.
+
+---
+
+# Implementation Plan: audit
+
+> Module `audit` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/audit.md`](../spec/audit.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
+> **Tasks are tracked in GitHub Issues** (Project 5). Task ids `U1`–`U11`.
+> Status: **pre-approved by the user (2026-10-23)** ([#70](https://github.com/ibrahimkobeissy/harneo/issues/70)); tasks created as issues #71–#81.
+
+## Overview
+
+Static audit of every artifact: trust score (0–100, 4 tiers), findings from rules ported from HarnessKit and extended, and reach (files, network, shell, env). Shown at import (critical candidates start excluded), in the library, the detail panel and the Security page.
+
+## Architecture Decisions
+
+- **Engine first (U1), then rule families in parallel (U2–U5)**: each family is its own file and adds one registry line, so parallel tickets don't collide.
+- **Library integration (U6) needs only the engine**, so it runs alongside the rules; the screens (U8–U10) build on U6's stored audit and queries.
+- **Ported code is attributed** in each file header plus `THIRD_PARTY_NOTICES.md` and the Apache-2.0 text.
+
+## Dependency graph
+
+```
+U1 engine ─┬─ U2 secrets ─┐
+           ├─ U3 commands ┤
+           ├─ U4 mcp/supply-chain
+           ├─ U5 reach + combo
+           └─ U6 library integration ─┬─ U7 CLI
+                                      ├─ U8 library trust UI ─┐
+                                      ├─ U9 import audit UI ──┼─ U11 critique + fixes
+                                      └─ U10 Security page ───┘
+```
+
+## Task list
+
+- [#71](https://github.com/ibrahimkobeissy/harneo/issues/71) U1: Audit engine: types, score and tiers, input reader, injection rules, attribution
+- [#72](https://github.com/ibrahimkobeissy/harneo/issues/72) U2: Secret and credential rules
+- [#73](https://github.com/ibrahimkobeissy/harneo/issues/73) U3: Command rules: rce, dangerous-commands, safety-bypass
+- [#74](https://github.com/ibrahimkobeissy/harneo/issues/74) U4: MCP and supply-chain rules
+- [#75](https://github.com/ibrahimkobeissy/harneo/issues/75) U5: Reach inference and the permission-combo rule
+- [#76](https://github.com/ibrahimkobeissy/harneo/issues/76) U6: Library integration: audit at preview and import, stored, re-audit, trust queries
+- [#77](https://github.com/ibrahimkobeissy/harneo/issues/77) U7: `harneo audit <path> [--json]`
+- [#78](https://github.com/ibrahimkobeissy/harneo/issues/78) U8: Trust in the Library: meter, column, filters, sort, detail Trust section
+- [#79](https://github.com/ibrahimkobeissy/harneo/issues/79) U9: Audit in the import flow
+- [#80](https://github.com/ibrahimkobeissy/harneo/issues/80) U10: Security page
+- [#81](https://github.com/ibrahimkobeissy/harneo/issues/81) U11: `/impeccable critique` of the audit screens and fixes
+
+## Checkpoints
+
+- **Core** (after U1–U6): hostile fixtures trigger every rule; scores and tiers exact; no secret in any output; `check:full` passes.
+- **Screens** (after U7–U10): trust visible across the app; critical candidates start excluded.
+- **User review** (after U11): the user reviews audit together with artifact-model and library.
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| False positives flood the UI (e.g. docs that mention `rm -rf`) | High | Port HarnessKit's documentation-line handling where it is sound, test the false-positive cases from the research, and keep severities conservative outside hooks/Settings |
+| Secret-shaped fixtures trip gitleaks or the guard hook | Med | Build fixture secrets from fragments at test time |
+| Regex cost on large packs | Low | `regex` is linear-time; patterns compiled once; a 200-artifact performance test |
