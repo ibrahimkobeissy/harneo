@@ -74,7 +74,7 @@ npx vitest run src/features/security
 crates/harneo-core/src/audit/
   mod.rs        → Audit, Finding, Severity, Tier, Reach, audit(), score
   input.rs      → files of an artifact read through the walk; line index
-  rules/        → one file per rule family: injection.rs, secrets.rs, commands.rs, mcp.rs, supply_chain.rs, combo.rs
+  rules/        → one file per rule family: injection.rs, leaks.rs, commands.rs, mcp.rs, supply_chain.rs, combo.rs
   reach.rs      → reach inference
 crates/harneo-core/tests/audit_*.rs → fixture tests (hostile packs built at test time)
 licenses/HarnessKit-APACHE-2.0.txt, THIRD_PARTY_NOTICES.md
