@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "../App";
+import { item, page } from "../test/library";
 import { Tag } from "../ui";
 import { AboutPanel } from "./AboutPanel";
 import { modKey, searchShortcut } from "./platform";
@@ -17,9 +18,10 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
-  mockIPC((cmd) =>
-    cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined,
-  );
+  mockIPC((cmd) => {
+    if (cmd === "library_list") return page([item("one")]);
+    return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
+  });
 });
 
 async function openPalette() {
@@ -117,6 +119,7 @@ describe("AboutPanel", () => {
   it("retries after a failure", async () => {
     let calls = 0;
     mockIPC((cmd) => {
+      if (cmd === "library_list") return page([item("one")]);
       if (cmd !== "app_info") return undefined;
       calls += 1;
       if (calls === 1) throw "backend not ready";

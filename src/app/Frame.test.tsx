@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "../App";
+import { item, page } from "../test/library";
 
 function renderAt(path: string) {
   return render(
@@ -14,9 +15,10 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
-  mockIPC((cmd) =>
-    cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined,
-  );
+  mockIPC((cmd) => {
+    if (cmd === "library_list") return page([item("one")]);
+    return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
+  });
 });
 
 const screens = [

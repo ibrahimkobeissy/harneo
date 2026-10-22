@@ -120,6 +120,14 @@
   --size-gutter: 32px;
   --size-page-max: 1400px;
   --size-page-narrow: 1040px;
+  --size-filters: 228px;
+  --size-search: 300px;
+  --size-welcome: 880px;
+  --size-icon-chip: 30px;
+  --size-icon-chip-sm: 22px;
+  --size-check: 14px;
+  --size-page-btn: 30px;
+  --size-glyph: 13px;
   --features: "tnum", "cv11";
   color-scheme: light;
 }

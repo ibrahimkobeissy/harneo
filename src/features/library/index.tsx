@@ -1,13 +1,304 @@
-import { LayoutGrid } from "lucide-react";
-import { EmptyState, Screen } from "../../ui";
+import {
+  ArrowDown,
+  ArrowUp,
+  LayoutGrid,
+  List,
+  SearchX,
+  TriangleAlert,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
+import type { LibraryItem } from "../../bindings/LibraryItem";
+import type { Page } from "../../bindings/Page";
+import type { SortKey } from "../../bindings/SortKey";
+import { libraryList } from "../../lib/ipc";
+import { Button, EmptyState } from "../../ui";
+import { FilterColumn, type FilterGroup } from "./FilterColumn";
+import { ItemCard } from "./ItemCard";
+import { ItemTable } from "./ItemTable";
+import styles from "./Library.module.css";
+import {
+  defaultDescending,
+  hasFilters,
+  type LibraryParams,
+  PER_PAGE,
+  parseParams,
+  sortKeys,
+  sortLabels,
+  toQuery,
+  toSearchParams,
+  type View,
+} from "./params";
+import { Pager } from "./Pager";
+import { SearchBox } from "./SearchBox";
+import { Welcome } from "./Welcome";
 
-export function LibraryScreen() {
+type Load =
+  | { status: "loading"; page: Page | null }
+  | { status: "error"; message: string }
+  | { status: "ready"; page: Page };
+
+/** What the last settled request produced, tagged with the request it answered. */
+interface Settled {
+  id: string;
+  page: Page | null;
+  error: string | null;
+}
+
+/**
+ * Loads the page for `key` (a JSON query). While a newer request is in flight the previous page
+ * stays on screen; `reload` re-runs the request after an error.
+ */
+function useLibraryPage(key: string): [Load, () => void] {
+  const [settled, setSettled] = useState<Settled>({
+    id: "",
+    page: null,
+    error: null,
+  });
+  const [attempt, setAttempt] = useState(0);
+  const id = `${attempt}:${key}`;
+  useEffect(() => {
+    let current = true;
+    libraryList(JSON.parse(key) as Parameters<typeof libraryList>[0]).then(
+      (page) => {
+        if (current) setSettled({ id, page, error: null });
+      },
+      (err: unknown) => {
+        if (current) setSettled({ id, page: null, error: String(err) });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [key, id]);
+  const reload = () => setAttempt((n) => n + 1);
+  if (settled.id !== id)
+    return [{ status: "loading", page: settled.page }, reload];
+  if (settled.error !== null) {
+    return [{ status: "error", message: settled.error }, reload];
+  }
+  return [{ status: "ready", page: settled.page as Page }, reload];
+}
+
+/**
+ * The library: filter column, search, cards or list, pager. Everything the user chooses lives
+ * in the URL query so Back restores it. `onOpen` is the hook for the detail drawer (L9).
+ */
+export function LibraryScreen({
+  onOpen = noop,
+}: {
+  onOpen?: (item: LibraryItem) => void;
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const params = parseParams(searchParams);
+  const query = toQuery(params);
+  const [load, reload] = useLibraryPage(JSON.stringify(query));
+  const page = load.status === "error" ? null : load.page;
+  const perPage = PER_PAGE[params.view];
+
+  function update(
+    patch: Partial<LibraryParams>,
+    options: { replace?: boolean } = {},
+  ) {
+    const resetsPage = !("page" in patch);
+    setSearchParams(
+      toSearchParams({
+        ...params,
+        ...patch,
+        ...(resetsPage ? { page: 1 } : {}),
+      }),
+      options,
+    );
+  }
+
+  // A page past the end (after a filter narrowed the list elsewhere) steps back to the last.
+  useEffect(() => {
+    if (
+      load.status === "ready" &&
+      load.page.items.length === 0 &&
+      load.page.total > 0 &&
+      params.page > 1
+    ) {
+      setSearchParams(
+        toSearchParams({
+          ...params,
+          page: Math.ceil(load.page.total / perPage),
+        }),
+        { replace: true },
+      );
+    }
+  });
+
+  const filtered = hasFilters(params);
+
+  if (load.status === "ready" && load.page.total === 0 && !filtered) {
+    return <Welcome />;
+  }
+
+  function toggle(group: FilterGroup, value: string) {
+    const current = params[group] as string[];
+    const next = current.includes(value)
+      ? current.filter((v) => v !== value)
+      : [...current, value];
+    update({ [group]: next } as Partial<LibraryParams>);
+  }
+
+  function sortBy(key: SortKey) {
+    if (key === params.sort) update({ descending: !params.descending });
+    else update({ sort: key, descending: defaultDescending(key) });
+  }
+
+  function setView(view: View) {
+    update({ view });
+  }
+
   return (
-    <Screen title="Library">
-      <EmptyState icon={LayoutGrid} title="Not built yet">
-        Every skill, subagent, command, settings template and MCP server you
-        trust, kept outside any project with its source, trust score and usage.
-      </EmptyState>
-    </Screen>
+    <section className={styles.lib} aria-labelledby="library-title">
+      {page && (
+        <FilterColumn
+          facets={page.facets}
+          params={params}
+          filtered={filtered}
+          onToggle={toggle}
+          onClearGroup={(group) =>
+            update({ [group]: [] } as Partial<LibraryParams>)
+          }
+          onClearAll={() =>
+            update({ types: [], tags: [], sources: [], text: "" })
+          }
+        />
+      )}
+      <div className={styles.main}>
+        <header className={styles.top}>
+          <h1 id="library-title" className={styles.title}>
+            Library
+          </h1>
+          {page && (
+            <span className={styles.count} aria-live="polite">
+              {page.total} {page.total === 1 ? "artifact" : "artifacts"}
+            </span>
+          )}
+          <SearchBox
+            value={params.text}
+            onCommit={(text) => update({ text }, { replace: true })}
+          />
+          <div className={styles.seg} role="group" aria-label="View">
+            <button
+              type="button"
+              className={params.view === "cards" ? styles.segOn : undefined}
+              aria-pressed={params.view === "cards"}
+              onClick={() => setView("cards")}
+            >
+              <LayoutGrid size={14} aria-hidden="true" />
+              Cards
+            </button>
+            <button
+              type="button"
+              className={params.view === "list" ? styles.segOn : undefined}
+              aria-pressed={params.view === "list"}
+              onClick={() => setView("list")}
+            >
+              <List size={14} aria-hidden="true" />
+              List
+            </button>
+          </div>
+        </header>
+        {params.view === "cards" && (
+          <div className={styles.toolbar} role="group" aria-label="Sort by">
+            <span>Sort</span>
+            {sortKeys.map((key) => {
+              const active = key === params.sort;
+              const Arrow = params.descending ? ArrowDown : ArrowUp;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={
+                    active
+                      ? `${styles.sortChip} ${styles.sortChipOn}`
+                      : styles.sortChip
+                  }
+                  aria-pressed={active}
+                  onClick={() => sortBy(key)}
+                >
+                  {sortLabels[key]}
+                  {active && (
+                    <>
+                      <Arrow size={12} aria-hidden="true" />
+                      <span className={styles.sr}>
+                        {params.descending ? ", descending" : ", ascending"}
+                      </span>
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <div aria-busy={load.status === "loading"}>
+          {load.status === "error" && (
+            <div role="alert">
+              <EmptyState
+                icon={TriangleAlert}
+                title="The library could not load"
+              >
+                {load.message}
+              </EmptyState>
+              <div className={styles.retry}>
+                <Button onClick={reload}>Retry</Button>
+              </div>
+            </div>
+          )}
+          {load.status === "loading" && !page && (
+            <p role="status" className={styles.muted}>
+              Loading the library…
+            </p>
+          )}
+          {page && page.items.length === 0 && page.total === 0 && (
+            <div>
+              <EmptyState icon={SearchX} title="No artifacts match">
+                Nothing in the library matches these filters
+                {params.text ? ` and “${params.text}”` : ""}.
+              </EmptyState>
+              <div className={styles.retry}>
+                <Button
+                  onClick={() =>
+                    update({ types: [], tags: [], sources: [], text: "" })
+                  }
+                >
+                  Clear filters
+                </Button>
+              </div>
+            </div>
+          )}
+          {page && page.items.length > 0 && params.view === "cards" && (
+            <div className={styles.grid}>
+              {page.items.map((item) => (
+                <ItemCard key={item.id} item={item} onOpen={onOpen} />
+              ))}
+            </div>
+          )}
+          {page && page.items.length > 0 && params.view === "list" && (
+            <ItemTable
+              items={page.items}
+              sort={params.sort}
+              descending={params.descending}
+              onSort={sortBy}
+              onOpen={onOpen}
+            />
+          )}
+          {page && (
+            <Pager
+              page={params.page}
+              perPage={perPage}
+              total={page.total}
+              onPage={(p) => update({ page: p })}
+            />
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
+
+function noop() {}
