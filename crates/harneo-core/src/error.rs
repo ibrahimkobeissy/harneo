@@ -123,6 +123,24 @@ pub enum Error {
     /// A git preview is gone (replaced by a newer one, or already imported): preview again.
     #[error("this git preview is no longer available; preview the source again")]
     PreviewExpired,
+    /// A tag name or color is not acceptable.
+    #[error("invalid tag: {reason}")]
+    InvalidTag {
+        /// What is wrong, ready to show.
+        reason: String,
+    },
+    /// Another tag already has this name (names are unique ignoring case).
+    #[error("a tag named {name} already exists")]
+    TagExists {
+        /// The name that clashed.
+        name: String,
+    },
+    /// No tag has this id.
+    #[error("tag {id} does not exist")]
+    TagNotFound {
+        /// The id that was asked for.
+        id: i64,
+    },
 }
 
 /// Result alias used across `harneo-core`.

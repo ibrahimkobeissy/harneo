@@ -24,6 +24,9 @@ mod records;
 mod secrets_tests;
 mod source;
 mod store;
+mod tags;
+#[cfg(test)]
+mod tags_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -45,6 +48,7 @@ pub use query::{
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
 pub use source::Source;
 use store::Store;
+pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;
@@ -61,6 +65,8 @@ pub struct Candidate {
     /// `env.<KEY>` / `headers.<KEY>` entries whose literal secrets the copy will replace by
     /// `${KEY}` placeholders. Key names only, never values.
     pub replaced_secret_keys: Vec<String>,
+    /// Names from the artifact's frontmatter `keywords` / `tags`, offered as tags.
+    pub suggested_tags: Vec<String>,
 }
 
 /// What a source holds, before anything is copied. Hand it back to [`Library::import`].
@@ -212,6 +218,7 @@ impl Library {
             .map(|(artifact, id)| Candidate {
                 already_in_library: known.contains(&id),
                 replaced_secret_keys: copy::replaced_secret_keys(&artifact),
+                suggested_tags: tags::suggestions(&artifact),
                 id,
                 artifact,
             })
@@ -226,16 +233,26 @@ impl Library {
     /// Copies the selected candidates into the library. Each must be in `preview`; ones already
     /// in the library are skipped. Either everything lands or nothing does: a failed copy or
     /// commit removes the folders and rolls the index back.
-    pub fn import(&mut self, preview: &Preview, selection: &[ArtifactId]) -> Result<ImportReport> {
-        self.import_with(preview, selection, &NoHooks)
+    ///
+    /// `tags` maps an artifact id to the tag names it gets; missing tags are created, in the
+    /// same transaction as the import.
+    pub fn import(
+        &mut self,
+        preview: &Preview,
+        selection: &[ArtifactId],
+        tags: &TagChoices,
+    ) -> Result<ImportReport> {
+        self.import_with(preview, selection, tags, &NoHooks)
     }
 
     fn import_with(
         &mut self,
         preview: &Preview,
         selection: &[ArtifactId],
+        tag_choices: &TagChoices,
         hooks: &dyn ImportHooks,
     ) -> Result<ImportReport> {
+        tags::validate_choices(tag_choices)?;
         let identity = preview.source.identity()?;
         let source_id = ids::source_id(&identity);
         // The preview came back over IPC, so check each id belongs to its source and path.
@@ -311,6 +328,9 @@ impl Library {
                     now,
                     keys,
                 )?;
+                if let Some(names) = tag_choices.get(&candidate.id) {
+                    tags::apply_names(&tx, &candidate.id, names)?;
+                }
             }
             for candidate in &fresh {
                 let target = artifacts_dir.join(&candidate.id);
@@ -376,6 +396,48 @@ impl Library {
             return Err(error);
         }
         Ok(())
+    }
+}
+
+impl Library {
+    /// Every tag with the number of artifacts carrying it, by name.
+    pub fn tags(&self) -> Result<Vec<TagWithCount>> {
+        tags::list(&self.store.conn)
+    }
+
+    /// Creates a tag. The name is trimmed, 1 to 40 characters, unique ignoring case.
+    pub fn create_tag(&self, name: &str, color: TagColor) -> Result<Tag> {
+        tags::create(&self.store.conn, name, color)
+    }
+
+    /// Renames a tag (same rules as [`Library::create_tag`]).
+    pub fn rename_tag(&self, id: i64, name: &str) -> Result<Tag> {
+        tags::rename(&self.store.conn, id, name)
+    }
+
+    /// Changes a tag's color.
+    pub fn recolor_tag(&self, id: i64, color: TagColor) -> Result<Tag> {
+        tags::recolor(&self.store.conn, id, color)
+    }
+
+    /// Deletes a tag and removes it from every artifact.
+    pub fn delete_tag(&self, id: i64) -> Result<()> {
+        tags::delete(&self.store.conn, id)
+    }
+
+    /// Puts a tag on an artifact; doing it twice is fine.
+    pub fn tag_artifact(&self, artifact_id: &str, tag_id: i64) -> Result<()> {
+        tags::tag_artifact(&self.store.conn, artifact_id, tag_id)
+    }
+
+    /// Takes a tag off an artifact; a tag it does not carry is fine.
+    pub fn untag_artifact(&self, artifact_id: &str, tag_id: i64) -> Result<()> {
+        tags::untag_artifact(&self.store.conn, artifact_id, tag_id)
+    }
+
+    /// The tags on one artifact, by name.
+    pub fn artifact_tags(&self, artifact_id: &str) -> Result<Vec<Tag>> {
+        tags::of_artifact(&self.store.conn, artifact_id)
     }
 }
 

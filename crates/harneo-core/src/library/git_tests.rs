@@ -122,7 +122,7 @@ fn imports_the_default_branch_and_records_the_commit() -> TestResult {
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
     assert_eq!(clones_left(f.data.path())?, 1, "kept for the import");
 
-    let report = f.library.import(&preview, &ids)?;
+    let report = f.library.import(&preview, &ids, &TagChoices::new())?;
     assert_eq!(report.imported.len(), 1);
     assert_eq!(clones_left(f.data.path())?, 0);
 
@@ -145,7 +145,7 @@ fn an_explicit_branch_and_subfolder_are_scanned_and_recorded() -> TestResult {
     let preview = f.library.preview(&source(&f, Some("dev"), Some("pack"))?)?;
     assert_eq!(names(&preview), ["inner"]);
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
-    let report = f.library.import(&preview, &ids)?;
+    let report = f.library.import(&preview, &ids, &TagChoices::new())?;
     let record = f.library.detail(&report.imported[0])?.provenance.source;
     assert_eq!(record.branch.as_deref(), Some("dev"));
     assert_eq!(record.subfolder.as_deref(), Some("pack"));
@@ -260,12 +260,21 @@ fn a_newer_git_preview_replaces_the_old_clone() -> TestResult {
     assert_eq!(clones_left(f.data.path())?, 1);
     // The first preview's clone is gone, so importing from it asks to preview again.
     let ids = vec![first.candidates[0].id.clone()];
-    let err = f.library.import(&first, &ids).expect_err("expired");
+    let err = f
+        .library
+        .import(&first, &ids, &TagChoices::new())
+        .expect_err("expired");
     assert!(matches!(err, Error::PreviewExpired), "{err}");
     // That failed import must not have thrown the live clone away.
     assert_eq!(clones_left(f.data.path())?, 1);
     let ids: Vec<String> = second.candidates.iter().map(|c| c.id.clone()).collect();
-    assert_eq!(f.library.import(&second, &ids)?.imported.len(), 2);
+    assert_eq!(
+        f.library
+            .import(&second, &ids, &TagChoices::new())?
+            .imported
+            .len(),
+        2
+    );
     assert_eq!(clones_left(f.data.path())?, 0);
     Ok(())
 }
@@ -287,13 +296,17 @@ fn a_bad_selection_still_cleans_up_the_clone() -> TestResult {
     let preview = f.library.preview(&source(&f, None, None)?)?;
     let err = f
         .library
-        .import(&preview, &["0000000000000000".to_owned()])
+        .import(
+            &preview,
+            &["0000000000000000".to_owned()],
+            &TagChoices::new(),
+        )
         .expect_err("not in preview");
     assert!(matches!(err, Error::NotInPreview { .. }), "{err}");
     // Selection is checked first, so the clone is still there for a corrected retry.
     assert_eq!(clones_left(f.data.path())?, 1);
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
-    f.library.import(&preview, &ids)?;
+    f.library.import(&preview, &ids, &TagChoices::new())?;
     assert_eq!(clones_left(f.data.path())?, 0);
     Ok(())
 }
@@ -303,10 +316,10 @@ fn importing_the_same_source_twice_marks_it_already_in_library() -> TestResult {
     let mut f = fixture()?;
     let preview = f.library.preview(&source(&f, None, None)?)?;
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
-    f.library.import(&preview, &ids)?;
+    f.library.import(&preview, &ids, &TagChoices::new())?;
     let again = f.library.preview(&source(&f, None, None)?)?;
     assert!(again.candidates.iter().all(|c| c.already_in_library));
-    let report = f.library.import(&again, &ids)?;
+    let report = f.library.import(&again, &ids, &TagChoices::new())?;
     assert!(report.imported.is_empty());
     assert_eq!(clones_left(f.data.path())?, 0);
     Ok(())

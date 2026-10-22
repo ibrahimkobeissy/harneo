@@ -13,4 +13,8 @@ alreadyInLibrary: boolean,
  * `env.<KEY>` / `headers.<KEY>` entries whose literal secrets the copy will replace by
  * `${KEY}` placeholders. Key names only, never values.
  */
-replacedSecretKeys: Array<string>, };
+replacedSecretKeys: Array<string>, 
+/**
+ * Names from the artifact's frontmatter `keywords` / `tags`, offered as tags.
+ */
+suggestedTags: Array<string>, };

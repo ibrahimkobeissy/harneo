@@ -130,9 +130,11 @@ fn preview_then_import_stores_the_ticked_artifacts_with_provenance() -> TestResu
         .iter()
         .find(|c| c.artifact.kind == ArtifactKind::Agent)
         .ok_or("agent")?;
-    let report = s
-        .library
-        .import(&preview, &[skill.id.clone(), agent.id.clone()])?;
+    let report = s.library.import(
+        &preview,
+        &[skill.id.clone(), agent.id.clone()],
+        &TagChoices::new(),
+    )?;
     assert_eq!(report.imported, [skill.id.clone(), agent.id.clone()]);
     assert!(report.skipped_files.is_empty());
     assert_eq!(stored_folders(&s.data)?, 2);
@@ -174,11 +176,14 @@ fn preview_then_import_stores_the_ticked_artifacts_with_provenance() -> TestResu
 fn importing_everything_then_previewing_again_marks_all_already_in_library() -> TestResult {
     let mut s = setup()?;
     let preview = s.library.preview(&s.source)?;
-    s.library.import(&preview, &all_ids(&preview))?;
+    s.library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
     let again = s.library.preview(&s.source)?;
     assert!(again.candidates.iter().all(|c| c.already_in_library));
     // Importing them again changes nothing.
-    let report = s.library.import(&again, &all_ids(&again))?;
+    let report = s
+        .library
+        .import(&again, &all_ids(&again), &TagChoices::new())?;
     assert!(report.imported.is_empty());
     assert_eq!(report.already_in_library.len(), 4);
     assert_eq!(row_count(&s.library, "artifacts"), 4);
@@ -195,7 +200,8 @@ fn an_mcp_server_is_stored_as_server_json() -> TestResult {
         .iter()
         .find(|c| c.artifact.kind == ArtifactKind::Mcp)
         .ok_or("mcp")?;
-    s.library.import(&preview, std::slice::from_ref(&mcp.id))?;
+    s.library
+        .import(&preview, std::slice::from_ref(&mcp.id), &TagChoices::new())?;
     assert_eq!(s.library.detail(&mcp.id)?.files, ["server.json"]);
     let stored: serde_json::Value = serde_json::from_slice(&fs::read(
         s.data
@@ -259,7 +265,12 @@ fn a_copy_failure_halfway_leaves_no_folder_and_no_row() -> TestResult {
     // The fourth file write is part-way through the selection.
     let err = s
         .library
-        .import_with(&preview, &all_ids(&preview), &Fail::file(3))
+        .import_with(
+            &preview,
+            &all_ids(&preview),
+            &TagChoices::new(),
+            &Fail::file(3),
+        )
         .expect_err("injected failure");
     assert!(err.to_string().contains("injected copy failure"));
     assert_eq!(stored_folders(&s.data)?, 0);
@@ -269,7 +280,9 @@ fn a_copy_failure_halfway_leaves_no_folder_and_no_row() -> TestResult {
     assert_eq!(snapshot(s.source_dir.path())?, before);
 
     // The library still works afterwards.
-    let report = s.library.import(&preview, &all_ids(&preview))?;
+    let report = s
+        .library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
     assert_eq!(report.imported.len(), 4);
     Ok(())
 }
@@ -280,7 +293,12 @@ fn a_commit_failure_removes_the_folders_already_in_place() -> TestResult {
     let preview = s.library.preview(&s.source)?;
     let err = s
         .library
-        .import_with(&preview, &all_ids(&preview), &Fail::commit())
+        .import_with(
+            &preview,
+            &all_ids(&preview),
+            &TagChoices::new(),
+            &Fail::commit(),
+        )
         .expect_err("injected failure");
     assert!(err.to_string().contains("injected commit failure"));
     assert_eq!(stored_folders(&s.data)?, 0);
@@ -300,7 +318,8 @@ fn a_leftover_folder_with_no_row_does_not_block_the_import() -> TestResult {
         &format!("{id}/stale.txt"),
         "x",
     )?;
-    s.library.import(&preview, std::slice::from_ref(&id))?;
+    s.library
+        .import(&preview, std::slice::from_ref(&id), &TagChoices::new())?;
     assert!(!s
         .library
         .detail(&id)?
@@ -313,7 +332,8 @@ fn a_leftover_folder_with_no_row_does_not_block_the_import() -> TestResult {
 fn remove_deletes_the_folder_and_the_rows() -> TestResult {
     let mut s = setup()?;
     let preview = s.library.preview(&s.source)?;
-    s.library.import(&preview, &all_ids(&preview))?;
+    s.library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
     let first = preview.candidates[0].id.clone();
     s.library.remove(&first)?;
     assert!(!s.data.join("library/artifacts").join(&first).exists());
@@ -338,7 +358,8 @@ fn remove_deletes_the_folder_and_the_rows() -> TestResult {
 fn removing_an_unknown_artifact_is_an_error_and_changes_nothing() -> TestResult {
     let mut s = setup()?;
     let preview = s.library.preview(&s.source)?;
-    s.library.import(&preview, &all_ids(&preview))?;
+    s.library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
     assert!(matches!(
         s.library.remove("0000000000000000"),
         Err(Error::NotInLibrary { .. })
@@ -353,9 +374,11 @@ fn the_source_folder_is_byte_identical_after_preview_and_import() -> TestResult 
     let mut s = setup()?;
     let before = snapshot(s.source_dir.path())?;
     let preview = s.library.preview(&s.source)?;
-    s.library.import(&preview, &all_ids(&preview))?;
+    s.library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
     let again = s.library.preview(&s.source)?;
-    s.library.import(&again, &all_ids(&again))?;
+    s.library
+        .import(&again, &all_ids(&again), &TagChoices::new())?;
     assert_eq!(snapshot(s.source_dir.path())?, before);
     Ok(())
 }
@@ -366,7 +389,11 @@ fn a_selected_id_must_be_in_the_preview() -> TestResult {
     let preview = s.library.preview(&s.source)?;
     let err = s
         .library
-        .import(&preview, &["0123456789abcdef".to_owned()])
+        .import(
+            &preview,
+            &["0123456789abcdef".to_owned()],
+            &TagChoices::new(),
+        )
         .expect_err("not in preview");
     assert!(matches!(err, Error::NotInPreview { .. }));
 
@@ -375,7 +402,7 @@ fn a_selected_id_must_be_in_the_preview() -> TestResult {
     forged.candidates[0].artifact.path = "agents/other.md".into();
     let id = forged.candidates[0].id.clone();
     assert!(matches!(
-        s.library.import(&forged, &[id]),
+        s.library.import(&forged, &[id], &TagChoices::new()),
         Err(Error::NotInPreview { .. })
     ));
     assert_eq!(stored_folders(&s.data)?, 0);
@@ -396,7 +423,7 @@ fn an_unsafe_path_in_the_preview_is_refused_and_nothing_is_stored() -> TestResul
     candidate.id = ids::artifact_id(&identity, &candidate.artifact.path);
     let id = candidate.id.clone();
     assert!(matches!(
-        s.library.import(&preview, &[id]),
+        s.library.import(&preview, &[id], &TagChoices::new()),
         Err(Error::UnsafePath { .. })
     ));
     assert_eq!(stored_folders(&s.data)?, 0);
@@ -426,9 +453,11 @@ fn symlinks_secret_and_local_files_are_skipped_and_reported() -> TestResult {
         .iter()
         .find(|c| c.artifact.kind == ArtifactKind::Skill)
         .ok_or("skill")?;
-    let report = s
-        .library
-        .import(&preview, std::slice::from_ref(&skill.id))?;
+    let report = s.library.import(
+        &preview,
+        std::slice::from_ref(&skill.id),
+        &TagChoices::new(),
+    )?;
 
     let mut skipped: Vec<(&str, SkipReason)> = report
         .skipped_files
@@ -469,7 +498,11 @@ fn a_folder_swapped_for_a_symlink_after_the_scan_is_refused() -> TestResult {
         .find(|c| c.artifact.kind == ArtifactKind::Skill)
         .ok_or("skill")?;
     assert!(matches!(
-        s.library.import(&preview, std::slice::from_ref(&skill.id)),
+        s.library.import(
+            &preview,
+            std::slice::from_ref(&skill.id),
+            &TagChoices::new()
+        ),
         Err(Error::UnsafePath { .. })
     ));
     assert_eq!(stored_folders(&s.data)?, 0);

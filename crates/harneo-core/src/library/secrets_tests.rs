@@ -112,7 +112,7 @@ fn stored_files_hold_placeholders_and_provenance_the_keys() -> TestResult {
     let (data, _src, mut library, source) = open()?;
     let preview = library.preview(&source)?;
     let ids: Vec<ArtifactId> = preview.candidates.iter().map(|c| c.id.clone()).collect();
-    library.import(&preview, &ids)?;
+    library.import(&preview, &ids, &TagChoices::new())?;
 
     let mcp = candidate(&preview, ArtifactKind::Mcp)?;
     let server = read_json(
@@ -164,7 +164,7 @@ fn the_literal_value_is_nowhere_under_the_data_dir() -> TestResult {
         .filter(|c| c.artifact.kind != ArtifactKind::Agent)
         .map(|c| c.id.clone())
         .collect();
-    library.import(&preview, &ids)?;
+    library.import(&preview, &ids, &TagChoices::new())?;
     let mut bytes = Vec::new();
     every_byte_under(data.path(), &mut bytes)?;
     assert!(!bytes.is_empty());
@@ -186,7 +186,11 @@ fn other_files_are_copied_byte_for_byte() -> TestResult {
     let (data, src, mut library, source) = open()?;
     let preview = library.preview(&source)?;
     let agent = candidate(&preview, ArtifactKind::Agent)?;
-    library.import(&preview, std::slice::from_ref(&agent.id))?;
+    library.import(
+        &preview,
+        std::slice::from_ref(&agent.id),
+        &TagChoices::new(),
+    )?;
     let stored = fs::read(
         data.path()
             .join("library/artifacts")
@@ -208,7 +212,11 @@ fn an_unparseable_settings_file_is_refused_and_nothing_is_stored() -> TestResult
         &format!(r#"{{"env":{{"API_TOKEN":"{LITERAL}",}}"#),
     )?;
     let err = library
-        .import(&preview, std::slice::from_ref(&settings.id))
+        .import(
+            &preview,
+            std::slice::from_ref(&settings.id),
+            &TagChoices::new(),
+        )
         .err()
         .map(|e| e.to_string())
         .unwrap_or_default();
