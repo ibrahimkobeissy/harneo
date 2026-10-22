@@ -170,6 +170,7 @@ describe("Import screen", () => {
     await screen.findByText(/Found 4 artifacts/);
     expect(calls.find((c) => c.cmd === "library_preview")?.args).toEqual({
       source: { kind: "local", path: "/home/me/.claude" },
+      includeManaged: false,
     });
     const skills = screen.getByRole("region", { name: "Skills, 3" });
     expect(within(skills).getByText("alpha")).toBeInTheDocument();
@@ -362,6 +363,7 @@ describe("Import screen", () => {
         branch: null,
         subfolder: null,
       },
+      includeManaged: false,
     });
   });
 
@@ -380,6 +382,7 @@ describe("Import screen", () => {
     );
     expect(calls.find((c) => c.cmd === "library_preview")?.args).toEqual({
       source: { kind: "local", path: "/home/me/nope" },
+      includeManaged: false,
     });
   });
 

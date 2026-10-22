@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use harneo_core::artifact::ArtifactKind;
+use harneo_core::artifact::{ArtifactKind, ScanOptions};
 
 use harneo_core::library::{
     ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query, Source, Tag,
@@ -131,11 +131,19 @@ fn normalized(source: Source) -> harneo_core::Result<Source> {
 /// time, so the work runs on the blocking pool and the window never blocks (the library mutex is
 /// taken inside that closure, never across an await). The clone waits in the library for `library_import`.
 #[tauri::command]
-pub async fn library_preview(app: AppHandle, source: Source) -> Result<Preview, String> {
+pub async fn library_preview(
+    app: AppHandle,
+    source: Source,
+    include_managed: Option<bool>,
+) -> Result<Preview, String> {
+    let options = ScanOptions {
+        include_managed: include_managed.unwrap_or(false),
+        ..ScanOptions::default()
+    };
     let source = normalized(source).map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<LibraryState>()
-            .with(|library| library.preview(&source))
+            .with(|library| library.preview_with(&source, &options))
     })
     .await
     .map_err(|e| e.to_string())?

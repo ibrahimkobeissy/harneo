@@ -3,4 +3,4 @@
 /**
  * How serious a finding is. Nothing fails a scan; the severity is for the reader.
  */
-export type Severity = "error" | "warning";
+export type Severity = "error" | "warning" | "info";

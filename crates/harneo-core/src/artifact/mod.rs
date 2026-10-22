@@ -40,6 +40,8 @@ pub enum ArtifactKind {
 pub enum Severity {
     Error,
     Warning,
+    /// Worth knowing, nothing to fix (for example folders a scan chose not to enter).
+    Info,
 }
 
 /// One finding. The `code` (`<kind>.<kebab-problem>`) is stable once released, because the audit
@@ -68,6 +70,11 @@ impl Diagnostic {
     /// A problem that makes the artifact unusable or wrong.
     pub fn error(code: &str, file: &Path, message: &str) -> Self {
         Self::new(Severity::Error, code, file, message)
+    }
+
+    /// A note that asks for no action.
+    pub fn info(code: &str, file: &Path, message: &str) -> Self {
+        Self::new(Severity::Info, code, file, message)
     }
 
     /// A problem worth fixing that does not stop the artifact from working.
@@ -133,6 +140,8 @@ pub struct ScanOptions {
     pub max_loose_skill_depth: u32,
     /// Folder names never entered.
     pub skip_dirs: Vec<String>,
+    /// Also enter Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
+    pub include_managed: bool,
 }
 
 impl Default for ScanOptions {
@@ -142,6 +151,7 @@ impl Default for ScanOptions {
             max_total_bytes: 100 * 1024 * 1024,
             max_loose_skill_depth: 4,
             skip_dirs: vec![".git".into(), "node_modules".into(), "target".into()],
+            include_managed: false,
         }
     }
 }
@@ -167,6 +177,7 @@ mod tests {
         assert_eq!(o.max_total_bytes, 104_857_600);
         assert_eq!(o.max_loose_skill_depth, 4);
         assert_eq!(o.skip_dirs, [".git", "node_modules", "target"]);
+        assert!(!o.include_managed);
     }
 
     #[test]

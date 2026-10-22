@@ -147,16 +147,21 @@ impl Library {
     /// cloned first (shallow) and the returned preview names the resolved branch; the clone
     /// stays until `import`, the next git preview or the library being dropped.
     pub fn preview(&self, source: &Source) -> Result<Preview> {
+        self.preview_with(source, &ScanOptions::default())
+    }
+
+    /// [`Self::preview`] with the scan's options (for example `include_managed`).
+    pub fn preview_with(&self, source: &Source, options: &ScanOptions) -> Result<Preview> {
         match source {
             Source::Local { path } => {
                 let identity = source.identity()?;
-                self.scan_candidates(source, &identity, path)
+                self.scan_candidates(source, &identity, path, options)
             }
             Source::Git {
                 url,
                 branch,
                 subfolder,
-            } => self.git_preview(url, branch.as_deref(), subfolder.as_deref()),
+            } => self.git_preview(url, branch.as_deref(), subfolder.as_deref(), options),
         }
     }
 
@@ -165,6 +170,7 @@ impl Library {
         url: &str,
         branch: Option<&str>,
         subfolder: Option<&str>,
+        options: &ScanOptions,
     ) -> Result<Preview> {
         let relative = git_subfolder(subfolder)?;
         let checkout = git::clone(&self.git, self.store.root(), url, branch)?;
@@ -191,7 +197,7 @@ impl Library {
                 Error::GitSubfolderMissing { subfolder: shown }
             });
         }
-        let preview = self.scan_candidates(&resolved, &identity, &root)?;
+        let preview = self.scan_candidates(&resolved, &identity, &root, options)?;
         if preview.candidates.is_empty() {
             return Err(Error::NothingFound {
                 source_name: source::redact(url),
@@ -215,8 +221,14 @@ impl Library {
         }
     }
 
-    fn scan_candidates(&self, source: &Source, identity: &str, root: &Path) -> Result<Preview> {
-        let report = ClaudeAdapter.scan(root, &ScanOptions::default())?;
+    fn scan_candidates(
+        &self,
+        source: &Source,
+        identity: &str,
+        root: &Path,
+        options: &ScanOptions,
+    ) -> Result<Preview> {
+        let report = ClaudeAdapter.scan(root, options)?;
         let ids: Vec<String> = report
             .artifacts
             .iter()

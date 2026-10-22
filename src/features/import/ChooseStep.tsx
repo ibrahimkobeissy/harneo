@@ -41,8 +41,8 @@ function Findings({
 }) {
   const all = candidate.artifact.diagnostics;
   const errors = all.filter((d) => d.severity === "error").length;
-  const warnings = all.length - errors;
-  if (all.length === 0) return null;
+  const warnings = all.filter((d) => d.severity === "warning").length;
+  if (errors + warnings === 0) return null;
   return (
     <button
       type="button"

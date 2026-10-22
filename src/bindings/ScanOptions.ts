@@ -19,4 +19,8 @@ maxLooseSkillDepth: number,
 /**
  * Folder names never entered.
  */
-skipDirs: Array<string>, };
+skipDirs: Array<string>, 
+/**
+ * Also enter Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
+ */
+includeManaged: boolean, };

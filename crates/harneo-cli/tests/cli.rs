@@ -131,3 +131,37 @@ fn scan_json_of_the_project_fixture_lists_its_ten_artifacts(
     assert_eq!(artifacts.len(), 10);
     Ok(())
 }
+
+fn managed_folder() -> Result<tempfile::TempDir, std::io::Error> {
+    let dir = tempfile::tempdir()?;
+    for rel in ["skills/synced/a_b/x", "skills/synced/c_d/x"] {
+        let skill = dir.path().join(rel);
+        std::fs::create_dir_all(&skill)?;
+        std::fs::write(
+            skill.join("SKILL.md"),
+            "---\nname: x\ndescription: d\n---\n",
+        )?;
+    }
+    Ok(dir)
+}
+
+#[test]
+fn scan_skips_managed_folders_unless_asked() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = managed_folder()?;
+    harneo()
+        .arg("scan")
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("scan.managed-skipped"))
+        .stdout(predicate::str::contains("0 artifacts"));
+    harneo()
+        .arg("scan")
+        .arg(dir.path())
+        .arg("--include-managed")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2 artifacts (2 skill)"))
+        .stdout(predicate::str::contains("scan.managed-skipped").not());
+    Ok(())
+}

@@ -55,8 +55,11 @@ export function homeClaudeDir(): Promise<string> {
  * Scans a source and lists what it holds. A git source is cloned first, so this can take a
  * while; the clone waits in the library for `libraryImport`.
  */
-export function libraryPreview(source: Source): Promise<Preview> {
-  return invoke<Preview>("library_preview", { source });
+export function libraryPreview(
+  source: Source,
+  includeManaged = false,
+): Promise<Preview> {
+  return invoke<Preview>("library_preview", { source, includeManaged });
 }
 
 /** Copies the ticked artifacts of a preview into the library, with the tags chosen for each. */

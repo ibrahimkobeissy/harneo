@@ -23,6 +23,21 @@ const MAX_DEPTH: usize = 32;
 /// Files a project keeps for itself; never read, never part of what is shared.
 const LOCAL_FILES: [&str; 2] = ["settings.local.json", "CLAUDE.local.md"];
 
+/// Folders Claude Code manages itself (its sync cache and mods in development). A scan does not
+/// enter them unless `ScanOptions::include_managed` is set.
+pub(crate) const MANAGED_DIRS: [&str; 4] = [
+    "skills/synced",
+    ".claude/skills/synced",
+    "dev-mods",
+    ".claude/dev-mods",
+];
+
+/// True when `rel` (relative to the scan root) is one of the [`MANAGED_DIRS`].
+pub(crate) fn is_managed_dir(rel: &Path) -> bool {
+    let shown = rel_string(rel);
+    MANAGED_DIRS.contains(&shown.as_str())
+}
+
 /// True when the file name matches one of the secret patterns of `CLAUDE.md`'s guardrails.
 pub(crate) fn is_secret_name(name: &str) -> bool {
     let n = name.to_ascii_lowercase();
@@ -88,6 +103,11 @@ impl<'a> Walker<'a> {
         self.root_diagnostics
     }
 
+    /// True when `rel` is a real folder (a symlink is not, and is not followed).
+    pub(crate) fn is_dir(&self, rel: &Path) -> bool {
+        fs::symlink_metadata(self.root.join(rel)).is_ok_and(|m| m.file_type().is_dir())
+    }
+
     /// True when `rel` exists as anything (a symlink counts, and is not followed).
     pub(crate) fn exists(&self, rel: &Path) -> bool {
         fs::symlink_metadata(self.root.join(rel)).is_ok()
@@ -98,8 +118,8 @@ impl<'a> Walker<'a> {
         fs::symlink_metadata(self.root.join(rel)).is_ok_and(|m| m.file_type().is_file())
     }
 
-    /// The real sub-folders of `rel`, sorted, as paths relative to the root. Symlinks and
-    /// skipped folders are left out.
+    /// The real sub-folders of `rel`, sorted, as paths relative to the root. Symlinks, skipped
+    /// folders and (unless included) Claude-managed folders are left out.
     pub(crate) fn list_dirs(&self, rel: &Path) -> Vec<PathBuf> {
         let Ok(entries) = fs::read_dir(self.root.join(rel)) else {
             return Vec::new();
@@ -109,6 +129,7 @@ impl<'a> Walker<'a> {
             .filter(|e| e.file_type().is_ok_and(|t| t.is_dir()))
             .filter(|e| !self.is_skipped(&e.file_name().to_string_lossy()))
             .map(|e| rel.join(e.file_name()))
+            .filter(|p| self.options.include_managed || !is_managed_dir(p))
             .collect();
         dirs.sort();
         dirs

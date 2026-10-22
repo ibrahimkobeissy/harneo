@@ -24,13 +24,20 @@ enum Command {
         /// Print the full report as JSON.
         #[arg(long)]
         json: bool,
+        /// Also scan Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
+        #[arg(long)]
+        include_managed: bool,
     },
 }
 
 fn main() -> anyhow::Result<()> {
     match Cli::parse().command {
         Command::Paths => println!("{}", harneo_core::paths::data_dir()?.display()),
-        Command::Scan { path, json } => scan::run(&path, json)?,
+        Command::Scan {
+            path,
+            json,
+            include_managed,
+        } => scan::run(&path, json, include_managed)?,
     }
     Ok(())
 }

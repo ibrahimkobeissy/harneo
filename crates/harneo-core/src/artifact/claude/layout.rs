@@ -8,8 +8,8 @@
 use std::path::{Path, PathBuf};
 
 use super::kinds::{plugin, skill};
-use crate::artifact::walk::Walker;
-use crate::artifact::{rel_string, ArtifactKind, ScanOptions, ScanReport};
+use crate::artifact::walk::{Walker, MANAGED_DIRS};
+use crate::artifact::{rel_string, ArtifactKind, Diagnostic, ScanOptions, ScanReport};
 
 #[derive(Default)]
 struct Found {
@@ -39,9 +39,54 @@ fn discover(walker: &Walker, dir: &Path, depth: u32, max_depth: u32, found: &mut
     }
 }
 
+/// Counts what a skipped managed folder holds: folders with a `SKILL.md` or a plugin manifest,
+/// found by listing directories and checking names only (nothing is opened).
+fn count_units(walker: &Walker, dir: &Path, depth: u32) -> usize {
+    walker
+        .list_dirs(dir)
+        .iter()
+        .map(|sub| {
+            if walker.exists(&sub.join("SKILL.md")) || walker.exists(&plugin::manifest_path(sub)) {
+                1
+            } else if depth < 4 {
+                count_units(walker, sub, depth + 1)
+            } else {
+                0
+            }
+        })
+        .sum()
+}
+
+/// One `scan.managed-skipped` info per managed folder that exists and was not entered.
+fn report_managed(walker: &Walker, report: &mut ScanReport) {
+    for dir in MANAGED_DIRS {
+        let dir = Path::new(dir);
+        if !walker.is_dir(dir) {
+            continue;
+        }
+        let n = count_units(walker, dir, 0);
+        let what = if dir.ends_with("dev-mods") {
+            "mod"
+        } else {
+            "skill"
+        };
+        let plural = if n == 1 { "" } else { "s" };
+        report.diagnostics.push(Diagnostic::info(
+            "scan.managed-skipped",
+            dir,
+            &format!(
+                "Claude-managed folder skipped: {n} {what} folder{plural} not scanned (include managed folders to scan them)"
+            ),
+        ));
+    }
+}
+
 /// Adds plugins, marketplace entries and loose skills, then removes everything else that lies
 /// inside a plugin folder. Call after the other kinds' scans.
 pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut ScanReport) {
+    if !options.include_managed {
+        report_managed(walker, report);
+    }
     let mut found = Found::default();
     discover(
         walker,
