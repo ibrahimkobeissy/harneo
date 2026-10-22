@@ -2,7 +2,7 @@
 name: ticket-flow
 description: >-
   Run a project's work from GitHub Issues and a GitHub Projects board, trunk-based
-  on main. Every change gets a ticket. An orchestrator session picks up to 3
+  on main. Every change gets a ticket. An orchestrator session picks up to MAX_AGENTS (default 3)
   Ready tickets, hands each to a Sonnet subagent in its own worktree off main,
   then validates, fixes, merges and pushes the work itself. The board Status
   (Backlog → Ready → In progress → In review → Done) is updated at each step.
@@ -66,9 +66,9 @@ Then triage every open ticket that isn't In progress or In review:
 
 Run triage again after every merge, because a closed ticket may unblock others.
 
-### 2. Pick up to 3
+### 2. Pick up to MAX_AGENTS
 
-Choose up to 3 Ready tickets, in the order listed in `tasks/plan.md` if the project has one, otherwise oldest first. **Avoid overlap:** two tickets likely to edit the same files go in different cycles, so take fewer than 3 rather than set up a merge conflict. If nothing is Ready, say so, list what is blocked and which decisions are pending, and stop.
+Choose up to `MAX_AGENTS` Ready tickets (from `.claude/ticket-flow.conf`; 3 when it isn't set). Never run more subagents at once than that, counting ones still running from an earlier cycle. Take them in the order listed in `tasks/plan.md` if the project has one, otherwise oldest first. **Avoid overlap:** two tickets likely to edit the same files go in different cycles, so take fewer rather than set up a merge conflict. If nothing is Ready, say so, list what is blocked and which decisions are pending, and stop.
 
 ### 3. Start each ticket
 
