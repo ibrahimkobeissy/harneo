@@ -10,7 +10,7 @@ import {
   SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Collection } from "../../bindings/Collection";
 import type { LibraryItem } from "../../bindings/LibraryItem";
@@ -19,10 +19,18 @@ import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
 import { useCollections } from "../../app/collections";
 import { collectionPage, libraryList } from "../../lib/ipc";
-import { Badge, Button, EmptyState, Screen } from "../../ui";
+import {
+  Badge,
+  Button,
+  decodeBool,
+  EmptyState,
+  Screen,
+  usePersisted,
+} from "../../ui";
 import { CollectionBar } from "./CollectionBar";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
+import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
 import { FilterSheet } from "./FilterSheet";
 import { onGridKeyDown } from "./gridNav";
 import { ItemCard } from "./ItemCard";
@@ -135,6 +143,20 @@ export function LibraryScreen({
   // Artifacts left behind by following references, newest last; Back pops one.
   const narrow = useNarrow();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [collapsed, setCollapsed] = usePersisted(
+    "harneo.filters.collapsed",
+    false,
+    decodeBool,
+  );
+  const [width, setWidth] = usePersisted(
+    "harneo.filters.width",
+    FILTERS_DEFAULT,
+    (raw) => {
+      const n = Number(raw);
+      return Number.isFinite(n) ? clampWidth(n) : null;
+    },
+  );
+  const [dragging, setDragging] = useState(false);
   const filtersButton = useRef<HTMLButtonElement>(null);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   // The card to give focus back to once the panel has closed.
@@ -239,16 +261,28 @@ export function LibraryScreen({
     update({ view });
   }
 
-  const filterColumn = page && (
-    <FilterColumn
-      facets={page.facets}
-      params={params}
-      onToggle={toggle}
-      onClearGroup={(group) =>
-        update({ [group]: [] } as Partial<LibraryParams>)
-      }
-    />
-  );
+  const filterColumn = (docked: boolean) =>
+    page && (
+      <FilterColumn
+        facets={page.facets}
+        params={params}
+        onToggle={toggle}
+        onClearGroup={(group) =>
+          update({ [group]: [] } as Partial<LibraryParams>)
+        }
+        dock={
+          docked
+            ? {
+                collapsed,
+                width,
+                onCollapse: () => setCollapsed(true),
+                onWidth: setWidth,
+                onDragging: setDragging,
+              }
+            : undefined
+        }
+      />
+    );
   const activeFilters =
     params.types.length + params.tags.length + params.sources.length;
 
@@ -265,14 +299,16 @@ export function LibraryScreen({
       )}
       {page && (
         <div className={styles.toolbar}>
-          {narrow && (
+          {(narrow || collapsed) && (
             <button
               ref={filtersButton}
               type="button"
               className={styles.filtersBtn}
-              aria-haspopup="dialog"
-              aria-expanded={sheetOpen}
-              onClick={() => setSheetOpen(true)}
+              aria-haspopup={narrow ? "dialog" : undefined}
+              aria-expanded={narrow ? sheetOpen : false}
+              onClick={() =>
+                narrow ? setSheetOpen(true) : setCollapsed(false)
+              }
             >
               <SlidersHorizontal size={14} aria-hidden="true" />
               Filters
@@ -368,14 +404,19 @@ export function LibraryScreen({
   );
 
   return (
-    <div className={styles.lib}>
-      {!narrow && filterColumn}
-      {narrow && sheetOpen && filterColumn && (
+    <div
+      className={styles.lib}
+      data-collapsed={(!narrow && collapsed) || undefined}
+      data-dragging={dragging || undefined}
+      style={{ "--filters-w": `${width}px` } as CSSProperties}
+    >
+      {!narrow && filterColumn(true)}
+      {narrow && sheetOpen && page && (
         <FilterSheet
           onClose={() => setSheetOpen(false)}
           returnFocus={filtersButton}
         >
-          {filterColumn}
+          {filterColumn(false)}
         </FilterSheet>
       )}
       <Screen

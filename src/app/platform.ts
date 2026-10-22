@@ -4,3 +4,4 @@ export function modKey(userAgent: string = navigator.userAgent): string {
 }
 
 export const searchShortcut = (userAgent?: string) => `${modKey(userAgent)} K`;
+export const sidebarShortcut = (userAgent?: string) => `${modKey(userAgent)} B`;

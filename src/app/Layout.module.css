@@ -1,6 +1,8 @@
 .frame {
+  --slot: var(--size-sidebar);
   display: grid;
-  grid-template-columns: var(--size-sidebar) 1fr;
+  grid-template-columns: var(--slot) 1fr;
+  transition: grid-template-columns 0.18s ease;
   height: 100vh;
   overflow: hidden;
 }
@@ -16,7 +18,61 @@
 
 @media (max-width: 62.5rem) {
   .frame {
-    grid-template-columns: var(--size-rail) 1fr;
+    --slot: var(--size-rail);
+  }
+}
+
+/* Hidden to the left: only a slim edge with the button that brings it back. */
+.frame[data-collapsed] {
+  --slot: var(--size-control);
+}
+.slot {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+.frame[data-collapsed] .slot {
+  overflow: hidden;
+  background: var(--side);
+  border-right: var(--hairline) solid var(--line);
+}
+.slotIn {
+  width: var(--size-sidebar);
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+}
+@media (max-width: 62.5rem) {
+  .slotIn {
+    width: var(--size-rail);
+  }
+}
+.frame[data-collapsed] .slotIn {
+  visibility: hidden;
+}
+.expand {
+  position: absolute;
+  top: var(--space-md);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+}
+.expand:hover {
+  background: var(--sunk);
+  color: var(--t1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .frame {
+    transition: none;
   }
 }
 

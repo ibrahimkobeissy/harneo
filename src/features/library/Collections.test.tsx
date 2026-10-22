@@ -174,7 +174,11 @@ function setup(seed: Stored[] = [], path = "/library") {
   render(
     <MemoryRouter initialEntries={[path]}>
       <CollectionsProvider>
-        <Sidebar onShortcuts={() => {}} onSearch={() => {}} />
+        <Sidebar
+          onShortcuts={() => {}}
+          onSearch={() => {}}
+          onCollapse={() => {}}
+        />
         <Probe />
         <Routes>
           <Route path="/library" element={<LibraryScreen />} />

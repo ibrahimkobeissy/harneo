@@ -1,6 +1,7 @@
-import { Check } from "lucide-react";
+import { Check, PanelLeftClose } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Facets } from "../../bindings/Facets";
+import { FilterResizer } from "./FilterResizer";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
 import styles from "./Library.module.css";
@@ -69,15 +70,42 @@ export function FilterColumn({
   params,
   onToggle,
   onClearGroup,
+  dock,
 }: {
   facets: Facets;
   params: LibraryParams;
   onToggle: (group: FilterGroup, value: string) => void;
   onClearGroup: (group: FilterGroup) => void;
+  /** Set when the column sits inline beside the screen: it can then collapse and resize. */
+  dock?: {
+    collapsed: boolean;
+    width: number;
+    onCollapse: () => void;
+    onWidth: (width: number) => void;
+    onDragging: (dragging: boolean) => void;
+  };
 }) {
   return (
-    <aside className={styles.filters} aria-label="Filters">
+    <aside
+      className={styles.filters}
+      aria-label="Filters"
+      data-collapsed={dock?.collapsed || undefined}
+      inert={dock?.collapsed}
+    >
       <div className={styles.filtersIn}>
+        {dock && (
+          <div className={styles.fbar}>
+            <span className={styles.ftitle}>Filters</span>
+            <button
+              type="button"
+              className={styles.fcollapse}
+              aria-label="Hide filters"
+              onClick={dock.onCollapse}
+            >
+              <PanelLeftClose size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )}
         <GroupHead
           title="Type"
           active={params.types.length > 0}
@@ -132,6 +160,13 @@ export function FilterColumn({
           />
         ))}
       </div>
+      {dock && (
+        <FilterResizer
+          width={dock.width}
+          onWidth={dock.onWidth}
+          onDragging={dock.onDragging}
+        />
+      )}
     </aside>
   );
 }

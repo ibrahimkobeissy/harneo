@@ -1,31 +1,50 @@
-import { Bookmark, Keyboard, ListFilter, Plus, Search } from "lucide-react";
+import {
+  Bookmark,
+  Keyboard,
+  ListFilter,
+  PanelLeftClose,
+  Plus,
+  Search,
+} from "lucide-react";
 import { Link } from "react-router";
 import { Kbd, Logo, NavItem } from "../ui";
 import { initialsOf } from "../ui/initials";
 import { useCollections } from "./collections";
-import { searchShortcut } from "./platform";
+import { searchShortcut, sidebarShortcut } from "./platform";
 import { actions, places, settingsDestination } from "./routes";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
   onShortcuts: () => void;
   onSearch: () => void;
+  onCollapse: () => void;
 }
 
-export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
+export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
   const search = searchShortcut();
   const { collections, openNew } = useCollections();
   return (
     <nav className={styles.side} aria-label="Main">
-      {/* The brand goes home but is not a nav item, so only Library carries aria-current. */}
-      <Link
-        to="/library"
-        aria-label="Harneo, go to Library"
-        className={styles.brand}
-      >
-        <Logo />
-        <span className={styles.brandName}>Harneo</span>
-      </Link>
+      <div className={styles.top}>
+        {/* The brand goes home but is not a nav item, so only Library carries aria-current. */}
+        <Link
+          to="/library"
+          aria-label="Harneo, go to Library"
+          className={styles.brand}
+        >
+          <Logo />
+          <span className={styles.brandName}>Harneo</span>
+        </Link>
+        <button
+          type="button"
+          className={styles.collapse}
+          aria-label="Hide sidebar"
+          data-tip={`Hide sidebar  ${sidebarShortcut()}`}
+          onClick={onCollapse}
+        >
+          <PanelLeftClose size={16} aria-hidden="true" />
+        </button>
+      </div>
       {places.map((d) => (
         <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />
       ))}

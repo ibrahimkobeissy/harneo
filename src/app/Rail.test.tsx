@@ -29,7 +29,11 @@ describe("sidebar collections in the rail", () => {
     render(
       <MemoryRouter>
         <CollectionsProvider>
-          <Sidebar onShortcuts={() => {}} onSearch={() => {}} />
+          <Sidebar
+            onShortcuts={() => {}}
+            onSearch={() => {}}
+            onCollapse={() => {}}
+          />
         </CollectionsProvider>
       </MemoryRouter>,
     );

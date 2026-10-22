@@ -1,15 +1,93 @@
 .lib {
   display: grid;
-  grid-template-columns: var(--size-filters) minmax(0, 1fr);
+  grid-template-columns: var(--filters-w, var(--size-filters)) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   flex: 1 1 0;
   min-height: 0;
+  transition: grid-template-columns 0.18s ease;
+}
+.lib[data-collapsed] {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+.lib[data-dragging] {
+  transition: none;
+  cursor: col-resize;
+  user-select: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib {
+    transition: none;
+  }
 }
 
 /* Filter column: fills the height beside the screen and scrolls on its own. */
 .filters {
+  position: relative;
   min-height: 0;
   border-right: var(--hairline) solid var(--line);
+}
+.filters[data-collapsed] {
+  overflow: hidden;
+  visibility: hidden;
+  border-right: 0;
+}
+.fbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-sm);
+}
+.ftitle {
+  font-size: var(--text-title-sm);
+  font-weight: 600;
+}
+.fcollapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
+  margin-right: calc(-1 * var(--space-xs));
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+}
+.fcollapse:hover {
+  background: var(--sunk);
+  color: var(--t1);
+}
+.fcollapse:focus-visible,
+.resizer:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+/* The drag handle straddles the column's right edge; the line shows on hover, focus, drag. */
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: calc(-1 * var(--space-xs));
+  width: var(--space-sm);
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--hairline-strong);
+  transform: translateX(-50%);
+  background: transparent;
+}
+.resizer:hover::after,
+.resizer:focus-visible::after,
+.lib[data-dragging] .resizer::after {
+  background: var(--blue);
 }
 .filtersIn {
   height: 100%;
@@ -581,7 +659,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   /* The column is not rendered inline here: the Filters button opens it as a sheet. */
-  .lib {
+  .lib,
+  .lib[data-collapsed] {
     grid-template-columns: minmax(0, 1fr);
   }
 }
