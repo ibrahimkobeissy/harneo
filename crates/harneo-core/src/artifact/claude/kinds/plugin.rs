@@ -250,6 +250,13 @@ fn local_plugin(
     artifact
 }
 
+/// `CONTEXT.md` §2: A plugin is never unpacked: it is enabled through `enabledPlugins` in
+/// `.claude/settings.json`, so that is the file it installs to.
+pub(crate) fn install_path(_artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::PathBuf;
+    PathBuf::from(".claude/settings.json")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,5 +313,33 @@ mod tests {
             Some((Some("m".into()), 1))
         );
         assert!(parse_marketplace(f, r#"{"plugins":5}"#).is_err());
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::Plugin, "plugins/x"),
+            std::path::Path::new(".claude/settings.json")
+        );
     }
 }

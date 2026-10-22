@@ -30,6 +30,12 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     scan_markdown(walker, &STYLE_DIRS, parse, report);
 }
 
+/// `CONTEXT.md` §2: Output styles install to `.claude/output-styles/<file name>`.
+pub(crate) fn install_path(artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::Path;
+    Path::new(".claude/output-styles").join(super::below(&artifact.path, "output-styles"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,5 +65,37 @@ mod tests {
         let bad = style("---\nname: [oops\n---\n");
         assert_eq!(bad.diagnostics[0].code, "output-style.invalid-frontmatter");
         assert!(style("---\nname: a\n---\n").diagnostics.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::OutputStyle, "output-styles/terse.md"),
+            std::path::Path::new(".claude/output-styles/terse.md")
+        );
+        assert_eq!(
+            install(ArtifactKind::OutputStyle, ".claude/output-styles/terse.md"),
+            std::path::Path::new(".claude/output-styles/terse.md")
+        );
     }
 }

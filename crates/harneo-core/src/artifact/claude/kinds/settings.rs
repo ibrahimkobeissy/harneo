@@ -234,6 +234,12 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     }
 }
 
+/// `CONTEXT.md` §2: Settings install to `.claude/settings.json`, wherever they were found.
+pub(crate) fn install_path(_artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::PathBuf;
+    PathBuf::from(".claude/settings.json")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -485,5 +491,37 @@ mod tests {
         assert!(r2.artifacts[0].files.iter().all(|f| f != "link.sh"));
         assert_eq!(codes(&r2.artifacts[0]), ["settings.missing-script"]);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::Settings, "settings.json"),
+            std::path::Path::new(".claude/settings.json")
+        );
+        assert_eq!(
+            install(ArtifactKind::Settings, ".claude/settings.json"),
+            std::path::Path::new(".claude/settings.json")
+        );
     }
 }

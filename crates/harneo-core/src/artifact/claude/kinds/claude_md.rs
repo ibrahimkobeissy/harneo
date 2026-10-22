@@ -231,6 +231,12 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     }
 }
 
+/// `CONTEXT.md` §2: `CLAUDE.md` installs to `./CLAUDE.md`, wherever it was found.
+pub(crate) fn install_path(_artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::PathBuf;
+    PathBuf::from("CLAUDE.md")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -326,5 +332,37 @@ mod tests {
         let a = run(&files, "CLAUDE.md");
         // CLAUDE.md plus imports at depth 1..=5.
         assert_eq!(a.files.len(), 1 + MAX_IMPORT_DEPTH);
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::ClaudeMd, ".claude/CLAUDE.md"),
+            std::path::Path::new("CLAUDE.md")
+        );
+        assert_eq!(
+            install(ArtifactKind::ClaudeMd, "CLAUDE.md"),
+            std::path::Path::new("CLAUDE.md")
+        );
     }
 }

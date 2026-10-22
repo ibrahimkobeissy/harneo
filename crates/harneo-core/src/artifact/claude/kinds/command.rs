@@ -62,6 +62,12 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     scan_markdown(walker, &COMMAND_DIRS, parse, report);
 }
 
+/// `CONTEXT.md` §2: Commands install to `.claude/commands/`, keeping namespacing subfolders.
+pub(crate) fn install_path(artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::Path;
+    Path::new(".claude/commands").join(super::below(&artifact.path, "commands"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -117,5 +123,37 @@ mod tests {
         assert!(command(".claude/commands/a.md", "---\nx: 1\n---\n")
             .diagnostics
             .is_empty());
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::Command, "commands/git/ship.md"),
+            std::path::Path::new(".claude/commands/git/ship.md")
+        );
+        assert_eq!(
+            install(ArtifactKind::Command, ".claude/commands/x.md"),
+            std::path::Path::new(".claude/commands/x.md")
+        );
     }
 }

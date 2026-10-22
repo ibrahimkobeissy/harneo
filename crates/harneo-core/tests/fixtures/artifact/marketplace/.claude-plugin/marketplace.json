@@ -1,0 +1,15 @@
+{
+  "name": "team-tools",
+  "owner": { "name": "Team" },
+  "plugins": [
+    {
+      "name": "formatter",
+      "source": "./plugins/formatter",
+      "description": "Format on save"
+    },
+    {
+      "name": "remote-tool",
+      "source": { "source": "github", "repo": "example-org/remote-tool" }
+    }
+  ]
+}

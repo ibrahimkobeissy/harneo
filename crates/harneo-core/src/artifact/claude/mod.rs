@@ -48,10 +48,16 @@ impl AgentAdapter for ClaudeAdapter {
 
     fn install_path(&self, artifact: &Artifact) -> PathBuf {
         match artifact.kind {
+            ArtifactKind::ClaudeMd => kinds::claude_md::install_path(artifact),
+            ArtifactKind::Rule => kinds::rule::install_path(artifact),
             ArtifactKind::Skill => kinds::skill::install_path(artifact),
-            // The other types are completed with the install-path ticket; until then they
-            // stay where they were found.
-            _ => PathBuf::from(&artifact.path),
+            ArtifactKind::Command => kinds::command::install_path(artifact),
+            ArtifactKind::Agent => kinds::agent::install_path(artifact),
+            ArtifactKind::Settings => kinds::settings::install_path(artifact),
+            ArtifactKind::Mcp => kinds::mcp::install_path(artifact),
+            ArtifactKind::OutputStyle => kinds::output_style::install_path(artifact),
+            ArtifactKind::Workflow => kinds::workflow::install_path(artifact),
+            ArtifactKind::Plugin => kinds::plugin::install_path(artifact),
         }
     }
 }

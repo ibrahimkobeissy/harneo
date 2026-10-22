@@ -73,6 +73,12 @@ pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     scan_markdown(walker, &AGENT_DIRS, parse, report);
 }
 
+/// `CONTEXT.md` §2: Subagents install to `.claude/agents/<file name>`.
+pub(crate) fn install_path(artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::Path;
+    Path::new(".claude/agents").join(super::below(&artifact.path, "agents"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -149,5 +155,37 @@ mod tests {
     fn malformed_reference_fields_yield_no_references() {
         let a = agent("---\nname: nm\ndescription: d\nskills: oops\nmcpServers: 3\n---\n");
         assert!(a.references.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::Agent, "agents/dev.md"),
+            std::path::Path::new(".claude/agents/dev.md")
+        );
+        assert_eq!(
+            install(ArtifactKind::Agent, ".claude/agents/dev.md"),
+            std::path::Path::new(".claude/agents/dev.md")
+        );
     }
 }

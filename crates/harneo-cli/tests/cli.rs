@@ -118,3 +118,16 @@ fn scan_prints_diagnostics_and_still_exits_0() -> Result<(), Box<dyn std::error:
         .stdout(predicate::str::contains("0 errors, 1 warnings"));
     Ok(())
 }
+
+#[test]
+fn scan_json_of_the_project_fixture_lists_its_ten_artifacts(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../harneo-core/tests/fixtures/artifact/project");
+    let output = harneo().arg("scan").arg(&fixture).arg("--json").output()?;
+    assert!(output.status.success());
+    let report: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+    let artifacts = report["artifacts"].as_array().ok_or("no artifacts")?;
+    assert_eq!(artifacts.len(), 10);
+    Ok(())
+}

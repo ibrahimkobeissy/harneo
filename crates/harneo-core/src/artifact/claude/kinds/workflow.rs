@@ -312,6 +312,12 @@ fn skip_value(c: &[char], mut i: usize) -> Option<usize> {
     None
 }
 
+/// `CONTEXT.md` §2: Workflows install to `.claude/workflows/<file name>`.
+pub(crate) fn install_path(artifact: &crate::artifact::Artifact) -> std::path::PathBuf {
+    use std::path::Path;
+    Path::new(".claude/workflows").join(super::below(&artifact.path, "workflows"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -414,5 +420,37 @@ mod tests {
             .iter()
             .any(|d| d.file.ends_with("bad.js")));
         let _ = fs::remove_dir_all(&tmp);
+    }
+}
+
+#[cfg(test)]
+mod install_tests {
+    use crate::artifact::{Artifact, ArtifactKind};
+
+    fn install(kind: ArtifactKind, path: &str) -> std::path::PathBuf {
+        let artifact = Artifact {
+            kind,
+            name: "x".into(),
+            description: None,
+            path: path.into(),
+            files: Vec::new(),
+            metadata: Default::default(),
+            references: Vec::new(),
+            diagnostics: Vec::new(),
+            digest: None,
+        };
+        super::install_path(&artifact)
+    }
+
+    #[test]
+    fn install_path_matches_the_context_table() {
+        assert_eq!(
+            install(ArtifactKind::Workflow, "workflows/audit.js"),
+            std::path::Path::new(".claude/workflows/audit.js")
+        );
+        assert_eq!(
+            install(ArtifactKind::Workflow, ".claude/workflows/audit.js"),
+            std::path::Path::new(".claude/workflows/audit.js")
+        );
     }
 }

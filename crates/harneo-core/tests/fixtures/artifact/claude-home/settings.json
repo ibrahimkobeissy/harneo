@@ -1,0 +1,4 @@
+{
+  "model": "sonnet",
+  "permissions": { "allow": ["Bash(git status)"] }
+}
