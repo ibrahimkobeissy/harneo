@@ -34,6 +34,12 @@ if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
   $plan += @{ Desc = 'winget install --id Rustlang.Rustup -e'; Cmd = { winget install --id Rustlang.Rustup -e --accept-package-agreements } }
 }
 
+# git: needed for git URL imports and to clone Harneo.
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+  $missing += 'git'
+  $plan += @{ Desc = 'winget install --id Git.Git -e'; Cmd = { winget install --id Git.Git -e --accept-package-agreements } }
+}
+
 $nodeOk = $false
 if (Get-Command node -ErrorAction SilentlyContinue) {
   $v = (node --version)

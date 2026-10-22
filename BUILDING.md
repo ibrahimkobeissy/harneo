@@ -42,6 +42,10 @@ Tauri 2 needs WebKitGTK 4.1 and a few system libraries. Package names per distro
 - Xcode command line tools: `xcode-select --install`.
 - Homebrew, which `setup.sh` uses for the rest.
 
+### Git (all platforms)
+
+Install `git` (pacman, apt, dnf and winget `Git.Git` use that name; on macOS the Xcode command line tools provide it). Harneo runs `git` to import artifacts from a git URL, and you need it to clone the repo.
+
 ### Rust
 
 Install Rust through [rustup](https://rustup.rs). `rust-toolchain.toml` pins the channel (stable) and the components (rustfmt, clippy, llvm-tools-preview); rustup installs them on the first `cargo` run in the repo.

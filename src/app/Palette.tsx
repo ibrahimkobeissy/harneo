@@ -1,6 +1,8 @@
 import { Keyboard, Search, type LucideIcon } from "lucide-react";
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
+import { kinds } from "../features/library/kinds";
+import { libraryList } from "../lib/ipc";
 import { Kbd } from "../ui";
 import { Modal } from "./Modal";
 import styles from "./Palette.module.css";
@@ -9,8 +11,55 @@ import { actions, places, settingsDestination } from "./routes";
 interface Entry {
   id: string;
   label: string;
-  group: "Places" | "Actions" | "Help";
+  group: "Places" | "Actions" | "Help" | "Artifacts";
   icon: LucideIcon;
+  /** Where Enter goes; defaults to `id`. */
+  to?: string;
+  /** Quiet text after the label. */
+  hint?: string;
+}
+
+const ARTIFACT_LIMIT = 8;
+const DEBOUNCE_MS = 120;
+
+/** Library artifacts whose name matches `text`, for the palette's Artifacts group. */
+function useArtifactEntries(text: string): Entry[] {
+  const [found, setFound] = useState<Entry[]>([]);
+  useEffect(() => {
+    if (text === "") return;
+    let stale = false;
+    const timer = setTimeout(() => {
+      libraryList({
+        filter: { text, types: [], tags: [], sources: [] },
+        sort: "name",
+        descending: false,
+        offset: 0,
+        limit: ARTIFACT_LIMIT,
+      })
+        .then((page) => {
+          if (stale) return;
+          const rows = page.items.map((it) => ({
+            id: `artifact-${it.id}`,
+            label: it.name,
+            group: "Artifacts" as const,
+            icon: kinds[it.kind].icon,
+            to: `/library?open=${encodeURIComponent(it.id)}`,
+            hint: `${kinds[it.kind].label} · ${it.source.label}`,
+          }));
+          setFound(rows);
+        })
+        // Quiet: a failed search just shows no artifacts.
+        .catch(() => {
+          if (!stale) setFound([]);
+        });
+    }, DEBOUNCE_MS);
+    return () => {
+      stale = true;
+      clearTimeout(timer);
+    };
+  }, [text]);
+  // Keep the previous rows while the next search runs, so the list does not flash.
+  return text === "" ? [] : found;
 }
 
 const entries: readonly Entry[] = [
@@ -33,7 +82,7 @@ const entries: readonly Entry[] = [
     icon: Keyboard,
   },
 ];
-const groups = ["Places", "Actions", "Help"] as const;
+const groups = ["Places", "Actions", "Help", "Artifacts"] as const;
 const optionId = (e: Entry) => `palette-${e.id.replace(/\W/g, "") || "x"}`;
 
 interface PaletteProps {
@@ -47,7 +96,14 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
   const [active, setActive] = useState(0);
 
   const q = query.trim().toLowerCase();
-  const matches = entries.filter((e) => e.label.toLowerCase().includes(q));
+  const artifactRows = useArtifactEntries(q);
+  const matches = useMemo(
+    () => [
+      ...entries.filter((e) => e.label.toLowerCase().includes(q)),
+      ...artifactRows,
+    ],
+    [q, artifactRows],
+  );
   const current = Math.min(active, Math.max(matches.length - 1, 0));
   const activeEntry = matches[current];
 
@@ -63,7 +119,7 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
     if (!entry) return;
     if (entry.id === "shortcuts") return onShortcuts();
     onClose();
-    void navigate(entry.id);
+    void navigate(entry.to ?? entry.id);
   }
 
   function onKeyDown(ev: KeyboardEvent<HTMLInputElement>) {
@@ -141,6 +197,7 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
                   >
                     <m.icon size={16} aria-hidden="true" />
                     {m.label}
+                    {m.hint && <span className={styles.hint}>{m.hint}</span>}
                   </div>
                 );
               })}

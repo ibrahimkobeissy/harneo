@@ -1,7 +1,7 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "../App";
 import { item, page } from "../test/library";
@@ -144,3 +144,88 @@ describe("Tag", () => {
     expect(screen.getByText("docs")).toHaveAttribute("data-tint", "ink");
   });
 });
+
+describe("palette artifacts", () => {
+  const skill = item("review-helper", { id: "a1" });
+
+  function mockLibrary(
+    respond: (text: string | null) => Promise<unknown> | unknown,
+  ) {
+    mockIPC((cmd, args) => {
+      if (cmd === "library_list") {
+        const q = (args as { query: { filter: { text: string | null } } })
+          .query;
+        return respond(q.filter.text);
+      }
+      return cmd === "app_info"
+        ? { version: "1.2.3", dataDir: "/d" }
+        : undefined;
+    });
+  }
+
+  it("lists matching artifacts with kind and source, and opens one with Enter", async () => {
+    mockLibrary((text) => page(text ? [skill] : []));
+    const user = await openPalette();
+    expect(screen.queryByRole("group", { name: "Artifacts" })).toBeNull();
+    await user.type(screen.getByRole("combobox"), "review");
+    const row = await screen.findByRole("option", { name: /review-helper/ });
+    expect(row).toHaveTextContent("Skill · agent-skills");
+    await user.hover(row);
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("navigates to the open route with Enter and click", async () => {
+    mockLibrary(() => page([skill]));
+    const seen: string[] = [];
+    function Where() {
+      const l = useLocation();
+      seen.push(l.pathname + l.search);
+      return null;
+    }
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={["/profiles"]}>
+        <Where />
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByRole("combobox"), "review");
+    const row = await screen.findByRole("option", { name: /review-helper/ });
+    await user.hover(row);
+    await user.keyboard("{Enter}");
+    expect(seen.at(-1)).toBe("/library?open=a1");
+    await user.keyboard("{Control>}k{/Control}");
+    await user.type(screen.getByRole("combobox"), "review");
+    await user.click(
+      await screen.findByRole("option", { name: /review-helper/ }),
+    );
+    expect(seen.at(-1)).toBe("/library?open=a1");
+  });
+
+  it("ignores a stale response", async () => {
+    const slow = deferred();
+    mockLibrary((text) =>
+      text === "re" ? slow.promise : page([item("fresh-one", { id: "a2" })]),
+    );
+    const user = await openPalette();
+    await user.type(screen.getByRole("combobox"), "re");
+    await new Promise((r) => setTimeout(r, 200));
+    await user.type(screen.getByRole("combobox"), "v");
+    expect(
+      await screen.findByRole("option", { name: /fresh-one/ }),
+    ).toBeInTheDocument();
+    slow.resolve(page([item("stale-one", { id: "a3" })]));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole("option", { name: /stale-one/ })).toBeNull();
+  });
+});
+
+function deferred() {
+  let resolve: (v: unknown) => void = () => undefined;
+  const promise = new Promise((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}

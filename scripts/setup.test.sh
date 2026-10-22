@@ -10,9 +10,9 @@ failed=0
 real_bash=$(command -v bash)
 
 # Tauri 2 package lists, mirrored from the Tauri prerequisites docs.
-arch_pkgs="webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool"
-deb_pkgs="libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev"
-fed_pkgs="webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel"
+arch_pkgs="webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool git"
+deb_pkgs="libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev git"
+fed_pkgs="webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel git"
 
 # stub <name> <script body>: executable fake in $bin.
 stub() { printf '#!/bin/bash\n%s\n' "$2" >"$bin/$1" && chmod +x "$bin/$1"; }
@@ -113,6 +113,29 @@ new_env mac-miss
 run macos brew --check
 expect_rc "macos missing xcode tools" 1
 has_output "macos names xcode tools" "Xcode command line tools"
+unset xcode
+
+# --- git: a runtime prerequisite (git URL imports) ------------------------------------------
+new_env arch-nogit ${arch_pkgs/ git/}
+run linux pacman --check
+expect_rc "arch missing git" 1
+has_output "arch names git" "pacman packages: git"
+new_env deb-nogit ${deb_pkgs/ git/}
+run linux apt --check
+expect_rc "debian missing git" 1
+has_output "debian names git" "apt packages: git"
+new_env fed-nogit ${fed_pkgs/ git/}
+run linux dnf --check
+expect_rc "fedora missing git" 1
+has_output "fedora names git" "dnf packages: git"
+xcode=no
+new_env mac-nogit
+run macos brew --check
+expect_rc "macos without tools or git" 1
+has_output "macos names git" "git (comes with the Xcode command line tools)"
+stub git 'exit 0'
+run macos brew --check
+lacks_output "macos with git on PATH" "git (comes with"
 unset xcode
 
 # --- node and rustup -------------------------------------------------------------------------

@@ -64,11 +64,11 @@ if [[ "$os" == macos ]] && ! have brew && ((check == 0)); then
 fi
 echo "setup: $os, package manager: $pm"
 
-# Tauri 2 prerequisites per package manager.
+# Tauri 2 prerequisites per package manager, plus git (git URL imports, cloning Harneo).
 case "$pm" in
-  pacman) pkgs=(webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool) ;;
-  apt) pkgs=(libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev) ;;
-  dnf) pkgs=(webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel) ;;
+  pacman) pkgs=(webkit2gtk-4.1 base-devel curl wget file openssl appmenu-gtk-module libappindicator-gtk3 librsvg xdotool git) ;;
+  apt) pkgs=(libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev git) ;;
+  dnf) pkgs=(webkit2gtk4.1-devel openssl-devel curl wget file libappindicator-gtk3-devel librsvg2-devel libxdo-devel git) ;;
   brew) pkgs=() ;;
 esac
 dnf_group="C Development Tools and Libraries"
@@ -137,6 +137,8 @@ if [[ "$os" == macos ]]; then
   if ! xcode-select -p >/dev/null 2>&1; then
     add_missing "Xcode command line tools"
     add_plan user "xcode-select --install"
+    # The command line tools provide git; only report it when neither is there.
+    have git || add_missing "git (comes with the Xcode command line tools)"
   fi
 else
   miss=()
