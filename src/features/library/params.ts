@@ -33,6 +33,8 @@ export const sortLabels: Record<SortKey, string> = {
   source: "Source",
   tagCount: "Tags",
   importedAt: "Imported",
+  // A manual collection's own order (collection screens, L12); not offered on the library.
+  position: "Manual order",
 };
 
 /** The first click on a column sorts newest first for dates and A to Z otherwise. */
