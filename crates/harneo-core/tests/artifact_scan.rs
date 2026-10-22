@@ -93,3 +93,28 @@ fn same_folder_gives_the_same_report() -> Result<(), Box<dyn std::error::Error>>
     assert_eq!(first, second);
     Ok(())
 }
+
+#[test]
+fn a_subagent_skill_reference_resolves_to_a_real_skill() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempfile::tempdir()?;
+    let root = dir.path();
+    write(root, "skills/tdd/SKILL.md", "---\nname: tdd\n---\nBody")?;
+    write(
+        root,
+        "agents/dev.md",
+        "---\nname: dev\ndescription: d\nskills:\n  - tdd\n  - ghost\n---\nBody",
+    )?;
+    let report = ClaudeAdapter.scan(root, &ScanOptions::default())?;
+    let agent = report
+        .artifacts
+        .iter()
+        .find(|a| a.kind == ArtifactKind::Agent)
+        .ok_or("no agent")?;
+    let got: Vec<_> = agent
+        .references
+        .iter()
+        .map(|r| (r.target.as_str(), r.resolved))
+        .collect();
+    assert_eq!(got, [("tdd", true), ("ghost", false)]);
+    Ok(())
+}
