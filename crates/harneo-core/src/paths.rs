@@ -15,9 +15,21 @@ pub fn data_dir() -> Result<PathBuf> {
         .ok_or(Error::NoDataDir)
 }
 
+/// The user's Claude Code home, `~/.claude`: the "your own harness" import source.
+pub fn claude_home() -> Result<PathBuf> {
+    dirs::home_dir()
+        .map(|home| home.join(".claude"))
+        .ok_or(Error::NoHomeDir)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn claude_home_is_dot_claude_in_the_home_dir() {
+        assert!(claude_home().is_ok_and(|dir| dir.ends_with(".claude")));
+    }
 
     #[test]
     fn data_dir_ends_in_app_id() {

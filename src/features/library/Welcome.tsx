@@ -72,7 +72,12 @@ export function Welcome() {
           ))}
         </div>
         <div className={styles.actions}>
-          <Button variant="primary" onClick={() => void navigate("/import")}>
+          <Button
+            variant="primary"
+            onClick={() =>
+              void navigate("/import", { state: { firstRun: true } })
+            }
+          >
             <Download size={14} aria-hidden="true" />
             Import your first artifacts
           </Button>

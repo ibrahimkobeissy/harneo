@@ -7,6 +7,9 @@ pub enum Error {
     /// The OS gave no per-user data location, so there is nowhere to keep the library.
     #[error("cannot determine the user data directory on this system")]
     NoDataDir,
+    /// The OS gave no home folder, so `~/.claude` cannot be found.
+    #[error("cannot determine the home directory on this system")]
+    NoHomeDir,
     /// The folder to scan is missing or is not a folder.
     #[error("cannot scan {path}: not a folder")]
     NotAFolder {

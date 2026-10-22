@@ -1,11 +1,13 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use harneo_core::artifact::ArtifactKind;
-use harneo_core::library::{ArtifactDetail, Library, Page, Query};
+
+use harneo_core::library::{ArtifactDetail, ImportReport, Library, Page, Preview, Query, Source};
 use serde::Serialize;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
 use ts_rs::TS;
 
 /// What the About panel shows. `data_dir` crosses IPC as a string, since a path is not JSON.
@@ -46,6 +48,7 @@ impl LibraryState {
         Self(Mutex::new(opened))
     }
 
+    /// Like `with`, for the calls that change the library.
     fn with_mut<T>(
         &self,
         f: impl FnOnce(&mut Library) -> harneo_core::Result<T>,
@@ -97,6 +100,58 @@ pub fn library_find(
     name: String,
 ) -> Result<Option<String>, String> {
     state.with(|library| library.find(kind, &name))
+}
+
+// --- Import flow -----------------------------------------------------------------------
+
+/// `~/.claude`, the "your own harness" import source, as a string for the UI.
+#[tauri::command]
+pub fn home_claude_dir() -> Result<String, String> {
+    let dir = harneo_core::paths::claude_home().map_err(|e| e.to_string())?;
+    Ok(dir.to_string_lossy().into_owned())
+}
+
+/// A typed git URL read into URL, branch and subfolder (so a pasted `…/tree/main/skills` link
+/// works); a local source is left as it is.
+fn normalized(source: Source) -> harneo_core::Result<Source> {
+    match source {
+        Source::Git {
+            url,
+            branch,
+            subfolder,
+        } => Source::parse_git(&url, branch.as_deref(), subfolder.as_deref()),
+        other => Ok(other),
+    }
+}
+
+/// Scans a source and lists what could be imported. A git source is cloned first, which takes
+/// time, so the work runs on the blocking pool and the window never blocks (the library mutex is
+/// taken inside that closure, never across an await). The clone waits in the library for `library_import`.
+#[tauri::command]
+pub async fn library_preview(app: AppHandle, source: Source) -> Result<Preview, String> {
+    let source = normalized(source).map_err(|e| e.to_string())?;
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.preview(&source))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Copies the ticked candidates of a preview into the library with the chosen tags.
+#[tauri::command]
+pub async fn library_import(
+    app: AppHandle,
+    preview: Preview,
+    selection: Vec<String>,
+    tags: HashMap<String, Vec<String>>,
+) -> Result<ImportReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with_mut(|library| library.import(&preview, &selection, &tags))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[cfg(test)]
@@ -160,6 +215,50 @@ mod tests {
         let removed = state.with_mut(|library| library.remove("nope")).err();
         assert!(removed.is_some_and(|m| m.contains("not in the library")));
         assert_eq!(state.with(|l| l.find(ArtifactKind::Skill, "x"))?, None);
+        Ok(())
+    }
+
+    #[test]
+    fn import_runs_through_the_state_and_lists_the_result() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let data = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join("skills/alpha"))?;
+        std::fs::write(
+            source.path().join("skills/alpha/SKILL.md"),
+            "---\nname: alpha\ndescription: A skill\n---\nBody\n",
+        )?;
+        let state = LibraryState::from_result(Ok(Library::open(data.path())?));
+        let src = Source::Local {
+            path: source.path().to_path_buf(),
+        };
+        let preview = state.with(|library| library.preview(&src))?;
+        assert_eq!(preview.candidates.len(), 1);
+        let ids = vec![preview.candidates[0].id.clone()];
+        let report = state.with_mut(|library| library.import(&preview, &ids, &HashMap::new()))?;
+        assert_eq!(report.imported, ids);
+        let page = state.with(|library| library.list(&Query::default()))?;
+        assert_eq!(page.total, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn home_claude_dir_ends_in_dot_claude() -> Result<(), String> {
+        assert!(home_claude_dir()?.ends_with(".claude"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_pasted_tree_url_is_split_into_branch_and_subfolder() -> harneo_core::Result<()> {
+        let source = normalized(Source::Git {
+            url: "github.com/o/r/tree/main/skills".into(),
+            branch: None,
+            subfolder: None,
+        })?;
+        assert!(matches!(
+            source,
+            Source::Git { branch: Some(ref b), subfolder: Some(ref s), .. } if b == "main" && s == "skills"
+        ));
         Ok(())
     }
 }

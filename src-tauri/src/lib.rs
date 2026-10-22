@@ -6,13 +6,17 @@ mod commands;
 /// since `unwrap`/`expect` are denied outside tests.
 pub fn run() {
     let result = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(commands::LibraryState::open())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::library_list,
             commands::library_detail,
             commands::library_remove,
-            commands::library_find
+            commands::library_find,
+            commands::home_claude_dir,
+            commands::library_preview,
+            commands::library_import
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {
