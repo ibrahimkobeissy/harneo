@@ -253,6 +253,11 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria,
 - [#53](https://github.com/ibrahimkobeissy/harneo/issues/53) L12: Collections in the UI
 - [#54](https://github.com/ibrahimkobeissy/harneo/issues/54) L13: Command palette finds artifacts; git as a runtime prerequisite
 - [#55](https://github.com/ibrahimkobeissy/harneo/issues/55) L14: `/impeccable critique` of the library screens
+  - [#57](https://github.com/ibrahimkobeissy/harneo/issues/57) C1: Library toolbar, Import button, card footer counts
+  - [#58](https://github.com/ibrahimkobeissy/harneo/issues/58) C2: Import flow: diagnostics, selection, sticky footer, review polish
+  - [#59](https://github.com/ibrahimkobeissy/harneo/issues/59) C3: Detail panel: Delete from library, tag menu, contrast tokens
+  - [#60](https://github.com/ibrahimkobeissy/harneo/issues/60) C4: Half-width layout (≤1180px)
+  - [#61](https://github.com/ibrahimkobeissy/harneo/issues/61) C5: Minor fixes: labels, dates, semantics, shortcuts
 
 ## Checkpoints
 
