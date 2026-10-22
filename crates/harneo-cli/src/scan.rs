@@ -142,6 +142,7 @@ mod tests {
                     "needs a description",
                 )],
                 digest: None,
+                origin: harneo_core::artifact::Origin::default(),
             }],
             diagnostics: vec![Diagnostic::error(
                 "skill.file-too-large",

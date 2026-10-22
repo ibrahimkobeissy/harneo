@@ -62,6 +62,7 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
         references: Vec::new(),
         diagnostics,
         digest: None,
+        origin: crate::artifact::Origin::default(),
     }
 }
 

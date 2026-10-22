@@ -115,6 +115,31 @@ pub struct Artifact {
     pub diagnostics: Vec<Diagnostic>,
     /// SHA-256 over the artifact's files; filled in by the digest step, `None` until then.
     pub digest: Option<String>,
+    /// Where the artifact came from; `own` for plain files.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub origin: Origin,
+}
+
+/// Where an artifact came from, so the library can tell your own files from ones Claude Code
+/// or a marketplace put there.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum Origin {
+    /// Plain files you or your project own.
+    #[default]
+    Own,
+    /// A skill Claude synced from your account (`skills/synced/`).
+    ClaudeSynced,
+    /// A plugin installed from a marketplace. `official` is true for repos under `anthropics/`.
+    Marketplace {
+        name: String,
+        repo: Option<String>,
+        official: bool,
+    },
+    /// A mod in development (`dev-mods/`).
+    DevMod,
 }
 
 /// Everything one scan found.

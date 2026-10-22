@@ -205,6 +205,7 @@ pub(crate) fn build(path: &Path, text: &str, load: &mut dyn FnMut(&Path) -> Load
         references: Vec::new(),
         diagnostics,
         digest: None,
+        origin: crate::artifact::Origin::default(),
     }
 }
 
@@ -350,6 +351,7 @@ mod install_tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         };
         super::install_path(&artifact)
     }

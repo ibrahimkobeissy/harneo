@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use super::kinds::{plugin, skill};
 use crate::artifact::walk::{Walker, MANAGED_DIRS};
-use crate::artifact::{rel_string, ArtifactKind, Diagnostic, ScanOptions, ScanReport};
+use crate::artifact::{rel_string, ArtifactKind, Diagnostic, Origin, ScanOptions, ScanReport};
 
 #[derive(Default)]
 struct Found {
@@ -96,6 +96,8 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
         &mut found,
     );
 
+    super::installed::scan(walker, report);
+
     let mut claimed = Vec::new();
     for folder in &found.marketplaces {
         plugin::scan_marketplace(walker, folder, &mut claimed, report);
@@ -126,4 +128,16 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
                 .iter()
                 .any(|p| Path::new(&a.path).starts_with(p))
     });
+}
+
+/// Marks what lies in a Claude-managed folder (only present when those were included).
+pub(crate) fn mark_managed_origins(report: &mut ScanReport) {
+    for a in &mut report.artifacts {
+        let path = Path::new(&a.path);
+        if path.starts_with("skills/synced") || path.starts_with(".claude/skills/synced") {
+            a.origin = Origin::ClaudeSynced;
+        } else if path.starts_with("dev-mods") || path.starts_with(".claude/dev-mods") {
+            a.origin = Origin::DevMod;
+        }
+    }
 }

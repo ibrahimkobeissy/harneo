@@ -35,6 +35,7 @@ pub(crate) fn parse(path: &Path, contents: &str, script_exists: &dyn Fn(&str) ->
         references: Vec::new(),
         diagnostics: Vec::new(),
         digest: None,
+        origin: crate::artifact::Origin::default(),
     };
     let mut metadata = match serde_json::from_str::<Value>(contents) {
         Ok(Value::Object(map)) => map,
@@ -509,6 +510,7 @@ mod install_tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         };
         super::install_path(&artifact)
     }

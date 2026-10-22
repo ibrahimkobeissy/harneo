@@ -24,6 +24,7 @@ function detail(
       references: [],
       diagnostics: [],
       digest: null,
+      origin: { type: "own" },
       ...over,
     },
     provenance: {

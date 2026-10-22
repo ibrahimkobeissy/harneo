@@ -32,6 +32,13 @@ pub(crate) const MANAGED_DIRS: [&str; 4] = [
     ".claude/dev-mods",
 ];
 
+/// The installed-plugins list of a `~/.claude`-like root.
+pub(crate) const INSTALLED_PLUGINS: &str = "plugins/installed_plugins.json";
+
+/// Folders that never hold loose plugins, marketplaces or skills when the root has an
+/// [`INSTALLED_PLUGINS`] list: catalogue clones and the install cache.
+const INSTALLED_PLUGIN_DIRS: [&str; 2] = ["plugins/marketplaces", "plugins/cache"];
+
 /// True when `rel` (relative to the scan root) is one of the [`MANAGED_DIRS`].
 pub(crate) fn is_managed_dir(rel: &Path) -> bool {
     let shown = rel_string(rel);
@@ -39,6 +46,11 @@ pub(crate) fn is_managed_dir(rel: &Path) -> bool {
 }
 
 /// True when the file name matches one of the secret patterns of `CLAUDE.md`'s guardrails.
+fn is_installed_plugin_dir(rel: &Path) -> bool {
+    let shown = rel_string(rel);
+    INSTALLED_PLUGIN_DIRS.contains(&shown.as_str())
+}
+
 pub(crate) fn is_secret_name(name: &str) -> bool {
     let n = name.to_ascii_lowercase();
     let ends = |suffixes: &[&str]| suffixes.iter().any(|s| n.ends_with(s));
@@ -82,14 +94,19 @@ pub(crate) struct Walker<'a> {
     /// charged twice against `max_total_bytes` (the digest has its own, equal, allowance).
     digest_read: usize,
     digest_exhausted: bool,
+    /// The root has `plugins/installed_plugins.json`, so plugins come from that list only.
+    installed_mode: bool,
     root_diagnostics: Vec<Diagnostic>,
 }
 
 impl<'a> Walker<'a> {
     pub(crate) fn new(root: &'a Path, options: &'a ScanOptions) -> Self {
+        let installed_mode = fs::symlink_metadata(root.join(INSTALLED_PLUGINS))
+            .is_ok_and(|m| m.file_type().is_file());
         Self {
             root,
             options,
+            installed_mode,
             total_read: 0,
             exhausted: false,
             digest_read: 0,
@@ -101,6 +118,15 @@ impl<'a> Walker<'a> {
     /// The findings that belong to no single artifact (the scan read limit). Call once at the end.
     pub(crate) fn finish(self) -> Vec<Diagnostic> {
         self.root_diagnostics
+    }
+
+    pub(crate) fn root(&self) -> &Path {
+        self.root
+    }
+
+    /// True when the root lists its installed plugins in `plugins/installed_plugins.json`.
+    pub(crate) fn installed_mode(&self) -> bool {
+        self.installed_mode
     }
 
     /// True when `rel` is a real folder (a symlink is not, and is not followed).
@@ -130,6 +156,7 @@ impl<'a> Walker<'a> {
             .filter(|e| !self.is_skipped(&e.file_name().to_string_lossy()))
             .map(|e| rel.join(e.file_name()))
             .filter(|p| self.options.include_managed || !is_managed_dir(p))
+            .filter(|p| !self.installed_mode || !is_installed_plugin_dir(p))
             .collect();
         dirs.sort();
         dirs

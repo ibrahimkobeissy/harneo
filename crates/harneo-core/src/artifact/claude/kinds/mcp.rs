@@ -75,6 +75,7 @@ fn server(name: &str, def: &Value, script_exists: &dyn Fn(&str) -> bool) -> Arti
         references: Vec::new(),
         diagnostics: Vec::new(),
         digest: None,
+        origin: crate::artifact::Origin::default(),
     };
     let has =
         |key: &str| matches!(metadata.get(key), Some(Value::String(s)) if !s.trim().is_empty());
@@ -322,6 +323,7 @@ mod install_tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         };
         super::install_path(&artifact)
     }

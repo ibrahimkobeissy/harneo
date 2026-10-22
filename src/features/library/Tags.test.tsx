@@ -21,6 +21,7 @@ const detail: ArtifactDetail = {
     references: [],
     diagnostics: [],
     digest: null,
+    origin: { type: "own" },
   },
   provenance: {
     source: {

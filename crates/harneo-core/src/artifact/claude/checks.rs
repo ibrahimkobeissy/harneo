@@ -98,6 +98,7 @@ mod tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         }
     }
 

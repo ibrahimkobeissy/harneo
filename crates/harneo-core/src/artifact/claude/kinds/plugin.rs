@@ -81,11 +81,12 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
         references: Vec::new(),
         diagnostics,
         digest: None,
+        origin: crate::artifact::Origin::default(),
     }
 }
 
 /// Reads the plugin folder `folder`, which holds a `plugin.json`.
-fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
+pub(crate) fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
     let mut walk_diagnostics = Vec::new();
     let files = walker.list_files(folder, &mut walk_diagnostics);
     let text = walker.read_text(&manifest_path(folder), &mut walk_diagnostics);
@@ -211,7 +212,7 @@ fn entry_artifact(
     artifact
 }
 
-fn remote_artifact(mfile: &Path, name: Option<&str>) -> Artifact {
+pub(crate) fn remote_artifact(mfile: &Path, name: Option<&str>) -> Artifact {
     Artifact {
         kind: ArtifactKind::Plugin,
         name: name.unwrap_or("unnamed").to_owned(),
@@ -222,6 +223,7 @@ fn remote_artifact(mfile: &Path, name: Option<&str>) -> Artifact {
         references: Vec::new(),
         diagnostics: Vec::new(),
         digest: None,
+        origin: crate::artifact::Origin::default(),
     }
 }
 
@@ -331,6 +333,7 @@ mod install_tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         };
         super::install_path(&artifact)
     }

@@ -54,6 +54,7 @@ pub(crate) fn parse(base: &Path, rel: &Path, contents: &str) -> Artifact {
         references,
         diagnostics: h.diagnostics,
         digest: None,
+        origin: crate::artifact::Origin::default(),
     }
 }
 
@@ -141,6 +142,7 @@ mod install_tests {
             references: Vec::new(),
             diagnostics: Vec::new(),
             digest: None,
+            origin: crate::artifact::Origin::default(),
         };
         super::install_path(&artifact)
     }

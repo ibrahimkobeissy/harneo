@@ -26,6 +26,7 @@ function candidate(
       references: [],
       diagnostics: [],
       digest: null,
+      origin: { type: "own" },
     },
     alreadyInLibrary: false,
     replacedSecretKeys: [],
