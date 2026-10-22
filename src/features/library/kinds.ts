@@ -73,6 +73,13 @@ const tagTints: readonly string[] = [
   "fuchsia",
   "stone",
   "slate",
+  "red",
+  "orange",
+  "amber",
+  "lime",
+  "emerald",
+  "teal",
+  "pink",
 ];
 
 /** A tag's stored color as a `Tag` tint; anything unknown falls back to slate. */

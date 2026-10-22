@@ -9,6 +9,13 @@ const palette: readonly TagColor[] = [
   "fuchsia",
   "stone",
   "slate",
+  "red",
+  "orange",
+  "amber",
+  "lime",
+  "emerald",
+  "teal",
+  "pink",
 ];
 
 const K = Uint32Array.from([
@@ -89,7 +96,7 @@ export function sha256(data: Uint8Array): Uint8Array {
   return out;
 }
 
-/** The color core gives a new tag: first byte of SHA-256 of the lowercased name, mod 7. */
+/** The color core gives a new tag: first byte of SHA-256 of the lowercased name, mod 14. */
 export function defaultTagColor(name: string): TagColor {
   const digest = sha256(new TextEncoder().encode(name.toLowerCase()));
   return palette[(digest[0] ?? 0) % palette.length] ?? "slate";

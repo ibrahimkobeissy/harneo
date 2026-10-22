@@ -43,6 +43,34 @@
   --tag-bg: var(--tint-slate-bg);
   --tag-fg: var(--tint-slate);
 }
+.tag[data-tint="red"] {
+  --tag-bg: var(--tint-red-bg);
+  --tag-fg: var(--tint-red);
+}
+.tag[data-tint="orange"] {
+  --tag-bg: var(--tint-orange-bg);
+  --tag-fg: var(--tint-orange);
+}
+.tag[data-tint="amber"] {
+  --tag-bg: var(--tint-amber-bg);
+  --tag-fg: var(--tint-amber);
+}
+.tag[data-tint="lime"] {
+  --tag-bg: var(--tint-lime-bg);
+  --tag-fg: var(--tint-lime);
+}
+.tag[data-tint="emerald"] {
+  --tag-bg: var(--tint-emerald-bg);
+  --tag-fg: var(--tint-emerald);
+}
+.tag[data-tint="teal"] {
+  --tag-bg: var(--tint-teal-bg);
+  --tag-fg: var(--tint-teal);
+}
+.tag[data-tint="pink"] {
+  --tag-bg: var(--tint-pink-bg);
+  --tag-fg: var(--tint-pink);
+}
 .tag[data-tint="plain"] {
   --tag-bg: var(--tint-plain-bg);
   --tag-fg: var(--tint-plain);

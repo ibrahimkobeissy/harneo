@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import styles from "./Tag.module.css";
 
-// Tags never use green, amber, red or the accent blue: those mean state or selection.
+// Tags never use green or the accent blue. Red, amber and emerald are soft washes, distinct from the state colours (see DESIGN.md).
 export type TagTint =
   | "cyan"
   | "sky"
@@ -10,6 +10,13 @@ export type TagTint =
   | "fuchsia"
   | "stone"
   | "slate"
+  | "red"
+  | "orange"
+  | "amber"
+  | "lime"
+  | "emerald"
+  | "teal"
+  | "pink"
   | "plain"
   | "ink";
 

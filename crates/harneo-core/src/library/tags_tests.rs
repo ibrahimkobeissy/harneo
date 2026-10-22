@@ -107,7 +107,8 @@ fn names_are_validated_and_unique_ignoring_case() -> TestResult {
 #[test]
 fn colors_are_the_palette_and_an_invalid_one_is_rejected() {
     for name in [
-        "cyan", "sky", "indigo", "violet", "fuchsia", "stone", "slate",
+        "cyan", "sky", "indigo", "violet", "fuchsia", "stone", "slate", "red", "orange", "amber",
+        "lime", "emerald", "teal", "pink",
     ] {
         let color: TagColor = serde_json::from_str(&format!("\"{name}\"")).expect("palette color");
         assert_eq!(
@@ -115,7 +116,7 @@ fn colors_are_the_palette_and_an_invalid_one_is_rejected() {
             format!("\"{name}\"")
         );
     }
-    for bad in ["green", "red", "amber", "blue", "plain", "Cyan"] {
+    for bad in ["green", "blue", "plain", "Cyan", "purple"] {
         assert!(
             serde_json::from_str::<TagColor>(&format!("\"{bad}\"")).is_err(),
             "{bad}"
@@ -224,4 +225,25 @@ fn a_bad_tag_name_fails_the_import_and_leaves_nothing() -> TestResult {
     assert!(s.library.tags()?.is_empty());
     assert!(s.library.detail(&id).is_err());
     Ok(())
+}
+
+#[test]
+fn default_color_spans_the_palette_and_is_pinned() {
+    // The import Review step keeps a TypeScript copy; `tagColor.test.ts` pins the same names.
+    for (name, color) in [
+        ("abc", TagColor::Fuchsia),
+        ("docs", TagColor::Cyan),
+        ("Review", TagColor::Stone),
+        ("rust", TagColor::Teal),
+        ("security", TagColor::Amber),
+        ("search", TagColor::Orange),
+        ("testing", TagColor::Emerald),
+        ("ops", TagColor::Sky),
+    ] {
+        assert_eq!(TagColor::default_for(name), color, "{name}");
+    }
+    let seen: std::collections::HashSet<_> = (0..500)
+        .map(|i| TagColor::default_for(&format!("tag-{i}")).as_str())
+        .collect();
+    assert_eq!(seen.len(), TagColor::ALL.len());
 }

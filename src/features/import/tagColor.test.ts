@@ -20,7 +20,22 @@ describe("tag colors", () => {
 
   it("is case-insensitive and picks from the palette", () => {
     expect(defaultTagColor("Review")).toBe(defaultTagColor("review"));
-    // sha256("abc")[0] = 0xba = 186; 186 % 7 = 4
+    // sha256("abc")[0] = 0xba = 186; 186 % 14 = 4
     expect(defaultTagColor("abc")).toBe("fuchsia");
+  });
+
+  it("matches core's pinned defaults (tags_tests.rs)", () => {
+    const pinned: [string, string][] = [
+      ["abc", "fuchsia"],
+      ["docs", "cyan"],
+      ["Review", "stone"],
+      ["rust", "teal"],
+      ["security", "amber"],
+      ["search", "orange"],
+      ["testing", "emerald"],
+      ["ops", "sky"],
+    ];
+    for (const [name, color] of pinned)
+      expect(defaultTagColor(name)).toBe(color);
   });
 });

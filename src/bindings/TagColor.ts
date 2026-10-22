@@ -3,4 +3,4 @@
 /**
  * A tag color: exactly the tint names of the tag palette in `DESIGN.md`.
  */
-export type TagColor = "cyan" | "sky" | "indigo" | "violet" | "fuchsia" | "stone" | "slate";
+export type TagColor = "cyan" | "sky" | "indigo" | "violet" | "fuchsia" | "stone" | "slate" | "red" | "orange" | "amber" | "lime" | "emerald" | "teal" | "pink";

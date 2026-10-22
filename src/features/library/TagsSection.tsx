@@ -23,6 +23,13 @@ export const tagColors: readonly TagColor[] = [
   "fuchsia",
   "stone",
   "slate",
+  "red",
+  "orange",
+  "amber",
+  "lime",
+  "emerald",
+  "teal",
+  "pink",
 ];
 
 type Option =

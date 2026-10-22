@@ -62,6 +62,12 @@
   --tint-sky: #0369a1;
   --tint-fuchsia-bg: #fae8ff;
   --tint-fuchsia: #a21caf;
+  --tint-red-bg: #fee2e2;
+  --tint-red: #b91c1c;
+  --tint-lime-bg: #ecfccb;
+  --tint-lime: #4d7c0f;
+  --tint-emerald-bg: #d1fae5;
+  --tint-emerald: #047857;
   --tint-stone-bg: #f5f5f4;
   --tint-stone: #57534e;
   --tint-plain-bg: transparent;
@@ -188,6 +194,12 @@
     --tint-sky: #7dd3fc;
     --tint-fuchsia-bg: #4a044e;
     --tint-fuchsia: #f0abfc;
+    --tint-red-bg: #450a0a;
+    --tint-red: #fca5a5;
+    --tint-lime-bg: #1a2e05;
+    --tint-lime: #bef264;
+    --tint-emerald-bg: #022c22;
+    --tint-emerald: #6ee7b7;
     --tint-stone-bg: #292524;
     --tint-stone: #d6d3d1;
     --tint-plain-bg: transparent;
@@ -253,6 +265,12 @@
   --tint-sky: #7dd3fc;
   --tint-fuchsia-bg: #4a044e;
   --tint-fuchsia: #f0abfc;
+  --tint-red-bg: #450a0a;
+  --tint-red: #fca5a5;
+  --tint-lime-bg: #1a2e05;
+  --tint-lime: #bef264;
+  --tint-emerald-bg: #022c22;
+  --tint-emerald: #6ee7b7;
   --tint-stone-bg: #292524;
   --tint-stone: #d6d3d1;
   --tint-plain-bg: transparent;

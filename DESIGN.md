@@ -52,6 +52,12 @@ colors:
   tint-sky: "#0369a1"
   tint-fuchsia-bg: "#fae8ff"
   tint-fuchsia: "#a21caf"
+  tint-red-bg: "#fee2e2"
+  tint-red: "#b91c1c"
+  tint-lime-bg: "#ecfccb"
+  tint-lime: "#4d7c0f"
+  tint-emerald-bg: "#d1fae5"
+  tint-emerald: "#047857"
   tint-stone-bg: "#f5f5f4"
   tint-stone: "#57534e"
   tint-plain: "#475569"
@@ -107,6 +113,12 @@ colors:
   dark-tint-sky: "#7dd3fc"
   dark-tint-fuchsia-bg: "#4a044e"
   dark-tint-fuchsia: "#f0abfc"
+  dark-tint-red-bg: "#450a0a"
+  dark-tint-red: "#fca5a5"
+  dark-tint-lime-bg: "#1a2e05"
+  dark-tint-lime: "#bef264"
+  dark-tint-emerald-bg: "#022c22"
+  dark-tint-emerald: "#6ee7b7"
   dark-tint-stone-bg: "#292524"
   dark-tint-stone: "#d6d3d1"
   dark-tint-plain: "#a3b0c2"
@@ -421,7 +433,7 @@ A slate-neutral palette with one saturated blue, three reserved state hues, and 
 Each artifact type owns a soft background and an ink, used only for its rounded-square Lucide icon: Skill blue (sparkles), Subagent violet (bot), Command cyan (terminal), Rule slate (scale), MCP server orange (plug), Plugin teal (package), Settings slate (sliders), Output style pink (palette), Workflow indigo (workflow), CLAUDE.md amber (file-text). Rule and Settings share slate and are told apart by icon alone. The CLAUDE.md amber tint shares a hue with Outdated Amber; it is the one place a state hue classifies rather than signals, kept as built and under review, not a precedent for new types.
 
 ### Tag palette
-Tags draw from non-state families only: cyan, sky, indigo, violet, fuchsia, stone, slate, **plain** (transparent with an inset `line2` outline) and **ink** (inverted: `tint-ink-bg` with `tint-ink` text). A tag is a pill with a 6px dot in its ink colour. Open item from the finish review: `rust` (stone) and `security` (slate) read too close in both themes and need distinct treatments; do not add more tags to either family until that is resolved.
+Tags draw from a palette of 14 colours, in picker order: cyan, sky, indigo, violet, fuchsia, stone, slate, red, orange, amber, lime, emerald, teal, pink, plus **plain** (transparent with an inset `line2` outline) and **ink** (inverted: `tint-ink-bg` with `tint-ink` text). A tag is a pill with a 6px dot in its ink colour. Red, amber and emerald are the same hue families as the state colours but are never state: a tag is always a soft pill (pale wash, dark ink, a dot) where a state is a saturated pill or text on a surface, so they are told apart by form and by the tag's name beside them. Tag red is a pink-leaning wash (`#fee2e2`) and tag emerald a mint (`#d1fae5`), both distinct from the saturated error and success tokens. All 14 keep tag ink at 4.5:1 or better on their wash in both themes (lowest: amber 4.51, orange 4.52, lime 4.60 in light; every dark pair is above 8:1). A new tag's default colour is the first byte of the SHA-256 of its lowercased name, mod 14. Open item from the finish review: `rust` (stone) and `security` (slate) read too close in both themes and need distinct treatments; do not add more tags to either family until that is resolved.
 
 ### Named Rules
 **The One Blue Rule.** Blue marks selection, focus and the primary action, nothing else. One primary button per view; blue is never decoration, never a tag, never a type tint for anything but Skill.

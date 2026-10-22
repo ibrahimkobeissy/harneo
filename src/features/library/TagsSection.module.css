@@ -136,6 +136,7 @@
 .colors {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-sm) var(--space-xs);
   border-top: var(--hairline) solid var(--line);
@@ -175,6 +176,27 @@
 }
 .swatch[data-tint="slate"] {
   background: var(--tint-slate);
+}
+.swatch[data-tint="red"] {
+  background: var(--tint-red);
+}
+.swatch[data-tint="orange"] {
+  background: var(--tint-orange);
+}
+.swatch[data-tint="amber"] {
+  background: var(--tint-amber);
+}
+.swatch[data-tint="lime"] {
+  background: var(--tint-lime);
+}
+.swatch[data-tint="emerald"] {
+  background: var(--tint-emerald);
+}
+.swatch[data-tint="teal"] {
+  background: var(--tint-teal);
+}
+.swatch[data-tint="pink"] {
+  background: var(--tint-pink);
 }
 .error {
   margin: var(--space-sm) 0 0;

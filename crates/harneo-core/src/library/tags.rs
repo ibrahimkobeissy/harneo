@@ -30,10 +30,17 @@ pub enum TagColor {
     Fuchsia,
     Stone,
     Slate,
+    Red,
+    Orange,
+    Amber,
+    Lime,
+    Emerald,
+    Teal,
+    Pink,
 }
 
 impl TagColor {
-    const ALL: [Self; 7] = [
+    pub(crate) const ALL: [Self; 14] = [
         Self::Cyan,
         Self::Sky,
         Self::Indigo,
@@ -41,9 +48,16 @@ impl TagColor {
         Self::Fuchsia,
         Self::Stone,
         Self::Slate,
+        Self::Red,
+        Self::Orange,
+        Self::Amber,
+        Self::Lime,
+        Self::Emerald,
+        Self::Teal,
+        Self::Pink,
     ];
 
-    fn as_str(self) -> &'static str {
+    pub(crate) fn as_str(self) -> &'static str {
         match self {
             Self::Cyan => "cyan",
             Self::Sky => "sky",
@@ -52,6 +66,13 @@ impl TagColor {
             Self::Fuchsia => "fuchsia",
             Self::Stone => "stone",
             Self::Slate => "slate",
+            Self::Red => "red",
+            Self::Orange => "orange",
+            Self::Amber => "amber",
+            Self::Lime => "lime",
+            Self::Emerald => "emerald",
+            Self::Teal => "teal",
+            Self::Pink => "pink",
         }
     }
 

@@ -116,6 +116,27 @@
 .tagDot[data-tint="slate"] {
   background: var(--tint-slate);
 }
+.tagDot[data-tint="red"] {
+  background: var(--tint-red);
+}
+.tagDot[data-tint="orange"] {
+  background: var(--tint-orange);
+}
+.tagDot[data-tint="amber"] {
+  background: var(--tint-amber);
+}
+.tagDot[data-tint="lime"] {
+  background: var(--tint-lime);
+}
+.tagDot[data-tint="emerald"] {
+  background: var(--tint-emerald);
+}
+.tagDot[data-tint="teal"] {
+  background: var(--tint-teal);
+}
+.tagDot[data-tint="pink"] {
+  background: var(--tint-pink);
+}
 
 /* Header row. */
 .top {
