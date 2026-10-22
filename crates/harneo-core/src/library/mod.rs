@@ -12,6 +12,9 @@
 mod collections;
 #[cfg(test)]
 mod collections_tests;
+mod copies;
+#[cfg(test)]
+mod copies_tests;
 mod copy;
 #[cfg(test)]
 mod find_tests;
@@ -73,6 +76,8 @@ pub struct Candidate {
     pub replaced_secret_keys: Vec<String>,
     /// Names from the artifact's frontmatter `keywords` / `tags`, offered as tags.
     pub suggested_tags: Vec<String>,
+    /// Paths of identical copies (same kind, name and digest) folded into this candidate.
+    pub copies: Vec<String>,
 }
 
 /// What a source holds, before anything is copied. Hand it back to [`Library::import`].
@@ -219,7 +224,7 @@ impl Library {
             .collect();
         let id_refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let known = records::existing(&self.store.conn, &id_refs)?;
-        let candidates = report
+        let candidates: Vec<Candidate> = report
             .artifacts
             .into_iter()
             .zip(ids)
@@ -227,10 +232,12 @@ impl Library {
                 already_in_library: known.contains(&id),
                 replaced_secret_keys: copy::replaced_secret_keys(&artifact),
                 suggested_tags: tags::suggestions(&artifact),
+                copies: Vec::new(),
                 id,
                 artifact,
             })
             .collect();
+        let candidates = copies::collapse_copies(root, candidates);
         Ok(Preview {
             source: source.clone(),
             candidates,

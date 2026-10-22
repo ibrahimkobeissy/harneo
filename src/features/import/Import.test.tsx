@@ -30,6 +30,7 @@ function candidate(
     alreadyInLibrary: false,
     replacedSecretKeys: [],
     suggestedTags: [],
+    copies: [],
     ...over,
   };
 }

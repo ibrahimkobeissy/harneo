@@ -17,4 +17,8 @@ replacedSecretKeys: Array<string>,
 /**
  * Names from the artifact's frontmatter `keywords` / `tags`, offered as tags.
  */
-suggestedTags: Array<string>, };
+suggestedTags: Array<string>, 
+/**
+ * Paths of identical copies (same kind, name and digest) folded into this candidate.
+ */
+copies: Array<string>, };
