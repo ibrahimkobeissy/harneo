@@ -121,12 +121,16 @@ function setup(seed: Stored[] = [], path = "/library") {
         return view(made);
       }
       case "collection_rename":
+        if (a.name === "Taken")
+          throw new Error("a collection named Taken exists");
         find(a.id).name = String(a.name);
         return view(find(a.id));
       case "collection_update_rule":
         find(a.id).rule = a.rule as Filter;
         return view(find(a.id));
       case "collection_delete":
+        if (find(a.id).name === "Locked")
+          throw new Error("cannot delete Locked");
         stored.splice(stored.indexOf(find(a.id)), 1);
         return undefined;
       case "collection_add": {
@@ -505,6 +509,52 @@ describe("collection screen", () => {
       id: 1,
       name: "Kit v2",
     });
+  });
+
+  it("keeps the rename dialog open with the error when the name is taken", async () => {
+    const user = userEvent.setup();
+    setup([manualKit], "/collections/1");
+    await user.click(await screen.findByRole("button", { name: "Rename" }));
+    const dialog = screen.getByRole("dialog", { name: "Rename collection" });
+    const name = within(dialog).getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Taken");
+    await user.click(within(dialog).getByRole("button", { name: "Rename" }));
+    expect(await within(dialog).findByText(/Taken exists/)).toBeInTheDocument();
+    expect(
+      screen.getByRole("dialog", { name: "Rename collection" }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a delete failure and stays on the collection", async () => {
+    const user = userEvent.setup();
+    const { where } = setup(
+      [{ ...manualKit, name: "Locked" }],
+      "/collections/1",
+    );
+    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Delete collection",
+      }),
+    );
+    expect(await screen.findByText(/cannot delete Locked/)).toBeInTheDocument();
+    expect(where()).toBe("/collections/1");
+  });
+
+  it("names the sources of a smart rule, and a missing one generically", async () => {
+    setup(
+      [
+        {
+          ...smartSkills,
+          rule: { types: [], tags: [], sources: ["s1", "zz"], text: null },
+        },
+      ],
+      "/collections/2",
+    );
+    const rule = await screen.findByRole("list", { name: "Rule" });
+    expect(await within(rule).findByText("agent-skills")).toBeInTheDocument();
+    expect(within(rule).getByText("a source")).toBeInTheDocument();
   });
 
   it("edits a smart collection's rule and reloads its members", async () => {
