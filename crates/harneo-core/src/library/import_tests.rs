@@ -137,6 +137,10 @@ fn preview_then_import_stores_the_ticked_artifacts_with_provenance() -> TestResu
     )?;
     assert_eq!(report.imported, [skill.id.clone(), agent.id.clone()]);
     assert!(report.skipped_files.is_empty());
+    assert_eq!(
+        report.source_id,
+        s.library.detail(&skill.id)?.provenance.source.id
+    );
     assert_eq!(stored_folders(&s.data)?, 2);
     assert_eq!(row_count(&s.library, "artifacts"), 2);
 

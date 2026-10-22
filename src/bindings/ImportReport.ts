@@ -6,6 +6,10 @@ import type { SkippedFile } from "./SkippedFile";
  */
 export type ImportReport = { 
 /**
+ * The library's id for the source, as `Query` filters (`source`) and `SourceSummary` use it.
+ */
+sourceId: string, 
+/**
  * Newly stored, in selection order.
  */
 imported: Array<string>, 

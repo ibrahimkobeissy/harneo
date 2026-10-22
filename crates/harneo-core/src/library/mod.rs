@@ -91,6 +91,8 @@ pub struct Preview {
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct ImportReport {
+    /// The library's id for the source, as `Query` filters (`source`) and `SourceSummary` use it.
+    pub source_id: String,
     /// Newly stored, in selection order.
     pub imported: Vec<ArtifactId>,
     /// Selected but already in the library, so left untouched.
@@ -285,6 +287,7 @@ impl Library {
         let (existing, fresh): (Vec<&Candidate>, Vec<&Candidate>) =
             chosen.into_iter().partition(|c| known.contains(&c.id));
         let mut report = ImportReport {
+            source_id: source_id.clone(),
             already_in_library: existing.iter().map(|c| c.id.clone()).collect(),
             ..ImportReport::default()
         };
