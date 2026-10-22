@@ -24,11 +24,7 @@ fn preview_of(root: &Path) -> std::result::Result<Preview, Box<dyn std::error::E
 #[test]
 fn three_identical_copies_are_one_candidate_and_import_stores_one() -> TestResult {
     let src = tempfile::tempdir()?;
-    for d in [
-        "packs/c/notes",
-        "packs/a/notes",
-        "packs/b/notes",
-    ] {
+    for d in ["packs/c/notes", "packs/a/notes", "packs/b/notes"] {
         skill(src.path(), d, "Write.")?;
     }
     let data = tempfile::tempdir()?;
