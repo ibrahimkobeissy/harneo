@@ -1,6 +1,6 @@
 # Spec: library
 
-> Module `library` of the [capability map](capabilities.md). Status: **draft, awaiting approval.**
+> Module `library` of the [capability map](capabilities.md). Status: **approved 2026-10-22.**
 > Product context: [`CONTEXT.md`](../CONTEXT.md) §3 Stages 1–2 (import, library), §4 (feature decisions), §5 (constraints). Visual reference: the validated prototype (`design/prototype/`: `library.js`, the import flow in `flows.js`, the welcome screen in `projects.js`) and `DESIGN.md`.
 > Project-wide conventions are in [`app-shell.md`](app-shell.md). This spec records only what this module adds or changes. It builds on [`artifact-model.md`](artifact-model.md): every import starts with `ClaudeAdapter::scan`.
 
@@ -218,9 +218,8 @@ The levels follow `app-shell.md`. This module adds:
 3. **Git imports** use the system `git` command: a shallow clone, `GIT_TERMINAL_PROMPT=0`, and a timeout.
 4. **A re-import** shows "already in library" unticked. Refreshing a copy belongs to `updates`, which protects local edits.
 5. **`artifact-model`'s user checkpoint** is merged into this module's (criterion 10), at the user's request.
+6. **End-to-end tests of the real window:** still none. Frontend tests with mocked IPC plus the user's manual check (answers `app-shell` decision 2).
 
 ## Open Questions
 
-1. **End-to-end tests of the real window.** `app-shell` decision 2 said to reconsider them "when `library` import lands". The options:
-   - keep frontend tests with mocked IPC plus your manual check (what this spec assumes);
-   - add a `tauri-driver` / WebDriver smoke test on Linux, covering import of a fixture folder → it shows in the library. That means one more tool and a slower `check:full`.
+None.
