@@ -97,11 +97,13 @@ pub(crate) fn insert_artifact(
     source_id: &str,
     artifact: &Artifact,
     imported_at: i64,
+    replaced_secret_keys: &[String],
 ) -> Result<()> {
     conn.execute(
         "INSERT INTO artifacts
-            (id, source_id, kind, name, description, source_path, digest, imported_at, artifact)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            (id, source_id, kind, name, description, source_path, digest, imported_at, artifact,
+             replaced_secret_keys)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             id,
             source_id,
@@ -114,6 +116,7 @@ pub(crate) fn insert_artifact(
             artifact.digest,
             imported_at,
             serde_json::to_string(artifact)?,
+            serde_json::to_string(replaced_secret_keys)?,
         ],
     )?;
     Ok(())

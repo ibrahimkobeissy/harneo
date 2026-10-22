@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use ts_rs::TS;
 
+use crate::artifact::literal_secret::{is_literal_secret, REDACTED};
 use crate::artifact::walk::{is_local_name, is_secret_name};
 use crate::artifact::{Artifact, ArtifactKind, ScanOptions};
 use crate::error::{Error, Result};
@@ -133,24 +134,155 @@ fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     Ok(out)
 }
 
-/// The definition an MCP server is stored with, as `{ "<name>": { ... } }`.
-///
-/// This is the hook where literal secrets are swapped for `${KEY}` placeholders: today it copies
-/// the scan's metadata as is, in which the scan has already replaced literal secrets with its
-/// `<redacted>` marker.
-fn mcp_definition(artifact: &Artifact) -> Value {
-    let mut outer = Map::new();
-    outer.insert(
-        artifact.name.clone(),
-        Value::Object(artifact.metadata.clone()),
-    );
-    Value::Object(outer)
+/// Upper snake case for a key name: `apiKey`, `X-Api-Key` and `api_key` all become `API_KEY`.
+fn upper_snake(key: &str) -> String {
+    let mut out = String::new();
+    let mut prev_lower = false;
+    for c in key.chars() {
+        if c.is_ascii_alphanumeric() {
+            if c.is_ascii_uppercase() && prev_lower {
+                out.push('_');
+            }
+            prev_lower = c.is_ascii_lowercase() || c.is_ascii_digit();
+            out.push(c.to_ascii_uppercase());
+        } else {
+            if !out.is_empty() && !out.ends_with('_') {
+                out.push('_');
+            }
+            prev_lower = false;
+        }
+    }
+    let trimmed = out.trim_end_matches('_');
+    if trimmed.is_empty() {
+        "SECRET".to_owned()
+    } else {
+        trimmed.to_owned()
+    }
 }
 
-/// Rewrites a file's bytes on the way into the store. Today every file is copied byte for byte;
-/// this is where literal secrets in Settings JSON are replaced by placeholders.
-fn rewrite(_artifact: &Artifact, _dest_rel: &str, bytes: Vec<u8>) -> Vec<u8> {
-    bytes
+/// `${KEY}` for a key name.
+pub(super) fn placeholder(key: &str) -> String {
+    format!("${{{}}}", upper_snake(key))
+}
+
+/// The auth scheme a header value starts with (`Bearer `, with its original case), if any.
+fn auth_scheme(value: &str) -> Option<&str> {
+    let value = value.trim();
+    ["Bearer ", "Basic ", "Token "].iter().find_map(|scheme| {
+        value
+            .get(..scheme.len())
+            .filter(|p| p.eq_ignore_ascii_case(scheme))
+    })
+}
+
+/// The `field` map (`env` or `headers`) of the server `name` in the source's `.mcp.json`, read
+/// only to recover the auth scheme the scan's `<redacted>` marker dropped. Any failure gives an
+/// empty map: the placeholder then simply has no scheme in front.
+fn source_map(source_root: &Path, name: &str, field: &str) -> Map<String, Value> {
+    let read = || -> Option<Map<String, Value>> {
+        if refusal(source_root, MCP_FILE, u64::MAX).ok()?.is_some() {
+            return None;
+        }
+        let bytes = fs::read(safe_join(source_root, MCP_FILE).ok()?).ok()?;
+        let root: Value = serde_json::from_slice(&bytes).ok()?;
+        root.get("mcpServers")?
+            .get(name)?
+            .get(field)?
+            .as_object()
+            .cloned()
+    };
+    read().unwrap_or_default()
+}
+
+/// The `field` entries of `metadata` the scan redacted, as their key names.
+fn redacted_keys(metadata: &Map<String, Value>, field: &str) -> Vec<String> {
+    metadata
+        .get(field)
+        .and_then(Value::as_object)
+        .map(|map| {
+            map.iter()
+                .filter(|(_, v)| v.as_str() == Some(REDACTED))
+                .map(|(k, _)| format!("{field}.{k}"))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The keys whose literal secrets the copy of `artifact` replaces, as `env.<KEY>` and
+/// `headers.<KEY>`, sorted. Read from the scan's metadata, in which only the redacted entries
+/// still say `<redacted>`; never carries a value.
+pub(crate) fn replaced_secret_keys(artifact: &Artifact) -> Vec<String> {
+    let fields: &[&str] = match artifact.kind {
+        ArtifactKind::Settings => &["env"],
+        ArtifactKind::Mcp => &["env", "headers"],
+        _ => &[],
+    };
+    let mut keys: Vec<String> = fields
+        .iter()
+        .flat_map(|f| redacted_keys(&artifact.metadata, f))
+        .collect();
+    keys.sort();
+    keys.dedup();
+    keys
+}
+
+/// The definition an MCP server is stored with, as `{ "<name>": { ... } }`, and the keys that
+/// were replaced.
+///
+/// The scan's metadata has literal secrets as `<redacted>`; each becomes `${KEY}`, keeping the
+/// `Bearer `-style scheme of the original header when the source still has it.
+fn mcp_definition(source_root: &Path, artifact: &Artifact) -> (Value, Vec<String>) {
+    let mut definition = artifact.metadata.clone();
+    for field in ["env", "headers"] {
+        if !definition.contains_key(field) {
+            continue;
+        }
+        let original = source_map(source_root, &artifact.name, field);
+        let Some(Value::Object(map)) = definition.get_mut(field) else {
+            continue;
+        };
+        for (key, value) in map.iter_mut() {
+            if value.as_str() != Some(REDACTED) {
+                continue;
+            }
+            let scheme = original
+                .get(key)
+                .and_then(Value::as_str)
+                .and_then(auth_scheme)
+                .unwrap_or_default();
+            *value = Value::String(format!("{scheme}{}", placeholder(key)));
+        }
+    }
+    let mut outer = Map::new();
+    outer.insert(artifact.name.clone(), Value::Object(definition));
+    (Value::Object(outer), replaced_secret_keys(artifact))
+}
+
+/// Rewrites a file's bytes on the way into the store, and returns the keys it replaced. A
+/// Settings file has its literal `env` secrets replaced by `${KEY}` and is written
+/// pretty-printed (unchanged when it held none); a Settings file that is not valid JSON is
+/// refused. Every other file is copied byte for byte.
+fn rewrite(artifact: &Artifact, src_rel: &str, bytes: Vec<u8>) -> Result<(Vec<u8>, Vec<String>)> {
+    if artifact.kind != ArtifactKind::Settings || src_rel != artifact.path {
+        return Ok((bytes, Vec::new()));
+    }
+    let unreadable = || Error::UnreadableSettings {
+        path: src_rel.to_owned(),
+    };
+    let mut root: Value = serde_json::from_slice(&bytes).map_err(|_| unreadable())?;
+    let mut keys = Vec::new();
+    if let Some(Value::Object(env)) = root.get_mut("env") {
+        for (key, value) in env.iter_mut() {
+            if value.as_str().is_some_and(|v| is_literal_secret(key, v)) {
+                *value = Value::String(placeholder(key));
+                keys.push(format!("env.{key}"));
+            }
+        }
+    }
+    if keys.is_empty() {
+        return Ok((bytes, keys));
+    }
+    Ok((serde_json::to_vec_pretty(&root)?, keys))
 }
 
 fn io_error(path: &Path, source: io::Error) -> Error {
@@ -191,17 +323,25 @@ fn refusal(root: &Path, rel: &str, max_file_bytes: u64) -> Result<Option<SkipRea
     })
 }
 
-/// Copies `artifact` from `source_root` into the existing, empty folder `dest`. Returns the
-/// files that were left out.
+/// What copying one artifact did.
+pub(crate) struct Copied {
+    /// Listed files that were left out.
+    pub skipped: Vec<SkippedFile>,
+    /// Keys (`env.<KEY>`, `headers.<KEY>`) whose literal secrets became placeholders.
+    pub replaced_secret_keys: Vec<String>,
+}
+
+/// Copies `artifact` from `source_root` into the existing, empty folder `dest`.
 pub(crate) fn copy_artifact(
     source_root: &Path,
     artifact: &Artifact,
     artifact_id: &str,
     dest: &Path,
     hooks: &dyn ImportHooks,
-) -> Result<Vec<SkippedFile>> {
+) -> Result<Copied> {
     let max = ScanOptions::default().max_file_bytes as u64;
     let mut skipped = Vec::new();
+    let mut replaced = Vec::new();
     let write = |dest_rel: &str, bytes: Vec<u8>| -> Result<()> {
         let target = safe_join(dest, dest_rel)?;
         hooks
@@ -213,7 +353,9 @@ pub(crate) fn copy_artifact(
         fs::write(&target, bytes).map_err(|e| io_error(&target, e))
     };
     if artifact.kind == ArtifactKind::Mcp {
-        let json = serde_json::to_vec_pretty(&mcp_definition(artifact))?;
+        let (definition, keys) = mcp_definition(source_root, artifact);
+        replaced.extend(keys);
+        let json = serde_json::to_vec_pretty(&definition)?;
         write(SERVER_FILE, json)?;
     }
     for (src_rel, dest_rel) in plan(artifact)? {
@@ -227,9 +369,16 @@ pub(crate) fn copy_artifact(
         }
         let source = safe_join(source_root, &src_rel)?;
         let bytes = fs::read(&source).map_err(|e| io_error(&source, e))?;
-        write(&dest_rel, rewrite(artifact, &dest_rel, bytes))?;
+        let (bytes, keys) = rewrite(artifact, &src_rel, bytes)?;
+        replaced.extend(keys);
+        write(&dest_rel, bytes)?;
     }
-    Ok(skipped)
+    replaced.sort();
+    replaced.dedup();
+    Ok(Copied {
+        skipped,
+        replaced_secret_keys: replaced,
+    })
 }
 
 #[cfg(test)]

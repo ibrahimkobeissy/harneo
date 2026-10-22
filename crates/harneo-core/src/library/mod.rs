@@ -14,10 +14,12 @@ pub mod ids;
 #[cfg(test)]
 mod import_tests;
 mod records;
+#[cfg(test)]
+mod secrets_tests;
 mod source;
 mod store;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -44,6 +46,9 @@ pub struct Candidate {
     pub artifact: Artifact,
     /// Already imported from this source: shown unticked and skipped by `import`.
     pub already_in_library: bool,
+    /// `env.<KEY>` / `headers.<KEY>` entries whose literal secrets the copy will replace by
+    /// `${KEY}` placeholders. Key names only, never values.
+    pub replaced_secret_keys: Vec<String>,
 }
 
 /// What a source holds, before anything is copied. Hand it back to [`Library::import`].
@@ -108,6 +113,7 @@ impl Library {
             .zip(ids)
             .map(|(artifact, id)| Candidate {
                 already_in_library: known.contains(&id),
+                replaced_secret_keys: copy::replaced_secret_keys(&artifact),
                 id,
                 artifact,
             })
@@ -164,16 +170,13 @@ impl Library {
             .prefix(".import-")
             .tempdir_in(self.store.root())
             .map_err(|e| io_error(self.store.root(), e))?;
+        let mut replaced: HashMap<String, Vec<String>> = HashMap::new();
         for candidate in &fresh {
             let dir = staging.path().join(&candidate.id);
             fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
-            report.skipped_files.extend(copy_artifact(
-                root,
-                &candidate.artifact,
-                &candidate.id,
-                &dir,
-                hooks,
-            )?);
+            let copied = copy_artifact(root, &candidate.artifact, &candidate.id, &dir, hooks)?;
+            report.skipped_files.extend(copied.skipped);
+            replaced.insert(candidate.id.clone(), copied.replaced_secret_keys);
         }
 
         let artifacts_dir = self.store.artifacts_dir();
@@ -184,7 +187,15 @@ impl Library {
             records::insert_source(&tx, &source_id, &preview.source)?;
             let now = records::now();
             for candidate in &fresh {
-                records::insert_artifact(&tx, &candidate.id, &source_id, &candidate.artifact, now)?;
+                let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);
+                records::insert_artifact(
+                    &tx,
+                    &candidate.id,
+                    &source_id,
+                    &candidate.artifact,
+                    now,
+                    keys,
+                )?;
             }
             for candidate in &fresh {
                 let target = artifacts_dir.join(&candidate.id);

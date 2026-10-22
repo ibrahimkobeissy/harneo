@@ -50,6 +50,13 @@ pub enum Error {
         /// The path as the scan reported it.
         path: String,
     },
+    /// A Settings file in the source is not valid JSON, so its literal secrets cannot be found
+    /// and replaced; the artifact is not copied.
+    #[error("cannot copy {path}: not valid JSON, so secrets in it cannot be replaced")]
+    UnreadableSettings {
+        /// The file, relative to the source root.
+        path: String,
+    },
     /// The artifact is not in the library.
     #[error("artifact {id} is not in the library")]
     NotInLibrary {

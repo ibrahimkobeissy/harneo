@@ -8,4 +8,9 @@ export type Candidate = { id: string, artifact: Artifact,
 /**
  * Already imported from this source: shown unticked and skipped by `import`.
  */
-alreadyInLibrary: boolean, };
+alreadyInLibrary: boolean, 
+/**
+ * `env.<KEY>` / `headers.<KEY>` entries whose literal secrets the copy will replace by
+ * `${KEY}` placeholders. Key names only, never values.
+ */
+replacedSecretKeys: Array<string>, };
