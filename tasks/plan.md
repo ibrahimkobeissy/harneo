@@ -198,3 +198,101 @@ Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria,
 ## Open Questions
 
 None for this module. The literal-secret import behaviour is the `library` spec's question (see `spec/artifact-model.md`).
+
+---
+
+# Implementation Plan: library
+
+> Module `library` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/library.md`](../spec/library.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
+> **Tasks are tracked in GitHub Issues** (Project 5) and built by the `ticket-flow` cycle. Task ids are `L1`–`L14`.
+> Status: **draft, awaiting approval** ([#41](https://github.com/ibrahimkobeissy/harneo/issues/41)).
+
+## Overview
+
+Harneo's own store: import from `~/.claude`, a folder or a git URL with full provenance, literal secrets swapped for `${KEY}`, then browse, tag and collect, in screens that follow the validated prototype. Ends with the joint user checkpoint for `artifact-model` and `library`.
+
+## Architecture Decisions
+
+- **Core first, then screens.** L1–L7 build and test the whole store in `harneo-core` with temp data dirs; the UI tickets (L8–L13) only add thin IPC commands and screens on a finished API.
+- **One thin slice before fanning out.** L2 imports a local folder end to end (preview → atomic copy → index → detail). Secrets, git, queries and tags then branch off it in parallel.
+- **IPC lands with the screen that uses it.** Each UI ticket adds its own commands to `commands.rs` and wrappers to `src/lib/ipc.ts`, so no ticket ships an unused command.
+- **Design is done.** The prototype and `DESIGN.md` are the reference; L14 runs `/impeccable critique` on the finished screens and the user picks what to fix, as for the app frame.
+- **Shared files:** `library/mod.rs` (core API), `commands.rs` and `ipc.ts` take one-block additions per ticket; the orchestrator resolves the rebases.
+
+## Dependency graph
+
+```
+L1 store + schema + ids ── L2 local import slice ─┬─ L3 secrets replaced
+                                                  ├─ L4 git source
+                                                  ├─ L5 queries ── L7 collections core (+L6)
+                                                  └─ L6 tags core
+L5 ── L8 Library screen ─┬─ L9 detail panel ─┬─ L11 tags UI (+L6)
+                         │                   └─ L12 collections UI (+L7, L11)
+                         ├─ L10 import flow (+L3, L4, L6)
+                         └─ L13 palette search + git prerequisite docs
+L9, L10, L11, L12 ── L14 Impeccable critique of the library screens
+```
+
+Parallel after L2: L3, L4, L5, L6. After L8: L9, L10, L13.
+
+## Tasks
+
+| Id | Title | Size | Blocked by | Acceptance (summary) |
+|---|---|---|---|---|
+| L1 | Library store: SQLite schema, migrations, ids | S | — | `Library::open(data_dir)` creates `library/` and `library.db` at the current schema version; reopening changes nothing; artifact id = 16 hex of SHA-256(source key, path), stable |
+| L2 | Import a local folder end to end (preview, atomic copy, detail, remove) | M | L1 | `preview` lists candidates with ids and "already in library"; `import` copies the ticked ones atomically per type (MCP server as `server.json`), one transaction; injected failure leaves nothing; `detail` and `remove` work; source folder bytes unchanged |
+| L3 | Literal secrets replaced by `${KEY}` in library copies | S | L2 | Settings `env` and MCP `env`/`headers` literals become placeholders (`Bearer ${KEY}` kept); the preview lists the keys; a test reads every byte of the store and index and never finds the value |
+| L4 | Git URL source: parse, shallow clone, provenance | M | L2 | URL forms parsed (bare, https, ssh, `/tree/<branch>/<subfolder>`); clone with `--depth 1`, `GIT_TERMINAL_PROMPT=0`, 120 s timeout; commit recorded; clone removed; errors for missing git, repo, branch, subfolder; tests use local `file://` repos only |
+| L5 | Library queries: filters, sort, pages, facets | S | L2 | Filter by types/tags/sources/text, sort by name/type/source/tag count/date both ways, offset/limit with total and facet counts; 2,000-artifact page query under 100 ms |
+| L6 | Tags in core | S | L2 | Create/rename/recolor/delete (palette colors only), assign/unassign, frontmatter `keywords`/`tags` offered as suggestions in the preview, chosen tags applied by `import` |
+| L7 | Collections in core | S | L5, L6 | Manual (ordered ids) and smart (rule rows AND, values OR: type, tag, source, text); create/rename/delete, add/remove; smart evaluated at query time so a new matching import joins |
+| L8 | Library screen: cards/list, filters, sort, pages, empty state | M | L5 | IPC list command; screen matches the prototype in light and dark (24 cards / 25 rows per page, own-scroll filter column, sortable columns, filters and sort in the URL); empty library shows the welcome that leads to import |
+| L9 | Artifact detail panel | S | L8 | IPC detail/remove; provenance (git URL, branch, subfolder, commit), files, diagnostics, references linking to the resolved artifact with Back; Remove with confirmation; later-module panels absent |
+| L10 | Import flow screens | M | L3, L4, L6, L8 | Three steps as in the prototype (source with native folder dialog, choose grouped by type with "already in library" disabled, review with tag suggestions and replaced secrets); async preview with progress; every error and "nothing found" state |
+| L11 | Tags in the UI | S | L6, L9 | Tag menu in the detail panel (add, create with color, remove), chips on cards and rows, tag filter |
+| L12 | Collections in the UI | M | L7, L9, L11 | Sidebar Collections list, collection screen with filters and pages, New collection dialog (manual / smart with rule builder, pre-filled from current filters), *Add to… → collection* in the detail panel |
+| L13 | Command palette finds artifacts; git as a runtime prerequisite | S | L8 | Ctrl K lists matching artifacts and opens their detail; `scripts/setup.sh` checks `git`; `BUILDING.md` lists it |
+| L14 | `/impeccable critique` of the library screens | S | L9, L10, L11, L12 | Orchestrator runs the critique on the running screens; the user chooses which findings to fix; fixes merged |
+
+## Checkpoints
+
+**Checkpoint: core** (after L1–L7)
+- [ ] A test imports a fixture folder and a local git repo, with tags and a smart collection; no secret value anywhere in the data dir
+- [ ] `check:full` passes; ratchet holds
+
+**Checkpoint: screens** (after L8–L13)
+- [ ] In `npm run tauri dev`: import a folder, browse, filter, tag, collect, remove
+- [ ] Every screen matches the prototype in light and dark
+
+**Checkpoint: joint user validation** (after L14; spec criterion 10)
+- [ ] The user runs `harneo scan` on their `~/.claude`, an Addy `agent-skills` clone and the Impeccable plugin, then imports them in the app
+- [ ] What looks wrong becomes a test and a fix; then `spec/capabilities.md` marks `artifact-model` and `library` done
+
+## Spec coverage
+
+| Spec success criterion | Tasks |
+|---|---|
+| 1. Import ~/.claude, folder, git with provenance | L2, L4, L10 |
+| 2. Re-import shows "already in library" | L2, L10 |
+| 3. Secrets replaced, value nowhere | L3, L10 |
+| 4. Failed import leaves the library unchanged | L2, L4 |
+| 5. Screens match the prototype; 2,000 artifacts, < 100 ms | L5, L8–L10, L14 |
+| 6. Tags and collections | L6, L7, L11, L12 |
+| 7. Remove | L2, L9 |
+| 8. Sources never changed | L2 |
+| 9. `check:full` and the ratchet | every task |
+| 10. Joint user checkpoint | checkpoint |
+
+## Risks and Mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| `rusqlite` bundled build slows `check:task` past 3 minutes | Med | Measure in L1; it compiles once and is cached; raise it with the user rather than drop a check |
+| Git behaviour differs across versions or hangs on auth | Med | `GIT_TERMINAL_PROMPT=0`, timeout, no shell; tests on local repos only |
+| Secret replacement misses a format | High | The value-nowhere test reads every byte; the detector is the shared `literal_secret` helper, improved in one place |
+| WebKitGTK rendering differences in the new screens | Med | Same CSS rules as the frame (no `:has()` layout); L14 critique checks the running app |
+| Parallel tickets conflicting in `library/mod.rs`, `commands.rs`, `ipc.ts` | Low | Additions are separate blocks; the orchestrator rebases one ticket at a time |
+
+## Open Questions
+
+None.
