@@ -321,7 +321,7 @@
   font-size: var(--text-label);
 }
 
-@media (max-width: 40rem) {
+@media (max-width: 62.5rem) {
   .kinds {
     grid-template-columns: 1fr;
   }

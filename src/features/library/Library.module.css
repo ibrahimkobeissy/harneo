@@ -560,6 +560,10 @@
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  /* The column is not rendered inline here: the Filters button opens it as a sheet. */
+  .lib {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 @media (max-width: 62.5rem) {
   .main {
@@ -573,16 +577,97 @@
   }
 }
 @media (max-width: 48rem) {
-  .lib {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .filters {
-    position: static;
-    max-height: none;
-    border-right: 0;
-    border-bottom: var(--hairline) solid var(--line);
-  }
   .grid {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Filter sheet (1180px and below): the same column, overlaid from the left. */
+.filtersBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: var(--size-control-sm);
+  padding: 0 var(--space-control-sm-x);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.filtersBtn:hover {
+  border-color: var(--line2);
+}
+.filtersBtn:focus-visible,
+.sheetClose:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.filtersCount {
+  min-width: var(--size-glyph);
+  padding: 0 var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--blue);
+  color: var(--on-blue);
+  font-size: var(--text-label);
+  text-align: center;
+}
+.sheetScrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 40;
+}
+.sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 50;
+  width: calc(var(--size-filters) + var(--space-xl));
+  max-width: calc(100vw - var(--size-gutter));
+  display: flex;
+  flex-direction: column;
+  background: var(--raised);
+  border-right: var(--hairline) solid var(--line);
+  box-shadow: var(--shadow-lg);
+  overflow-y: auto;
+}
+.sheet:focus-visible {
+  outline: none;
+}
+.sheet .filters {
+  border-right: 0;
+}
+.sheet .filtersIn {
+  position: static;
+  max-height: none;
+  padding-top: var(--space-md);
+}
+.sheetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg) 0;
+}
+.sheetTitle {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+.sheetClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control-sm);
+  height: var(--size-control-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t2);
+  cursor: pointer;
+}
+.sheetClose:hover {
+  background: var(--sunk);
 }

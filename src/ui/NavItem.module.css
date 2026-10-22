@@ -34,6 +34,9 @@
     0 0 0 var(--hairline) var(--line);
   font-weight: 500;
 }
+.initials {
+  display: none;
+}
 @media (max-width: 62.5rem) {
   .nav {
     justify-content: center;
@@ -42,6 +45,22 @@
   .lbl,
   .count {
     display: none;
+  }
+  /* A collection's initials replace its icon in the rail. */
+  .hasInitials .icon {
+    display: none;
+  }
+  .initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-icon-chip);
+    height: var(--size-icon-chip-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-label-quiet);
+    font-weight: 600;
+    background: var(--tint-slate-bg);
+    color: var(--tint-slate);
   }
 }
 
@@ -68,4 +87,37 @@
     pointer-events: none;
     z-index: 10;
   }
+}
+
+.initials[data-tint="blue"] {
+  background: var(--tint-blue-bg);
+  color: var(--tint-blue);
+}
+.initials[data-tint="violet"] {
+  background: var(--tint-violet-bg);
+  color: var(--tint-violet);
+}
+.initials[data-tint="cyan"] {
+  background: var(--tint-cyan-bg);
+  color: var(--tint-cyan);
+}
+.initials[data-tint="teal"] {
+  background: var(--tint-teal-bg);
+  color: var(--tint-teal);
+}
+.initials[data-tint="orange"] {
+  background: var(--tint-orange-bg);
+  color: var(--tint-orange);
+}
+.initials[data-tint="pink"] {
+  background: var(--tint-pink-bg);
+  color: var(--tint-pink);
+}
+.initials[data-tint="indigo"] {
+  background: var(--tint-indigo-bg);
+  color: var(--tint-indigo);
+}
+.initials[data-tint="amber"] {
+  background: var(--tint-amber-bg);
+  color: var(--tint-amber);
 }

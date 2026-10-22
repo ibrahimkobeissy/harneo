@@ -7,6 +7,7 @@ import {
   Download,
   ListFilter,
   SearchX,
+  SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -22,6 +23,7 @@ import { Badge, Button, EmptyState } from "../../ui";
 import { CollectionBar } from "./CollectionBar";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
+import { FilterSheet } from "./FilterSheet";
 import { ItemCard } from "./ItemCard";
 import { ItemTable } from "./ItemTable";
 import cstyles from "./Collections.module.css";
@@ -43,6 +45,7 @@ import {
 import { Pager } from "./Pager";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { SearchBox } from "./SearchBox";
+import { useNarrow } from "./useNarrow";
 import { Welcome } from "./Welcome";
 
 type Load =
@@ -129,6 +132,9 @@ export function LibraryScreen({
   const page = load.status === "error" ? null : load.page;
   const perPage = PER_PAGE[params.view];
   // Artifacts left behind by following references, newest last; Back pops one.
+  const narrow = useNarrow();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const filtersButton = useRef<HTMLButtonElement>(null);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   // The card to give focus back to once the panel has closed.
   const returnTo = useRef<string | null>(null);
@@ -232,17 +238,29 @@ export function LibraryScreen({
     update({ view });
   }
 
+  const filterColumn = page && (
+    <FilterColumn
+      facets={page.facets}
+      params={params}
+      onToggle={toggle}
+      onClearGroup={(group) =>
+        update({ [group]: [] } as Partial<LibraryParams>)
+      }
+    />
+  );
+  const activeFilters =
+    params.types.length + params.tags.length + params.sources.length;
+
   return (
     <section className={styles.lib} aria-labelledby="library-title">
-      {page && (
-        <FilterColumn
-          facets={page.facets}
-          params={params}
-          onToggle={toggle}
-          onClearGroup={(group) =>
-            update({ [group]: [] } as Partial<LibraryParams>)
-          }
-        />
+      {!narrow && filterColumn}
+      {narrow && sheetOpen && filterColumn && (
+        <FilterSheet
+          onClose={() => setSheetOpen(false)}
+          returnFocus={filtersButton}
+        >
+          {filterColumn}
+        </FilterSheet>
       )}
       <div className={styles.main}>
         <header className={styles.top}>
@@ -307,6 +325,22 @@ export function LibraryScreen({
         )}
         {page && (
           <div className={styles.toolbar}>
+            {narrow && (
+              <button
+                ref={filtersButton}
+                type="button"
+                className={styles.filtersBtn}
+                aria-haspopup="dialog"
+                aria-expanded={sheetOpen}
+                onClick={() => setSheetOpen(true)}
+              >
+                <SlidersHorizontal size={14} aria-hidden="true" />
+                Filters
+                {activeFilters > 0 && (
+                  <span className={styles.filtersCount}>{activeFilters}</span>
+                )}
+              </button>
+            )}
             <ResultsToolbar
               params={params}
               facets={page.facets}

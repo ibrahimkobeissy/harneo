@@ -1,6 +1,7 @@
 import { Bookmark, Keyboard, ListFilter, Plus, Search } from "lucide-react";
 import { Link } from "react-router";
 import { Kbd, Logo, NavItem } from "../ui";
+import { initialsOf } from "../ui/initials";
 import { useCollections } from "./collections";
 import { searchShortcut } from "./platform";
 import { actions, places, settingsDestination } from "./routes";
@@ -52,6 +53,7 @@ export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
           label={c.name}
           icon={c.kind === "smart" ? ListFilter : Bookmark}
           count={c.count}
+          initials={initialsOf(c.name)}
         />
       ))}
       <h2 className={styles.heading}>Actions</h2>
