@@ -90,6 +90,9 @@ function setup(path = "/library", details: ArtifactDetail[] = [alpha, beta]) {
         removed.push(String(a.id));
         items = items.filter((i) => i.id !== a.id);
         return undefined;
+      case "tags_list":
+      case "artifact_tags":
+        return [];
       default:
         return undefined;
     }

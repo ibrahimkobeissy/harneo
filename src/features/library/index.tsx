@@ -343,6 +343,7 @@ export function LibraryScreen({
             openPanel(previous.id);
           }}
           onClose={closePanel}
+          onTagsChanged={reload}
           onRemoved={() => {
             setTrail([]);
             openPanel(null);

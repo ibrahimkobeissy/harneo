@@ -16,7 +16,15 @@ pub fn run() {
             commands::library_find,
             commands::home_claude_dir,
             commands::library_preview,
-            commands::library_import
+            commands::library_import,
+            commands::tags_list,
+            commands::tag_create,
+            commands::tag_rename,
+            commands::tag_recolor,
+            commands::tag_delete,
+            commands::artifact_tags,
+            commands::artifact_tag_add,
+            commands::artifact_tag_remove
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

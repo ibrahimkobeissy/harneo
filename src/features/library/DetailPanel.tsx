@@ -16,6 +16,7 @@ import { Button } from "../../ui";
 import styles from "./Detail.module.css";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
+import { TagsSection } from "./TagsSection";
 
 type Load =
   | { status: "loading" }
@@ -224,6 +225,7 @@ export function DetailPanel({
   onBack,
   onClose,
   onRemoved,
+  onTagsChanged,
 }: {
   id: string;
   previousName: string | null;
@@ -231,6 +233,7 @@ export function DetailPanel({
   onBack: () => void;
   onClose: () => void;
   onRemoved: () => void;
+  onTagsChanged: () => void;
 }) {
   const load = useDetail(id);
   const detail = load.status === "ready" ? load.detail : null;
@@ -359,6 +362,7 @@ export function DetailPanel({
                   {detail.artifact.description ?? "No description."}
                 </p>
               </section>
+              <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
               <SourceSection detail={detail} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>

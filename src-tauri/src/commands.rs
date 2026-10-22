@@ -5,7 +5,10 @@ use std::sync::Mutex;
 
 use harneo_core::artifact::ArtifactKind;
 
-use harneo_core::library::{ArtifactDetail, ImportReport, Library, Page, Preview, Query, Source};
+use harneo_core::library::{
+    ArtifactDetail, ImportReport, Library, Page, Preview, Query, Source, Tag, TagColor,
+    TagWithCount,
+};
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
 use ts_rs::TS;
@@ -154,6 +157,72 @@ pub async fn library_import(
     .map_err(|e| e.to_string())?
 }
 
+// --- Tags ------------------------------------------------------------------------------
+
+/// Every tag with the number of artifacts carrying it.
+#[tauri::command]
+pub fn tags_list(state: State<'_, LibraryState>) -> Result<Vec<TagWithCount>, String> {
+    state.with(|library| library.tags())
+}
+
+/// Creates a tag with a palette color.
+#[tauri::command]
+pub fn tag_create(
+    state: State<'_, LibraryState>,
+    name: String,
+    color: TagColor,
+) -> Result<Tag, String> {
+    state.with(|library| library.create_tag(&name, color))
+}
+
+/// Renames a tag.
+#[tauri::command]
+pub fn tag_rename(state: State<'_, LibraryState>, id: i64, name: String) -> Result<Tag, String> {
+    state.with(|library| library.rename_tag(id, &name))
+}
+
+/// Changes a tag's color.
+#[tauri::command]
+pub fn tag_recolor(
+    state: State<'_, LibraryState>,
+    id: i64,
+    color: TagColor,
+) -> Result<Tag, String> {
+    state.with(|library| library.recolor_tag(id, color))
+}
+
+/// Deletes a tag and takes it off every artifact.
+#[tauri::command]
+pub fn tag_delete(state: State<'_, LibraryState>, id: i64) -> Result<(), String> {
+    state.with(|library| library.delete_tag(id))
+}
+
+/// The tags on one artifact.
+#[tauri::command]
+pub fn artifact_tags(state: State<'_, LibraryState>, id: String) -> Result<Vec<Tag>, String> {
+    state.with(|library| library.artifact_tags(&id))
+}
+
+/// Puts a tag on an artifact.
+#[tauri::command]
+pub fn artifact_tag_add(
+    state: State<'_, LibraryState>,
+    id: String,
+    tag_id: i64,
+) -> Result<(), String> {
+    state.with(|library| library.tag_artifact(&id, tag_id))
+}
+
+/// Takes a tag off an artifact.
+#[tauri::command]
+pub fn artifact_tag_remove(
+    state: State<'_, LibraryState>,
+    id: String,
+    tag_id: i64,
+) -> Result<(), String> {
+    state.with(|library| library.untag_artifact(&id, tag_id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -239,6 +308,43 @@ mod tests {
         assert_eq!(report.imported, ids);
         let page = state.with(|library| library.list(&Query::default()))?;
         assert_eq!(page.total, 1);
+        Ok(())
+    }
+
+    #[test]
+    fn tag_commands_create_assign_and_report_duplicates() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let dir = tempfile::tempdir()?;
+        let state = LibraryState::from_result(Ok(Library::open(dir.path())?));
+        let tag = state.with(|l| l.create_tag("rust", TagColor::Cyan))?;
+        let dup = state.with(|l| l.create_tag("Rust", TagColor::Sky)).err();
+        assert!(dup.is_some_and(|m| m.contains("already")));
+        let json = serde_json::to_value(state.with(|l| l.tags())?)?;
+        assert_eq!(json[0]["name"], "rust");
+        assert_eq!(json[0]["count"], 0);
+        let unknown = state.with(|l| l.tag_artifact("nope", tag.id)).err();
+        assert!(unknown.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn every_tag_command_runs_through_managed_state() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        let tag = tag_create(state(), "rust".into(), TagColor::Cyan)?;
+        assert_eq!(tag_rename(state(), tag.id, "rusty".into())?.name, "rusty");
+        assert_eq!(
+            tag_recolor(state(), tag.id, TagColor::Sky)?.color,
+            TagColor::Sky
+        );
+        assert_eq!(tags_list(state())?.len(), 1);
+        assert!(artifact_tags(state(), "nope".into())?.is_empty());
+        assert!(artifact_tag_add(state(), "nope".into(), tag.id).is_err());
+        assert!(artifact_tag_remove(state(), "nope".into(), tag.id).is_ok());
+        tag_delete(state(), tag.id)?;
+        assert!(tags_list(state())?.is_empty());
         Ok(())
     }
 
