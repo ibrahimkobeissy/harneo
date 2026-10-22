@@ -1,0 +1,226 @@
+# Spec: library
+
+> Module `library` of the [capability map](capabilities.md). Status: **draft, awaiting approval.**
+> Product context: [`CONTEXT.md`](../CONTEXT.md) §3 Stages 1–2 (import, library), §4 (feature decisions), §5 (constraints). Visual reference: the validated prototype (`design/prototype/`: `library.js`, the import flow in `flows.js`, the welcome screen in `projects.js`) and `DESIGN.md`.
+> Project-wide conventions are in [`app-shell.md`](app-shell.md). This spec records only what this module adds or changes. It builds on [`artifact-model.md`](artifact-model.md): every import starts with `ClaudeAdapter::scan`.
+
+## Objective
+
+Give Harneo its own store of trusted artifacts. The user imports from `~/.claude`, a local folder or a git URL, ticks what to keep, and finds it again later by type, source, tag or collection. Each artifact keeps a record of where it came from, so `updates` and `drift` can later tell what changed.
+
+**User:** the builder described in `CONTEXT.md` §1, including someone who found Harneo on GitHub and has never heard of a profile. For them the library is the home screen and import is the first thing they do.
+
+### Scope
+
+**Core (`harneo-core/src/library/`)**
+- **Store** in the data folder:
+  - artifacts are copied to `<data dir>/library/artifacts/<id>/`, keeping their paths relative to the artifact;
+  - `<data dir>/library/library.db` (SQLite) indexes them.
+  The schema has a version number with forward-only migrations.
+  - Tables: sources, artifacts (the scanned `Artifact` as JSON, plus columns for filtering), tags, artifact-tags, collections, collection-items.
+- **Artifact id**: the first 16 hex characters of SHA-256 over the source key and the artifact's path in the source. It is stable, so a re-import of the same artifact gets the same id.
+- **Sources and provenance.**
+  - A local source records its absolute path.
+  - A git source records the URL, branch, subfolder and **commit** (`git rev-parse HEAD` after the clone).
+  - Every artifact also keeps:
+    - its path in the source;
+    - the scan digest at import;
+    - when it was imported;
+    - the keys whose secrets were replaced.
+- **Import is two steps:**
+  1. `preview(source)` scans and returns candidates. Each candidate is an `Artifact`, its id, whether it is **already in the library** (shown unticked and skipped), the secret keys that will be replaced, and suggested tags. The scan's diagnostics come too.
+  2. `import(preview, selection, tags)` copies the ticked artifacts and writes the index.
+  - Each artifact is copied into a temporary folder and renamed into place. The index is written in one transaction. A failed import leaves no half-copied artifact and no index row.
+- **Git URLs** use the user's own `git` command:
+  - a shallow clone of the branch (`--depth 1`) into a temporary folder in the data dir;
+  - then scan the subfolder, then delete the clone;
+  - `GIT_TERMINAL_PROMPT=0`, so a private repo without credentials fails instead of hanging, plus a timeout (120 s);
+  - accepted forms: `github.com/owner/repo`, `https://…`, `git@…:owner/repo.git`, and GitHub/GitLab `…/tree/<branch>/<subfolder>` URLs. The default branch is used when none is given.
+  - The URL is passed as one argument, never through a shell.
+  - Clear errors cover a missing `git`, a repo that doesn't exist or can't be reached, an unknown branch, a missing subfolder, a timeout, and nothing found.
+- **Literal secrets are replaced, never stored.** The `artifact-model` scan flags literal secrets in Settings `env` and in an MCP server's `env` and `headers`. The library copy gets a placeholder named after the key instead: `${GITHUB_TOKEN}`, or `Bearer ${AUTHORIZATION}` for a bearer header.
+  - The import review lists every replacement by key name.
+  - The value is never written to the store, the index, logs or IPC.
+  - JSON files rewritten this way are pretty-printed. All other files are copied byte for byte.
+- **How each type is stored.** An MCP server becomes `server.json`, holding `{ "<name>": { …definition } }`, so one server is one item, as `CONTEXT.md` §2 says. A plugin is copied whole. Every other type copies the files the scan listed for it. For a skill, that includes its scripts. For Settings, it includes its hook and status-line scripts.
+- **Tags:**
+  - create, rename, recolor and delete them; each has a name and a color from `DESIGN.md`'s tag palette;
+  - add and remove them on artifacts.
+  - At import, the suggested tags are the artifact's own frontmatter `keywords` or `tags`, when it has them. AI suggestions arrive with `bundles`.
+  - Tags live only in the index and are never written into artifact files or projects.
+- **Collections:**
+  - **manual**: an ordered list of ids;
+  - **smart**: a saved rule. A rule combines its rows with AND and the values within a row with OR. The rows are type, tag, source and a text search. Status, trust and invocation rows join when their modules land.
+  - Create, rename and delete them; add artifacts to a manual collection and remove them from it.
+  - A smart collection is evaluated when it is queried, so new imports join it on their own.
+- **Queries:**
+  - **List:** filter (types, tags, sources, text over name, description, source and tags), sort (name, type, source, tag count, imported date, in either direction) and page (`offset` and `limit`). The list also returns the total and the counts for each filter value.
+  - **Detail:** an artifact's details and its file list.
+  - **Remove:** an artifact is removed from the library after a confirmation, deleting its copy and its index rows.
+
+**App (`src-tauri` commands, `src/features/library/`)**
+- **IPC commands:** thin wrappers over the core API. Long operations (preview of a git URL) are `async` and never block the window. The types come from `src/bindings/`.
+- **Library screen** (home), matching the prototype:
+  - a cards view and a list view;
+  - the filter column (type, tag, source; it scrolls on its own) and a search box;
+  - list columns that sort when clicked;
+  - pagination: 24 cards or 25 rows per page, as in the prototype;
+  - an empty library leads to the first-run welcome and the guided import.
+- **Detail panel:**
+  - type, name and description;
+  - provenance: the source, and for git the URL, branch, subfolder and commit;
+  - the imported date, the files and the scan diagnostics;
+  - references, where a resolved one links to that artifact and its Back link returns;
+  - tags (add, create or remove) and *Add to… → collection*;
+  - Remove.
+  - Trust, findings, reach, bundle, usage, invocation mode and update panels appear with their own modules. Until then they are absent, not filled with placeholders.
+- **Import flow**, three steps as in the prototype:
+  1. Source: `~/.claude`, a git URL (with a branch and subfolder hint) or a folder, chosen in a native folder dialog;
+  2. Choose artifacts, grouped by type: "already in library" rows are shown unticked and disabled, and diagnostics show on each row;
+  3. Review: suggested tags (accept or remove) and the secrets that will be replaced.
+  - Errors and the "nothing found" state match the prototype. The AI bundle and security audit sections of the Review step arrive with `bundles` and `audit`.
+- **Collections:**
+  - the sidebar's Collections section lists them;
+  - a collection screen shows the members with the same filters and pages;
+  - the New collection dialog offers manual or smart, with the rule builder for type, tag and source;
+  - a smart collection can start from the current filters.
+  - *Create profile* from a collection arrives with `profiles`.
+- **The Command palette** (Ctrl K) also finds artifacts by name.
+
+**Out of scope:**
+- trust and findings (`audit`);
+- bundles and AI tag suggestions (`bundles`);
+- the outdated flag and updating a copy from its source (`updates`);
+- usage, the activity graph and cleanup (`usage`);
+- invocation mode, profiles and *Create profile* (`profiles`);
+- promote to library, which needs the project registry from `install-engine`;
+- the `harneo` CLI commands for the library (`cli`).
+
+## Tech Stack
+
+New dependencies. They are approved with this spec; any other still needs asking first.
+
+| Dependency | For |
+|---|---|
+| `rusqlite` with `bundled` (core) | The index. SQLite is compiled in, so there is no new system package and `BUILDING.md` doesn't change |
+| `tempfile` (core, now a normal dependency) | Temporary copy and clone folders, cleaned up even on failure |
+| `tauri-plugin-dialog` + `@tauri-apps/plugin-dialog` | The native folder picker in the import flow |
+
+`git` must be installed for git URL imports only, checked at run time with a clear message. `scripts/setup.sh` and `BUILDING.md` list it as a runtime prerequisite, since it is already needed to clone Harneo. Versions are the latest stable releases when the first ticket starts.
+
+## Commands
+
+The project commands from `app-shell.md`, plus:
+
+```bash
+cargo test -p harneo-core library     # this module's core tests
+npx vitest run src/features/library   # its screens
+```
+
+## Project Structure
+
+```
+crates/harneo-core/src/library/
+  mod.rs          → public API: Library::open(data_dir), preview, import, list, detail, remove, tags, collections
+  store.rs        → SQLite connection, schema, migrations
+  ids.rs          → artifact and source ids
+  source.rs       → Source (local | git), git URL parsing
+  git.rs          → shallow clone + commit via the git command (the only process spawn in core)
+  copy.rs         → per-type copy into the store, atomic rename, secret replacement
+  query.rs        → filters, sort, pages, facet counts, smart-rule evaluation
+  tags.rs, collections.rs
+crates/harneo-core/tests/library_*.rs → integration tests (temp data dir, local git repos built in the test)
+src-tauri/src/commands.rs             → library commands
+src/features/library/                 → LibraryScreen, ArtifactCard, ArtifactList, FilterColumn, DetailPanel,
+                                        ImportFlow, CollectionScreen, NewCollectionDialog, TagMenu, Welcome
+src/lib/ipc.ts                        → typed wrappers for the new commands
+```
+
+## Code Style
+
+The app-shell conventions apply. The patterns this module adds:
+
+```rust
+// crates/harneo-core/src/library/mod.rs
+/// Copies the ticked candidates into the store. Each artifact lands whole or not at all,
+/// and literal secrets were already swapped for `${KEY}` placeholders in `preview`.
+pub fn import(&mut self, preview: &Preview, selection: &[ArtifactId], tags: &TagChoices) -> Result<ImportReport> {
+    let tx = self.db.transaction()?;
+    // …copy each artifact into a temp dir, rename into artifacts/<id>/, insert its rows…
+    tx.commit()?;
+    Ok(report)
+}
+```
+
+- **Every write to the store is atomic:** copy to a temporary folder in the same filesystem and rename into place, with the index rows in one transaction. If the rename succeeds but the commit fails, the folder is removed.
+- **`git.rs` is the only place in core that starts a process.** It calls `Command::new("git")` with arguments, never a shell string, and always with the timeout and `GIT_TERMINAL_PROMPT=0`.
+- **Paths from a scanned source are untrusted.** Every copied path comes from the scan, which is already relative and inside the root, and is joined under the artifact's folder after a check that it stays there.
+- **Frontend:** server state stays in the feature's hooks (`useLibrary`, `useImport`), and filters and sort live in the URL query, so Back keeps them.
+
+## Testing Strategy
+
+The levels follow `app-shell.md`. This module adds:
+- **Core integration** (temp data dir):
+  - preview, then import, from a fixture folder;
+  - a re-import marks every candidate "already in library";
+  - an import that fails halfway (an injected copy error) leaves nothing behind;
+  - remove deletes the folder and the rows;
+  - tags and collections: create, assign, smart-rule evaluation, rename and delete;
+  - list filters, sort, pages and facet counts.
+- **Git:** each test builds a local repo with `git init` and a commit, and imports it by `file://` URL with a branch and a subfolder, checking that the recorded commit is right. A missing branch, a missing subfolder and a missing `git` binary (`PATH` stubbed) give their errors. No test uses the network.
+- **Secrets:** a fixture with a literal MCP header and a Settings `env` value. After import, the stored files contain `${KEY}` placeholders. A test reads every byte of the store and the index and checks that the literal value appears nowhere.
+- **Migrations:** opening an empty data dir creates the schema at the current version, and opening it again changes nothing.
+- **Frontend** (Vitest, React Testing Library, `mockIPC`):
+  - the library list, filters, sort, pages and empty state;
+  - the detail panel;
+  - each import step, including errors and "nothing found";
+  - the tag menu;
+  - the new-collection dialog, manual and smart.
+- **Performance:** a test library of 2,000 artifacts answers a filtered, sorted page query in under 100 ms.
+- **Coverage:** changed lines 80% or more, and the project ratchet must not fall.
+
+## Boundaries
+
+- **Always:**
+  - copy into the store atomically;
+  - replace literal secrets before anything is written;
+  - pass git URLs as arguments;
+  - keep tags and collections in the index only;
+  - show a module's panels only once that module exists.
+- **Ask first:**
+  - any change to the store layout or schema once a release has shipped (it needs a migration);
+  - a new dependency;
+  - running any command other than `git`.
+- **Never:**
+  - modify a source folder, `~/.claude` or a project;
+  - store, log or send a literal secret over IPC;
+  - follow a path from a scan outside its artifact's folder;
+  - run anything from an imported artifact;
+  - leave clone folders or partial copies behind.
+
+## Success Criteria
+
+1. Importing `~/.claude`, a local folder and a git URL (with a branch and a subfolder) each puts the ticked artifacts in the library with full provenance. For git that includes the commit.
+2. Importing the same source again shows every artifact as "already in library", and importing nothing changes nothing.
+3. A literal secret in an imported MCP server or Settings ends up as a `${KEY}` placeholder in the library copy, the review lists the key, and the value is found nowhere in the data folder.
+4. A failed import, whether from a git error or a copy failure, leaves the library exactly as it was and shows a clear error.
+5. The Library screen, detail panel and import flow match the prototype in light and dark. Filters, sort and pages work at 2,000 artifacts, with a page query under 100 ms.
+6. Tags can be created, colored, added and removed. Manual and smart collections work, and a smart collection picks up a new import that matches.
+7. Removing an artifact deletes its copy and its index rows.
+8. The source folder, `~/.claude` and any project are never changed. A test checks the fixture's bytes before and after.
+9. `npm run check:full` passes and the coverage ratchet holds.
+10. **Joint checkpoint with `artifact-model` (2026-10-22):** the user scans their own `~/.claude`, an Addy `agent-skills` clone and the Impeccable plugin with `harneo scan` (artifact-model criterion 8), then imports them through the app. What looks wrong becomes a test and a fix in whichever module owns it.
+
+## Decisions (2026-10-22)
+
+1. **Literal secrets** are replaced in the library copy by `${KEY}` placeholders and listed in the import review. This answers `artifact-model`'s open question and keeps "No secrets stored" (`CONTEXT.md` §5).
+2. **The store** is file copies plus a SQLite index (`rusqlite`, bundled).
+3. **Git imports** use the system `git` command: a shallow clone, `GIT_TERMINAL_PROMPT=0`, and a timeout.
+4. **A re-import** shows "already in library" unticked. Refreshing a copy belongs to `updates`, which protects local edits.
+5. **`artifact-model`'s user checkpoint** is merged into this module's (criterion 10), at the user's request.
+
+## Open Questions
+
+1. **End-to-end tests of the real window.** `app-shell` decision 2 said to reconsider them "when `library` import lands". The options:
+   - keep frontend tests with mocked IPC plus your manual check (what this spec assumes);
+   - add a `tauri-driver` / WebDriver smoke test on Linux, covering import of a fixture folder → it shows in the library. That means one more tool and a slower `check:full`.
