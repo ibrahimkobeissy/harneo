@@ -10,6 +10,9 @@
 //! then [`Library::import`] copies the ticked ones (see `copy`).
 
 mod copy;
+mod git;
+#[cfg(test)]
+mod git_tests;
 pub mod ids;
 #[cfg(test)]
 mod import_tests;
@@ -21,7 +24,8 @@ mod store;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
+use std::sync::{Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -30,6 +34,7 @@ use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOpt
 use crate::error::{Error, Result};
 use copy::{copy_artifact, ImportHooks, NoHooks};
 pub use copy::{SkipReason, SkippedFile};
+use git::{Checkout, GitConfig};
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
 pub use source::Source;
 use store::Store;
@@ -79,6 +84,21 @@ pub struct ImportReport {
 #[derive(Debug)]
 pub struct Library {
     store: Store,
+    git: GitConfig,
+    /// The clone of the last git preview, kept until `import` copies from it. At most one: a
+    /// newer git preview replaces (and deletes) it, `import` consumes it, and dropping the
+    /// library deletes it. See [`PendingClone`].
+    pending: Mutex<Option<PendingClone>>,
+}
+
+/// A git preview's clone, waiting for `import`. Previews are plain data that travel over IPC,
+/// so the clone is found again through the source's identity (URL, resolved branch,
+/// subfolder); the recorded commit comes from here, never from the preview the caller hands
+/// back.
+#[derive(Debug)]
+struct PendingClone {
+    identity: String,
+    checkout: Checkout,
 }
 
 impl Library {
@@ -87,6 +107,8 @@ impl Library {
     pub fn open(data_dir: &Path) -> Result<Self> {
         Ok(Self {
             store: Store::open(data_dir)?,
+            git: GitConfig::default(),
+            pending: Mutex::new(None),
         })
     }
 
@@ -95,15 +117,84 @@ impl Library {
         self.store.schema_version()
     }
 
-    /// Scans `source` and lists what could be imported. Copies nothing.
+    /// Scans `source` and lists what could be imported. Copies nothing. A git source is
+    /// cloned first (shallow) and the returned preview names the resolved branch; the clone
+    /// stays until `import`, the next git preview or the library being dropped.
     pub fn preview(&self, source: &Source) -> Result<Preview> {
-        let identity = source.identity()?;
-        let Source::Local { path } = source;
-        let report = ClaudeAdapter.scan(path, &ScanOptions::default())?;
+        match source {
+            Source::Local { path } => {
+                let identity = source.identity()?;
+                self.scan_candidates(source, &identity, path)
+            }
+            Source::Git {
+                url,
+                branch,
+                subfolder,
+            } => self.git_preview(url, branch.as_deref(), subfolder.as_deref()),
+        }
+    }
+
+    fn git_preview(
+        &self,
+        url: &str,
+        branch: Option<&str>,
+        subfolder: Option<&str>,
+    ) -> Result<Preview> {
+        let relative = git_subfolder(subfolder)?;
+        let checkout = git::clone(&self.git, self.store.root(), url, branch)?;
+        let resolved = Source::Git {
+            url: url.to_owned(),
+            branch: checkout.branch.clone(),
+            subfolder: subfolder
+                .map(|s| s.trim().trim_matches('/'))
+                .filter(|s| !s.is_empty())
+                .map(str::to_owned),
+        };
+        let identity = resolved.identity()?;
+        let root = checkout.path().join(&relative);
+        let shown = subfolder.unwrap_or_default().to_owned();
+        let inside = root
+            .canonicalize()
+            .ok()
+            .zip(checkout.path().canonicalize().ok())
+            .is_some_and(|(root, base)| root.is_dir() && root.starts_with(base));
+        if !inside {
+            return Err(if root.exists() {
+                Error::UnsafePath { path: shown }
+            } else {
+                Error::GitSubfolderMissing { subfolder: shown }
+            });
+        }
+        let preview = self.scan_candidates(&resolved, &identity, &root)?;
+        if preview.candidates.is_empty() {
+            return Err(Error::NothingFound {
+                source_name: source::redact(url),
+            });
+        }
+        *self.pending.lock().unwrap_or_else(PoisonError::into_inner) =
+            Some(PendingClone { identity, checkout });
+        Ok(preview)
+    }
+
+    /// The clone behind a git preview, taken out of the slot so it is deleted when the caller
+    /// is done with it, however that goes.
+    fn take_pending(&self, identity: &str) -> Result<PendingClone> {
+        let mut slot = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+        match slot.take() {
+            Some(pending) if pending.identity == identity => Ok(pending),
+            other => {
+                *slot = other;
+                Err(Error::PreviewExpired)
+            }
+        }
+    }
+
+    fn scan_candidates(&self, source: &Source, identity: &str, root: &Path) -> Result<Preview> {
+        let report = ClaudeAdapter.scan(root, &ScanOptions::default())?;
         let ids: Vec<String> = report
             .artifacts
             .iter()
-            .map(|a| ids::artifact_id(&identity, &a.path))
+            .map(|a| ids::artifact_id(identity, &a.path))
             .collect();
         let id_refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let known = records::existing(&self.store.conn, &id_refs)?;
@@ -155,6 +246,12 @@ impl Library {
         }
         let chosen_ids: Vec<&str> = chosen.iter().map(|c| c.id.as_str()).collect();
         let known = records::existing(&self.store.conn, &chosen_ids)?;
+        // A git preview's clone is consumed here and deleted when this function returns,
+        // whatever the outcome.
+        let clone = match &preview.source {
+            Source::Local { .. } => None,
+            Source::Git { .. } => Some(self.take_pending(&identity)?),
+        };
         let (existing, fresh): (Vec<&Candidate>, Vec<&Candidate>) =
             chosen.into_iter().partition(|c| known.contains(&c.id));
         let mut report = ImportReport {
@@ -165,7 +262,18 @@ impl Library {
             return Ok(report);
         }
 
-        let Source::Local { path: root } = &preview.source;
+        let (root, commit) = match (&preview.source, &clone) {
+            (Source::Git { subfolder, .. }, Some(clone)) => (
+                clone
+                    .checkout
+                    .path()
+                    .join(git_subfolder(subfolder.as_deref())?),
+                Some(clone.checkout.commit.as_str()),
+            ),
+            (Source::Local { path }, _) => (path.clone(), None),
+            (Source::Git { .. }, None) => return Err(Error::PreviewExpired),
+        };
+        let root = root.as_path();
         let staging = tempfile::Builder::new()
             .prefix(".import-")
             .tempdir_in(self.store.root())
@@ -184,7 +292,7 @@ impl Library {
         let mut placed: Vec<PathBuf> = Vec::new();
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
-            records::insert_source(&tx, &source_id, &preview.source)?;
+            records::insert_source(&tx, &source_id, &preview.source, commit)?;
             let now = records::now();
             for candidate in &fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);
@@ -261,6 +369,19 @@ impl Library {
             return Err(error);
         }
         Ok(())
+    }
+}
+
+/// A git subfolder as a relative path of plain components: no `..`, no absolute path.
+fn git_subfolder(subfolder: Option<&str>) -> Result<PathBuf> {
+    let text = subfolder.unwrap_or_default().trim().trim_matches('/');
+    let path = PathBuf::from(text);
+    if path.components().all(|c| matches!(c, Component::Normal(_))) {
+        Ok(path)
+    } else {
+        Err(Error::UnsafePath {
+            path: text.to_owned(),
+        })
     }
 }
 

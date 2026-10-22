@@ -66,6 +66,63 @@ pub enum Error {
     /// A stored artifact record could not be read back.
     #[error("library record is damaged: {0}")]
     BadRecord(#[from] serde_json::Error),
+    /// The text is not a git URL Harneo understands.
+    #[error("not a git URL: {input}")]
+    InvalidGitUrl {
+        /// The input, with credentials removed.
+        input: String,
+    },
+    /// The `git` program is missing.
+    #[error("git is not installed, or is not on the PATH")]
+    GitNotInstalled,
+    /// The repository does not exist, is not a git repository, or cannot be reached.
+    #[error("cannot reach the git repository {url}: it does not exist, is not reachable, or is not a git repository")]
+    GitRepoUnreachable {
+        /// The URL, with credentials removed.
+        url: String,
+    },
+    /// The repository needs a login, or does not exist (hosts answer the same for both).
+    #[error(
+        "{url} needs credentials or does not exist; Harneo never asks for a password, so use a \
+         public URL or an SSH key loaded in your agent"
+    )]
+    GitAuthRequired {
+        /// The URL, with credentials removed.
+        url: String,
+    },
+    /// The branch (or tag) is not in the repository.
+    #[error("the repository has no branch or tag named {branch}")]
+    GitBranchNotFound {
+        /// The branch as asked for.
+        branch: String,
+    },
+    /// The subfolder is not in the repository at that branch.
+    #[error("the repository has no folder {subfolder}")]
+    GitSubfolderMissing {
+        /// The subfolder as asked for.
+        subfolder: String,
+    },
+    /// Cloning took longer than the limit and was stopped.
+    #[error("git did not finish within {seconds} s and was stopped")]
+    GitTimeout {
+        /// The limit, in whole seconds.
+        seconds: u64,
+    },
+    /// Git failed for a reason Harneo does not single out.
+    #[error("git failed: {message}")]
+    GitFailed {
+        /// Git's last error lines, with credentials removed.
+        message: String,
+    },
+    /// The source was scanned and holds no artifact.
+    #[error("no artifacts found in {source_name}")]
+    NothingFound {
+        /// The source, as shown to the user.
+        source_name: String,
+    },
+    /// A git preview is gone (replaced by a newer one, or already imported): preview again.
+    #[error("this git preview is no longer available; preview the source again")]
+    PreviewExpired,
 }
 
 /// Result alias used across `harneo-core`.

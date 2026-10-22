@@ -8,4 +8,16 @@ export type Source = { "kind": "local",
 /**
  * The folder, as the user gave it.
  */
-path: string, };
+path: string, } | { "kind": "git", 
+/**
+ * The clone URL.
+ */
+url: string, 
+/**
+ * Branch or tag. `None` means the default branch; a preview fills in the resolved name.
+ */
+branch: string | null, 
+/**
+ * Folder inside the repository to scan; `None` is the root.
+ */
+subfolder: string | null, };

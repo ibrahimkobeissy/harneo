@@ -75,7 +75,13 @@ pub(crate) fn existing(conn: &Connection, ids: &[&str]) -> Result<HashSet<String
     Ok(found)
 }
 
-pub(crate) fn insert_source(conn: &Connection, id: &str, source: &Source) -> Result<()> {
+/// Records the source row; `commit` is the cloned commit of a git source.
+pub(crate) fn insert_source(
+    conn: &Connection,
+    id: &str,
+    source: &Source,
+    commit: Option<&str>,
+) -> Result<()> {
     match source {
         Source::Local { path } => {
             let canonical = path.canonicalize().map_err(|e| crate::Error::Io {
@@ -85,6 +91,23 @@ pub(crate) fn insert_source(conn: &Connection, id: &str, source: &Source) -> Res
             conn.execute(
                 "INSERT OR IGNORE INTO sources (id, kind, location) VALUES (?1, 'local', ?2)",
                 params![id, canonical.display().to_string()],
+            )?;
+        }
+        Source::Git {
+            url,
+            branch,
+            subfolder,
+        } => {
+            conn.execute(
+                "INSERT OR IGNORE INTO sources (id, kind, location, branch, subfolder, commit_sha)
+                 VALUES (?1, 'git', ?2, ?3, ?4, ?5)",
+                params![
+                    id,
+                    super::source::redact(url).trim_end_matches('/'),
+                    branch,
+                    subfolder,
+                    commit
+                ],
             )?;
         }
     }
