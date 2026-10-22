@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
+import { NewCollectionHost } from "../features/library";
+import { CollectionsProvider } from "./collections";
 import styles from "./Layout.module.css";
 import { Palette } from "./Palette";
 import { ShortcutsDialog } from "./ShortcutsDialog";
@@ -40,21 +42,27 @@ export function Layout() {
   const close = () => setOverlay("none");
 
   return (
-    <div className={styles.frame}>
-      <a href="#main" className={styles.skip}>
-        Skip to content
-      </a>
-      <Sidebar
-        onShortcuts={() => setOverlay("shortcuts")}
-        onSearch={() => setOverlay("palette")}
-      />
-      <main id="main" tabIndex={-1} className={styles.main}>
-        <Outlet />
-      </main>
-      {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
-      {overlay === "palette" && (
-        <Palette onClose={close} onShortcuts={() => setOverlay("shortcuts")} />
-      )}
-    </div>
+    <CollectionsProvider>
+      <div className={styles.frame}>
+        <a href="#main" className={styles.skip}>
+          Skip to content
+        </a>
+        <Sidebar
+          onShortcuts={() => setOverlay("shortcuts")}
+          onSearch={() => setOverlay("palette")}
+        />
+        <main id="main" tabIndex={-1} className={styles.main}>
+          <Outlet />
+        </main>
+        {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
+        {overlay === "palette" && (
+          <Palette
+            onClose={close}
+            onShortcuts={() => setOverlay("shortcuts")}
+          />
+        )}
+        <NewCollectionHost />
+      </div>
+    </CollectionsProvider>
   );
 }

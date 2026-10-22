@@ -2,17 +2,25 @@ import {
   ArrowLeft,
   CircleAlert,
   FileText,
+  FolderMinus,
   Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import type { Collection } from "../../bindings/Collection";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
 import { Modal } from "../../app/Modal";
-import { libraryDetail, libraryFind, libraryRemove } from "../../lib/ipc";
+import {
+  collectionRemove,
+  libraryDetail,
+  libraryFind,
+  libraryRemove,
+} from "../../lib/ipc";
 import { Button } from "../../ui";
+import { AddToMenu } from "./AddToMenu";
 import styles from "./Detail.module.css";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
@@ -226,6 +234,9 @@ export function DetailPanel({
   onClose,
   onRemoved,
   onTagsChanged,
+  collection = null,
+  onMembershipChanged = () => {},
+  onLeftCollection = () => {},
 }: {
   id: string;
   previousName: string | null;
@@ -234,6 +245,12 @@ export function DetailPanel({
   onClose: () => void;
   onRemoved: () => void;
   onTagsChanged: () => void;
+  /** The collection whose screen this is, when there is one. */
+  collection?: Collection | null;
+  /** The artifact was added to or taken out of a collection from the Add to… menu. */
+  onMembershipChanged?: () => void;
+  /** The artifact was taken out of `collection` with "Remove from collection". */
+  onLeftCollection?: () => void;
 }) {
   const load = useDetail(id);
   const detail = load.status === "ready" ? load.detail : null;
@@ -272,6 +289,17 @@ export function DetailPanel({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [confirming, onClose]);
+
+  async function leaveCollection() {
+    if (!collection) return;
+    setRemoveError(null);
+    try {
+      await collectionRemove(collection.id, id);
+      onLeftCollection();
+    } catch (err) {
+      setRemoveError(String(err));
+    }
+  }
 
   async function remove() {
     setBusy(true);
@@ -330,6 +358,13 @@ export function DetailPanel({
           </div>
           {detail && (
             <div className={styles.actions}>
+              <AddToMenu artifactId={id} onChanged={onMembershipChanged} />
+              {collection?.kind === "manual" && (
+                <Button small onClick={() => void leaveCollection()}>
+                  <FolderMinus size={14} aria-hidden="true" />
+                  Remove from collection
+                </Button>
+              )}
               <Button
                 small
                 variant="danger"
@@ -345,6 +380,11 @@ export function DetailPanel({
           )}
         </div>
         <div className={styles.body} data-body>
+          {!confirming && removeError && (
+            <p role="alert" className={styles.error}>
+              {removeError}
+            </p>
+          )}
           {load.status === "loading" && (
             <p role="status" className={styles.muted}>
               Loading the artifact…

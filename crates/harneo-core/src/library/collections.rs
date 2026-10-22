@@ -293,6 +293,17 @@ pub(crate) fn reorder(conn: &Connection, collection_id: i64, ordered_ids: &[Stri
     Ok(())
 }
 
+/// The manual collections that hold an artifact, by id.
+pub(crate) fn containing(conn: &Connection, artifact_id: &str) -> Result<Vec<i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT collection_id FROM collection_items WHERE artifact_id = ?1 ORDER BY collection_id",
+    )?;
+    let ids = stmt
+        .query_map(params![artifact_id], |r| r.get::<_, i64>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(ids)
+}
+
 pub(crate) fn page(conn: &Connection, collection_id: i64, query: &Query) -> Result<Page> {
     let found = row(conn, collection_id)?;
     let scope = match &found.rule {

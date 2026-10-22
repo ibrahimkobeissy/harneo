@@ -1,0 +1,328 @@
+/* New collection, rename, edit rule and delete dialogs. */
+.dlg {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 80vh;
+}
+.dhead {
+  padding: var(--space-xl) var(--space-xl) var(--space-md);
+}
+.dhead h2 {
+  margin: 0;
+  font-size: var(--text-title);
+}
+.dhead p {
+  margin: var(--space-xs) 0 0;
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.dbody {
+  padding: 0 var(--space-xl) var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.dfoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border-top: var(--hairline) solid var(--line);
+}
+.confirm {
+  padding: var(--space-xl) var(--space-xl) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.confirm h2 {
+  margin: 0;
+  font-size: var(--text-title);
+}
+.confirm p {
+  margin: 0;
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.confirm .dfoot {
+  border-top: 0;
+  padding-right: 0;
+  padding-left: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.field label,
+.rrow label {
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+.input {
+  width: 100%;
+  height: var(--size-control);
+  padding: 0 var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+.error {
+  margin: 0;
+  color: var(--red);
+}
+.muted {
+  color: var(--t3);
+}
+
+/* Manual or Smart. */
+.kinds {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+.opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.opt > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.optText {
+  color: var(--t2);
+}
+.optOn {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 2px var(--blue-ring);
+}
+.opt:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.radio {
+  flex: none;
+  position: relative;
+  width: var(--size-check);
+  height: var(--size-check);
+  margin-top: var(--space-xxs);
+  border: var(--hairline) solid var(--line2);
+  border-radius: 50%;
+  background: var(--raised);
+}
+.optOn .radio {
+  border-color: var(--blue);
+}
+.optOn .radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--blue);
+}
+.ruleHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin: var(--space-sm) 0 0;
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+.ruleHead .muted {
+  font-weight: 400;
+}
+
+/* Rule builder. */
+.rulebox {
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--side);
+}
+.rrow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-xs) 0;
+  border-bottom: var(--hairline) solid var(--line);
+}
+.rrow > span,
+.rrow > label {
+  flex: none;
+  width: 56px;
+  padding-top: var(--space-xs);
+  color: var(--t3);
+  font-weight: 400;
+}
+.rrow > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  padding-top: var(--space-xxs);
+}
+.rrow > input {
+  flex: 1;
+}
+.rchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  height: var(--size-control-sm);
+  padding: 0 var(--space-sm);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  color: var(--t2);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+.rchip:hover {
+  border-color: var(--line2);
+  color: var(--t1);
+}
+.rchipOn {
+  background: var(--blue-soft);
+  border-color: var(--blue-ring);
+  color: var(--blue);
+  font-weight: 500;
+}
+.rchip:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.hint,
+.hintWarn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-sm) 0 0;
+  color: var(--t2);
+}
+.hintWarn {
+  color: var(--red);
+}
+
+/* Under a collection's title. */
+.bar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  flex-wrap: wrap;
+  margin: calc(-1 * var(--space-xs)) 0 var(--space-lg);
+}
+.barText {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  min-width: 0;
+  flex: 1;
+}
+.barLabel {
+  color: var(--t2);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--t3);
+}
+.barActions {
+  display: flex;
+  gap: var(--space-sm);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+}
+.titleIcon {
+  display: inline-flex;
+  align-items: center;
+  color: var(--t2);
+}
+
+/* Add to… menu in the detail panel. */
+.anchor {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  z-index: 60;
+  width: 260px;
+  max-width: calc(100vw - 2 * var(--space-lg));
+  padding: var(--space-xs);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  box-shadow: var(--shadow-md);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover {
+  background: var(--sunk);
+}
+.menuItem:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: calc(-1 * var(--hairline-strong));
+}
+.menuName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.menuEmpty {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+
+@media (max-width: 40rem) {
+  .kinds {
+    grid-template-columns: 1fr;
+  }
+}

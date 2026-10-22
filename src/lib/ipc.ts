@@ -6,6 +6,8 @@ import type { Source } from "../bindings/Source";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
+import type { Collection } from "../bindings/Collection";
+import type { Filter } from "../bindings/Filter";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
 import type { Tag } from "../bindings/Tag";
@@ -113,4 +115,87 @@ export function artifactTagAdd(id: string, tagId: bigint): Promise<void> {
 /** Takes a tag off an artifact. */
 export function artifactTagRemove(id: string, tagId: bigint): Promise<void> {
   return invoke<void>("artifact_tag_remove", { id, tagId: Number(tagId) });
+}
+
+// --- Collections -----------------------------------------------------------------------
+// Collection ids are `bigint` in the generated types but cross IPC as plain JSON numbers.
+
+/** Every collection by name, with its member count. */
+export function collectionsList(): Promise<Collection[]> {
+  return invoke<Collection[]>("collections_list");
+}
+
+/** Creates an empty manual collection; rejects on an invalid or taken name. */
+export function collectionCreateManual(name: string): Promise<Collection> {
+  return invoke<Collection>("collection_create_manual", { name });
+}
+
+/** Creates a smart collection whose members are whatever matches `rule`. */
+export function collectionCreateSmart(
+  name: string,
+  rule: Filter,
+): Promise<Collection> {
+  return invoke<Collection>("collection_create_smart", { name, rule });
+}
+
+/** Renames a collection. */
+export function collectionRename(
+  id: bigint,
+  name: string,
+): Promise<Collection> {
+  return invoke<Collection>("collection_rename", { id: Number(id), name });
+}
+
+/** Replaces a smart collection's rule. */
+export function collectionUpdateRule(
+  id: bigint,
+  rule: Filter,
+): Promise<Collection> {
+  return invoke<Collection>("collection_update_rule", {
+    id: Number(id),
+    rule,
+  });
+}
+
+/** Deletes a collection; its artifacts stay in the library. */
+export function collectionDelete(id: bigint): Promise<void> {
+  return invoke<void>("collection_delete", { id: Number(id) });
+}
+
+/** Appends an artifact to a manual collection. */
+export function collectionAdd(
+  collectionId: bigint,
+  artifactId: string,
+): Promise<void> {
+  return invoke<void>("collection_add", {
+    collectionId: Number(collectionId),
+    artifactId,
+  });
+}
+
+/** Takes an artifact out of a manual collection. */
+export function collectionRemove(
+  collectionId: bigint,
+  artifactId: string,
+): Promise<void> {
+  return invoke<void>("collection_remove", {
+    collectionId: Number(collectionId),
+    artifactId,
+  });
+}
+
+/** One page of a collection's members; `position` sort is a manual collection's own order. */
+export function collectionPage(
+  collectionId: bigint,
+  query: Query,
+): Promise<Page> {
+  return invoke<Page>("collection_page", {
+    collectionId: Number(collectionId),
+    query,
+  });
+}
+
+/** The ids of the manual collections an artifact is in. */
+export function artifactCollections(id: string): Promise<number[]> {
+  return invoke<number[]>("artifact_collections", { id });
 }

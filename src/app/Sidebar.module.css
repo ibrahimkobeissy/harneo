@@ -24,6 +24,28 @@
   font-weight: 500;
   padding: var(--space-md) var(--space-sm) var(--space-xxs);
 }
+.headingRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-xl);
+  height: var(--space-xl);
+  margin-right: var(--space-xs);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+}
+.plus:hover {
+  background: var(--sunk);
+  color: var(--t1);
+}
 .none {
   color: var(--t3);
   font-size: var(--text-label);
@@ -75,6 +97,11 @@
     display: none;
   }
   /* Group headings become hairline dividers so the rail keeps its structure. */
+  .headingRow {
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
   .heading {
     font-size: 0;
     padding: 0;

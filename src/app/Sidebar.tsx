@@ -1,6 +1,7 @@
-import { Keyboard, Search } from "lucide-react";
+import { Bookmark, Keyboard, ListFilter, Plus, Search } from "lucide-react";
 import { Link } from "react-router";
 import { Kbd, Logo, NavItem } from "../ui";
+import { useCollections } from "./collections";
 import { searchShortcut } from "./platform";
 import { actions, places, settingsDestination } from "./routes";
 import styles from "./Sidebar.module.css";
@@ -12,6 +13,7 @@ interface SidebarProps {
 
 export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
   const search = searchShortcut();
+  const { collections, openNew } = useCollections();
   return (
     <nav className={styles.side} aria-label="Main">
       {/* The brand goes home but is not a nav item, so only Library carries aria-current. */}
@@ -26,10 +28,32 @@ export function Sidebar({ onShortcuts, onSearch }: SidebarProps) {
       {places.map((d) => (
         <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />
       ))}
-      <h2 className={styles.heading}>Collections</h2>
-      <p className={styles.none}>
-        None yet. Saved groupings of library artifacts appear here.
-      </p>
+      <div className={styles.headingRow}>
+        <h2 className={styles.heading}>Collections</h2>
+        <button
+          type="button"
+          className={styles.plus}
+          aria-label="New collection"
+          data-tip="New collection"
+          onClick={() => openNew()}
+        >
+          <Plus size={14} aria-hidden="true" />
+        </button>
+      </div>
+      {collections.length === 0 && (
+        <p className={styles.none}>
+          None yet. Saved groupings of library artifacts appear here.
+        </p>
+      )}
+      {collections.map((c) => (
+        <NavItem
+          key={String(c.id)}
+          to={`/collections/${c.id}`}
+          label={c.name}
+          icon={c.kind === "smart" ? ListFilter : Bookmark}
+          count={c.count}
+        />
+      ))}
       <h2 className={styles.heading}>Actions</h2>
       {actions.map((d) => (
         <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />

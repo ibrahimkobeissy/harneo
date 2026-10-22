@@ -341,3 +341,20 @@ fn rules_and_kinds_are_enforced() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn an_artifact_lists_the_manual_collections_that_hold_it() -> TestResult {
+    let mut s = setup()?;
+    let ids = import(&mut s, &["alpha", "bravo"])?;
+    let one = s.library.create_manual_collection("one")?;
+    let two = s.library.create_manual_collection("two")?;
+    s.library.add_to_collection(one.id, &ids[0])?;
+    s.library.add_to_collection(two.id, &ids[0])?;
+    s.library.add_to_collection(two.id, &ids[1])?;
+    assert_eq!(s.library.artifact_collections(&ids[0])?, [one.id, two.id]);
+    assert_eq!(s.library.artifact_collections(&ids[1])?, [two.id]);
+    s.library.remove_from_collection(one.id, &ids[0])?;
+    assert_eq!(s.library.artifact_collections(&ids[0])?, [two.id]);
+    assert!(s.library.artifact_collections("nope")?.is_empty());
+    Ok(())
+}

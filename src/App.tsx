@@ -2,7 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from "react-router";
 import { Layout } from "./app/Layout";
 import { CleanupScreen } from "./features/cleanup";
 import { ImportScreen } from "./features/import";
-import { LibraryScreen } from "./features/library";
+import { CollectionScreen, LibraryScreen } from "./features/library";
 import { ProfilesScreen } from "./features/profiles";
 import { ProjectsScreen } from "./features/projects";
 import { RefitScreen } from "./features/refit";
@@ -16,6 +16,7 @@ export function AppRoutes() {
       <Route element={<Layout />}>
         <Route index element={<Navigate to="/library" replace />} />
         <Route path="library" element={<LibraryScreen />} />
+        <Route path="collections/:id" element={<CollectionScreen />} />
         <Route path="profiles" element={<ProfilesScreen />} />
         <Route path="projects" element={<ProjectsScreen />} />
         <Route path="security" element={<SecurityScreen />} />

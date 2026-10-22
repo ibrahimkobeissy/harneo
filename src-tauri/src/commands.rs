@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use harneo_core::artifact::ArtifactKind;
 
 use harneo_core::library::{
-    ArtifactDetail, ImportReport, Library, Page, Preview, Query, Source, Tag, TagColor,
-    TagWithCount,
+    ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query, Source, Tag,
+    TagColor, TagWithCount,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -223,6 +223,98 @@ pub fn artifact_tag_remove(
     state.with(|library| library.untag_artifact(&id, tag_id))
 }
 
+// --- Collections -----------------------------------------------------------------------
+
+/// Every collection with its member count.
+#[tauri::command]
+pub fn collections_list(state: State<'_, LibraryState>) -> Result<Vec<Collection>, String> {
+    state.with(|library| library.collections())
+}
+
+/// Creates an empty manual collection.
+#[tauri::command]
+pub fn collection_create_manual(
+    state: State<'_, LibraryState>,
+    name: String,
+) -> Result<Collection, String> {
+    state.with(|library| library.create_manual_collection(&name))
+}
+
+/// Creates a smart collection from a rule.
+#[tauri::command]
+pub fn collection_create_smart(
+    state: State<'_, LibraryState>,
+    name: String,
+    rule: Filter,
+) -> Result<Collection, String> {
+    state.with(|library| library.create_smart_collection(&name, rule))
+}
+
+/// Renames a collection.
+#[tauri::command]
+pub fn collection_rename(
+    state: State<'_, LibraryState>,
+    id: i64,
+    name: String,
+) -> Result<Collection, String> {
+    state.with(|library| library.rename_collection(id, &name))
+}
+
+/// Replaces a smart collection's rule.
+#[tauri::command]
+pub fn collection_update_rule(
+    state: State<'_, LibraryState>,
+    id: i64,
+    rule: Filter,
+) -> Result<Collection, String> {
+    state.with(|library| library.update_rule(id, rule))
+}
+
+/// Deletes a collection; its artifacts stay in the library.
+#[tauri::command]
+pub fn collection_delete(state: State<'_, LibraryState>, id: i64) -> Result<(), String> {
+    state.with(|library| library.delete_collection(id))
+}
+
+/// Adds an artifact to a manual collection.
+#[tauri::command]
+pub fn collection_add(
+    state: State<'_, LibraryState>,
+    collection_id: i64,
+    artifact_id: String,
+) -> Result<(), String> {
+    state.with(|library| library.add_to_collection(collection_id, &artifact_id))
+}
+
+/// Takes an artifact out of a manual collection.
+#[tauri::command]
+pub fn collection_remove(
+    state: State<'_, LibraryState>,
+    collection_id: i64,
+    artifact_id: String,
+) -> Result<(), String> {
+    state.with(|library| library.remove_from_collection(collection_id, &artifact_id))
+}
+
+/// One page of a collection's members.
+#[tauri::command]
+pub fn collection_page(
+    state: State<'_, LibraryState>,
+    collection_id: i64,
+    query: Query,
+) -> Result<Page, String> {
+    state.with(|library| library.collection_page(collection_id, &query))
+}
+
+/// The ids of the manual collections an artifact is in.
+#[tauri::command]
+pub fn artifact_collections(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<Vec<i64>, String> {
+    state.with(|library| library.artifact_collections(&id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -345,6 +437,36 @@ mod tests {
         assert!(artifact_tag_remove(state(), "nope".into(), tag.id).is_ok());
         tag_delete(state(), tag.id)?;
         assert!(tags_list(state())?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn every_collection_command_runs_through_managed_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        let manual = collection_create_manual(state(), "kit".into())?;
+        let rule: Filter = serde_json::from_value(serde_json::json!({
+            "types": ["skill"], "tags": [], "sources": [], "text": null
+        }))?;
+        let smart = collection_create_smart(state(), "skills".into(), rule.clone())?;
+        assert_eq!(collections_list(state())?.len(), 2);
+        assert_eq!(
+            collection_rename(state(), manual.id, "kit 2".into())?.name,
+            "kit 2"
+        );
+        assert!(collection_update_rule(state(), smart.id, rule).is_ok());
+        assert!(collection_add(state(), manual.id, "nope".into()).is_err());
+        assert!(collection_remove(state(), manual.id, "nope".into()).is_ok());
+        assert_eq!(
+            collection_page(state(), manual.id, Query::default())?.total,
+            0
+        );
+        assert!(artifact_collections(state(), "nope".into())?.is_empty());
+        collection_delete(state(), manual.id)?;
+        assert_eq!(collections_list(state())?.len(), 1);
         Ok(())
     }
 

@@ -1,24 +1,32 @@
 import {
   ArrowDown,
   ArrowUp,
+  Bookmark,
   LayoutGrid,
   List,
+  ListFilter,
   SearchX,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
+import type { Collection } from "../../bindings/Collection";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Page } from "../../bindings/Page";
+import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
-import { libraryList } from "../../lib/ipc";
-import { Button, EmptyState } from "../../ui";
+import { useCollections } from "../../app/collections";
+import { collectionPage, libraryList } from "../../lib/ipc";
+import { Badge, Button, EmptyState } from "../../ui";
+import { CollectionBar } from "./CollectionBar";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { ItemCard } from "./ItemCard";
 import { ItemTable } from "./ItemTable";
+import cstyles from "./Collections.module.css";
 import styles from "./Library.module.css";
 import {
+  type DefaultSort,
   defaultDescending,
   hasFilters,
   type LibraryParams,
@@ -26,6 +34,7 @@ import {
   parseParams,
   sortKeys,
   sortLabels,
+  toFilter,
   toQuery,
   toSearchParams,
   type View,
@@ -47,8 +56,9 @@ interface Settled {
 }
 
 /**
- * Loads the page for `key` (a JSON query). While a newer request is in flight the previous page
- * stays on screen; `reload` re-runs the request after an error.
+ * Loads the page for `key` (a JSON `{ collection, query }`: the library when `collection` is
+ * null). While a newer request is in flight the previous page stays on screen; `reload`
+ * re-runs the request after an error or a change made elsewhere.
  */
 function useLibraryPage(key: string): [Load, () => void] {
   const [settled, setSettled] = useState<Settled>({
@@ -60,7 +70,14 @@ function useLibraryPage(key: string): [Load, () => void] {
   const id = `${attempt}:${key}`;
   useEffect(() => {
     let current = true;
-    libraryList(JSON.parse(key) as Parameters<typeof libraryList>[0]).then(
+    const { collection, query } = JSON.parse(key) as {
+      collection: number | null;
+      query: Query;
+    };
+    (collection === null
+      ? libraryList(query)
+      : collectionPage(BigInt(collection), query)
+    ).then(
       (page) => {
         if (current) setSettled({ id, page, error: null });
       },
@@ -88,13 +105,24 @@ function useLibraryPage(key: string): [Load, () => void] {
  */
 export function LibraryScreen({
   onOpen = noop,
+  collection = null,
 }: {
   onOpen?: (item: LibraryItem) => void;
+  /** Show this collection's members instead of the whole library. */
+  collection?: Collection | null;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const params = parseParams(searchParams);
+  const { refresh: refreshCollections, openNew } = useCollections();
+  const manual = collection?.kind === "manual";
+  const fallback: DefaultSort = manual ? "position" : "name";
+  const params = parseParams(searchParams, fallback);
   const query = toQuery(params);
-  const [load, reload] = useLibraryPage(JSON.stringify(query));
+  const [load, reload] = useLibraryPage(
+    JSON.stringify({
+      collection: collection ? Number(collection.id) : null,
+      query,
+    }),
+  );
   const page = load.status === "error" ? null : load.page;
   const perPage = PER_PAGE[params.view];
   // Artifacts left behind by following references, newest last; Back pops one.
@@ -133,11 +161,14 @@ export function LibraryScreen({
   ) {
     const resetsPage = !("page" in patch);
     setSearchParams(
-      toSearchParams({
-        ...params,
-        ...patch,
-        ...(resetsPage ? { page: 1 } : {}),
-      }),
+      toSearchParams(
+        {
+          ...params,
+          ...patch,
+          ...(resetsPage ? { page: 1 } : {}),
+        },
+        fallback,
+      ),
       options,
     );
   }
@@ -151,10 +182,13 @@ export function LibraryScreen({
       params.page > 1
     ) {
       setSearchParams(
-        toSearchParams({
-          ...params,
-          page: Math.ceil(load.page.total / perPage),
-        }),
+        toSearchParams(
+          {
+            ...params,
+            page: Math.ceil(load.page.total / perPage),
+          },
+          fallback,
+        ),
         { replace: true },
       );
     }
@@ -162,7 +196,12 @@ export function LibraryScreen({
 
   const filtered = hasFilters(params);
 
-  if (load.status === "ready" && load.page.total === 0 && !filtered) {
+  if (
+    load.status === "ready" &&
+    load.page.total === 0 &&
+    !filtered &&
+    !collection
+  ) {
     return <Welcome />;
   }
 
@@ -178,6 +217,9 @@ export function LibraryScreen({
     if (key === params.sort) update({ descending: !params.descending });
     else update({ sort: key, descending: defaultDescending(key) });
   }
+  const sorts: readonly SortKey[] = manual
+    ? ["position", ...sortKeys]
+    : sortKeys;
 
   function setView(view: View) {
     update({ view });
@@ -197,13 +239,32 @@ export function LibraryScreen({
           onClearAll={() =>
             update({ types: [], tags: [], sources: [], text: "" })
           }
+          onSaveCollection={
+            collection ? undefined : () => openNew({ rule: toFilter(params) })
+          }
         />
       )}
       <div className={styles.main}>
         <header className={styles.top}>
           <h1 id="library-title" className={styles.title}>
-            Library
+            {collection ? (
+              <>
+                <span className={cstyles.titleIcon}>
+                  {collection.kind === "smart" ? (
+                    <ListFilter size={20} aria-hidden="true" />
+                  ) : (
+                    <Bookmark size={20} aria-hidden="true" />
+                  )}
+                </span>{" "}
+                {collection.name}
+              </>
+            ) : (
+              "Library"
+            )}
           </h1>
+          {collection && (
+            <Badge>{collection.kind === "smart" ? "Smart" : "Manual"}</Badge>
+          )}
           {page && (
             <span className={styles.count} aria-live="polite">
               {page.total} {page.total === 1 ? "artifact" : "artifacts"}
@@ -234,10 +295,19 @@ export function LibraryScreen({
             </button>
           </div>
         </header>
+        {collection && (
+          <CollectionBar
+            collection={collection}
+            onRuleSaved={() => {
+              reload();
+              refreshCollections();
+            }}
+          />
+        )}
         {params.view === "cards" && (
           <div className={styles.toolbar} role="group" aria-label="Sort by">
             <span>Sort</span>
-            {sortKeys.map((key) => {
+            {sorts.map((key) => {
               const active = key === params.sort;
               const Arrow = params.descending ? ArrowDown : ArrowUp;
               return (
@@ -287,19 +357,33 @@ export function LibraryScreen({
           )}
           {page && page.items.length === 0 && page.total === 0 && (
             <div>
-              <EmptyState icon={SearchX} title="No artifacts match">
-                Nothing in the library matches these filters
-                {params.text ? ` and “${params.text}”` : ""}.
-              </EmptyState>
-              <div className={styles.retry}>
-                <Button
-                  onClick={() =>
-                    update({ types: [], tags: [], sources: [], text: "" })
-                  }
+              {collection && !filtered ? (
+                <EmptyState
+                  icon={SearchX}
+                  title="Nothing in this collection yet"
                 >
-                  Clear filters
-                </Button>
-              </div>
+                  {manual
+                    ? "Open an artifact and use Add to… to put it here."
+                    : "No artifact matches this rule yet. It will fill as you import."}
+                </EmptyState>
+              ) : (
+                <>
+                  <EmptyState icon={SearchX} title="No artifacts match">
+                    Nothing in {collection ? "this collection" : "the library"}{" "}
+                    matches these filters
+                    {params.text ? ` and “${params.text}”` : ""}.
+                  </EmptyState>
+                  <div className={styles.retry}>
+                    <Button
+                      onClick={() =>
+                        update({ types: [], tags: [], sources: [], text: "" })
+                      }
+                    >
+                      Clear filters
+                    </Button>
+                  </div>
+                </>
+              )}
             </div>
           )}
           {page && page.items.length > 0 && params.view === "cards" && (
@@ -344,6 +428,17 @@ export function LibraryScreen({
           }}
           onClose={closePanel}
           onTagsChanged={reload}
+          collection={collection}
+          onMembershipChanged={() => {
+            reload();
+            refreshCollections();
+          }}
+          onLeftCollection={() => {
+            setTrail([]);
+            openPanel(null);
+            reload();
+            refreshCollections();
+          }}
           onRemoved={() => {
             setTrail([]);
             openPanel(null);
@@ -356,3 +451,30 @@ export function LibraryScreen({
 }
 
 function noop() {}
+
+export { NewCollectionHost } from "./NewCollectionDialog";
+
+/** `#/collections/:id`: the library's screen over one collection's members. */
+export function CollectionScreen() {
+  const { id } = useParams();
+  const { collections, loaded } = useCollections();
+  const found = collections.find((c) => String(c.id) === id);
+  if (found) return <LibraryScreen key={id} collection={found} />;
+  return (
+    <section className={styles.main} aria-labelledby="library-title">
+      <h1 id="library-title" className={styles.title}>
+        Collection
+      </h1>
+      {loaded ? (
+        <EmptyState icon={SearchX} title="This collection is gone">
+          It was deleted or never existed.{" "}
+          <Link to="/library">Back to the library</Link>
+        </EmptyState>
+      ) : (
+        <p role="status" className={styles.muted}>
+          Loading the collection…
+        </p>
+      )}
+    </section>
+  );
+}

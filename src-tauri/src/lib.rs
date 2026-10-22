@@ -24,7 +24,17 @@ pub fn run() {
             commands::tag_delete,
             commands::artifact_tags,
             commands::artifact_tag_add,
-            commands::artifact_tag_remove
+            commands::artifact_tag_remove,
+            commands::collections_list,
+            commands::collection_create_manual,
+            commands::collection_create_smart,
+            commands::collection_rename,
+            commands::collection_update_rule,
+            commands::collection_delete,
+            commands::collection_add,
+            commands::collection_remove,
+            commands::collection_page,
+            commands::artifact_collections
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

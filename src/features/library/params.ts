@@ -1,4 +1,5 @@
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
+import type { Filter } from "../../bindings/Filter";
 import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
 import { kinds } from "./kinds";
@@ -44,9 +45,20 @@ export function defaultDescending(key: SortKey): boolean {
   return key === "importedAt";
 }
 
-export function parseParams(sp: URLSearchParams): LibraryParams {
+/**
+ * The sort a screen starts on: by name in the library, in manual order on a manual collection.
+ * `position` is only accepted from the URL where it is the default.
+ */
+export type DefaultSort = "name" | "position";
+
+export function parseParams(
+  sp: URLSearchParams,
+  fallback: DefaultSort = "name",
+): LibraryParams {
   const sortParam = sp.get("sort");
-  const sort = sortKeys.find((k) => k === sortParam) ?? "name";
+  const accepted: readonly SortKey[] =
+    fallback === "position" ? ["position", ...sortKeys] : sortKeys;
+  const sort = accepted.find((k) => k === sortParam) ?? fallback;
   const dir = sp.get("dir");
   const page = Number.parseInt(sp.get("page") ?? "1", 10);
   return {
@@ -63,10 +75,13 @@ export function parseParams(sp: URLSearchParams): LibraryParams {
 }
 
 /** Writes only what differs from the defaults, so a bare `#/library` stays bare. */
-export function toSearchParams(p: LibraryParams): URLSearchParams {
+export function toSearchParams(
+  p: LibraryParams,
+  fallback: DefaultSort = "name",
+): URLSearchParams {
   const sp = new URLSearchParams();
   if (p.view !== "cards") sp.set("view", p.view);
-  if (p.sort !== "name" || p.descending) {
+  if (p.sort !== fallback || p.descending) {
     sp.set("sort", p.sort);
     sp.set("dir", p.descending ? "desc" : "asc");
   }
@@ -79,15 +94,20 @@ export function toSearchParams(p: LibraryParams): URLSearchParams {
   return sp;
 }
 
+/** The filters as a `Filter`, the shape a smart collection stores as its rule. */
+export function toFilter(p: LibraryParams): Filter {
+  return {
+    types: p.types,
+    tags: p.tags,
+    sources: p.sources,
+    text: p.text.trim() === "" ? null : p.text,
+  };
+}
+
 export function toQuery(p: LibraryParams): Query {
   const limit = PER_PAGE[p.view];
   return {
-    filter: {
-      types: p.types,
-      tags: p.tags,
-      sources: p.sources,
-      text: p.text.trim() === "" ? null : p.text,
-    },
+    filter: toFilter(p),
     sort: p.sort,
     descending: p.descending,
     offset: (p.page - 1) * limit,

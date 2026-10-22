@@ -542,6 +542,11 @@ impl Library {
         collections::reorder(&self.store.conn, collection_id, ordered_ids)
     }
 
+    /// The ids of the manual collections an artifact is in.
+    pub fn artifact_collections(&self, artifact_id: &str) -> Result<Vec<i64>> {
+        collections::containing(&self.store.conn, artifact_id)
+    }
+
     /// One page of a collection's members, through the same filters, sort, pages and facets as
     /// [`Library::list`]. A smart collection's rule is ANDed with the query's own filter. For a
     /// manual collection `SortKey::Position` keeps its manual order (ascending is first to
