@@ -189,6 +189,31 @@ fn diagnostic_counts_come_from_the_stored_artifact() {
 }
 
 #[test]
+fn file_and_reference_counts_come_from_the_stored_artifact() {
+    let (_d, lib) = fixture();
+    lib.store
+        .conn
+        .execute(
+            "UPDATE artifacts SET artifact = ?1 WHERE id = 'a1'",
+            params![r#"{"files":["a.md","b.md","c.md"],"references":[{"resolved":true},{"resolved":false},{"resolved":true}]}"#],
+        )
+        .expect("update");
+    let page = lib
+        .list(&q(Filter {
+            text: Some("reviewer".into()),
+            ..Filter::default()
+        }))
+        .expect("list");
+    let i = &page.items[0];
+    assert_eq!(
+        (i.file_count, i.reference_count, i.resolved_references),
+        (3, 3, 2)
+    );
+    assert_eq!(page.unfiltered_total, 5);
+    assert_eq!(page.total, 1);
+}
+
+#[test]
 fn filter_by_types_ors_within() {
     let (_d, lib) = fixture();
     let f = Filter {

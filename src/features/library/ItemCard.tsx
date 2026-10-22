@@ -1,5 +1,5 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
-import { Findings, importedDate, sourceText, TagChips } from "./ItemMeta";
+import { CardCounts, Findings, sourceText, TagChips } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
@@ -33,8 +33,8 @@ export function ItemCard({
         <span className={styles.srcline} title={sourceText(item)}>
           {sourceText(item)}
         </span>
+        <CardCounts item={item} />
         <Findings item={item} />
-        <span className={styles.date}>{importedDate(item)}</span>
       </span>
     </button>
   );

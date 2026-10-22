@@ -201,8 +201,42 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex-wrap: wrap;
   margin-bottom: var(--space-md);
   color: var(--t2);
+}
+.grow {
+  flex: 1;
+}
+.sorts {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  max-width: 100%;
+  padding: var(--space-xxs) var(--space-xs) var(--space-xxs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-weight: 500;
+}
+.fchipLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.fchipX {
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
 }
 .sortChip {
   display: inline-flex;
@@ -309,6 +343,14 @@
   padding-top: var(--space-sm);
   border-top: var(--hairline) solid var(--line);
   min-width: 0;
+  flex-wrap: wrap;
+  row-gap: var(--space-xs);
+}
+.counts {
+  color: var(--t3);
+  font-size: var(--text-label);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .srcline {
   font-family: var(--font-mono);
@@ -317,8 +359,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
-  flex: 1;
+  min-width: min(100%, 16ch);
+  flex: 1 1 0;
 }
 .date {
   color: var(--t3);

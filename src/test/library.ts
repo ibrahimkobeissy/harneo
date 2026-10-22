@@ -18,6 +18,9 @@ export function item(
     importedAt: 1_700_000_000n,
     errorCount: 0,
     warningCount: 0,
+    fileCount: 1,
+    referenceCount: 0,
+    resolvedReferences: 0,
     ...over,
   };
 }
@@ -29,5 +32,6 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
     total: items.length,
     facets: { kinds: [], tags: [], sources: [] },
     ...over,
+    unfilteredTotal: over.unfilteredTotal ?? over.total ?? items.length,
   };
 }

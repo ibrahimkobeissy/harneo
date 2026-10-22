@@ -14,4 +14,16 @@ tags: Array<TagChip>,
 /**
  * Unix seconds.
  */
-importedAt: bigint, errorCount: number, warningCount: number, };
+importedAt: bigint, errorCount: number, warningCount: number, 
+/**
+ * Files that travel with the artifact.
+ */
+fileCount: number, 
+/**
+ * References the artifact makes to other artifacts.
+ */
+referenceCount: number, 
+/**
+ * How many of those references were found in the same scan.
+ */
+resolvedReferences: number, };

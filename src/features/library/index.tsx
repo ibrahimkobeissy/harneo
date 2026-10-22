@@ -4,12 +4,13 @@ import {
   Bookmark,
   LayoutGrid,
   List,
+  Download,
   ListFilter,
   SearchX,
   TriangleAlert,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Collection } from "../../bindings/Collection";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Page } from "../../bindings/Page";
@@ -40,6 +41,7 @@ import {
   type View,
 } from "./params";
 import { Pager } from "./Pager";
+import { ResultsToolbar } from "./ResultsToolbar";
 import { SearchBox } from "./SearchBox";
 import { Welcome } from "./Welcome";
 
@@ -112,6 +114,7 @@ export function LibraryScreen({
   collection?: Collection | null;
 }) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { refresh: refreshCollections, openNew } = useCollections();
   const manual = collection?.kind === "manual";
   const fallback: DefaultSort = manual ? "position" : "name";
@@ -213,6 +216,10 @@ export function LibraryScreen({
     update({ [group]: next } as Partial<LibraryParams>);
   }
 
+  function clearAll() {
+    update({ types: [], tags: [], sources: [], text: "" });
+  }
+
   function sortBy(key: SortKey) {
     if (key === params.sort) update({ descending: !params.descending });
     else update({ sort: key, descending: defaultDescending(key) });
@@ -231,16 +238,9 @@ export function LibraryScreen({
         <FilterColumn
           facets={page.facets}
           params={params}
-          filtered={filtered}
           onToggle={toggle}
           onClearGroup={(group) =>
             update({ [group]: [] } as Partial<LibraryParams>)
-          }
-          onClearAll={() =>
-            update({ types: [], tags: [], sources: [], text: "" })
-          }
-          onSaveCollection={
-            collection ? undefined : () => openNew({ rule: toFilter(params) })
           }
         />
       )}
@@ -264,11 +264,6 @@ export function LibraryScreen({
           </h1>
           {collection && (
             <Badge>{collection.kind === "smart" ? "Smart" : "Manual"}</Badge>
-          )}
-          {page && (
-            <span className={styles.count} aria-live="polite">
-              {page.total} {page.total === 1 ? "artifact" : "artifacts"}
-            </span>
           )}
           <SearchBox
             value={params.text}
@@ -294,6 +289,12 @@ export function LibraryScreen({
               List
             </button>
           </div>
+          {!collection && (
+            <Button variant="primary" onClick={() => void navigate("/import")}>
+              <Download size={14} aria-hidden="true" />
+              Import
+            </Button>
+          )}
         </header>
         {collection && (
           <CollectionBar
@@ -304,36 +305,56 @@ export function LibraryScreen({
             }}
           />
         )}
-        {params.view === "cards" && (
-          <div className={styles.toolbar} role="group" aria-label="Sort by">
-            <span>Sort</span>
-            {sorts.map((key) => {
-              const active = key === params.sort;
-              const Arrow = params.descending ? ArrowDown : ArrowUp;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  className={
-                    active
-                      ? `${styles.sortChip} ${styles.sortChipOn}`
-                      : styles.sortChip
-                  }
-                  aria-pressed={active}
-                  onClick={() => sortBy(key)}
-                >
-                  {sortLabels[key]}
-                  {active && (
-                    <>
-                      <Arrow size={12} aria-hidden="true" />
-                      <span className={styles.sr}>
-                        {params.descending ? ", descending" : ", ascending"}
-                      </span>
-                    </>
-                  )}
-                </button>
-              );
-            })}
+        {page && (
+          <div className={styles.toolbar}>
+            <ResultsToolbar
+              params={params}
+              facets={page.facets}
+              total={page.total}
+              unfilteredTotal={page.unfilteredTotal}
+              filtered={filtered}
+              onRemove={toggle}
+              onClearText={() => update({ text: "" })}
+              onClearAll={clearAll}
+              onSaveCollection={
+                collection
+                  ? undefined
+                  : () => openNew({ rule: toFilter(params) })
+              }
+            />
+            <span className={styles.grow} />
+            {params.view === "cards" && (
+              <div className={styles.sorts} role="group" aria-label="Sort by">
+                <span>Sort</span>
+                {sorts.map((key) => {
+                  const active = key === params.sort;
+                  const Arrow = params.descending ? ArrowDown : ArrowUp;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      className={
+                        active
+                          ? `${styles.sortChip} ${styles.sortChipOn}`
+                          : styles.sortChip
+                      }
+                      aria-pressed={active}
+                      onClick={() => sortBy(key)}
+                    >
+                      {sortLabels[key]}
+                      {active && (
+                        <>
+                          <Arrow size={12} aria-hidden="true" />
+                          <span className={styles.sr}>
+                            {params.descending ? ", descending" : ", ascending"}
+                          </span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
         <div aria-busy={load.status === "loading"}>
@@ -374,13 +395,7 @@ export function LibraryScreen({
                     {params.text ? ` and “${params.text}”` : ""}.
                   </EmptyState>
                   <div className={styles.retry}>
-                    <Button
-                      onClick={() =>
-                        update({ types: [], tags: [], sources: [], text: "" })
-                      }
-                    >
-                      Clear filters
-                    </Button>
+                    <Button onClick={clearAll}>Clear filters</Button>
                   </div>
                 </>
               )}

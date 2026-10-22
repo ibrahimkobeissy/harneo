@@ -9,4 +9,8 @@ export type Page = { items: Array<LibraryItem>,
 /**
  * Artifacts matching the filter, across all pages.
  */
-total: number, facets: Facets, };
+total: number, 
+/**
+ * Artifacts in the library (or the collection) before any filter: the "M" of "N of M".
+ */
+unfilteredTotal: number, facets: Facets, };

@@ -128,6 +128,12 @@ pub struct LibraryItem {
     pub imported_at: i64,
     pub error_count: u32,
     pub warning_count: u32,
+    /// Files that travel with the artifact.
+    pub file_count: u32,
+    /// References the artifact makes to other artifacts.
+    pub reference_count: u32,
+    /// How many of those references were found in the same scan.
+    pub resolved_references: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -176,6 +182,8 @@ pub struct Page {
     pub items: Vec<LibraryItem>,
     /// Artifacts matching the filter, across all pages.
     pub total: u32,
+    /// Artifacts in the library (or the collection) before any filter: the "M" of "N of M".
+    pub unfiltered_total: u32,
     pub facets: Facets,
 }
 
@@ -331,6 +339,16 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
         |r| r.get(0),
     )?;
 
+    let (base_clause, base_params) = build(&Filter::default(), None, scope)?;
+    let unfiltered: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id \
+             WHERE {base_clause}"
+        ),
+        params_from_iter(base_params.iter()),
+        |r| r.get(0),
+    )?;
+
     let order = match query.sort {
         SortKey::Name => "a.name COLLATE NOCASE".to_owned(),
         SortKey::Kind => "a.kind".to_owned(),
@@ -358,7 +376,11 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.diagnostics')
                   WHERE json_extract(value, '$.severity') = 'error'),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.diagnostics')
-                  WHERE json_extract(value, '$.severity') = 'warning')
+                  WHERE json_extract(value, '$.severity') = 'warning'),
+                (SELECT COUNT(*) FROM json_each(p.artifact, '$.files')),
+                (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')),
+                (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
+                  WHERE json_extract(value, '$.resolved') = 1)
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
                       s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
@@ -380,6 +402,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, Option<String>>(8)?,
             r.get::<_, i64>(9)?,
             r.get::<_, i64>(10)?,
+            r.get::<_, i64>(11)?,
+            r.get::<_, i64>(12)?,
+            r.get::<_, i64>(13)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -396,6 +421,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             branch,
             errors,
             warnings,
+            files,
+            references,
+            resolved,
         ) = row?;
         items.push(LibraryItem {
             id,
@@ -412,6 +440,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             imported_at,
             error_count: count(errors),
             warning_count: count(warnings),
+            file_count: count(files),
+            reference_count: count(references),
+            resolved_references: count(resolved),
         });
     }
     drop(stmt);
@@ -419,6 +450,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
     Ok(Page {
         items,
         total: count(total),
+        unfiltered_total: count(unfiltered),
         facets: facets(conn, &query.filter, scope)?,
     })
 }

@@ -1,7 +1,6 @@
-import { Check, ListFilter } from "lucide-react";
+import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Facets } from "../../bindings/Facets";
-import { Button } from "../../ui";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
 import styles from "./Library.module.css";
@@ -68,35 +67,17 @@ function GroupHead({
 export function FilterColumn({
   facets,
   params,
-  filtered,
   onToggle,
   onClearGroup,
-  onClearAll,
-  onSaveCollection,
 }: {
   facets: Facets;
   params: LibraryParams;
-  filtered: boolean;
   onToggle: (group: FilterGroup, value: string) => void;
   onClearGroup: (group: FilterGroup) => void;
-  onClearAll: () => void;
-  /** Offered while filters are on (the Library only): save them as a smart collection. */
-  onSaveCollection?: () => void;
 }) {
   return (
     <aside className={styles.filters} aria-label="Filters">
       <div className={styles.filtersIn}>
-        {filtered && (
-          <Button small variant="ghost" onClick={onClearAll}>
-            Clear filters
-          </Button>
-        )}
-        {filtered && onSaveCollection && (
-          <Button small variant="ghost" onClick={onSaveCollection}>
-            <ListFilter size={14} aria-hidden="true" />
-            Save as smart collection
-          </Button>
-        )}
         <GroupHead
           title="Type"
           active={params.types.length > 0}

@@ -47,6 +47,28 @@ export function Findings({ item }: { item: LibraryItem }) {
   );
 }
 
+/** File count and resolved/total references, for the card footer. */
+export function CardCounts({ item }: { item: LibraryItem }) {
+  const files = `${item.fileCount} ${item.fileCount === 1 ? "file" : "files"}`;
+  const refs =
+    item.referenceCount === 0
+      ? null
+      : `${item.resolvedReferences}/${item.referenceCount} ${item.referenceCount === 1 ? "ref" : "refs"}`;
+  return (
+    <span
+      className={styles.counts}
+      title={
+        refs
+          ? `${files}; ${item.resolvedReferences} of ${item.referenceCount} references found in the source`
+          : files
+      }
+    >
+      {files}
+      {refs && ` · ${refs}`}
+    </span>
+  );
+}
+
 export function importedDate(item: LibraryItem): string {
   return new Date(Number(item.importedAt) * 1000).toLocaleDateString();
 }

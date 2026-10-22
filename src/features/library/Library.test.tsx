@@ -46,6 +46,9 @@ const sample: LibraryItem[] = [
     ],
     errorCount: 2,
     warningCount: 1,
+    fileCount: 4,
+    referenceCount: 3,
+    resolvedReferences: 2,
     source: { id: "s2", kind: "git", label: "acme/kit", branch: "main" },
   }),
   item("beta", { description: null }, "agent"),
@@ -111,6 +114,7 @@ describe("cards view", () => {
     expect(card).toHaveTextContent("+1");
     expect(card).toHaveTextContent("2 errors");
     expect(card).toHaveTextContent("1 warning");
+    expect(card).toHaveTextContent("4 files · 2/3 refs");
     const second = screen.getByRole("button", { name: /beta/ });
     expect(second).toHaveTextContent("Subagent");
     expect(second).not.toHaveTextContent("error");
@@ -277,6 +281,30 @@ describe("filters and search", () => {
     await waitFor(() => expect(last().filter.types).toEqual([]));
   });
 
+  it("shows one removable chip per filter with an N of M count", async () => {
+    const user = userEvent.setup();
+    const { last } = setup(
+      (q) =>
+        page(sample, {
+          total: q.filter.tags.length ? 2 : 7,
+          unfilteredTotal: 7,
+          facets,
+        }),
+      "/library?tag=review&q=alp",
+    );
+    await screen.findByText("alpha");
+    expect(screen.getByText("2 of 7 artifacts")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Remove filter “alp”" }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: "Remove filter review" }),
+    );
+    await waitFor(() => expect(last().filter.tags).toEqual([]));
+    expect(last().filter.text).toBe("alp");
+    expect(await screen.findByText("7 artifacts")).toBeInTheDocument();
+  });
+
   it("clears one group or all filters", async () => {
     const user = userEvent.setup();
     const { last, search } = setup(
@@ -292,7 +320,7 @@ describe("filters and search", () => {
     await user.click(screen.getByRole("button", { name: "Clear type filter" }));
     await waitFor(() => expect(last().filter.types).toEqual([]));
     expect(last().filter.tags).toEqual(["review"]);
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await user.click(screen.getByRole("button", { name: "Clear all" }));
     await waitFor(() => expect(last().filter.tags).toEqual([]));
     expect(last().filter.text).toBeNull();
     expect(search()).toBe("");
@@ -427,10 +455,8 @@ describe("states", () => {
       "/library?q=zzz",
     );
     expect(await screen.findByText("No artifacts match")).toBeInTheDocument();
-    expect(screen.getByText(/“zzz”/)).toBeInTheDocument();
-    const clears = screen.getAllByRole("button", { name: "Clear filters" });
-    expect(clears).toHaveLength(2);
-    await user.click(must(clears[1]));
+    expect(screen.getByText(/these filters and “zzz”/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
     await waitFor(() => expect(last().filter.text).toBeNull());
     expect(await screen.findByText("alpha")).toBeInTheDocument();
   });
