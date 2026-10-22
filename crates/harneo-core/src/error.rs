@@ -22,6 +22,20 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
+    /// The library index could not be opened, migrated or queried.
+    #[error("library database error: {0}")]
+    Database(#[from] rusqlite::Error),
+    /// The library was written by a newer Harneo than this one.
+    #[error(
+        "the library uses schema version {found}, but this Harneo only understands up to \
+         {supported}; update Harneo to open it"
+    )]
+    SchemaTooNew {
+        /// The version stored in the database.
+        found: u32,
+        /// The newest version this build can read.
+        supported: u32,
+    },
 }
 
 /// Result alias used across `harneo-core`.

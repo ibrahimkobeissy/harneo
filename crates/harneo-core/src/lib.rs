@@ -3,6 +3,7 @@
 
 pub mod artifact;
 pub mod error;
+pub mod library;
 pub mod paths;
 
 pub use error::{Error, Result};
