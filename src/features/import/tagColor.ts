@@ -1,7 +1,7 @@
 import type { TagColor } from "../../bindings/TagColor";
 
 /** The tag palette in core's order (`TagColor::ALL`); the default color indexes into it. */
-const palette: readonly TagColor[] = [
+export const palette: readonly TagColor[] = [
   "cyan",
   "sky",
   "indigo",

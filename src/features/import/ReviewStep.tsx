@@ -2,9 +2,11 @@ import { Plus, TriangleAlert, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { TagColor } from "../../bindings/TagColor";
+import type { TagWithCount } from "../../bindings/TagWithCount";
 import { tagsList } from "../../lib/ipc";
 import { Tag } from "../../ui";
 import styles from "./Import.module.css";
+import { TagAll } from "./TagAll";
 import { defaultTagColor } from "./tagColor";
 
 /** Core's limit on a tag name (`MAX_NAME_CHARS`). */
@@ -71,22 +73,30 @@ function AddTag({
 export function ReviewStep({
   chosen,
   tags,
+  colors,
   onRemoveTag,
   onAddTag,
+  onAddAll,
+  onRemoveAll,
 }: {
   chosen: Candidate[];
   tags: Readonly<Record<string, string[]>>;
+  /** Colors picked in Tag all for names that are new to the library (lowercased name). */
+  colors: Readonly<Record<string, TagColor>>;
+  onAddAll: (name: string, color: TagColor | null) => void;
+  onRemoveAll: (name: string) => void;
   onRemoveTag: (id: string, tag: string) => void;
   onAddTag: (id: string, tag: string) => void;
 }) {
   // Existing library tags keep their color; a new name gets the one core will give it.
-  const [known, setKnown] = useState<ReadonlyMap<string, TagColor>>(new Map());
+  const [list, setList] = useState<TagWithCount[]>([]);
+  const known = new Map(list.map((t) => [t.name.toLowerCase(), t.color]));
   useEffect(() => {
     let live = true;
     tagsList()
       .then((list) => {
         if (live && Array.isArray(list)) {
-          setKnown(new Map(list.map((t) => [t.name.toLowerCase(), t.color])));
+          setList(list);
         }
       })
       .catch(() => undefined);
@@ -95,7 +105,14 @@ export function ReviewStep({
     };
   }, []);
   const tint = (name: string) =>
-    known.get(name.toLowerCase()) ?? defaultTagColor(name);
+    known.get(name.toLowerCase()) ??
+    colors[name.toLowerCase()] ??
+    defaultTagColor(name);
+  // Tags that every row carries, in the first row's order and spelling.
+  const rows = chosen.map((c) => tags[c.id] ?? []);
+  const common = (rows[0] ?? []).filter((t) =>
+    rows.every((own) => own.some((o) => o.toLowerCase() === t.toLowerCase())),
+  );
   const withSecrets = chosen.filter((c) => c.replacedSecretKeys.length > 0);
   return (
     <>
@@ -106,6 +123,30 @@ export function ReviewStep({
           own
         </span>
       </h2>
+      <div className={styles.bulkTags}>
+        <TagAll
+          existing={list}
+          skip={new Set(common.map((t) => t.toLowerCase()))}
+          maxChars={MAX_TAG_CHARS}
+          onPick={onAddAll}
+        />
+        {common.length > 0 && (
+          <span className={styles.bulkLabel}>On every artifact:</span>
+        )}
+        {common.map((t) => (
+          <Tag key={t} tint={tint(t)} dot>
+            {t}
+            <button
+              type="button"
+              className={styles.chipX}
+              aria-label={`Remove ${t} from all`}
+              onClick={() => onRemoveAll(t)}
+            >
+              <X size={12} aria-hidden="true" />
+            </button>
+          </Tag>
+        ))}
+      </div>
       <div className={styles.group}>
         {chosen.map((c) => {
           const own = tags[c.id] ?? [];

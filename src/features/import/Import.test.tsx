@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { Preview } from "../../bindings/Preview";
+import type { TagWithCount } from "../../bindings/TagWithCount";
 import { ImportScreen } from ".";
 import { defaultTagColor } from "./tagColor";
 
@@ -74,6 +75,7 @@ function setup(opts: {
   state?: unknown;
   picked?: string | null;
   failImport?: string;
+  libraryTags?: TagWithCount[];
 }) {
   const calls: Call[] = [];
   mockIPC((cmd, args) => {
@@ -93,6 +95,10 @@ function setup(opts: {
             skippedFiles: [],
           }
         );
+      case "tags_list":
+        return opts.libraryTags ?? [];
+      case "tag_create":
+        return { id: 99, ...(args as object) };
       case "plugin:dialog|open":
         return opts.picked ?? null;
       default:
@@ -660,6 +666,83 @@ describe("Import screen", () => {
         }
       ).tags["id-alpha"],
     ).toEqual(["review", "docs", "Mine"]);
+  });
+
+  it("Tag all tags every importing artifact and rows stay editable", async () => {
+    const u = user();
+    const calls = setup({
+      libraryTags: [{ id: 5n, name: "second-brain", color: "teal", count: 3 }],
+    });
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Tag all" }));
+    await u.click(await screen.findByRole("option", { name: /second-brain/ }));
+    for (const n of ["alpha", "gamma", "settings"]) {
+      expect(
+        screen.getByRole("button", { name: `Remove second-brain from ${n}` }),
+      ).toBeInTheDocument();
+    }
+    await u.click(
+      screen.getByRole("button", { name: "Remove second-brain from gamma" }),
+    );
+    expect(
+      screen.queryByRole("button", { name: "Remove second-brain from all" }),
+    ).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: /^Import/ }));
+    await screen.findByText(/Imported/);
+    expect(
+      (
+        calls.find((c) => c.cmd === "library_import")?.args as {
+          tags: Record<string, string[]>;
+        }
+      ).tags,
+    ).toEqual({
+      "id-alpha": ["review", "docs", "second-brain"],
+      "id-gamma": [],
+      "id-settings": ["second-brain"],
+    });
+    expect(calls.some((c) => c.cmd === "tag_create")).toBe(false);
+  });
+
+  it("Remove from all drops a tag present on every row", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Tag all" }));
+    await u.type(screen.getByRole("combobox"), "shared{Enter}");
+    expect(screen.getAllByText("shared")).toHaveLength(4);
+    await u.click(
+      screen.getByRole("button", { name: "Remove shared from all" }),
+    );
+    expect(screen.queryByText("shared")).not.toBeInTheDocument();
+    expect(screen.getByText("review")).toBeInTheDocument();
+  });
+
+  it("creates a new Tag all tag with the chosen color before importing", async () => {
+    const u = user();
+    const calls = setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Tag all" }));
+    await u.type(screen.getByRole("combobox"), "Fresh");
+    await u.click(screen.getByRole("radio", { name: "pink" }));
+    await u.click(screen.getByRole("option", { name: /Create/ }));
+    expect(screen.getAllByText("Fresh")[0]?.closest("span")).toHaveAttribute(
+      "data-tint",
+      "pink",
+    );
+    await u.click(screen.getByRole("button", { name: /^Import/ }));
+    await screen.findByText(/Imported/);
+    const order = calls.map((c) => c.cmd);
+    expect(order.indexOf("tag_create")).toBeGreaterThan(-1);
+    expect(order.indexOf("tag_create")).toBeLessThan(
+      order.indexOf("library_import"),
+    );
+    expect(calls.find((c) => c.cmd === "tag_create")?.args).toEqual({
+      name: "Fresh",
+      color: "pink",
+    });
   });
 
   it("keeps the progress list valid: only list items inside the list", async () => {

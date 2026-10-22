@@ -3,12 +3,15 @@ import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { Preview } from "../../bindings/Preview";
+import type { TagColor } from "../../bindings/TagColor";
 import type { Source } from "../../bindings/Source";
 import {
   homeClaudeDir,
   libraryImport,
   libraryPreview,
   pickFolder,
+  tagCreate,
+  tagsList,
 } from "../../lib/ipc";
 import { Button, Screen } from "../../ui";
 import { ChooseStep, Scanning } from "./ChooseStep";
@@ -73,6 +76,8 @@ export function ImportScreen() {
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
   const [tags, setTags] = useState<Record<string, string[]>>({});
+  // Colors picked in Tag all for names new to the library, created before the import.
+  const [newColors, setNewColors] = useState<Record<string, TagColor>>({});
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
@@ -152,6 +157,23 @@ export function ImportScreen() {
     }
   }
 
+  /** `library_import` creates missing tags with the default color, so a color chosen in Tag
+   * all is applied by creating the tag first. A name that already exists is left alone. */
+  async function createColoredTags(used: string[]) {
+    const wanted = new Map<string, string>();
+    for (const name of used) {
+      if (newColors[name.toLowerCase()]) wanted.set(name.toLowerCase(), name);
+    }
+    if (wanted.size === 0) return;
+    const existing = new Set(
+      (await tagsList()).map((t) => t.name.toLowerCase()),
+    );
+    for (const [lower, name] of wanted) {
+      const color = newColors[lower];
+      if (color && !existing.has(lower)) await tagCreate(name, color);
+    }
+  }
+
   async function runImport() {
     if (!preview) return;
     setImporting(true);
@@ -159,6 +181,7 @@ export function ImportScreen() {
     try {
       const picked: Record<string, string[]> = {};
       for (const c of chosen) picked[c.id] = tags[c.id] ?? [];
+      await createColoredTags(Object.values(picked).flat());
       setReport(
         await libraryImport(
           preview,
@@ -264,6 +287,37 @@ export function ImportScreen() {
           <ReviewStep
             chosen={chosen}
             tags={tags}
+            colors={newColors}
+            onAddAll={(name, color) => {
+              if (color) {
+                setNewColors((prev) => ({
+                  ...prev,
+                  [name.toLowerCase()]: color,
+                }));
+              }
+              setTags((prev) => {
+                const next = { ...prev };
+                for (const c of chosen) {
+                  const own = prev[c.id] ?? [];
+                  const dup = own.some(
+                    (t) => t.toLowerCase() === name.toLowerCase(),
+                  );
+                  if (!dup) next[c.id] = [...own, name];
+                }
+                return next;
+              });
+            }}
+            onRemoveAll={(name) =>
+              setTags((prev) => {
+                const next = { ...prev };
+                for (const c of chosen) {
+                  next[c.id] = (prev[c.id] ?? []).filter(
+                    (t) => t.toLowerCase() !== name.toLowerCase(),
+                  );
+                }
+                return next;
+              })
+            }
             onRemoveTag={(id, tag) =>
               setTags((prev) => ({
                 ...prev,
