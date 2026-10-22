@@ -261,6 +261,14 @@ describe("new collection", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("explains that collections install nothing in the empty state", async () => {
+    const empty: Stored = { ...manualKit, id: 3, name: "Empty", members: [] };
+    setup([empty], "/collections/3");
+    expect(
+      await screen.findByText(/Collections only organize the library/),
+    ).toBeInTheDocument();
+  });
+
   it("builds a smart rule with a live count and creates it", async () => {
     const user = userEvent.setup();
     const { sent, where } = setup();
@@ -276,13 +284,14 @@ describe("new collection", () => {
     ).toBeInTheDocument();
     // The Tag and Source chips come from tags_list and the library facets.
     expect(
-      await within(dialog).findByRole("button", { name: "#review" }),
+      await within(dialog).findByRole("button", { name: "review" }),
     ).toBeInTheDocument();
     expect(
       await within(dialog).findByRole("button", { name: "agent-skills" }),
     ).toBeInTheDocument();
 
     // Creating with no condition is refused.
+    await user.type(within(dialog).getByLabelText("Name"), "Skills only");
     await user.click(
       within(dialog).getByRole("button", { name: "Create collection" }),
     );
@@ -300,7 +309,6 @@ describe("new collection", () => {
       await within(dialog).findByText(/Matches 3 artifacts now/),
     ).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Subagents" }));
-    await user.type(within(dialog).getByLabelText("Name"), "Skills only");
     await user.click(
       within(dialog).getByRole("button", { name: "Create collection" }),
     );
@@ -341,6 +349,37 @@ describe("new collection", () => {
     expect(asked).toContain("review");
   });
 
+  it("asks for a name and focuses the field instead of using a default", async () => {
+    const user = userEvent.setup();
+    const { sent } = setup();
+    await user.click(
+      await screen.findByRole("button", { name: "New collection" }),
+    );
+    await user.click(screen.getByRole("button", { name: "Create collection" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Give the collection a name",
+    );
+    const field = screen.getByRole("textbox", { name: "Name" });
+    expect(field).toHaveFocus();
+    expect(field).toBeInvalid();
+    expect(sent("collection_create_manual")).toHaveLength(0);
+  });
+
+  it("closes when the route changes", async () => {
+    const user = userEvent.setup();
+    setup([manualKit]);
+    await user.click(
+      await screen.findByRole("button", { name: "New collection" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "New collection" }),
+    ).toBeInTheDocument();
+    await user.click(await screen.findByRole("link", { name: /Review kit/ }));
+    expect(
+      screen.queryByRole("dialog", { name: "New collection" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("reports a name the library refuses", async () => {
     const user = userEvent.setup();
     setup();
@@ -351,6 +390,7 @@ describe("new collection", () => {
     await user.click(
       await screen.findByRole("button", { name: "New collection" }),
     );
+    await user.type(screen.getByRole("textbox", { name: "Name" }), "Taken");
     await user.click(screen.getByRole("button", { name: "Create collection" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("name taken");
     expect(
@@ -375,7 +415,7 @@ describe("new collection", () => {
       within(dialog).getByRole("button", { name: "Skills" }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(
-      await within(dialog).findByRole("button", { name: "#review" }),
+      await within(dialog).findByRole("button", { name: "review" }),
     ).toHaveAttribute("aria-pressed", "true");
     await user.type(within(dialog).getByLabelText("Name"), "Reviewing");
     await user.click(
@@ -418,6 +458,8 @@ describe("collection screen", () => {
       screen.getByRole("button", { name: /Manual order/ }),
     ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByText(/Hand-picked/)).toBeInTheDocument();
+    // The "only organize" note belongs to the empty state, not to every collection.
+    expect(screen.queryByText(/only organize/)).not.toBeInTheDocument();
     // The filter column is the library's, and a manual collection has no rule to edit.
     expect(
       screen.getByRole("complementary", { name: "Filters" }),

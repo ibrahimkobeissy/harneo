@@ -73,6 +73,9 @@ describe("shortcuts dialog", () => {
     await user.keyboard("?");
     const dialog = screen.getByRole("dialog", { name: "Keyboard shortcuts" });
     expect(within(dialog).getByText("Ctrl K")).toBeInTheDocument();
+    expect(within(dialog).getByText("/")).toBeInTheDocument();
+    expect(within(dialog).getByText("← ↑ → ↓")).toBeInTheDocument();
+    expect(within(dialog).getByText("Home End")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });

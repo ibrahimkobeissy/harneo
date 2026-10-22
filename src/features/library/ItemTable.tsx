@@ -52,25 +52,36 @@ export function ItemTable({
         {items.map((item) => (
           <tr
             key={item.id}
-            tabIndex={0}
-            data-item-id={item.id}
             className={styles.row}
-            onClick={() => onOpen(item)}
-            onKeyDown={(event) => {
-              if (event.currentTarget === event.target && event.key === "Enter")
+            onClick={(event) => {
+              // The name button handles its own click; the rest of the row delegates to it.
+              if (!(
+                event.target instanceof Element &&
+                event.target.closest("button")
+              ))
                 onOpen(item);
             }}
           >
             <td>
               <span className={styles.nameCell}>
                 <KindChip kind={item.kind} small />
-                <span className={styles.ell}>{item.name}</span>
+                <button
+                  type="button"
+                  className={styles.rowName}
+                  data-item-id={item.id}
+                  title={item.name}
+                  onClick={() => onOpen(item)}
+                >
+                  {item.name}
+                </button>
                 <Findings item={item} />
               </span>
             </td>
             <td>{kinds[item.kind].label}</td>
             <td className={styles.mono}>
-              <span className={styles.ell}>{sourceText(item)}</span>
+              <span className={styles.ell} title={sourceText(item)}>
+                {sourceText(item)}
+              </span>
             </td>
             <td>
               <span className={styles.rowTags}>

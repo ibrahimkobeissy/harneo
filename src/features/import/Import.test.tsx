@@ -482,6 +482,15 @@ describe("Import screen", () => {
     ).toEqual(["review", "docs", "Mine"]);
   });
 
+  it("keeps the progress list valid: only list items inside the list", async () => {
+    setup({});
+    const steps = await screen.findByRole("list", { name: "Progress" });
+    expect(
+      Array.from(steps.children).every((child) => child.tagName === "LI"),
+    ).toBe(true);
+    expect(steps.children).toHaveLength(3);
+  });
+
   it("renders the secrets list without list markers", async () => {
     const u = user();
     setup({});

@@ -78,6 +78,17 @@ describe("palette", () => {
       "No matches for “zzz”.",
     );
   });
+
+  it("offers a Library search when nothing matches, and Enter runs it", async () => {
+    const user = await openPalette();
+    await user.type(screen.getByRole("combobox"), "zzz");
+    expect(
+      screen.getByRole("button", { name: "Search the Library for it" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Enter}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(await screen.findByRole("searchbox")).toHaveValue("zzz");
+  });
 });
 
 describe("frame", () => {

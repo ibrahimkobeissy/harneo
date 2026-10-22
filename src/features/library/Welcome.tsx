@@ -21,7 +21,7 @@ const steps = [
     icon: Layers,
     tint: "violet",
     title: "Profile",
-    text: "A named selection, like “Light” or “Heavy”. Picking an artifact brings its whole bundle.",
+    text: "A named selection, like “Light” or “Heavy”. Picking an artifact brings its whole bundle: a skill or command plus the subagents and scripts it needs.",
   },
   {
     icon: FolderGit2,

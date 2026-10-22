@@ -250,11 +250,6 @@
   padding: 0;
   list-style: none;
 }
-.note {
-  flex-basis: 100%;
-  margin: 0;
-  color: var(--t3);
-}
 .barActions {
   display: flex;
   gap: var(--space-sm);

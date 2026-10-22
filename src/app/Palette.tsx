@@ -122,6 +122,12 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
     void navigate(entry.to ?? entry.id);
   }
 
+  function searchLibrary() {
+    if (q === "") return;
+    onClose();
+    void navigate(`/library?q=${encodeURIComponent(query.trim())}`);
+  }
+
   function onKeyDown(ev: KeyboardEvent<HTMLInputElement>) {
     const n = matches.length;
     if (ev.key === "ArrowDown" && n) {
@@ -132,7 +138,8 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
       setActive((current - 1 + n) % n);
     } else if (ev.key === "Enter") {
       ev.preventDefault();
-      run(activeEntry);
+      if (n === 0) searchLibrary();
+      else run(activeEntry);
     }
   }
 
@@ -207,7 +214,15 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
       </div>
       {matches.length === 0 && (
         <p className={styles.none} role="status">
-          No matches for “{query.trim()}”.
+          No matches for “{query.trim()}”.{" "}
+          <button
+            type="button"
+            className={styles.noneLink}
+            onClick={searchLibrary}
+          >
+            Search the Library for it
+          </button>{" "}
+          (Enter)
         </p>
       )}
       <div className={styles.foot}>

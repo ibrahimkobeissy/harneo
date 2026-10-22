@@ -59,3 +59,16 @@
   color: var(--t3);
   font-size: var(--text-label);
 }
+.noneLink {
+  font: inherit;
+  color: var(--blue);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.noneLink:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}

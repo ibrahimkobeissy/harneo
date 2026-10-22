@@ -1,5 +1,13 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate } from "react-router";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactNode,
+  type Ref,
+} from "react";
+import { useLocation, useNavigate } from "react-router";
 import type { Filter } from "../../bindings/Filter";
 import { Modal } from "../../app/Modal";
 import { useCollections } from "../../app/collections";
@@ -10,6 +18,8 @@ import { cleanRule, emptyRule, RuleBuilder, ruleIsEmpty } from "./RuleBuilder";
 import { useEscape } from "./useEscape";
 
 type Kind = "manual" | "smart";
+
+const nameRequired = "Give the collection a name.";
 
 /** A titled dialog with a scrolling body and a footer for its buttons. */
 export function DialogFrame({
@@ -41,10 +51,14 @@ export function NameField({
   value,
   onChange,
   placeholder,
+  invalid = false,
+  inputRef,
 }: {
   value: string;
   onChange: (name: string) => void;
   placeholder?: string;
+  invalid?: boolean;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const id = useId();
   return (
@@ -52,6 +66,8 @@ export function NameField({
       <label htmlFor={id}>Name</label>
       <input
         id={id}
+        ref={inputRef}
+        aria-invalid={invalid || undefined}
         className={styles.input}
         value={value}
         placeholder={placeholder}
@@ -103,15 +119,28 @@ export function NewCollectionDialog({
   const [draft, setDraft] = useState<Filter>(rule ?? emptyRule);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
   useEscape(onClose);
+
+  // Any navigation (sidebar, palette, Back) closes the dialog instead of leaving it over a new screen.
+  const { key: routeKey } = useLocation();
+  const openedAt = useRef(routeKey);
+  useEffect(() => {
+    if (routeKey !== openedAt.current) onClose();
+  }, [routeKey, onClose]);
 
   async function create(event: FormEvent) {
     event.preventDefault();
+    const finalName = name.trim();
+    if (finalName === "") {
+      setError(nameRequired);
+      nameRef.current?.focus();
+      return;
+    }
     if (kind === "smart" && ruleIsEmpty(draft)) {
       setError("Add at least one condition to the rule.");
       return;
     }
-    const finalName = name.trim() || "Untitled collection";
     setBusy(true);
     setError(null);
     try {
@@ -146,6 +175,8 @@ export function NewCollectionDialog({
         <NameField
           value={name}
           onChange={setName}
+          inputRef={nameRef}
+          invalid={error === nameRequired}
           placeholder={
             kind === "smart" ? "e.g. Rust tooling" : "e.g. My review kit"
           }

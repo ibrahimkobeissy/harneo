@@ -69,6 +69,17 @@ export function CardCounts({ item }: { item: LibraryItem }) {
   );
 }
 
+const dateFormat = new Intl.DateTimeFormat(undefined, {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** "21 Oct 2025": the month is spelled out, so the day and month cannot be swapped. */
+export function formatDate(seconds: bigint | number): string {
+  return dateFormat.format(new Date(Number(seconds) * 1000));
+}
+
 export function importedDate(item: LibraryItem): string {
-  return new Date(Number(item.importedAt) * 1000).toLocaleDateString();
+  return formatDate(item.importedAt);
 }

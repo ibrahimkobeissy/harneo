@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./Library.module.css";
 
 const DEBOUNCE_MS = 200;
@@ -23,6 +23,27 @@ export function SearchBox({
     setText(value);
   }
 
+  const input = useRef<HTMLInputElement>(null);
+  // "/" jumps to the search, unless a field, a dialog or a modifier is in the way.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey)
+        return;
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+      )
+        return;
+      if (document.querySelector('[aria-modal="true"]')) return;
+      event.preventDefault();
+      input.current?.focus();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
   useEffect(() => {
     if (text === value) return;
     const timer = setTimeout(() => onCommit(text), DEBOUNCE_MS);
@@ -37,6 +58,7 @@ export function SearchBox({
       <Search size={14} aria-hidden="true" className={styles.searchIcon} />
       <input
         id="library-search"
+        ref={input}
         className={styles.input}
         type="search"
         placeholder="Search artifacts, sources, tags"

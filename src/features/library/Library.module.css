@@ -364,7 +364,8 @@
 }
 .date {
   color: var(--t3);
-  font-size: var(--text-label);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -478,6 +479,20 @@
 .row {
   cursor: pointer;
 }
+.rowName {
+  font: inherit;
+  font-weight: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
 .row:hover td {
   background: var(--side);
 }
@@ -551,7 +566,7 @@
 .sortBtn:focus-visible,
 .sortChip:focus-visible,
 .seg button:focus-visible,
-.row:focus-visible {
+.rowName:focus-visible {
   outline: var(--hairline-strong) solid var(--blue);
   outline-offset: var(--hairline);
 }

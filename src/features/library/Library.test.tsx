@@ -100,7 +100,63 @@ function must<T>(value: T | undefined | null): T {
 
 const full = () => page(sample, { total: 7, facets });
 
+describe("keyboard", () => {
+  it("focuses the search with / but not while typing in a field", async () => {
+    const user = userEvent.setup();
+    setup(full);
+    await screen.findByRole("button", { name: /alpha/ });
+    const search = screen.getByRole("searchbox", { name: "Search artifacts" });
+    await user.keyboard("/");
+    expect(search).toHaveFocus();
+    expect(search).toHaveValue("");
+    await user.keyboard("a/b");
+    expect(search).toHaveValue("a/b");
+  });
+
+  it("moves focus between cards with the arrow keys, Home and End", async () => {
+    const user = userEvent.setup();
+    setup(full);
+    const alpha = await screen.findByRole("button", { name: /alpha/ });
+    const beta = screen.getByRole("button", { name: /beta/ });
+    const grid = must(alpha.parentElement);
+    grid.style.gridTemplateColumns = "100px 100px";
+    alpha.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(beta).toHaveFocus();
+    await user.keyboard("{ArrowLeft}");
+    expect(alpha).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(beta).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(alpha).toHaveFocus();
+    // Down moves by a row: two columns, two cards, so it stays on the last card.
+    await user.keyboard("{ArrowDown}");
+    expect(beta).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
+    expect(alpha).toHaveFocus();
+  });
+
+  it("goes down a whole row, not a card, when the grid has columns", async () => {
+    const user = userEvent.setup();
+    setup(() => page([item("a1"), item("a2"), item("a3"), item("a4")]));
+    const first = await screen.findByRole("button", { name: /a1/ });
+    const grid = must(first.parentElement);
+    grid.style.gridTemplateColumns = "100px 100px";
+    first.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("button", { name: /a3/ })).toHaveFocus();
+  });
+});
+
 describe("cards view", () => {
+  it("does not repeat the name as the type label", async () => {
+    setup(() =>
+      page([item("Settings", { description: null }, "settings"), item("beta")]),
+    );
+    const card = await screen.findByRole("button", { name: /Settings/ });
+    expect(card.textContent?.match(/Settings/g)).toHaveLength(1);
+  });
+
   it("renders each item with its kind, description, source, tags and counts", async () => {
     setup(full);
     expect(
@@ -182,7 +238,18 @@ describe("list view", () => {
     expect(must(rows[1])).toHaveTextContent("alpha");
     expect(must(rows[1])).toHaveTextContent("Skill");
     expect(must(rows[1])).toHaveTextContent("acme/kit @ main");
-    expect(must(rows[1])).toHaveAttribute("tabindex", "0");
+    // The name is a real button; the row itself is not a tab stop.
+    expect(must(rows[1])).not.toHaveAttribute("tabindex");
+    expect(
+      within(must(rows[1])).getByRole("button", { name: "alpha" }),
+    ).toBeInTheDocument();
+    expect(rows.every((r) => r.querySelector("[tabindex]") === null)).toBe(
+      true,
+    );
+    // Dates read "21 Oct 2025", never 10/21/25.
+    expect(must(rows[1])).toHaveTextContent(
+      /\d{1,2}\s\w{3}\s\d{4}|\w{3}\s\d{1,2},\s\d{4}/,
+    );
   });
 
   it.each([
@@ -227,10 +294,22 @@ describe("list view", () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     setup(full, "/library?view=list", onOpen);
-    const row = must((await screen.findAllByRole("row"))[1]);
-    row.focus();
+    const name = await screen.findByRole("button", { name: "alpha" });
+    name.focus();
     await user.keyboard("{Enter}");
+    expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onOpen).toHaveBeenCalledWith(sample[0]);
+  });
+
+  it("opens once when the row itself is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    setup(full, "/library?view=list", onOpen);
+    const row = must((await screen.findAllByRole("row"))[1]);
+    await user.click(within(row).getByText("acme/kit @ main"));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    await user.click(within(row).getByRole("button", { name: "alpha" }));
+    expect(onOpen).toHaveBeenCalledTimes(2);
   });
 
   it("switches between cards and list through the toggle", async () => {

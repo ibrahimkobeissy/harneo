@@ -7,6 +7,9 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
   const shortcuts: readonly { keys: string; does: string }[] = [
     { keys: searchShortcut(), does: "Search and commands" },
     { keys: "?", does: "This list" },
+    { keys: "/", does: "Search the Library" },
+    { keys: "← ↑ → ↓", does: "Move between cards in the Library" },
+    { keys: "Home End", does: "First or last card" },
     { keys: "Esc", does: "Close dialog or palette" },
   ];
   return (

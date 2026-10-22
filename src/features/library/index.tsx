@@ -24,6 +24,7 @@ import { CollectionBar } from "./CollectionBar";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { FilterSheet } from "./FilterSheet";
+import { onGridKeyDown } from "./gridNav";
 import { ItemCard } from "./ItemCard";
 import { ItemTable } from "./ItemTable";
 import cstyles from "./Collections.module.css";
@@ -419,7 +420,9 @@ export function LibraryScreen({
                 >
                   {manual
                     ? "Open an artifact and use Add to… to put it here."
-                    : "No artifact matches this rule yet. It will fill as you import."}
+                    : "No artifact matches this rule yet. It will fill as you import."}{" "}
+                  Collections only organize the library; nothing is installed
+                  until you use a profile.
                 </EmptyState>
               ) : (
                 <>
@@ -436,7 +439,7 @@ export function LibraryScreen({
             </div>
           )}
           {page && page.items.length > 0 && params.view === "cards" && (
-            <div className={styles.grid}>
+            <div className={styles.grid} onKeyDown={onGridKeyDown}>
               {page.items.map((item) => (
                 <ItemCard key={item.id} item={item} onOpen={openItem} />
               ))}

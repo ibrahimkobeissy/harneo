@@ -22,6 +22,7 @@ import {
 import { Button, announce } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
 import styles from "./Detail.module.css";
+import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import { TagsSection } from "./TagsSection";
@@ -94,7 +95,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 
 function SourceSection({ detail }: { detail: ArtifactDetail }) {
   const { source, sourcePath, importedAt } = detail.provenance;
-  const imported = new Date(Number(importedAt) * 1000).toLocaleDateString();
+  const imported = formatDate(importedAt);
   return (
     <section className={styles.sec} aria-labelledby="d-source">
       <h3 id="d-source">Source</h3>
@@ -130,7 +131,9 @@ function SourceSection({ detail }: { detail: ArtifactDetail }) {
         <Row label="Path">
           <span className={styles.mono}>{sourcePath}</span>
         </Row>
-        <Row label="Imported">{imported}</Row>
+        <Row label="Imported">
+          <span className={styles.mono}>{imported}</span>
+        </Row>
       </dl>
     </section>
   );

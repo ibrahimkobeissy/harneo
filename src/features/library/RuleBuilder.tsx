@@ -190,7 +190,7 @@ export function RuleBuilder({
             <Chip
               key={name}
               on={value.tags.includes(name)}
-              label={`#${name}`}
+              label={name}
               onToggle={() =>
                 onChange({ ...value, tags: toggled(value.tags, name) })
               }

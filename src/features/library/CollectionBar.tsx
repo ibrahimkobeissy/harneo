@@ -40,7 +40,7 @@ function RuleChips({ rule }: { rule: Filter }) {
       ))}
       {rule.tags.map((t) => (
         <li key={`tag-${t}`}>
-          <Tag tint="plain">#{t}</Tag>
+          <Tag tint="plain">{t}</Tag>
         </li>
       ))}
       {rule.sources.map((s) => (
@@ -254,10 +254,6 @@ export function CollectionBar({
             Hand-picked. Add artifacts from their detail panel.
           </span>
         )}
-        <p className={styles.note}>
-          Collections only organize the library; nothing is installed until you
-          use a profile.
-        </p>
       </div>
       <div className={styles.barActions}>
         {collection.rule && (
