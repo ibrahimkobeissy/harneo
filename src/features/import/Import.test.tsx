@@ -183,44 +183,74 @@ describe("Import screen", () => {
     ).toBeInTheDocument();
   });
 
-  it("leaves an already-imported row unticked, disabled and labelled", async () => {
+  it("shows an already-imported row as not importable, without an X", async () => {
     const u = user();
     setup({});
     await toChoose(u);
-    const beta = screen.getByRole("checkbox", { name: /beta/ });
-    expect(beta).toBeDisabled();
-    expect(beta).toHaveAttribute("aria-checked", "false");
-    expect(within(beta).getByText("Already in library")).toBeInTheDocument();
-    expect(screen.getByText("3 of 3 artifacts selected")).toBeInTheDocument();
+    const skills = screen.getByRole("region", { name: "Skills, 3" });
+    expect(within(skills).getByText("Already in library")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Exclude beta" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
   });
 
-  it("ticks one row and all/none per group", async () => {
+  it("excludes one row into Excluded (N) and restores it", async () => {
     const u = user();
     setup({});
     await toChoose(u);
-    await u.click(screen.getByRole("checkbox", { name: /alpha/ }));
-    expect(screen.getByText("2 of 3 artifacts selected")).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Select all Skills" }));
-    expect(screen.getByText("3 of 3 artifacts selected")).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Select none Skills" }));
-    expect(screen.getByText("1 of 3 artifacts selected")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /beta/ })).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
+    await u.click(screen.getByRole("button", { name: "Exclude alpha" }));
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Skills, 2" }),
+    ).toBeInTheDocument();
+    const gone = screen.getByRole("region", { name: "Excluded, 1" });
+    expect(within(gone).getByText("alpha")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Restore alpha" }));
+    expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: /Excluded/ }),
+    ).not.toBeInTheDocument();
   });
 
-  it("goes Back from Choose and keeps the choices", async () => {
+  it("moves focus to the next row's X after excluding", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Exclude alpha" }));
+    expect(screen.getByRole("button", { name: "Exclude gamma" })).toHaveFocus();
+  });
+
+  it("excludes and restores per group and scan-wide", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Exclude all Skills" }));
+    expect(screen.getByText("1 to import, 2 excluded")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Skills, 1" }),
+    ).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Exclude all" }));
+    expect(screen.getByText("0 to import, 3 excluded")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Restore all" }));
+    expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Exclude alpha" }));
+    await u.click(screen.getByRole("button", { name: "Restore all Skills" }));
+    expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
+  });
+
+  it("goes Back from Choose and keeps the exclusions", async () => {
     const u = user();
     const calls = setup({});
     await toChoose(u);
-    await u.click(screen.getByRole("checkbox", { name: /alpha/ }));
+    await u.click(screen.getByRole("button", { name: "Exclude alpha" }));
     await u.click(screen.getByRole("button", { name: "Back" }));
     expect(
       screen.getByRole("button", { name: /Your ~\/\.claude/ }),
     ).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("2 of 3 artifacts selected")).toBeInTheDocument();
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
     expect(calls.filter((c) => c.cmd === "library_preview")).toHaveLength(1);
   });
 
@@ -259,7 +289,7 @@ describe("Import screen", () => {
       },
     });
     await toChoose(u);
-    await u.click(screen.getByRole("checkbox", { name: /gamma/ }));
+    await u.click(screen.getByRole("button", { name: "Exclude gamma" }));
     await u.click(screen.getByRole("button", { name: "Continue" }));
     await u.click(
       screen.getByRole("button", { name: "Remove docs from alpha" }),
@@ -431,7 +461,7 @@ describe("Import screen", () => {
     expect(screen.queryByText("skill.x")).not.toBeInTheDocument();
   });
 
-  it("selects all, none and only the artifacts without errors scan-wide", async () => {
+  it("excludes the rows with errors and puts them back", async () => {
     const u = user();
     const broken = candidate("delta", {
       artifact: {
@@ -449,19 +479,164 @@ describe("Import screen", () => {
     });
     await u.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByText(/Found 5 artifacts/);
-    expect(screen.getByText("4 of 4 artifacts selected")).toBeInTheDocument();
-    await u.click(screen.getByRole("button", { name: "Only without errors" }));
-    expect(screen.getByText("3 of 4 artifacts selected")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /delta/ })).toHaveAttribute(
-      "aria-checked",
-      "false",
+    expect(screen.getByText("4 to import, 0 excluded")).toBeInTheDocument();
+    const btn = screen.getByRole("button", {
+      name: "Exclude rows with errors",
+    });
+    await u.click(btn);
+    expect(screen.getByText("3 to import, 1 excluded")).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Excluded, 1" }),
+    ).toBeInTheDocument();
+    await u.click(btn);
+    expect(screen.getByText("4 to import, 0 excluded")).toBeInTheDocument();
+  });
+
+  it("collapses and expands groups, and starts large ones collapsed", async () => {
+    const u = user();
+    const many = Array.from({ length: 21 }, (_, i) =>
+      candidate(`cmd${i}`, {}, "command"),
     );
-    await u.click(screen.getByRole("button", { name: "Select all" }));
-    await u.click(screen.getByRole("button", { name: "Select none" }));
-    expect(screen.getByText("0 of 4 artifacts selected")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
-    await u.click(screen.getByRole("button", { name: "Select all" }));
-    expect(screen.getByText("4 of 4 artifacts selected")).toBeInTheDocument();
+    setup({
+      preview: () => ({
+        ...preview,
+        candidates: [...preview.candidates, ...many],
+      }),
+    });
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/Found 25 artifacts/);
+    const commands = screen.getByRole("region", { name: "Commands, 21" });
+    expect(within(commands).queryByText("cmd0")).not.toBeInTheDocument();
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Expand Commands" }));
+    expect(within(commands).getByText("cmd0")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByText("alpha")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Expand Skills" }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await u.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getByText("alpha")).toBeInTheDocument();
+    expect(screen.getByText("cmd20")).toBeInTheDocument();
+  });
+
+  it("labels origins and excludes Claude-provided rows", async () => {
+    const u = user();
+    const withOrigin = (
+      name: string,
+      origin: Candidate["artifact"]["origin"],
+    ) =>
+      candidate(name, {
+        artifact: { ...candidate(name).artifact, origin },
+      });
+    setup({
+      preview: () => ({
+        ...preview,
+        candidates: [
+          ...preview.candidates,
+          withOrigin("synced", { type: "claudeSynced" }),
+          withOrigin("official", {
+            type: "marketplace",
+            name: "claude-plugins-official",
+            repo: null,
+            official: true,
+          }),
+          withOrigin("third", {
+            type: "marketplace",
+            name: "acme",
+            repo: null,
+            official: false,
+          }),
+          withOrigin("mod", { type: "devMod" }),
+        ],
+      }),
+    });
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/Found 8 artifacts/);
+    expect(screen.getAllByText("Yours").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Synced from your Claude account"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Anthropic marketplace")).toBeInTheDocument();
+    expect(screen.getByText("Marketplace: acme")).toBeInTheDocument();
+    expect(screen.getByText("Mod in development")).toBeInTheDocument();
+    await u.click(
+      screen.getByRole("button", { name: "Exclude Claude-provided" }),
+    );
+    expect(screen.getByText("5 to import, 2 excluded")).toBeInTheDocument();
+    const gone = screen.getByRole("region", { name: "Excluded, 2" });
+    expect(within(gone).getByText("synced")).toBeInTheDocument();
+    expect(within(gone).getByText("official")).toBeInTheDocument();
+  });
+
+  it("shows copies and lists the other paths on expand", async () => {
+    const u = user();
+    setup({
+      preview: () => ({
+        ...preview,
+        candidates: [
+          candidate("alpha", {
+            copies: ["skills/synced/a_b/alpha", "x/alpha"],
+          }),
+        ],
+      }),
+    });
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/Found 1 artifact /);
+    expect(screen.queryByText("x/alpha")).not.toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "2 copies" }));
+    expect(screen.getByText("skills/synced/a_b/alpha")).toBeInTheDocument();
+    expect(screen.getByText("x/alpha")).toBeInTheDocument();
+  });
+
+  it("notes the skipped managed folders and re-previews with them included", async () => {
+    const u = user();
+    const skipped: Preview = {
+      ...preview,
+      diagnostics: [
+        {
+          severity: "info",
+          code: "scan.managed-skipped",
+          message:
+            "Claude-managed folder skipped: 46 skill folders not scanned",
+          file: "skills/synced",
+        },
+        {
+          severity: "info",
+          code: "scan.managed-skipped",
+          message: "Claude-managed folder skipped: 3 mod folders not scanned",
+          file: "dev-mods",
+        },
+      ],
+    };
+    let first = true;
+    const calls2 = setup({
+      preview: () => {
+        if (first) {
+          first = false;
+          return skipped;
+        }
+        return preview;
+      },
+    });
+    await toChoose(u);
+    expect(
+      screen.getByText(
+        "46 synced skills and 3 mods in development skipped: Claude manages them",
+      ),
+    ).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Include them" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Include them" }),
+      ).not.toBeInTheDocument(),
+    );
+    const previews = calls2.filter((c) => c.cmd === "library_preview");
+    expect(previews).toHaveLength(2);
+    expect(previews[1]?.args).toEqual({
+      source: { kind: "local", path: "/home/me/.claude" },
+      includeManaged: true,
+    });
   });
 
   it("tints suggested tags and adds a tag to the import", async () => {

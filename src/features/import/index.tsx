@@ -70,7 +70,8 @@ export function ImportScreen() {
   const [scanning, setScanning] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [scannedKey, setScannedKey] = useState("");
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
   const [tags, setTags] = useState<Record<string, string[]>>({});
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
@@ -104,11 +105,7 @@ export function ImportScreen() {
       }
       setPreview(found);
       setScannedKey(key);
-      setSelected(
-        new Set(
-          found.candidates.filter((c) => !c.alreadyInLibrary).map((c) => c.id),
-        ),
-      );
+      setExcluded(new Set());
       setTags(
         Object.fromEntries(
           found.candidates.map((c) => [c.id, c.suggestedTags]),
@@ -131,7 +128,29 @@ export function ImportScreen() {
     }
   }
 
-  const chosen = (preview?.candidates ?? []).filter((c) => selected.has(c.id));
+  const chosen = (preview?.candidates ?? []).filter(
+    (c) => !c.alreadyInLibrary && !excluded.has(c.id),
+  );
+
+  async function includeManaged() {
+    if (!preview) return;
+    setRefreshing(true);
+    try {
+      const found = await libraryPreview(preview.source, true);
+      setPreview(found);
+      setTags((prev) => ({
+        ...Object.fromEntries(
+          found.candidates.map((c) => [c.id, c.suggestedTags]),
+        ),
+        ...prev,
+      }));
+    } catch (error) {
+      setFailure(describeFailure(messageOf(error), field, shown));
+      setStep(0);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   async function runImport() {
     if (!preview) return;
@@ -161,27 +180,20 @@ export function ImportScreen() {
     setStep((s) => s - 1);
   }
 
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  function exclude(ids: string[]) {
+    setExcluded((prev) => new Set([...prev, ...ids]));
   }
 
-  function toggleGroup(ids: string[], on: boolean) {
-    setSelected((prev) => {
+  function restore(ids: string[]) {
+    setExcluded((prev) => {
       const next = new Set(prev);
-      for (const id of ids) {
-        if (on) next.add(id);
-        else next.delete(id);
-      }
+      for (const id of ids) next.delete(id);
       return next;
     });
   }
 
   const title = firstRun ? "Import your first artifacts" : "Import";
-  const count = `${selected.size} artifact${selected.size === 1 ? "" : "s"}`;
+  const count = `${chosen.length} artifact${chosen.length === 1 ? "" : "s"}`;
 
   const crumb = firstRun ? null : (
     <div className={styles.crumb}>
@@ -232,10 +244,11 @@ export function ImportScreen() {
           <ChooseStep
             preview={preview}
             sourceName={shown}
-            selected={selected}
-            onToggle={toggle}
-            onToggleGroup={toggleGroup}
-            onSelect={(ids) => setSelected(new Set(ids))}
+            excluded={excluded}
+            onExclude={exclude}
+            onRestore={restore}
+            onIncludeManaged={() => void includeManaged()}
+            refreshing={refreshing}
           />
         ))}
       {step === 2 && (
@@ -295,7 +308,7 @@ export function ImportScreen() {
         {step === 1 && (
           <Button
             variant="primary"
-            disabled={scanning || selected.size === 0}
+            disabled={scanning || chosen.length === 0}
             onClick={() => setStep(2)}
           >
             Continue

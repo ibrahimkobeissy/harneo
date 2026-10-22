@@ -1,10 +1,18 @@
-import { Check, ChevronDown, CircleAlert, TriangleAlert } from "lucide-react";
-import { useState } from "react";
+import {
+  ChevronDown,
+  ChevronRight,
+  CircleAlert,
+  Info,
+  TriangleAlert,
+  X,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Candidate } from "../../bindings/Candidate";
 import type { Preview } from "../../bindings/Preview";
 import { Badge, Button } from "../../ui";
 import { kindPlurals } from "./kindLabels";
+import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import styles from "./Import.module.css";
 
 /** Candidates grouped by kind, in the order kinds first appear. */
@@ -108,73 +116,191 @@ export function Scanning({ source }: { source: string }) {
   );
 }
 
-/** Step 2: the candidates, grouped by kind, with tick boxes. */
+/** Groups with more candidates than this start collapsed. */
+const LARGE_GROUP = 20;
+const EXCLUDED = "excluded";
+
+/** The "N copies" toggle; the paths it opens are listed by [`CopyList`]. */
+function Copies({
+  candidate,
+  open,
+  onToggle,
+}: {
+  candidate: Candidate;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const n = candidate.copies.length;
+  if (n === 0) return null;
+  return (
+    <button
+      type="button"
+      className={styles.copies}
+      aria-expanded={open}
+      aria-controls={`copies-${candidate.id}`}
+      onClick={onToggle}
+    >
+      {n} {n === 1 ? "copy" : "copies"}
+      <ChevronDown size={12} aria-hidden="true" data-open={open} />
+    </button>
+  );
+}
+
+function CopyList({ candidate }: { candidate: Candidate }) {
+  return (
+    <ul className={styles.copyList} id={`copies-${candidate.id}`}>
+      {candidate.copies.map((path) => (
+        <li key={path} className={styles.mono}>
+          {path}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Step 2: every candidate starts included; the user excludes what they do not want. */
 export function ChooseStep({
   preview,
   sourceName,
-  selected,
-  onToggle,
-  onToggleGroup,
-  onSelect,
+  excluded,
+  onExclude,
+  onRestore,
+  onIncludeManaged,
+  refreshing,
 }: {
   preview: Preview;
   sourceName: string;
-  selected: ReadonlySet<string>;
-  onToggle: (id: string) => void;
-  onToggleGroup: (ids: string[], on: boolean) => void;
-  /** Replaces the whole selection. */
-  onSelect: (ids: string[]) => void;
+  excluded: ReadonlySet<string>;
+  onExclude: (ids: string[]) => void;
+  onRestore: (ids: string[]) => void;
+  /** Re-previews with the Claude-managed folders included. */
+  onIncludeManaged: () => void;
+  refreshing: boolean;
 }) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
-  const groups = groupByKind(preview.candidates);
-  const free = preview.candidates.filter((c) => !c.alreadyInLibrary);
-  const clean = free.filter((c) => !hasErrors(c)).map((c) => c.id);
-  const everyFree = free.map((c) => c.id);
-  const hasBroken = clean.length < free.length;
-  const onlyClean =
-    hasBroken &&
-    selected.size === clean.length &&
-    clean.every((id) => selected.has(id));
-  const allSelected =
-    everyFree.length > 0 && everyFree.every((id) => selected.has(id));
-  function flip(id: string) {
-    setOpened((prev) => {
-      const next = new Set(prev);
-      if (!next.delete(id)) next.add(id);
-      return next;
-    });
+  const [copiesOpen, setCopiesOpen] = useState<ReadonlySet<string>>(new Set());
+  // Per group: what the user chose. Without a choice, only large groups start collapsed.
+  const [overrides, setOverrides] = useState<ReadonlyMap<string, boolean>>(
+    new Map(),
+  );
+  const focusAfter = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = focusAfter.current;
+    if (!id) return;
+    focusAfter.current = null;
+    document.querySelector<HTMLElement>(`[data-xid="${id}"]`)?.focus();
+  }, [excluded]);
+
+  const all = preview.candidates;
+  const groups = groupByKind(all);
+  const free = all.filter((c) => !c.alreadyInLibrary);
+  const freeIds = free.map((c) => c.id);
+  const withErrors = free.filter(hasErrors).map((c) => c.id);
+  const errorsOut =
+    withErrors.length > 0 && withErrors.every((id) => excluded.has(id));
+  const claude = claudeProvidedIds(all);
+  const toImport = free.filter((c) => !excluded.has(c.id)).length;
+  const gone = all.filter((c) => excluded.has(c.id));
+  const note = managedNote(preview.diagnostics);
+
+  const isCollapsed = (key: string, size: number) =>
+    overrides.get(key) ?? size > LARGE_GROUP;
+  function setCollapsed(key: string, on: boolean) {
+    setOverrides((prev) => new Map(prev).set(key, on));
   }
+  function setEvery(on: boolean) {
+    setOverrides(
+      new Map(
+        [...groups.map(([k]) => k as string), EXCLUDED].map((k) => [k, on]),
+      ),
+    );
+  }
+  const flipIn =
+    (set: typeof setOpened) =>
+    (id: string): void =>
+      set((prev) => {
+        const next = new Set(prev);
+        if (!next.delete(id)) next.add(id);
+        return next;
+      });
+  const flip = flipIn(setOpened);
+  const flipCopies = flipIn(setCopiesOpen);
+  /** Excludes one row and queues focus for the row that takes its place. */
+  function excludeOne(id: string) {
+    const visible = free.filter((c) => !excluded.has(c.id)).map((c) => c.id);
+    const at = visible.indexOf(id);
+    focusAfter.current = visible[at + 1] ?? visible[at - 1] ?? null;
+    onExclude([id]);
+  }
+
   return (
     <>
       <p className={styles.lead}>
-        Found {plural(preview.candidates.length, "artifact")} in{" "}
-        <span className={styles.mono}>{sourceName}</span>. Tick what to import.
+        Found {plural(all.length, "artifact")} in{" "}
+        <span className={styles.mono}>{sourceName}</span>. Everything is
+        included; take out what you do not want.
       </p>
+      {note && (
+        <div className={styles.callout} data-tone="neutral">
+          <Info size={16} aria-hidden="true" />
+          <p>{note}</p>
+          <Button small disabled={refreshing} onClick={onIncludeManaged}>
+            Include them
+          </Button>
+        </div>
+      )}
       <div className={styles.bulk}>
         <Button
           small
-          disabled={everyFree.length === 0}
-          onClick={() => onSelect(allSelected ? [] : everyFree)}
+          disabled={excluded.size === 0}
+          onClick={() => onRestore([...excluded])}
         >
-          {allSelected ? "Select none" : "Select all"}
+          Restore all
         </Button>
-        {hasBroken && (
-          <Button
-            small
-            aria-pressed={onlyClean}
-            onClick={() => onSelect(onlyClean ? everyFree : clean)}
-          >
-            Only without errors
+        <Button
+          small
+          disabled={toImport === 0}
+          onClick={() => onExclude(freeIds)}
+        >
+          Exclude all
+        </Button>
+        {claude.length > 0 && (
+          <Button small onClick={() => onExclude(claude)}>
+            Exclude Claude-provided
           </Button>
         )}
-        <span className={styles.muted} aria-live="polite">
-          {selected.size} of {plural(free.length, "artifact")} selected
-        </span>
+        {withErrors.length > 0 && (
+          <Button
+            small
+            aria-pressed={errorsOut}
+            onClick={() =>
+              errorsOut ? onRestore(withErrors) : onExclude(withErrors)
+            }
+          >
+            Exclude rows with errors
+          </Button>
+        )}
+        <span className={styles.grow} />
+        <Button small variant="ghost" onClick={() => setEvery(false)}>
+          Expand all
+        </Button>
+        <Button small variant="ghost" onClick={() => setEvery(true)}>
+          Collapse all
+        </Button>
       </div>
-      {groups.map(([kind, list]) => {
-        const free = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
-        const allOn = free.length > 0 && free.every((id) => selected.has(id));
+      <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
+        {toImport} to import, {excluded.size} excluded
+      </p>
+      {groups.map(([kind, everyone]) => {
+        const list = everyone.filter((c) => !excluded.has(c.id));
+        if (list.length === 0) return null;
+        const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
+        const back = everyone
+          .filter((c) => excluded.has(c.id))
+          .map((c) => c.id);
         const label = kindPlurals[kind];
+        const shut = isCollapsed(kind, everyone.length);
         return (
           <section
             key={kind}
@@ -182,67 +308,156 @@ export function ChooseStep({
             aria-label={`${label}, ${list.length}`}
           >
             <header className={styles.ghead}>
-              <span>{label}</span>
-              <span className={styles.count}>{list.length}</span>
+              <button
+                type="button"
+                className={styles.toggle}
+                aria-expanded={!shut}
+                aria-label={`${shut ? "Expand" : "Collapse"} ${label}`}
+                onClick={() => setCollapsed(kind, !shut)}
+              >
+                <ChevronRight size={14} aria-hidden="true" data-open={!shut} />
+                <span>{label}</span>
+                <span className={styles.count}>{list.length}</span>
+              </button>
               <span className={styles.grow} />
+              {back.length > 0 && (
+                <Button
+                  variant="ghost"
+                  small
+                  onClick={() => onRestore(back)}
+                  aria-label={`Restore all ${label}`}
+                >
+                  Restore all
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 small
-                disabled={free.length === 0}
-                onClick={() => onToggleGroup(free, !allOn)}
-                aria-label={`${allOn ? "Select none" : "Select all"} ${label}`}
+                disabled={ids.length === 0}
+                onClick={() => onExclude(ids)}
+                aria-label={`Exclude all ${label}`}
               >
-                {allOn ? "Select none" : "Select all"}
+                Exclude all
               </Button>
             </header>
-            {list.map((c) => {
-              const on = selected.has(c.id);
-              const open = opened.has(c.id);
-              return (
-                <div key={c.id} className={styles.item}>
-                  <div className={styles.line1}>
-                    <button
-                      type="button"
-                      className={styles.pick}
-                      role="checkbox"
-                      aria-checked={on}
-                      disabled={c.alreadyInLibrary}
-                      onClick={() => onToggle(c.id)}
-                    >
-                      <i
-                        className={styles.cb}
-                        data-on={on}
-                        data-disabled={c.alreadyInLibrary}
-                        aria-hidden="true"
-                      >
-                        {on && <Check size={11} strokeWidth={3} />}
-                      </i>
-                      <span className={styles.grow}>
-                        <b>{c.artifact.name}</b>
-                        <span className={`${styles.line} ${styles.block}`}>
-                          <span className={styles.mono}>{c.artifact.path}</span>
-                        </span>
-                        {c.artifact.description && (
-                          <span className={`${styles.desc} ${styles.block}`}>
-                            {c.artifact.description}
+            {!shut &&
+              list.map((c) => {
+                const open = opened.has(c.id);
+                return (
+                  <div key={c.id} className={styles.item}>
+                    <div className={styles.line1}>
+                      <div className={styles.pick}>
+                        <span className={styles.grow}>
+                          <span className={styles.title}>
+                            <b>{c.artifact.name}</b>
+                            <span className={styles.origin}>
+                              {originLabel(c.artifact.origin)}
+                            </span>
+                            {c.alreadyInLibrary && (
+                              <Badge>Already in library</Badge>
+                            )}
+                            <Copies
+                              candidate={c}
+                              open={copiesOpen.has(c.id)}
+                              onToggle={() => flipCopies(c.id)}
+                            />
                           </span>
-                        )}
-                      </span>
-                      {c.alreadyInLibrary && <Badge>Already in library</Badge>}
-                    </button>
-                    <Findings
-                      candidate={c}
-                      open={open}
-                      onToggle={() => flip(c.id)}
-                    />
+                          <span className={`${styles.line} ${styles.block}`}>
+                            <span className={styles.mono}>
+                              {c.artifact.path}
+                            </span>
+                          </span>
+                          {c.artifact.description && (
+                            <span className={`${styles.desc} ${styles.block}`}>
+                              {c.artifact.description}
+                            </span>
+                          )}
+                          {copiesOpen.has(c.id) && <CopyList candidate={c} />}
+                        </span>
+                      </div>
+                      <Findings
+                        candidate={c}
+                        open={open}
+                        onToggle={() => flip(c.id)}
+                      />
+                      {c.alreadyInLibrary ? (
+                        <span className={styles.xslot} />
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.x}
+                          data-xid={c.id}
+                          aria-label={`Exclude ${c.artifact.name}`}
+                          onClick={() => excludeOne(c.id)}
+                        >
+                          <X size={14} aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+                    {open && <DiagnosticList candidate={c} />}
                   </div>
-                  {open && <DiagnosticList candidate={c} />}
-                </div>
-              );
-            })}
+                );
+              })}
           </section>
         );
       })}
+      {gone.length > 0 && (
+        <section
+          className={styles.group}
+          aria-label={`Excluded, ${gone.length}`}
+        >
+          <header className={styles.ghead}>
+            <button
+              type="button"
+              className={styles.toggle}
+              aria-expanded={!isCollapsed(EXCLUDED, gone.length)}
+              aria-label={`${isCollapsed(EXCLUDED, gone.length) ? "Expand" : "Collapse"} Excluded`}
+              onClick={() =>
+                setCollapsed(EXCLUDED, !isCollapsed(EXCLUDED, gone.length))
+              }
+            >
+              <ChevronRight
+                size={14}
+                aria-hidden="true"
+                data-open={!isCollapsed(EXCLUDED, gone.length)}
+              />
+              <span>Excluded</span>
+              <span className={styles.count}>({gone.length})</span>
+            </button>
+          </header>
+          {!isCollapsed(EXCLUDED, gone.length) &&
+            gone.map((c) => (
+              <div key={c.id} className={styles.item}>
+                <div className={styles.line1}>
+                  <div className={styles.pick} data-excluded="true">
+                    <span className={styles.grow}>
+                      <span className={styles.title}>
+                        <b>{c.artifact.name}</b>
+                        <span className={styles.origin}>
+                          {originLabel(c.artifact.origin)}
+                        </span>
+                        <span className={styles.origin}>
+                          {kindPlurals[c.artifact.kind]}
+                        </span>
+                      </span>
+                      <span className={`${styles.line} ${styles.block}`}>
+                        <span className={styles.mono}>{c.artifact.path}</span>
+                      </span>
+                    </span>
+                  </div>
+                  <Button
+                    small
+                    variant="ghost"
+                    aria-label={`Restore ${c.artifact.name}`}
+                    onClick={() => onRestore([c.id])}
+                  >
+                    Restore
+                  </Button>
+                </div>
+              </div>
+            ))}
+        </section>
+      )}
     </>
   );
 }

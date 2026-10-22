@@ -23,6 +23,12 @@
 .callout[data-tone="info"] svg {
   color: var(--blue);
 }
+.callout[data-tone="neutral"] {
+  align-items: center;
+}
+.callout[data-tone="neutral"] p {
+  flex: 1;
+}
 .callout[data-tone="warn"] {
   background: var(--amber-soft);
   color: var(--amber);
@@ -265,25 +271,6 @@ button.row:disabled {
 button.row:disabled:hover {
   background: none;
 }
-.cb {
-  width: 15px;
-  height: 15px;
-  border: var(--hairline) solid var(--line2);
-  border-radius: var(--radius-xs);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--raised);
-  flex: none;
-  color: var(--on-blue);
-}
-.cb[data-on="true"] {
-  background: var(--blue);
-  border-color: var(--blue);
-}
-.cb[data-disabled="true"] {
-  background: var(--sunk);
-}
 .line {
   color: var(--t3);
   font-size: var(--text-label);
@@ -427,12 +414,10 @@ button.row:disabled:hover {
 
 .bulk {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
-}
-.bulk .muted {
-  margin-left: auto;
 }
 .item {
   border-top: var(--hairline) solid var(--line);
@@ -461,9 +446,83 @@ button.row:disabled:hover {
   text-align: left;
   cursor: pointer;
 }
-.pick:disabled {
-  cursor: default;
+.pick[data-excluded="true"] {
+  color: var(--t2);
+}
+.title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+}
+.origin {
   color: var(--t3);
+  font-size: var(--text-label);
+}
+.copies {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  padding: 0 var(--space-xs);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius-pill);
+  background: var(--sunk);
+  color: var(--t2);
+  font: inherit;
+  font-size: var(--text-label);
+  cursor: pointer;
+}
+.copies svg,
+.toggle svg {
+  transition: transform 0.12s;
+}
+.copies svg[data-open="true"] {
+  transform: rotate(180deg);
+}
+.toggle svg[data-open="true"] {
+  transform: rotate(90deg);
+}
+.copyList {
+  list-style: none;
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  color: var(--t3);
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.x,
+.xslot {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  margin-right: var(--space-md);
+}
+.x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--t3);
+  cursor: pointer;
+}
+.x:hover {
+  background: var(--sunk);
+  color: var(--red);
+}
+.counter {
+  margin: calc(-1 * var(--space-xs)) 0 var(--space-md);
 }
 .findings {
   flex: none;
