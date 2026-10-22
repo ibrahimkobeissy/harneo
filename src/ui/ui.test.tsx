@@ -128,4 +128,20 @@ describe("Screen", () => {
       screen.getByRole("heading", { level: 1, name: "Scaffold project" }),
     );
   });
+
+  it("keeps the title row and toolbar outside the scrolling body", () => {
+    render(
+      <Screen title="Library" toolbar={<p>toolbar</p>}>
+        <p>content</p>
+      </Screen>,
+    );
+    const head = document.querySelector("[data-screen-head]");
+    const body = document.querySelector("[data-screen-body]");
+    expect(head).toContainElement(
+      screen.getByRole("heading", { level: 1, name: "Library" }),
+    );
+    expect(head).toContainElement(screen.getByText("toolbar"));
+    expect(body).toContainElement(screen.getByText("content"));
+    expect(body).not.toContainElement(head as HTMLElement);
+  });
 });

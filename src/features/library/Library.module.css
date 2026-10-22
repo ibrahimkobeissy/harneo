@@ -1,22 +1,19 @@
 .lib {
   display: grid;
   grid-template-columns: var(--size-filters) minmax(0, 1fr);
-  min-height: 100%;
-}
-.main {
-  padding: var(--space-page-top) var(--space-page-x) var(--space-page-bottom);
-  min-width: 0;
-  max-width: var(--size-page-max);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 0;
+  min-height: 0;
 }
 
-/* Filter column: sticks under the top of the scrolling main area and scrolls on its own. */
+/* Filter column: fills the height beside the screen and scrolls on its own. */
 .filters {
+  min-height: 0;
   border-right: var(--hairline) solid var(--line);
 }
 .filtersIn {
-  position: sticky;
-  top: 0;
-  max-height: 100vh;
+  height: 100%;
+  box-sizing: border-box;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-page-top) var(--space-lg) var(--space-page-bottom);
@@ -138,19 +135,6 @@
   background: var(--tint-pink);
 }
 
-/* Header row. */
-.top {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  flex-wrap: wrap;
-  margin-bottom: var(--space-lg);
-}
-.title {
-  font-size: var(--text-headline);
-  font-weight: 600;
-  letter-spacing: var(--tracking-headline);
-}
 .count {
   color: var(--t3);
 }
@@ -602,10 +586,6 @@
   }
 }
 @media (max-width: 62.5rem) {
-  .main {
-    padding-left: var(--space-lg);
-    padding-right: var(--space-lg);
-  }
   .search {
     order: 5;
     width: 100%;

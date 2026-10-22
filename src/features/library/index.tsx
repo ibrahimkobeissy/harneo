@@ -19,7 +19,7 @@ import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
 import { useCollections } from "../../app/collections";
 import { collectionPage, libraryList } from "../../lib/ipc";
-import { Badge, Button, EmptyState } from "../../ui";
+import { Badge, Button, EmptyState, Screen } from "../../ui";
 import { CollectionBar } from "./CollectionBar";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
@@ -252,8 +252,123 @@ export function LibraryScreen({
   const activeFilters =
     params.types.length + params.tags.length + params.sources.length;
 
+  const toolbar = (
+    <>
+      {collection && (
+        <CollectionBar
+          collection={collection}
+          onRuleSaved={() => {
+            reload();
+            refreshCollections();
+          }}
+        />
+      )}
+      {page && (
+        <div className={styles.toolbar}>
+          {narrow && (
+            <button
+              ref={filtersButton}
+              type="button"
+              className={styles.filtersBtn}
+              aria-haspopup="dialog"
+              aria-expanded={sheetOpen}
+              onClick={() => setSheetOpen(true)}
+            >
+              <SlidersHorizontal size={14} aria-hidden="true" />
+              Filters
+              {activeFilters > 0 && (
+                <span className={styles.filtersCount}>{activeFilters}</span>
+              )}
+            </button>
+          )}
+          <ResultsToolbar
+            params={params}
+            facets={page.facets}
+            total={page.total}
+            unfilteredTotal={page.unfilteredTotal}
+            filtered={filtered}
+            onRemove={toggle}
+            onClearText={() => update({ text: "" })}
+            onClearAll={clearAll}
+            onSaveCollection={
+              collection ? undefined : () => openNew({ rule: toFilter(params) })
+            }
+          />
+          <span className={styles.grow} />
+          {params.view === "cards" && (
+            <div className={styles.sorts} role="group" aria-label="Sort by">
+              <span>Sort</span>
+              {sorts.map((key) => {
+                const active = key === params.sort;
+                const Arrow = params.descending ? ArrowDown : ArrowUp;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className={
+                      active
+                        ? `${styles.sortChip} ${styles.sortChipOn}`
+                        : styles.sortChip
+                    }
+                    aria-pressed={active}
+                    onClick={() => sortBy(key)}
+                  >
+                    {sortLabels[key]}
+                    {active && (
+                      <>
+                        <Arrow size={12} aria-hidden="true" />
+                        <span className={styles.sr}>
+                          {params.descending ? ", descending" : ", ascending"}
+                        </span>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  const actions = (
+    <>
+      <SearchBox
+        value={params.text}
+        onCommit={(text) => update({ text }, { replace: true })}
+      />
+      <div className={styles.seg} role="group" aria-label="View">
+        <button
+          type="button"
+          className={params.view === "cards" ? styles.segOn : undefined}
+          aria-pressed={params.view === "cards"}
+          onClick={() => setView("cards")}
+        >
+          <LayoutGrid size={14} aria-hidden="true" />
+          Cards
+        </button>
+        <button
+          type="button"
+          className={params.view === "list" ? styles.segOn : undefined}
+          aria-pressed={params.view === "list"}
+          onClick={() => setView("list")}
+        >
+          <List size={14} aria-hidden="true" />
+          List
+        </button>
+      </div>
+      {!collection && (
+        <Button variant="primary" onClick={() => void navigate("/import")}>
+          <Download size={14} aria-hidden="true" />
+          Import
+        </Button>
+      )}
+    </>
+  );
+
   return (
-    <section className={styles.lib} aria-labelledby="library-title">
+    <div className={styles.lib}>
       {!narrow && filterColumn}
       {narrow && sheetOpen && filterColumn && (
         <FilterSheet
@@ -263,135 +378,27 @@ export function LibraryScreen({
           {filterColumn}
         </FilterSheet>
       )}
-      <div className={styles.main}>
-        <header className={styles.top}>
-          <h1 id="library-title" className={styles.title}>
-            {collection ? (
-              <>
-                <span className={cstyles.titleIcon}>
-                  {collection.kind === "smart" ? (
-                    <ListFilter size={20} aria-hidden="true" />
-                  ) : (
-                    <Bookmark size={20} aria-hidden="true" />
-                  )}
-                </span>{" "}
-                {collection.name}
-              </>
-            ) : (
-              "Library"
-            )}
-          </h1>
-          {collection && (
+      <Screen
+        title={collection ? collection.name : "Library"}
+        icon={
+          collection && (
+            <span className={cstyles.titleIcon}>
+              {collection.kind === "smart" ? (
+                <ListFilter size={20} aria-hidden="true" />
+              ) : (
+                <Bookmark size={20} aria-hidden="true" />
+              )}
+            </span>
+          )
+        }
+        badge={
+          collection && (
             <Badge>{collection.kind === "smart" ? "Smart" : "Manual"}</Badge>
-          )}
-          <SearchBox
-            value={params.text}
-            onCommit={(text) => update({ text }, { replace: true })}
-          />
-          <div className={styles.seg} role="group" aria-label="View">
-            <button
-              type="button"
-              className={params.view === "cards" ? styles.segOn : undefined}
-              aria-pressed={params.view === "cards"}
-              onClick={() => setView("cards")}
-            >
-              <LayoutGrid size={14} aria-hidden="true" />
-              Cards
-            </button>
-            <button
-              type="button"
-              className={params.view === "list" ? styles.segOn : undefined}
-              aria-pressed={params.view === "list"}
-              onClick={() => setView("list")}
-            >
-              <List size={14} aria-hidden="true" />
-              List
-            </button>
-          </div>
-          {!collection && (
-            <Button variant="primary" onClick={() => void navigate("/import")}>
-              <Download size={14} aria-hidden="true" />
-              Import
-            </Button>
-          )}
-        </header>
-        {collection && (
-          <CollectionBar
-            collection={collection}
-            onRuleSaved={() => {
-              reload();
-              refreshCollections();
-            }}
-          />
-        )}
-        {page && (
-          <div className={styles.toolbar}>
-            {narrow && (
-              <button
-                ref={filtersButton}
-                type="button"
-                className={styles.filtersBtn}
-                aria-haspopup="dialog"
-                aria-expanded={sheetOpen}
-                onClick={() => setSheetOpen(true)}
-              >
-                <SlidersHorizontal size={14} aria-hidden="true" />
-                Filters
-                {activeFilters > 0 && (
-                  <span className={styles.filtersCount}>{activeFilters}</span>
-                )}
-              </button>
-            )}
-            <ResultsToolbar
-              params={params}
-              facets={page.facets}
-              total={page.total}
-              unfilteredTotal={page.unfilteredTotal}
-              filtered={filtered}
-              onRemove={toggle}
-              onClearText={() => update({ text: "" })}
-              onClearAll={clearAll}
-              onSaveCollection={
-                collection
-                  ? undefined
-                  : () => openNew({ rule: toFilter(params) })
-              }
-            />
-            <span className={styles.grow} />
-            {params.view === "cards" && (
-              <div className={styles.sorts} role="group" aria-label="Sort by">
-                <span>Sort</span>
-                {sorts.map((key) => {
-                  const active = key === params.sort;
-                  const Arrow = params.descending ? ArrowDown : ArrowUp;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      className={
-                        active
-                          ? `${styles.sortChip} ${styles.sortChipOn}`
-                          : styles.sortChip
-                      }
-                      aria-pressed={active}
-                      onClick={() => sortBy(key)}
-                    >
-                      {sortLabels[key]}
-                      {active && (
-                        <>
-                          <Arrow size={12} aria-hidden="true" />
-                          <span className={styles.sr}>
-                            {params.descending ? ", descending" : ", ascending"}
-                          </span>
-                        </>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        )}
+          )
+        }
+        actions={actions}
+        toolbar={toolbar}
+      >
         <div aria-busy={load.status === "loading"}>
           {load.status === "error" && (
             <div role="alert">
@@ -463,7 +470,7 @@ export function LibraryScreen({
             />
           )}
         </div>
-      </div>
+      </Screen>
       {params.open && (
         <DetailPanel
           id={params.open}
@@ -498,7 +505,7 @@ export function LibraryScreen({
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
 
@@ -513,10 +520,7 @@ export function CollectionScreen() {
   const found = collections.find((c) => String(c.id) === id);
   if (found) return <LibraryScreen key={id} collection={found} />;
   return (
-    <section className={styles.main} aria-labelledby="library-title">
-      <h1 id="library-title" className={styles.title}>
-        Collection
-      </h1>
+    <Screen title="Collection">
       {loaded ? (
         <EmptyState icon={SearchX} title="This collection is gone">
           It was deleted or never existed.{" "}
@@ -527,6 +531,6 @@ export function CollectionScreen() {
           Loading the collection…
         </p>
       )}
-    </section>
+    </Screen>
   );
 }

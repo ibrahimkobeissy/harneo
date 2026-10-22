@@ -204,7 +204,7 @@ export function ImportScreen() {
   }
 
   return (
-    <Screen title={title} narrow crumb={crumb}>
+    <Screen title={title} narrow crumb={crumb} toolbar={<Stepper at={step} />}>
       {firstRun && step === 0 && (
         <div className={styles.callout} data-tone="info">
           <Info size={16} aria-hidden="true" />
@@ -214,8 +214,6 @@ export function ImportScreen() {
           </p>
         </div>
       )}
-      <Stepper at={step} />
-
       {step === 0 && (
         <SourceStep
           form={form}
