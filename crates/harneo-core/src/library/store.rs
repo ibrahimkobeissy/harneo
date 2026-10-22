@@ -117,6 +117,7 @@ impl Store {
         let conn = Connection::open(root.join(DB_FILE))?;
         conn.busy_timeout(BUSY_TIMEOUT)?;
         conn.pragma_update(None, "foreign_keys", true)?;
+        sweep_stale(&root, STALE_AFTER);
         let mut store = Self { conn, root };
         store.migrate()?;
         Ok(store)
@@ -158,10 +159,57 @@ impl Store {
     }
 }
 
+/// Temporary folders older than this are left over from a crash, never from a live import.
+const STALE_AFTER: Duration = Duration::from_secs(3600);
+
+/// Removes clone and staging folders a crashed run left in `<data dir>/library`. Parked
+/// `.remove-*` folders are kept: their rows may still exist, so deleting them could lose data.
+fn sweep_stale(root: &Path, older_than: Duration) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if !(name.starts_with(".clone-") || name.starts_with(".import-")) {
+            continue;
+        }
+        let stale = entry
+            .metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|age| age >= older_than);
+        if stale && entry.file_type().is_ok_and(|t| t.is_dir()) {
+            let _ = fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use rusqlite::params;
+
+    #[test]
+    fn open_sweeps_stale_clone_and_staging_folders_only() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        for name in [".clone-a", ".import-b", ".remove-c", "keep"] {
+            fs::create_dir_all(root.join(name)).expect("mkdir");
+        }
+        sweep_stale(&root, Duration::ZERO);
+        assert!(!root.join(".clone-a").exists());
+        assert!(!root.join(".import-b").exists());
+        assert!(root.join(".remove-c").exists());
+        assert!(root.join("keep").exists());
+        fs::create_dir_all(root.join(".clone-fresh")).expect("mkdir");
+        Store::open(dir.path()).expect("open");
+        assert!(
+            root.join(".clone-fresh").exists(),
+            "a fresh clone may belong to a live import"
+        );
+    }
 
     fn open() -> (tempfile::TempDir, Store) {
         let dir = tempfile::tempdir().expect("temp dir");
