@@ -4,6 +4,8 @@ export type ErrorField = "url" | "path";
 export interface ImportFailure {
   field: ErrorField;
   message: string;
+  /** Not a failure (nothing found): shown as a neutral note, not an error. */
+  neutral?: boolean;
 }
 
 /** First capture group of `pattern` in `raw`, or `fallback`. */
@@ -55,7 +57,7 @@ export function describeFailure(
     );
   }
   if (raw.includes("no artifacts found")) {
-    return say(nothingFound(shown));
+    return { ...say(nothingFound(shown)), neutral: true };
   }
   if (raw.includes("not a folder")) {
     return say(`Folder not found: ${shown}. Check the path.`);

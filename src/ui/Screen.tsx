@@ -5,11 +5,14 @@ import styles from "./Screen.module.css";
 export function Screen({
   title,
   narrow = false,
+  crumb,
   children,
 }: {
   title: string;
   /** Narrow flows (settings, forms) cap at 1040px, per DESIGN.md. */
   narrow?: boolean;
+  /** A back link above the title. */
+  crumb?: ReactNode;
   children: ReactNode;
 }) {
   const id = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-title`;
@@ -18,6 +21,7 @@ export function Screen({
       className={narrow ? `${styles.page} ${styles.narrow}` : styles.page}
       aria-labelledby={id}
     >
+      {crumb}
       <header className={styles.head}>
         <h1 id={id} className={styles.title}>
           {title}

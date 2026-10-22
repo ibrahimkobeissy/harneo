@@ -1,4 +1,5 @@
-import { Check } from "lucide-react";
+import { Check, ChevronDown, CircleAlert, TriangleAlert } from "lucide-react";
+import { useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Candidate } from "../../bindings/Candidate";
 import type { Preview } from "../../bindings/Preview";
@@ -23,16 +24,70 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
-function Findings({ candidate }: { candidate: Candidate }) {
+/** Whether the candidate has at least one error-level diagnostic. */
+export function hasErrors(candidate: Candidate): boolean {
+  return candidate.artifact.diagnostics.some((d) => d.severity === "error");
+}
+
+/** The error and warning counts as a button that opens the diagnostics under the row. */
+function Findings({
+  candidate,
+  open,
+  onToggle,
+}: {
+  candidate: Candidate;
+  open: boolean;
+  onToggle: () => void;
+}) {
   const all = candidate.artifact.diagnostics;
   const errors = all.filter((d) => d.severity === "error").length;
   const warnings = all.length - errors;
   if (all.length === 0) return null;
   return (
-    <span className={styles.badges}>
-      {errors > 0 && <Badge tone="bad">{plural(errors, "error")}</Badge>}
-      {warnings > 0 && <Badge tone="warn">{plural(warnings, "warning")}</Badge>}
-    </span>
+    <button
+      type="button"
+      className={styles.findings}
+      aria-expanded={open}
+      aria-controls={`diag-${candidate.id}`}
+      aria-label={`${open ? "Hide" : "Show"} diagnostics of ${candidate.artifact.name}`}
+      onClick={onToggle}
+    >
+      <span className={styles.badges}>
+        {errors > 0 && <Badge tone="bad">{plural(errors, "error")}</Badge>}
+        {warnings > 0 && (
+          <Badge tone="warn">{plural(warnings, "warning")}</Badge>
+        )}
+      </span>
+      <ChevronDown size={14} aria-hidden="true" data-open={open} />
+    </button>
+  );
+}
+
+/** The scan's findings for one artifact: code, message and file, errors first. */
+function DiagnosticList({ candidate }: { candidate: Candidate }) {
+  const sorted = [...candidate.artifact.diagnostics].sort(
+    (a, b) => Number(b.severity === "error") - Number(a.severity === "error"),
+  );
+  return (
+    <ul className={styles.diags} id={`diag-${candidate.id}`}>
+      {sorted.map((d, i) => {
+        const Icon = d.severity === "error" ? CircleAlert : TriangleAlert;
+        return (
+          <li
+            key={`${d.code}:${i}`}
+            className={styles.diag}
+            data-severity={d.severity}
+          >
+            <Icon size={14} aria-hidden="true" />
+            <span>
+              <span className={styles.mono}>{d.code}</span>
+              <span className={styles.msg}>{d.message}</span>
+              <span className={`${styles.mono} ${styles.file}`}>{d.file}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -60,20 +115,62 @@ export function ChooseStep({
   selected,
   onToggle,
   onToggleGroup,
+  onSelect,
 }: {
   preview: Preview;
   sourceName: string;
   selected: ReadonlySet<string>;
   onToggle: (id: string) => void;
   onToggleGroup: (ids: string[], on: boolean) => void;
+  /** Replaces the whole selection. */
+  onSelect: (ids: string[]) => void;
 }) {
+  const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const groups = groupByKind(preview.candidates);
+  const free = preview.candidates.filter((c) => !c.alreadyInLibrary);
+  const clean = free.filter((c) => !hasErrors(c)).map((c) => c.id);
+  const everyFree = free.map((c) => c.id);
+  const hasBroken = clean.length < free.length;
+  const onlyClean =
+    hasBroken &&
+    selected.size === clean.length &&
+    clean.every((id) => selected.has(id));
+  const allSelected =
+    everyFree.length > 0 && everyFree.every((id) => selected.has(id));
+  function flip(id: string) {
+    setOpened((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
   return (
     <>
       <p className={styles.lead}>
         Found {plural(preview.candidates.length, "artifact")} in{" "}
         <span className={styles.mono}>{sourceName}</span>. Tick what to import.
       </p>
+      <div className={styles.bulk}>
+        <Button
+          small
+          disabled={everyFree.length === 0}
+          onClick={() => onSelect(allSelected ? [] : everyFree)}
+        >
+          {allSelected ? "Select none" : "Select all"}
+        </Button>
+        {hasBroken && (
+          <Button
+            small
+            aria-pressed={onlyClean}
+            onClick={() => onSelect(onlyClean ? everyFree : clean)}
+          >
+            Only without errors
+          </Button>
+        )}
+        <span className={styles.muted} aria-live="polite">
+          {selected.size} of {plural(free.length, "artifact")} selected
+        </span>
+      </div>
       {groups.map(([kind, list]) => {
         const free = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
         const allOn = free.length > 0 && free.every((id) => selected.has(id));
@@ -100,46 +197,52 @@ export function ChooseStep({
             </header>
             {list.map((c) => {
               const on = selected.has(c.id);
+              const open = opened.has(c.id);
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={styles.row}
-                  role="checkbox"
-                  aria-checked={on}
-                  disabled={c.alreadyInLibrary}
-                  onClick={() => onToggle(c.id)}
-                >
-                  <i
-                    className={styles.cb}
-                    data-on={on}
-                    data-disabled={c.alreadyInLibrary}
-                    aria-hidden="true"
-                  >
-                    {on && <Check size={11} strokeWidth={3} />}
-                  </i>
-                  <span className={styles.grow}>
-                    <b>{c.artifact.name}</b>
-                    <span className={`${styles.line} ${styles.block}`}>
-                      <span className={styles.mono}>{c.artifact.path}</span>
-                    </span>
-                    {c.artifact.description && (
-                      <span className={`${styles.desc} ${styles.block}`}>
-                        {c.artifact.description}
+                <div key={c.id} className={styles.item}>
+                  <div className={styles.line1}>
+                    <button
+                      type="button"
+                      className={styles.pick}
+                      role="checkbox"
+                      aria-checked={on}
+                      disabled={c.alreadyInLibrary}
+                      onClick={() => onToggle(c.id)}
+                    >
+                      <i
+                        className={styles.cb}
+                        data-on={on}
+                        data-disabled={c.alreadyInLibrary}
+                        aria-hidden="true"
+                      >
+                        {on && <Check size={11} strokeWidth={3} />}
+                      </i>
+                      <span className={styles.grow}>
+                        <b>{c.artifact.name}</b>
+                        <span className={`${styles.line} ${styles.block}`}>
+                          <span className={styles.mono}>{c.artifact.path}</span>
+                        </span>
+                        {c.artifact.description && (
+                          <span className={`${styles.desc} ${styles.block}`}>
+                            {c.artifact.description}
+                          </span>
+                        )}
                       </span>
-                    )}
-                  </span>
-                  <Findings candidate={c} />
-                  {c.alreadyInLibrary && <Badge>Already in library</Badge>}
-                </button>
+                      {c.alreadyInLibrary && <Badge>Already in library</Badge>}
+                    </button>
+                    <Findings
+                      candidate={c}
+                      open={open}
+                      onToggle={() => flip(c.id)}
+                    />
+                  </div>
+                  {open && <DiagnosticList candidate={c} />}
+                </div>
               );
             })}
           </section>
         );
       })}
-      <p className={styles.muted} aria-live="polite">
-        {plural(selected.size, "artifact")} selected.
-      </p>
     </>
   );
 }

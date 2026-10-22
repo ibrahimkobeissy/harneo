@@ -4,6 +4,7 @@ import {
   FolderSearch,
   GitBranch,
   House,
+  Info,
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "../../ui";
@@ -44,7 +45,24 @@ const choices: {
   },
 ];
 
-function FieldError({ id, text }: { id: string; text: string }) {
+/** A failed scan is red; "nothing found" is not a failure, so it is a neutral note. */
+function FieldError({
+  id,
+  text,
+  neutral = false,
+}: {
+  id: string;
+  text: string;
+  neutral?: boolean;
+}) {
+  if (neutral) {
+    return (
+      <span className={styles.nothing} id={id} role="status">
+        <Info size={15} aria-hidden="true" />
+        {text}
+      </span>
+    );
+  }
   return (
     <span className={styles.err} id={id} role="alert">
       <CircleAlert size={13} aria-hidden="true" />
@@ -65,8 +83,10 @@ export function SourceStep({
   onChange: (next: Partial<SourceForm>) => void;
   onBrowse: () => void;
 }) {
-  const urlError = failure?.field === "url" ? failure.message : null;
-  const pathError = failure?.field === "path" ? failure.message : null;
+  const urlFailure = failure?.field === "url" ? failure : null;
+  const pathFailure = failure?.field === "path" ? failure : null;
+  const urlError = urlFailure?.message ?? null;
+  const pathError = pathFailure?.message ?? null;
   return (
     <>
       <div className={styles.choices}>
@@ -88,7 +108,11 @@ export function SourceStep({
       </div>
       {form.choice === "claude" && failure && (
         <div className={styles.field}>
-          <FieldError id="claude-error" text={failure.message} />
+          <FieldError
+            id="claude-error"
+            text={failure.message}
+            neutral={failure.neutral}
+          />
         </div>
       )}
       {form.choice === "git" && (
@@ -101,12 +125,16 @@ export function SourceStep({
             value={form.url}
             autoComplete="off"
             spellCheck={false}
-            aria-invalid={urlError ? true : undefined}
+            aria-invalid={urlError && !urlFailure?.neutral ? true : undefined}
             aria-describedby="import-url-note"
             onChange={(e) => onChange({ url: e.target.value })}
           />
           {urlError ? (
-            <FieldError id="import-url-note" text={urlError} />
+            <FieldError
+              id="import-url-note"
+              text={urlError}
+              neutral={urlFailure?.neutral}
+            />
           ) : (
             <span className={styles.hint} id="import-url-note">
               Optionally add a branch and subfolder:{" "}
@@ -128,7 +156,9 @@ export function SourceStep({
               value={form.path}
               autoComplete="off"
               spellCheck={false}
-              aria-invalid={pathError ? true : undefined}
+              aria-invalid={
+                pathError && !pathFailure?.neutral ? true : undefined
+              }
               aria-describedby="import-path-note"
               onChange={(e) => onChange({ path: e.target.value })}
             />
@@ -138,7 +168,11 @@ export function SourceStep({
             </Button>
           </div>
           {pathError ? (
-            <FieldError id="import-path-note" text={pathError} />
+            <FieldError
+              id="import-path-note"
+              text={pathError}
+              neutral={pathFailure?.neutral}
+            />
           ) : (
             <span className={styles.hint} id="import-path-note">
               Harneo looks for .claude/, CLAUDE.md, .mcp.json and loose SKILL.md

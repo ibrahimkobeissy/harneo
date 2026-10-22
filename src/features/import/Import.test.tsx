@@ -1,12 +1,13 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { Preview } from "../../bindings/Preview";
 import { ImportScreen } from ".";
+import { defaultTagColor } from "./tagColor";
 
 function candidate(
   name: string,
@@ -55,6 +56,11 @@ const preview: Preview = {
   ],
 };
 
+function LibraryProbe() {
+  const { search } = useLocation();
+  return <h1>Library page{search && `: ${search}`}</h1>;
+}
+
 interface Call {
   cmd: string;
   args: unknown;
@@ -79,6 +85,7 @@ function setup(opts: {
         if (opts.failImport) throw new Error(opts.failImport);
         return (
           opts.report ?? {
+            sourceId: "src1",
             imported: ["id-alpha", "id-gamma", "id-settings"],
             alreadyInLibrary: [],
             skippedFiles: [],
@@ -94,7 +101,7 @@ function setup(opts: {
     <MemoryRouter initialEntries={[{ pathname: "/import", state: opts.state }]}>
       <Routes>
         <Route path="/import" element={<ImportScreen />} />
-        <Route path="/library" element={<h1>Library page</h1>} />
+        <Route path="/library" element={<LibraryProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -181,7 +188,7 @@ describe("Import screen", () => {
     expect(beta).toBeDisabled();
     expect(beta).toHaveAttribute("aria-checked", "false");
     expect(within(beta).getByText("Already in library")).toBeInTheDocument();
-    expect(screen.getByText("3 artifacts selected.")).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 artifacts selected")).toBeInTheDocument();
   });
 
   it("ticks one row and all/none per group", async () => {
@@ -189,11 +196,11 @@ describe("Import screen", () => {
     setup({});
     await toChoose(u);
     await u.click(screen.getByRole("checkbox", { name: /alpha/ }));
-    expect(screen.getByText("2 artifacts selected.")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 artifacts selected")).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Select all Skills" }));
-    expect(screen.getByText("3 artifacts selected.")).toBeInTheDocument();
+    expect(screen.getByText("3 of 3 artifacts selected")).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Select none Skills" }));
-    expect(screen.getByText("1 artifact selected.")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 artifacts selected")).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: /beta/ })).toHaveAttribute(
       "aria-checked",
       "false",
@@ -210,7 +217,7 @@ describe("Import screen", () => {
       screen.getByRole("button", { name: /Your ~\/\.claude/ }),
     ).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("2 artifacts selected.")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3 artifacts selected")).toBeInTheDocument();
     expect(calls.filter((c) => c.cmd === "library_preview")).toHaveLength(1);
   });
 
@@ -236,6 +243,7 @@ describe("Import screen", () => {
     const u = user();
     const calls = setup({
       report: {
+        sourceId: "src1",
         imported: ["id-alpha", "id-settings"],
         alreadyInLibrary: ["id-gamma"],
         skippedFiles: [
@@ -264,13 +272,14 @@ describe("Import screen", () => {
     expect(screen.getByText("1 file not copied")).toBeInTheDocument();
     expect(screen.getByText(/looks like a secret file/)).toBeInTheDocument();
     await u.click(screen.getByRole("link", { name: /Open the Library/ }));
-    expect(screen.getByText("Library page")).toBeInTheDocument();
+    expect(screen.getByText("Library page: ?source=src1")).toBeInTheDocument();
   });
 
   it("shows the already-in-library count after an import", async () => {
     const u = user();
     setup({
       report: {
+        sourceId: "src1",
         imported: [],
         alreadyInLibrary: ["id-alpha"],
         skippedFiles: [],
@@ -325,12 +334,10 @@ describe("Import screen", () => {
       await u.click(screen.getByRole("button", { name: /A git URL/ }));
       await u.type(screen.getByLabelText("Repository URL"), "github.com/o/r");
       await u.click(screen.getByRole("button", { name: "Continue" }));
-      const alert = await screen.findByRole("alert");
-      expect(alert).toHaveTextContent(expected);
-      expect(screen.getByLabelText("Repository URL")).toHaveAttribute(
-        "aria-invalid",
-        "true",
+      const alert = await screen.findByRole(
+        message.startsWith("no artifacts") ? "status" : "alert",
       );
+      expect(alert).toHaveTextContent(expected);
       expect(screen.getByLabelText("Repository URL")).toHaveValue(
         "github.com/o/r",
       );
@@ -379,9 +386,10 @@ describe("Import screen", () => {
     const u = user();
     setup({ preview: () => ({ ...preview, candidates: [] }) });
     await u.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
+    expect(await screen.findByRole("status")).toHaveTextContent(
       "No artifacts found in ~/.claude.",
     );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
@@ -399,5 +407,88 @@ describe("Import screen", () => {
     ).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Skip for now" }));
     expect(screen.getByText("Library page")).toBeInTheDocument();
+  });
+
+  it("opens a row's diagnostics with code, message and file", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    expect(screen.queryByText("skill.x")).not.toBeInTheDocument();
+    await u.click(
+      screen.getByRole("button", { name: "Show diagnostics of gamma" }),
+    );
+    expect(screen.getByText("skill.x")).toBeInTheDocument();
+    expect(screen.getByText("m")).toBeInTheDocument();
+    expect(screen.getByText("f")).toBeInTheDocument();
+    await u.click(
+      screen.getByRole("button", { name: "Hide diagnostics of gamma" }),
+    );
+    expect(screen.queryByText("skill.x")).not.toBeInTheDocument();
+  });
+
+  it("selects all, none and only the artifacts without errors scan-wide", async () => {
+    const u = user();
+    const broken = candidate("delta", {
+      artifact: {
+        ...candidate("delta").artifact,
+        diagnostics: [
+          { severity: "error", code: "skill.bad", message: "m", file: "f" },
+        ],
+      },
+    });
+    setup({
+      preview: () => ({
+        ...preview,
+        candidates: [...preview.candidates, broken],
+      }),
+    });
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText(/Found 5 artifacts/);
+    expect(screen.getByText("4 of 4 artifacts selected")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Only without errors" }));
+    expect(screen.getByText("3 of 4 artifacts selected")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /delta/ })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    await u.click(screen.getByRole("button", { name: "Select all" }));
+    await u.click(screen.getByRole("button", { name: "Select none" }));
+    expect(screen.getByText("0 of 4 artifacts selected")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Select all" }));
+    expect(screen.getByText("4 of 4 artifacts selected")).toBeInTheDocument();
+  });
+
+  it("tints suggested tags and adds a tag to the import", async () => {
+    const u = user();
+    const calls = setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByText("review").closest("span")).toHaveAttribute(
+      "data-tint",
+      defaultTagColor("review"),
+    );
+    await u.click(screen.getByRole("button", { name: "Add a tag to alpha" }));
+    await u.type(screen.getByLabelText("New tag for alpha"), "Mine{Enter}");
+    expect(screen.getByText("Mine")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: /^Import/ }));
+    await screen.findByText(/Imported/);
+    expect(
+      (
+        calls.find((c) => c.cmd === "library_import")?.args as {
+          tags: Record<string, string[]>;
+        }
+      ).tags["id-alpha"],
+    ).toEqual(["review", "docs", "Mine"]);
+  });
+
+  it("renders the secrets list without list markers", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      screen.getByRole("list", { name: "Secrets in settings" }),
+    ).toBeInTheDocument();
   });
 });

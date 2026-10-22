@@ -98,7 +98,7 @@ export function ImportScreen() {
       const found = await libraryPreview(await toSource(form));
       if (id !== scanId.current) return;
       if (found.candidates.length === 0) {
-        setFailure({ field, message: nothingFound(shown) });
+        setFailure({ field, message: nothingFound(shown), neutral: true });
         setStep(0);
         return;
       }
@@ -183,6 +183,15 @@ export function ImportScreen() {
   const title = firstRun ? "Import your first artifacts" : "Import";
   const count = `${selected.size} artifact${selected.size === 1 ? "" : "s"}`;
 
+  const crumb = firstRun ? null : (
+    <div className={styles.crumb}>
+      <Link to="/library">
+        <ArrowLeft size={14} aria-hidden="true" />
+        Library
+      </Link>
+    </div>
+  );
+
   if (report) {
     const names = new Map(
       (preview?.candidates ?? []).map((c) => [c.id, c.artifact.name]),
@@ -195,15 +204,7 @@ export function ImportScreen() {
   }
 
   return (
-    <Screen title={title} narrow>
-      {!firstRun && (
-        <div className={styles.crumb}>
-          <Link to="/library">
-            <ArrowLeft size={14} aria-hidden="true" />
-            Library
-          </Link>
-        </div>
-      )}
+    <Screen title={title} narrow crumb={crumb}>
       {firstRun && step === 0 && (
         <div className={styles.callout} data-tone="info">
           <Info size={16} aria-hidden="true" />
@@ -236,6 +237,7 @@ export function ImportScreen() {
             selected={selected}
             onToggle={toggle}
             onToggleGroup={toggleGroup}
+            onSelect={(ids) => setSelected(new Set(ids))}
           />
         ))}
       {step === 2 && (
@@ -256,6 +258,15 @@ export function ImportScreen() {
                 ...prev,
                 [id]: (prev[id] ?? []).filter((t) => t !== tag),
               }))
+            }
+            onAddTag={(id, tag) =>
+              setTags((prev) => {
+                const own = prev[id] ?? [];
+                const dup = own.some(
+                  (t) => t.toLowerCase() === tag.toLowerCase(),
+                );
+                return dup ? prev : { ...prev, [id]: [...own, tag] };
+              })
             }
           />
         </>

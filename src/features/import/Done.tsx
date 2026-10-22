@@ -53,7 +53,10 @@ export function Done({
           </ul>
         </div>
       )}
-      <Link to="/library" className={styles.link}>
+      <Link
+        to={`/library?source=${encodeURIComponent(report.sourceId)}`}
+        className={styles.link}
+      >
         <LayoutGrid size={14} aria-hidden="true" />
         Open the Library
       </Link>
