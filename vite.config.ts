@@ -6,6 +6,8 @@ export default defineConfig({
   plugins: [react()],
   clearScreen: false,
   test: {
+    // Room for several 5 s async waits in one test (see src/test/setup.ts).
+    testTimeout: 20000,
     environment: "jsdom",
     setupFiles: "src/test/setup.ts",
     // Only this checkout's tests: subagent worktrees under .claude/ hold copies of them.
