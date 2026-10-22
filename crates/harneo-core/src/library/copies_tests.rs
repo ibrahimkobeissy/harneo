@@ -25,9 +25,9 @@ fn preview_of(root: &Path) -> std::result::Result<Preview, Box<dyn std::error::E
 fn three_identical_copies_are_one_candidate_and_import_stores_one() -> TestResult {
     let src = tempfile::tempdir()?;
     for d in [
-        "skills/synced/c/notes",
-        "skills/synced/a/notes",
-        "skills/synced/b/notes",
+        "packs/c/notes",
+        "packs/a/notes",
+        "packs/b/notes",
     ] {
         skill(src.path(), d, "Write.")?;
     }
@@ -38,8 +38,8 @@ fn three_identical_copies_are_one_candidate_and_import_stores_one() -> TestResul
     })?;
     assert_eq!(preview.candidates.len(), 1);
     let c = &preview.candidates[0];
-    assert_eq!(c.artifact.path, "skills/synced/a/notes");
-    assert_eq!(c.copies, ["skills/synced/b/notes", "skills/synced/c/notes"]);
+    assert_eq!(c.artifact.path, "packs/a/notes");
+    assert_eq!(c.copies, ["packs/b/notes", "packs/c/notes"]);
     assert!(c
         .artifact
         .diagnostics
