@@ -205,7 +205,7 @@ None for this module. The literal-secret import behaviour is the `library` spec'
 
 > Module `library` from [`spec/capabilities.md`](../spec/capabilities.md). Spec: [`spec/library.md`](../spec/library.md). Quality bar: [`CONSTRAINTS.md`](../CONSTRAINTS.md).
 > **Tasks are tracked in GitHub Issues** (Project 5) and built by the `ticket-flow` cycle. Task ids are `L1`–`L14`.
-> Status: **draft, awaiting approval** ([#41](https://github.com/ibrahimkobeissy/harneo/issues/41)).
+> Status: **approved 2026-10-22**; tasks created as issues #42–#55.
 
 ## Overview
 
@@ -235,24 +235,24 @@ L9, L10, L11, L12 ── L14 Impeccable critique of the library screens
 
 Parallel after L2: L3, L4, L5, L6. After L8: L9, L10, L13.
 
-## Tasks
+## Task list
 
-| Id | Title | Size | Blocked by | Acceptance (summary) |
-|---|---|---|---|---|
-| L1 | Library store: SQLite schema, migrations, ids | S | — | `Library::open(data_dir)` creates `library/` and `library.db` at the current schema version; reopening changes nothing; artifact id = 16 hex of SHA-256(source key, path), stable |
-| L2 | Import a local folder end to end (preview, atomic copy, detail, remove) | M | L1 | `preview` lists candidates with ids and "already in library"; `import` copies the ticked ones atomically per type (MCP server as `server.json`), one transaction; injected failure leaves nothing; `detail` and `remove` work; source folder bytes unchanged |
-| L3 | Literal secrets replaced by `${KEY}` in library copies | S | L2 | Settings `env` and MCP `env`/`headers` literals become placeholders (`Bearer ${KEY}` kept); the preview lists the keys; a test reads every byte of the store and index and never finds the value |
-| L4 | Git URL source: parse, shallow clone, provenance | M | L2 | URL forms parsed (bare, https, ssh, `/tree/<branch>/<subfolder>`); clone with `--depth 1`, `GIT_TERMINAL_PROMPT=0`, 120 s timeout; commit recorded; clone removed; errors for missing git, repo, branch, subfolder; tests use local `file://` repos only |
-| L5 | Library queries: filters, sort, pages, facets | S | L2 | Filter by types/tags/sources/text, sort by name/type/source/tag count/date both ways, offset/limit with total and facet counts; 2,000-artifact page query under 100 ms |
-| L6 | Tags in core | S | L2 | Create/rename/recolor/delete (palette colors only), assign/unassign, frontmatter `keywords`/`tags` offered as suggestions in the preview, chosen tags applied by `import` |
-| L7 | Collections in core | S | L5, L6 | Manual (ordered ids) and smart (rule rows AND, values OR: type, tag, source, text); create/rename/delete, add/remove; smart evaluated at query time so a new matching import joins |
-| L8 | Library screen: cards/list, filters, sort, pages, empty state | M | L5 | IPC list command; screen matches the prototype in light and dark (24 cards / 25 rows per page, own-scroll filter column, sortable columns, filters and sort in the URL); empty library shows the welcome that leads to import |
-| L9 | Artifact detail panel | S | L8 | IPC detail/remove; provenance (git URL, branch, subfolder, commit), files, diagnostics, references linking to the resolved artifact with Back; Remove with confirmation; later-module panels absent |
-| L10 | Import flow screens | M | L3, L4, L6, L8 | Three steps as in the prototype (source with native folder dialog, choose grouped by type with "already in library" disabled, review with tag suggestions and replaced secrets); async preview with progress; every error and "nothing found" state |
-| L11 | Tags in the UI | S | L6, L9 | Tag menu in the detail panel (add, create with color, remove), chips on cards and rows, tag filter |
-| L12 | Collections in the UI | M | L7, L9, L11 | Sidebar Collections list, collection screen with filters and pages, New collection dialog (manual / smart with rule builder, pre-filled from current filters), *Add to… → collection* in the detail panel |
-| L13 | Command palette finds artifacts; git as a runtime prerequisite | S | L8 | Ctrl K lists matching artifacts and opens their detail; `scripts/setup.sh` checks `git`; `BUILDING.md` lists it |
-| L14 | `/impeccable critique` of the library screens | S | L9, L10, L11, L12 | Orchestrator runs the critique on the running screens; the user chooses which findings to fix; fixes merged |
+Tasks are GitHub issues on Project 5; their bodies hold the acceptance criteria, verification and `Blocked by` links. The `ticket-flow` cycle picks Ready issues.
+
+- [#42](https://github.com/ibrahimkobeissy/harneo/issues/42) L1: Library store: SQLite schema, migrations, ids
+- [#43](https://github.com/ibrahimkobeissy/harneo/issues/43) L2: Import a local folder end to end (preview, atomic copy, detail, remove)
+- [#44](https://github.com/ibrahimkobeissy/harneo/issues/44) L3: Literal secrets replaced by `${KEY}` in library copies
+- [#45](https://github.com/ibrahimkobeissy/harneo/issues/45) L4: Git URL source: parse, shallow clone, provenance
+- [#46](https://github.com/ibrahimkobeissy/harneo/issues/46) L5: Library queries: filters, sort, pages, facets
+- [#47](https://github.com/ibrahimkobeissy/harneo/issues/47) L6: Tags in core
+- [#48](https://github.com/ibrahimkobeissy/harneo/issues/48) L7: Collections in core
+- [#49](https://github.com/ibrahimkobeissy/harneo/issues/49) L8: Library screen: cards/list, filters, sort, pages, empty state
+- [#50](https://github.com/ibrahimkobeissy/harneo/issues/50) L9: Artifact detail panel
+- [#51](https://github.com/ibrahimkobeissy/harneo/issues/51) L10: Import flow screens
+- [#52](https://github.com/ibrahimkobeissy/harneo/issues/52) L11: Tags in the UI
+- [#53](https://github.com/ibrahimkobeissy/harneo/issues/53) L12: Collections in the UI
+- [#54](https://github.com/ibrahimkobeissy/harneo/issues/54) L13: Command palette finds artifacts; git as a runtime prerequisite
+- [#55](https://github.com/ibrahimkobeissy/harneo/issues/55) L14: `/impeccable critique` of the library screens
 
 ## Checkpoints
 
