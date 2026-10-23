@@ -18,8 +18,13 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
-  mockIPC((cmd) => {
-    if (cmd === "library_list") return page([item("one")]);
+  mockIPC((cmd, args) => {
+    // Artifact "one" matches only an unfiltered list, so a palette search for "zzz" finds nothing.
+    if (cmd === "library_list") {
+      const text = (args as { query: { filter: { text: string | null } } })
+        .query.filter.text;
+      return page(text ? [] : [item("one")]);
+    }
     return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
   });
 });
