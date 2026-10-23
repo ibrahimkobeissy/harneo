@@ -211,6 +211,7 @@ pub enum Error {
     #[error("cannot update: {message}")]
     Update {
         /// Why, ready to show.
+        message: String,
     },
 }
 
