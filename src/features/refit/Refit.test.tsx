@@ -152,6 +152,7 @@ interface Opts {
   projectsFail?: boolean;
   profiles?: ReturnType<typeof profile>[];
   backupId?: number | null;
+  backupFolder?: string | null;
   picked?: string | null;
   pickFails?: boolean;
   url?: string;
@@ -203,7 +204,7 @@ function setup(opts: Opts = {}) {
           deleted: 1,
           backedUp: 2,
           backupId: opts.backupId === undefined ? 5 : opts.backupId,
-          backupFolder: null,
+          backupFolder: opts.backupFolder ?? null,
         };
       case "backup_restore":
         if (opts.restoreError) throw new Error(opts.restoreError);
@@ -400,7 +401,10 @@ describe("Refit flow", () => {
         .getAllByRole("row")
         .slice(1)
         .map((r) => within(r).getAllByRole("cell")[0]?.textContent ?? "");
-    expect(items()[0]).toContain(".claude/agents/reviewer.md");
+    // Critical rows with a loss come first, CLAUDE.md before settings.json.
+    expect(items()[0]).toContain("CLAUDE.md");
+    expect(items()[1]).toContain(".claude/settings.json");
+    expect(items()[2]).toContain(".claude/agents/reviewer.md");
     const sortBy = (name: string) =>
       userEvent.click(screen.getByRole("button", { name }));
     await sortBy("File");
@@ -415,6 +419,103 @@ describe("Refit flow", () => {
     expect(
       screen.getByRole("columnheader", { name: /Action/ }),
     ).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("keeps a critical row in one click from the red callout", async () => {
+    setup();
+    await toCompare();
+    const alert = screen.getAllByRole("alert")[0];
+    await userEvent.click(
+      within(alert as HTMLElement).getByRole("button", {
+        name: "Keep my CLAUDE.md",
+      }),
+    );
+    expect(
+      screen
+        .getByRole("group", { name: "Action for CLAUDE.md" })
+        .querySelector('[aria-pressed="true"]'),
+    ).toHaveTextContent("Keep");
+    expect(screen.getByRole("alert")).not.toHaveTextContent("CLAUDE.md:");
+    // The row stays at the top after the choice.
+    expect(
+      within(screen.getAllByRole("row")[1] as HTMLElement).getAllByRole(
+        "cell",
+      )[0],
+    ).toHaveTextContent("CLAUDE.md");
+  });
+
+  it("marks selected Replace-with-loss red and Keep not", async () => {
+    setup();
+    await toCompare();
+    const pressed = (item: string) =>
+      screen
+        .getByRole("group", { name: `Action for ${item}` })
+        .querySelector('[aria-pressed="true"]');
+    expect(pressed("CLAUDE.md")).toHaveAttribute("data-danger", "true");
+    expect(pressed(".claude/agents/reviewer.md")).not.toHaveAttribute(
+      "data-danger",
+    );
+    await userEvent.click(
+      within(
+        screen.getByRole("group", {
+          name: "Action for .claude/commands/deploy.md",
+        }),
+      ).getByRole("button", { name: "Delete" }),
+    );
+    expect(pressed(".claude/commands/deploy.md")).toHaveAttribute(
+      "data-danger",
+      "true",
+    );
+  });
+
+  it("repeats the loss on Preview and in the Apply button, and drops it after Keep", async () => {
+    setup();
+    await toPreview();
+    const alert = screen.getAllByRole("alert")[0];
+    expect(alert).toHaveTextContent("CLAUDE.md: 14 lines will be lost");
+    expect(alert).toHaveTextContent("settings.json: 1 permission rule");
+    expect(screen.getByText("replace · 14 lines lost")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: "Apply refit (loses 15 lines and rules)",
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Back" }));
+    for (const name of ["Keep my CLAUDE.md", "Keep my settings.json"]) {
+      await userEvent.click(screen.getByRole("button", { name }));
+    }
+    await userEvent.click(
+      screen.getByRole("button", { name: "Preview changes" }),
+    );
+    await screen.findByText(/Dry run/);
+    expect(screen.queryByText(/will be lost/)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Apply refit" }),
+    ).toBeInTheDocument();
+  });
+
+  it("names the lost unit by kind in the Apply button", async () => {
+    setup();
+    await toCompare();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Keep my settings.json" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Preview changes" }),
+    );
+    await screen.findByText(/Dry run/);
+    expect(
+      screen.getByRole("button", { name: "Apply refit (loses 14 lines)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("recognises a registered project typed with a trailing slash", async () => {
+    setup();
+    await toProfile("/work/site/");
+    expect(screen.getByRole("button", { name: /API/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("shows Nothing to change with Back to projects", async () => {
@@ -494,15 +595,30 @@ describe("Refit flow", () => {
       screen.getByRole("button", { name: "Preview changes" }),
     );
     expect(await screen.findAllByRole("alert")).not.toHaveLength(0);
-    expect(screen.getByText("site changed on disk")).toBeInTheDocument();
+    expect(screen.getByText(/site changed on disk/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/pick another folder or profile/),
+    ).toBeInTheDocument();
+  });
+
+  it("suggests an action for a permission error", async () => {
+    setup({ planError: "Permission denied (os error 13)" });
+    await toCompare();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Preview changes" }),
+    );
+    expect(
+      await screen.findByText(/Check that you can write/),
+    ).toBeInTheDocument();
   });
 
   it("shows the apply failure and lets you go back", async () => {
     setup({ applyError: "Permission denied. Rolled back." });
     await toPreview();
     await userEvent.click(screen.getByRole("button", { name: /Apply refit/ }));
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("Nothing was changed.");
+    const alert = (await screen.findAllByRole("alert")).find((a) =>
+      a.textContent?.includes("Nothing was changed."),
+    );
     expect(alert).toHaveTextContent("Rolled back.");
     await userEvent.click(screen.getByRole("button", { name: "Back" }));
     expect(screen.getByRole("table")).toBeInTheDocument();
@@ -531,6 +647,21 @@ describe("Refit flow", () => {
     expect(
       screen.queryByRole("button", { name: "Restore originals" }),
     ).toBeNull();
+    expect(screen.getByText(/1 added file remains/)).toBeInTheDocument();
+    expect(screen.getByText(/2 files put back/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Backups tab/ })).toHaveAttribute(
+      "href",
+      "/projects/9",
+    );
+  });
+
+  it("shows where the backup is saved", async () => {
+    setup({ backupFolder: "backups/site/2026-10-23T0914" });
+    await toPreview();
+    await userEvent.click(screen.getByRole("button", { name: /Apply refit/ }));
+    expect(
+      await screen.findByText("backups/site/2026-10-23T0914"),
+    ).toBeInTheDocument();
   });
 
   it("shows a restore failure", async () => {

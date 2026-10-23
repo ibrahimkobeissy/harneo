@@ -354,6 +354,16 @@
   background: var(--blue);
   color: var(--on-blue);
 }
+.seg button[aria-pressed="true"][data-danger="true"] {
+  background: var(--red-fill);
+  color: var(--on-danger);
+}
+.keepRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
 .seg button:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: -2px;
@@ -402,11 +412,25 @@
   }
   .split {
     grid-template-columns: 1fr;
-    grid-template-rows: 200px minmax(0, 1fr);
-    height: 560px;
+    grid-template-rows: minmax(200px, auto) minmax(0, 1fr);
+    height: auto;
+    min-height: 560px;
   }
   .split > :first-child {
     border-right: 0;
     border-bottom: var(--hairline) solid var(--line);
   }
+}
+.lostList {
+  list-style: none;
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.lostList summary {
+  cursor: pointer;
+  color: var(--t2);
+  font-size: var(--text-label);
 }

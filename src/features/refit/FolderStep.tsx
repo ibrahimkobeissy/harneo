@@ -2,6 +2,7 @@ import { CircleAlert, FolderGit2, FolderSearch, Plus } from "lucide-react";
 import type { Project } from "../../bindings/Project";
 import { Button } from "../../ui";
 import styles from "./Refit.module.css";
+import { samePath } from "./summary";
 
 /** Step 1: the project to refit, typed, browsed for, or picked from the registered ones. */
 export function FolderStep({
@@ -67,7 +68,7 @@ export function FolderStep({
               key={String(p.id)}
               type="button"
               className={styles.known}
-              aria-pressed={p.path === path.trim()}
+              aria-pressed={samePath(p.path, path)}
               onClick={() => onChange(p.path)}
             >
               <FolderGit2 size={14} aria-hidden="true" />

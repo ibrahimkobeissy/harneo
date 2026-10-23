@@ -16,6 +16,7 @@ import {
   actionOf,
   baseName,
   counts,
+  criticalLosses,
   isCritical,
   lossOf,
   lossText,
@@ -40,14 +41,14 @@ const actionLabel: Record<RefitAction, string> = {
 function ProjectBadge({ value }: { value: Row["inProject"] }) {
   if (value === "absent") return <span className={styles.muted}>—</span>;
   if (value === "same") return <Badge tone="ok">identical</Badge>;
-  return <Badge>{value === "differs" ? "differs" : "exists"}</Badge>;
+  return <Badge>{value === "differs" ? "modified" : "exists"}</Badge>;
 }
 
 function ProfileBadge({ value }: { value: Row["inProfile"] }) {
   if (value === "absent") return <span className={styles.muted}>—</span>;
   if (value === "same") return <Badge tone="ok">identical</Badge>;
   if (value === "new") return <Badge tone="info">new</Badge>;
-  return <Badge tone="warn">differs</Badge>;
+  return <Badge tone="warn">different</Badge>;
 }
 
 /** Step 3: every item side by side, one action each. Lost content shows in red before anything is written. */
@@ -60,10 +61,12 @@ export function CompareStep({
   choices: Record<string, RefitAction>;
   onChoose: (item: string, action: RefitAction) => void;
 }) {
-  const [sort, setSort] = useState<{ by: SortBy; desc: boolean }>({
-    by: "item",
-    desc: false,
-  });
+  // The default order pins rows that would lose the user's own setup to the top.
+  const [sort, setSort] = useState<{
+    by: SortBy;
+    desc: boolean;
+    pinned: boolean;
+  }>({ by: "item", desc: false, pinned: true });
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   if (comparison.nothingToChange) {
@@ -89,13 +92,14 @@ export function CompareStep({
         : by === "inProfile"
           ? row.inProfile
           : actionOf(row, choices);
+  const pin = (r: Row) =>
+    isCritical(r.item) && r.loss ? (r.item === "CLAUDE.md" ? 0 : 1) : 2;
   const rows = [...comparison.rows].sort((a, b) => {
+    if (sort.pinned && pin(a) !== pin(b)) return pin(a) - pin(b);
     const order = value(a, sort.by).localeCompare(value(b, sort.by));
     return (sort.desc ? -order : order) || a.item.localeCompare(b.item);
   });
-  const flagged = comparison.rows.filter(
-    (r) => isCritical(r.item) && lossOf(r, choices),
-  );
+  const flagged = criticalLosses(comparison.rows, choices);
   const total = counts(comparison.rows, choices);
   const backed = total.replace + total.delete;
 
@@ -106,10 +110,7 @@ export function CompareStep({
           <p>
             <b>
               {flagged
-                .map((r) => {
-                  const loss = lossOf(r, choices);
-                  return `${baseName(r.item)}: ${loss ? lossText(loss) : ""}`;
-                })
+                .map((f) => `${baseName(f.row.item)}: ${lossText(f.loss)}`)
                 .join(" · ")}
             </b>
           </p>
@@ -118,6 +119,17 @@ export function CompareStep({
             Harneo replaces, never merges. A backup is kept, but choose{" "}
             <b>Keep</b> to leave a file untouched.
           </p>
+          <div className={styles.keepRow}>
+            {flagged.map((f) => (
+              <Button
+                key={f.row.item}
+                small
+                onClick={() => onChoose(f.row.item, "keep")}
+              >
+                Keep my {baseName(f.row.item)}
+              </Button>
+            ))}
+          </div>
         </Callout>
       )}
       <div className={styles.tableWrap}>
@@ -138,7 +150,11 @@ export function CompareStep({
                       type="button"
                       className={styles.sortBtn}
                       onClick={() =>
-                        setSort({ by: id, desc: on ? !sort.desc : false })
+                        setSort({
+                          by: id,
+                          desc: on ? !sort.desc : false,
+                          pinned: false,
+                        })
                       }
                     >
                       {id === "inProfile"
@@ -217,6 +233,13 @@ export function CompareStep({
                           key={option}
                           type="button"
                           aria-pressed={action === option}
+                          data-danger={
+                            action === option &&
+                            (option === "delete" ||
+                              (option === "replace" && loss !== null))
+                              ? "true"
+                              : undefined
+                          }
                           onClick={() => onChoose(row.item, option)}
                         >
                           {actionLabel[option]}

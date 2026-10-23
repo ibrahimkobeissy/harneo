@@ -1,4 +1,5 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
+import { Link } from "react-router";
 import { Button } from "../../ui";
 import styles from "./Refit.module.css";
 
@@ -7,6 +8,10 @@ export function DoneStep({
   folder,
   profile,
   backedUp,
+  backupFolder,
+  projectId,
+  restoredCount,
+  addedCount,
   restoring,
   restored,
   confirming,
@@ -20,6 +25,12 @@ export function DoneStep({
   folder: string;
   profile: string;
   backedUp: number;
+  backupFolder: string | null;
+  projectId: string;
+  /** Files the restore put back, once it ran. */
+  restoredCount: number;
+  /** Files the refit added; a restore leaves them in place. */
+  addedCount: number;
   restoring: boolean;
   restored: boolean;
   confirming: boolean;
@@ -43,11 +54,24 @@ export function DoneStep({
         {backedUp} {originals} backed up. The project is in your registry with a
         fresh <span className={styles.mono}>HARNESS.md</span>.
       </p>
-      {restored && (
-        <p role="status" className={styles.okNote}>
-          Originals restored. The files you replaced are back.
+      {backupFolder && (
+        <p>
+          Backup saved in <span className={styles.mono}>{backupFolder}</span>.
         </p>
       )}
+      {restored && (
+        <p role="status" className={styles.okNote}>
+          Originals restored: {restoredCount}{" "}
+          {restoredCount === 1 ? "file" : "files"} put back, {addedCount} added{" "}
+          {addedCount === 1 ? "file remains" : "files remain"}. The project
+          stays on {profile} and may now show drift.
+        </p>
+      )}
+      <p>
+        <Link to={`/projects/${projectId}`}>
+          Open the project to see its Backups tab
+        </Link>
+      </p>
       {error && (
         <p role="alert" className={styles.errNote}>
           {error}

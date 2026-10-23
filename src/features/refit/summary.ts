@@ -25,17 +25,19 @@ export function lossOf(
   return action === "replace" || action === "delete" ? row.loss : null;
 }
 
-export function lossText(loss: Loss): string {
+export function lossUnit(loss: Loss): string {
   const one = loss.count === 1;
-  const noun =
-    loss.unit === "permissionRules"
-      ? one
-        ? "permission rule"
-        : "permission rules"
-      : one
-        ? "line"
-        : "lines";
-  return `${loss.count} ${noun} will be lost`;
+  return loss.unit === "permissionRules"
+    ? one
+      ? "permission rule"
+      : "permission rules"
+    : one
+      ? "line"
+      : "lines";
+}
+
+export function lossText(loss: Loss): string {
+  return `${loss.count} ${lossUnit(loss)} will be lost`;
 }
 
 export function baseName(path: string): string {
@@ -56,4 +58,45 @@ export function counts(
   };
   for (const row of rows) total[actionOf(row, choices)] += 1;
   return total;
+}
+
+/** A critical row that would lose content with its chosen action. */
+export interface CriticalLoss {
+  row: Row;
+  loss: Loss;
+}
+
+export function criticalLosses(
+  rows: readonly Row[],
+  choices: Record<string, RefitAction>,
+): CriticalLoss[] {
+  const out: CriticalLoss[] = [];
+  for (const row of rows) {
+    const loss = isCritical(row.item) ? lossOf(row, choices) : null;
+    if (loss) out.push({ row, loss });
+  }
+  return out;
+}
+
+/** "17 lines", "3 permission rules" or "17 lines and rules" for the losses taken together. */
+export function totalLoss(losses: readonly CriticalLoss[]): string {
+  const total = losses.reduce((n, l) => n + l.loss.count, 0);
+  const rules = losses.filter((l) => l.loss.unit === "permissionRules").length;
+  if (rules === 0) return `${total} ${total === 1 ? "line" : "lines"}`;
+  if (rules === losses.length)
+    return `${total} permission ${total === 1 ? "rule" : "rules"}`;
+  return `${total} lines and rules`;
+}
+
+/** The same path spelled differently ("a/b/", "./a//b", "a\\b") compares equal. */
+export function samePath(a: string, b: string): boolean {
+  const norm = (p: string) => {
+    const parts = p
+      .trim()
+      .replace(/\\/g, "/")
+      .split("/")
+      .filter((s) => s !== "" && s !== ".");
+    return (p.trim().startsWith("/") ? "/" : "") + parts.join("/");
+  };
+  return norm(a) === norm(b);
 }

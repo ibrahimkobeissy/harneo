@@ -24,7 +24,7 @@ import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";
 import { ProfileStep } from "./ProfileStep";
 import styles from "./Refit.module.css";
-import { baseName } from "./summary";
+import { baseName, criticalLosses, samePath, totalLoss } from "./summary";
 
 const steps = ["Folder", "Profile", "Compare", "Preview", "Done"] as const;
 
@@ -35,6 +35,13 @@ function messageOf(error: unknown): string {
 /** Errors about the folder itself belong on the Folder step. */
 function aboutFolder(message: string): boolean {
   return /not a folder|no Claude harness/.test(message);
+}
+
+/** A raw core error gets a next step: what to try, since the core's text is for logs. */
+function withAdvice(message: string): string {
+  return /permission denied|read-only|access is denied/i.test(message)
+    ? `${message} Check that you can write to the project folder, or pick another folder.`
+    : `${message} Nothing was changed. Go back and try again, or pick another folder or profile.`;
 }
 
 /** `~` is expanded here since the core reads paths as given. */
@@ -71,6 +78,7 @@ export function RefitScreen() {
   const [confirming, setConfirming] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [restored, setRestored] = useState(false);
+  const [restoredCount, setRestoredCount] = useState(0);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -94,7 +102,7 @@ export function RefitScreen() {
     };
   }, []);
 
-  const registered = projects.find((p) => p.path === path.trim()) ?? null;
+  const registered = projects.find((p) => samePath(p.path, path)) ?? null;
   // A registered project's current profile is preselected until the user picks another.
   const currentId =
     registered && profiles?.some((p) => p.id === registered.profileId)
@@ -142,7 +150,7 @@ export function RefitScreen() {
         setFolderError(message);
         setStep(0);
       } else {
-        setStepError(message);
+        setStepError(withAdvice(message));
       }
     } finally {
       setBusy(false);
@@ -158,7 +166,7 @@ export function RefitScreen() {
       setApplyError(null);
       setStep(3);
     } catch (error) {
-      setStepError(messageOf(error));
+      setStepError(withAdvice(messageOf(error)));
     } finally {
       setBusy(false);
     }
@@ -183,7 +191,8 @@ export function RefitScreen() {
     setRestoring(true);
     setRestoreError(null);
     try {
-      await backupRestore(report.backupId);
+      const back = await backupRestore(report.backupId);
+      setRestoredCount(back.written);
       setRestored(true);
       setConfirming(false);
       announce("Originals restored");
@@ -206,6 +215,11 @@ export function RefitScreen() {
   const changing =
     plan?.writes.filter((w) => w.action !== "keep" && w.action !== "skip")
       .length ?? 0;
+  const losses = criticalLosses(comparison?.rows ?? [], choices);
+  const applyLabel =
+    losses.length > 0
+      ? `Apply refit (loses ${totalLoss(losses)})`
+      : "Apply refit";
   const label = profile ? `${profile.name} v${profile.version}` : "";
   const flowLabel = comparison
     ? `${comparison.profileName} v${comparison.profileVersion}`
@@ -275,13 +289,25 @@ export function RefitScreen() {
         </>
       )}
       {step === 3 && plan && (
-        <PreviewStep plan={plan} displayPath={path.trim()} error={applyError} />
+        <PreviewStep
+          plan={plan}
+          rows={comparison?.rows ?? []}
+          choices={choices}
+          displayPath={path.trim()}
+          error={applyError}
+        />
       )}
       {step === 4 && report && (
         <DoneStep
           folder={baseName(path)}
           profile={flowLabel}
           backedUp={report.backedUp}
+          backupFolder={report.backupFolder}
+          projectId={String(report.projectId)}
+          restoredCount={restoredCount}
+          addedCount={
+            plan?.writes.filter((w) => w.action === "new").length ?? 0
+          }
           canRestore={report.backupId !== null}
           confirming={confirming}
           restoring={restoring}
@@ -348,7 +374,7 @@ export function RefitScreen() {
               onClick={() => void apply()}
             >
               <Check size={14} aria-hidden="true" />
-              {busy ? "Applying…" : "Apply refit"}
+              {busy ? "Applying…" : applyLabel}
             </Button>
           )}
         </div>
