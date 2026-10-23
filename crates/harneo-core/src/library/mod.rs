@@ -134,7 +134,6 @@ pub struct ImportReport {
 pub struct Library {
     pub(crate) store: Store,
     pub(crate) git: GitConfig,
-    git: GitConfig,
     /// How the `claude` CLI is run for bundle detection; tests swap in a fixture script.
     pub(crate) claude: crate::bundles::ClaudeConfig,
     /// The clone of the last git preview, kept until `import` copies from it. At most one: a
