@@ -241,3 +241,28 @@ fn key_names_become_upper_snake_case() {
         assert_eq!(copy::placeholder(key), want);
     }
 }
+
+#[test]
+fn a_token_in_a_default_is_replaced_and_a_harmless_default_stays() -> TestResult {
+    let (data, src, mut library, source) = open()?;
+    let token = ["gh", "p_", &"a".repeat(36)].concat();
+    write(
+        src.path(),
+        ".claude/settings.json",
+        &format!(r#"{{"env":{{"API_KEY":"${{API_KEY:-{token}}}","PORT":"${{PORT:-8080}}"}}}}"#),
+    )?;
+    let preview = library.preview(&source)?;
+    let ids: Vec<ArtifactId> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&preview, &ids, &TagChoices::new())?;
+    let settings = candidate(&preview, ArtifactKind::Settings)?;
+    let stored = data
+        .path()
+        .join("library/artifacts")
+        .join(&settings.id)
+        .join("settings.json");
+    let json = read_json(&stored)?;
+    assert_eq!(json["env"]["API_KEY"], "${API_KEY}");
+    assert_eq!(json["env"]["PORT"], "${PORT:-8080}");
+    assert!(!fs::read_to_string(&stored)?.contains(&token));
+    Ok(())
+}

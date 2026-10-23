@@ -21,6 +21,8 @@ use crate::error::{Error, Result};
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(120);
 /// How often a running git is checked on.
 const POLL: Duration = Duration::from_millis(20);
+/// The largest checkout a clone may produce (bytes), measured after the clone finishes.
+const MAX_CHECKOUT_BYTES: u64 = 500 * 1024 * 1024;
 /// How much of git's output is kept.
 const OUTPUT_LIMIT: u64 = 64 * 1024;
 
@@ -33,6 +35,8 @@ pub(crate) struct GitConfig {
     pub path: Option<OsString>,
     /// The limit for each git command.
     pub timeout: Duration,
+    /// The largest checkout a clone may leave behind.
+    pub max_checkout_bytes: u64,
 }
 
 impl Default for GitConfig {
@@ -41,6 +45,7 @@ impl Default for GitConfig {
             program: OsString::from("git"),
             path: None,
             timeout: DEFAULT_TIMEOUT,
+            max_checkout_bytes: MAX_CHECKOUT_BYTES,
         }
     }
 }
@@ -75,17 +80,13 @@ pub(crate) fn clone(
             path: parent.display().to_string(),
             source,
         })?;
-    let mut args: Vec<&OsStr> = [
-        "-c",
-        "protocol.ext.allow=never",
-        "clone",
-        "--depth",
-        "1",
-        "--single-branch",
-    ]
-    .iter()
-    .map(OsStr::new)
-    .collect();
+    let flags = protocol_flags(url);
+    let mut args: Vec<&OsStr> = flags.iter().map(OsStr::new).collect();
+    args.extend(
+        ["clone", "--depth", "1", "--single-branch"]
+            .iter()
+            .map(OsStr::new),
+    );
     if let Some(branch) = branch {
         args.extend([OsStr::new("--branch"), OsStr::new(branch)]);
     }
@@ -93,6 +94,13 @@ pub(crate) fn clone(
     let output = run(config, &args)?;
     if !output.success {
         return Err(clone_error(&output.stderr, url, branch));
+    }
+    if dir_size(dir.path(), config.max_checkout_bytes) > config.max_checkout_bytes {
+        // Dropping `dir` deletes the oversized clone.
+        return Err(failed(&format!(
+            "the repository is larger than {} MiB",
+            config.max_checkout_bytes / (1024 * 1024)
+        )));
     }
 
     let at = |rest: &[&str]| -> Result<String> {
@@ -129,10 +137,9 @@ pub(crate) fn ls_remote(config: &GitConfig, url: &str, branch: Option<&str>) -> 
         ],
         None => vec!["HEAD".to_owned()],
     };
-    let mut args: Vec<&OsStr> = ["-c", "protocol.ext.allow=never", "ls-remote", "--", url]
-        .into_iter()
-        .map(OsStr::new)
-        .collect();
+    let flags = protocol_flags(url);
+    let mut args: Vec<&OsStr> = flags.iter().map(OsStr::new).collect();
+    args.extend(["ls-remote", "--", url].into_iter().map(OsStr::new));
     args.extend(patterns.iter().map(OsStr::new));
     let output = run(config, &args)?;
     if !output.success {
@@ -159,6 +166,96 @@ pub(crate) fn ls_remote(config: &GitConfig, url: &str, branch: Option<&str>) -> 
     }
 }
 
+/// True for a local path or `file://` URL, the only input allowed to use the file protocol.
+fn is_local(url: &str) -> bool {
+    if url.starts_with("file://") {
+        return true;
+    }
+    if url.contains("://") {
+        return false;
+    }
+    // `host:path` (scp-like) is remote; a path has no colon before its first slash.
+    match (url.find(':'), url.find('/')) {
+        (Some(colon), Some(slash)) => slash < colon,
+        (Some(_), None) => false,
+        (None, _) => true,
+    }
+}
+
+/// `-c` flags for every git command: only https, ssh and git (and file for a local source),
+/// no LFS filters, no hooks.
+fn protocol_flags(url: &str) -> Vec<String> {
+    let mut settings: Vec<&str> = vec![
+        "protocol.allow=never",
+        "protocol.https.allow=always",
+        "protocol.ssh.allow=always",
+        "protocol.git.allow=always",
+        "protocol.ext.allow=never",
+        "filter.lfs.smudge=",
+        "filter.lfs.process=",
+        "filter.lfs.required=false",
+        "core.hooksPath=/dev/null",
+    ];
+    if is_local(url) {
+        settings.push("protocol.file.allow=always");
+    }
+    settings
+        .iter()
+        .flat_map(|s| ["-c".to_owned(), (*s).to_owned()])
+        .collect()
+}
+
+/// Removes the variables that redirect git elsewhere and pins the safe ones.
+fn harden(command: &mut Command) {
+    for name in [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_NAMESPACE",
+        "GIT_EXEC_PATH",
+        "GIT_TEMPLATE_DIR",
+        "GIT_PROXY_COMMAND",
+        "GIT_ALLOW_PROTOCOL",
+    ] {
+        command.env_remove(name);
+    }
+    for (name, _) in std::env::vars_os() {
+        if name.to_string_lossy().starts_with("GIT_CONFIG") {
+            command.env_remove(name);
+        }
+    }
+    command
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_LFS_SKIP_SMUDGE", "1");
+}
+
+/// Total size of the files under `dir`; counting stops once it passes `limit`.
+fn dir_size(dir: &Path, limit: u64) -> u64 {
+    let mut total = 0;
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(next) = stack.pop() {
+        let Ok(entries) = std::fs::read_dir(&next) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            if meta.is_dir() {
+                stack.push(entry.path());
+            } else {
+                total += meta.len();
+            }
+            if total > limit {
+                return total;
+            }
+        }
+    }
+    total
+}
+
 struct Output {
     success: bool,
     stdout: String,
@@ -173,8 +270,9 @@ fn run(config: &GitConfig, args: &[&OsStr]) -> Result<Output> {
     let mut stdout = tempfile::tempfile().map_err(io_error)?;
     let mut stderr = tempfile::tempfile().map_err(io_error)?;
     let mut command = Command::new(&config.program);
+    command.args(args);
+    harden(&mut command);
     command
-        .args(args)
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_ASKPASS", "")
         .env("GCM_INTERACTIVE", "never")

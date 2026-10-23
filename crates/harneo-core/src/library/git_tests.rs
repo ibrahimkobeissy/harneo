@@ -8,6 +8,7 @@ use std::path::Path;
 use std::process::Command;
 use std::time::Duration;
 
+use super::git::{clone, ls_remote};
 use super::*;
 
 type TestResult = std::result::Result<(), Box<dyn std::error::Error>>;
@@ -321,6 +322,88 @@ fn importing_the_same_source_twice_marks_it_already_in_library() -> TestResult {
     assert!(again.candidates.iter().all(|c| c.already_in_library));
     let report = f.library.import(&again, &ids, &TagChoices::new())?;
     assert!(report.imported.is_empty());
+    assert_eq!(clones_left(f.data.path())?, 0);
+    Ok(())
+}
+
+/// A git stand-in that records its argv and a few environment variables, then fails.
+#[cfg(unix)]
+fn recorder(bin: &Path, log: &Path) -> io::Result<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    let script = bin.join("recording-git");
+    let body = format!(
+        "#!/bin/sh\n{{ for a in \"$@\"; do echo \"ARG $a\"; done; env | grep '^GIT_' | sed 's/^/ENV /'; }} > '{}'\nexit 1\n",
+        log.display()
+    );
+    fs::write(&script, body)?;
+    fs::set_permissions(&script, fs::Permissions::from_mode(0o755))?;
+    Ok(script)
+}
+
+#[cfg(unix)]
+#[test]
+fn git_runs_with_a_scrubbed_environment_restricted_protocols_and_no_lfs_or_hooks() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let log = bin.path().join("log.txt");
+    let config = GitConfig {
+        program: recorder(bin.path(), &log)?.into_os_string(),
+        ..GitConfig::default()
+    };
+    // Harmless in this process (other tests run git), but each must not reach the child.
+    std::env::set_var("GIT_PROXY_COMMAND", "evil-proxy");
+    std::env::set_var("GIT_TEMPLATE_DIR", "/nonexistent-template");
+    std::env::set_var("GIT_CONFIG_KEY_9", "core.pager");
+    std::env::set_var("GIT_CONFIG_VALUE_9", "evil");
+    let parent = tempfile::tempdir()?;
+    for call in 0..2 {
+        let url = "https://example.test/o/r";
+        let _ = if call == 0 {
+            clone(&config, parent.path(), url, None).err()
+        } else {
+            ls_remote(&config, url, None).err()
+        };
+        let seen = fs::read_to_string(&log)?;
+        for gone in [
+            "GIT_PROXY_COMMAND",
+            "GIT_TEMPLATE_DIR",
+            "GIT_CONFIG_KEY_9",
+            "GIT_CONFIG_VALUE_9",
+        ] {
+            assert!(!seen.contains(gone), "{gone} leaked: {seen}");
+        }
+        for want in [
+            "ENV GIT_CONFIG_NOSYSTEM=1",
+            "ENV GIT_LFS_SKIP_SMUDGE=1",
+            "ARG protocol.allow=never",
+            "ARG protocol.https.allow=always",
+            "ARG protocol.ssh.allow=always",
+            "ARG protocol.git.allow=always",
+            "ARG filter.lfs.smudge=",
+            "ARG filter.lfs.process=",
+            "ARG core.hooksPath=/dev/null",
+        ] {
+            assert!(seen.contains(want), "missing {want}: {seen}");
+        }
+        assert!(
+            !seen.contains("protocol.file.allow"),
+            "file allowed for a remote URL: {seen}"
+        );
+    }
+    // A user-typed local source may use the file protocol.
+    let _ = ls_remote(&config, "file:///tmp/local", None);
+    assert!(fs::read_to_string(&log)?.contains("ARG protocol.file.allow=always"));
+    Ok(())
+}
+
+#[test]
+fn an_oversized_clone_is_refused_and_deleted() -> TestResult {
+    let mut f = fixture()?;
+    f.library.git.max_checkout_bytes = 10;
+    let err = f
+        .library
+        .preview(&source(&f, None, None)?)
+        .expect_err("too big");
+    assert!(err.to_string().contains("larger than"), "{err}");
     assert_eq!(clones_left(f.data.path())?, 0);
     Ok(())
 }

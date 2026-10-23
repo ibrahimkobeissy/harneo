@@ -22,11 +22,27 @@ pub const REDACTED: &str = "<redacted>";
 /// format (`sk-`, `ghp_`, `github_pat_`, `xoxb-`/`xoxp-`, AWS access key ids).
 pub fn is_literal_secret(key: &str, value: &str) -> bool {
     let value = value.trim();
-    if value.is_empty() || is_placeholder(value) {
+    if value.is_empty() {
         return false;
     }
     let key = key.to_ascii_uppercase();
-    SECRET_WORDS.iter().any(|w| key.contains(w)) || has_token_format(value)
+    let secret_key = SECRET_WORDS.iter().any(|w| key.contains(w));
+    if is_placeholder(value) {
+        // A `${VAR:-default}` placeholder is only as safe as its default.
+        return default_part(value).is_some_and(|d| {
+            has_token_format(d) || (secret_key && d.len() >= 16 && !d.contains(char::is_whitespace))
+        });
+    }
+    secret_key || has_token_format(value)
+}
+
+/// The default of a `${VAR:-default}` / `${VAR:=default}` / `${VAR-default}` reference.
+fn default_part(value: &str) -> Option<&str> {
+    let body = value.strip_prefix("${")?.strip_suffix('}')?;
+    let at = body.find(['-', '='])?;
+    let rest = &body[at + 1..];
+    let name = body[..at].trim_end_matches(':');
+    (!name.is_empty() && !rest.is_empty()).then_some(rest)
 }
 
 /// `${VAR}`, `${VAR:-default}` or `$VAR`.
@@ -110,6 +126,27 @@ mod tests {
         assert!(!is_literal_secret("API_TOKEN", ""));
         assert!(!is_literal_secret("LOG_LEVEL", "debug"));
         assert!(!is_literal_secret("NODE_ENV", "production"));
+    }
+
+    #[test]
+    fn a_token_hidden_in_a_default_is_literal_but_harmless_defaults_are_not() {
+        let token = ["gh", "p_", &"a".repeat(36)].concat();
+        assert!(is_literal_secret(
+            "API_KEY",
+            &format!("${{API_KEY:-{token}}}")
+        ));
+        assert!(is_literal_secret("OTHER", &format!("${{OTHER:={token}}}")));
+        assert!(is_literal_secret(
+            "API_KEY",
+            &format!("${{API_KEY-{token}}}")
+        ));
+        assert!(is_literal_secret(
+            "API_KEY",
+            "${API_KEY:-abcdefghijklmnopqrstuvwx}"
+        ));
+        assert!(!is_literal_secret("PORT", "${PORT:-8080}"));
+        assert!(!is_literal_secret("API_KEY", "${API_KEY:-}"));
+        assert!(!is_literal_secret("API_KEY", "${API_KEY}"));
     }
 
     #[test]
