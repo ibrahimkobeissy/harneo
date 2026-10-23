@@ -556,5 +556,6 @@ export function projectFileContent(
 ): Promise<ProjectFile> {
   return invoke<ProjectFile>("project_file_content", {
     id: Number(id),
+    path,
   });
 }
