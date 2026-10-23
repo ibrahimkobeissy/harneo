@@ -197,4 +197,40 @@ describe("Find bundles with Claude", () => {
     expect(await screen.findByText("Claude CLI not found.")).toBeVisible();
     expect(calls.some((c) => c.cmd === "bundles_detect_library")).toBe(false);
   });
+
+  it("shows a failure and runs again on retry", async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const calls = setup({
+      path: "/library?open=id-alpha",
+      detect: () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("claude exploded");
+        return detection;
+      },
+    });
+    const panel = await screen.findByRole("dialog", { name: "alpha details" });
+    await user.click(
+      await within(panel).findByRole("button", { name: "Find bundles" }),
+    );
+    expect(await screen.findByText(/claude exploded/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /try again|retry/i }));
+    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(
+      calls.filter((c) => c.cmd === "bundles_detect_library"),
+    ).toHaveLength(2);
+  });
+
+  it("closes the toolbar menu on Escape", async () => {
+    const user = userEvent.setup();
+    setup({});
+    await user.click(
+      await screen.findByRole("button", { name: "More library actions" }),
+    );
+    expect(
+      screen.getByRole("menuitem", { name: /Find bundles with Claude/ }),
+    ).toBeVisible();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menuitem", { name: /Find bundles/ })).toBeNull();
+  });
 });
