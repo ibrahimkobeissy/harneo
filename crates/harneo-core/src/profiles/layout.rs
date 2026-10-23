@@ -73,7 +73,7 @@ const SETTINGS: &str = ".claude/settings.json";
 const MCP_JSON: &str = ".mcp.json";
 const HARNESS_MD: &str = "HARNESS.md";
 
-fn load(conn: &Connection, id: &str) -> Result<Option<Artifact>> {
+pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<Artifact>> {
     let json: Option<String> = conn
         .query_row(
             "SELECT artifact FROM artifacts WHERE id = ?1",
@@ -99,8 +99,8 @@ fn remap(rel: &str, source_dir: &str, install_dir: &Path) -> String {
     }
 }
 
-/// Every file of one artifact, as project paths.
-fn files_of(artifact: &Artifact) -> Result<Vec<String>> {
+/// Every file of one artifact as `(path in its library copy, project path)`.
+pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     let install = ClaudeAdapter.install_path(artifact);
     let (view, back) = stored_view(artifact)?;
     let own_dir = artifact
@@ -114,15 +114,21 @@ fn files_of(artifact: &Artifact) -> Result<Vec<String>> {
     let mut out = Vec::new();
     for stored in &view.files {
         let source = back.get(stored).map_or(stored.as_str(), String::as_str);
-        out.push(match artifact.kind {
+        let project = match artifact.kind {
             ArtifactKind::Skill => rel_string(&install.join(stored)),
             _ if source == artifact.path => rel_string(&install),
             // Scripts a Settings file or an MCP server brings keep their project-relative path.
             ArtifactKind::Settings | ArtifactKind::Mcp => source.to_owned(),
             _ => remap(source, own_dir, install_dir),
-        });
+        };
+        out.push((stored.clone(), project));
     }
     Ok(out)
+}
+
+/// Every file of one artifact, as project paths.
+fn files_of(artifact: &Artifact) -> Result<Vec<String>> {
+    Ok(placed(artifact)?.into_iter().map(|(_, p)| p).collect())
 }
 
 pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {

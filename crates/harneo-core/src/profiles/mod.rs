@@ -8,7 +8,7 @@
 mod file;
 #[cfg(test)]
 mod file_tests;
-mod layout;
+pub(crate) mod layout;
 #[cfg(test)]
 mod layout_tests;
 mod resolve;

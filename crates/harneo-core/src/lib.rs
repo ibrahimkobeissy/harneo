@@ -5,6 +5,7 @@ pub mod artifact;
 pub mod audit;
 pub mod bundles;
 pub mod error;
+pub mod install;
 pub mod library;
 pub mod paths;
 pub mod profiles;
