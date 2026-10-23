@@ -17,6 +17,7 @@ function renderAt(path: string) {
 beforeEach(() => {
   mockIPC((cmd) => {
     if (cmd === "library_list") return page([item("one")]);
+    if (cmd === "library_audits") return [];
     return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
   });
 });

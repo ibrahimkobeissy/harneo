@@ -4,6 +4,7 @@ import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
 import type { AppInfo } from "../bindings/AppInfo";
+import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
 import type { Collection } from "../bindings/Collection";
@@ -48,6 +49,11 @@ export function libraryFind(
 /** Re-runs the security audit on every stored copy; resolves with how many were audited and changed. */
 export function libraryReaudit(): Promise<ReauditReport> {
   return invoke<ReauditReport>("library_reaudit", {});
+}
+
+/** The stored audit of every library artifact (trust, findings, reach), for the Security page. */
+export function libraryAudits(): Promise<ArtifactAudit[]> {
+  return invoke<ArtifactAudit[]>("library_audits", {});
 }
 
 // --- Import flow -----------------------------------------------------------------------

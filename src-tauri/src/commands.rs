@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use harneo_core::artifact::{ArtifactKind, ScanOptions};
 
 use harneo_core::library::{
-    ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query, ReauditReport,
-    Source, Tag, TagColor, TagWithCount,
+    ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
+    ReauditReport, Source, Tag, TagColor, TagWithCount,
 };
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
@@ -114,6 +114,12 @@ pub async fn library_reaudit(app: AppHandle) -> Result<ReauditReport, String> {
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// The stored audit of every library artifact, for the Security page.
+#[tauri::command]
+pub fn library_audits(state: State<'_, LibraryState>) -> Result<Vec<ArtifactAudit>, String> {
+    state.with(|library| library.audits())
 }
 
 // --- Import flow -----------------------------------------------------------------------

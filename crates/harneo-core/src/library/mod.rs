@@ -11,6 +11,9 @@
 
 #[cfg(test)]
 mod audit_tests;
+mod audits;
+#[cfg(test)]
+mod audits_tests;
 mod collections;
 #[cfg(test)]
 mod collections_tests;
@@ -49,6 +52,7 @@ use ts_rs::TS;
 use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions};
 use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
+pub use audits::ArtifactAudit;
 pub use collections::{Collection, CollectionKind};
 use copy::{copy_artifact, ImportHooks, NoHooks};
 pub use copy::{SkipReason, SkippedFile};
