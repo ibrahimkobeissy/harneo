@@ -319,6 +319,8 @@ export function ChooseStep({
   // The excluded row whose restore is waiting on the user to confirm.
   const [confirming, setConfirming] = useState<string | null>(null);
   const refocusRestore = useRef<string | null>(null);
+  // Set by a bulk restore that left critical rows out.
+  const [skipNote, setSkipNote] = useState<string | null>(null);
 
   useEffect(() => {
     const id = refocusRestore.current;
@@ -375,6 +377,16 @@ export function ChooseStep({
       });
   const flip = flipIn(setOpened);
   const flipCopies = flipIn(setCopiesOpen);
+  /** Bulk restore: rows with a critical finding stay out and come back one by one. */
+  function restoreMany(list: Candidate[]) {
+    const stay = list.filter((c) => criticalRule(c) !== null);
+    onRestore(list.filter((c) => criticalRule(c) === null).map((c) => c.id));
+    setSkipNote(
+      stay.length === 0
+        ? null
+        : `${plural(stay.length, "artifact")} with critical findings stayed excluded. Restore ${stay.length === 1 ? "it" : "them"} one by one.`,
+    );
+  }
   /** Excludes one row and queues focus for the row that takes its place. */
   function excludeOne(id: string) {
     const visible = free.filter((c) => !excluded.has(c.id)).map((c) => c.id);
@@ -403,7 +415,7 @@ export function ChooseStep({
         <Button
           small
           disabled={excluded.size === 0}
-          onClick={() => onRestore([...excluded])}
+          onClick={() => restoreMany(all.filter((c) => excluded.has(c.id)))}
         >
           Restore all
         </Button>
@@ -455,13 +467,16 @@ export function ChooseStep({
       <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
         {toImport} to import, {excluded.size} excluded
       </p>
+      {skipNote && (
+        <p className={styles.reason} role="status">
+          {skipNote}
+        </p>
+      )}
       {groups.map(([kind, everyone]) => {
         const list = everyone.filter((c) => !excluded.has(c.id));
         if (list.length === 0) return null;
         const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
-        const back = everyone
-          .filter((c) => excluded.has(c.id))
-          .map((c) => c.id);
+        const back = everyone.filter((c) => excluded.has(c.id));
         const label = kindPlurals[kind];
         const shut = isCollapsed(kind, everyone.length);
         return (
@@ -487,7 +502,7 @@ export function ChooseStep({
                 <Button
                   variant="ghost"
                   small
-                  onClick={() => onRestore(back)}
+                  onClick={() => restoreMany(back)}
                   aria-label={`Restore all ${label}`}
                 >
                   Restore all

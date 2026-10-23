@@ -166,6 +166,18 @@ describe("Import audit", () => {
     expect(screen.getByRole("button", { name: "Restore pipe" })).toHaveFocus();
   });
 
+  it("leaves critical rows excluded on Restore all and says so", async () => {
+    const u = userEvent.setup();
+    setup([preview()]);
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Exclude all" }));
+    await u.click(screen.getByRole("button", { name: "Restore all" }));
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
+    expect(
+      screen.getByText(/1 artifact with critical findings stayed excluded/),
+    ).toBeInTheDocument();
+  });
+
   it("shows an excluded row's findings through the same list", async () => {
     const u = userEvent.setup();
     setup([preview()]);
