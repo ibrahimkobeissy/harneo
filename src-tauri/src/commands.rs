@@ -8,7 +8,7 @@ use harneo_core::artifact::{ArtifactKind, ScanOptions};
 use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
 };
-use harneo_core::install::{ApplyReport, InstalledFile, Plan, Project, ProjectFile};
+use harneo_core::install::{ApplyReport, Backup, InstalledFile, Plan, Project, ProjectFile};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -825,6 +825,51 @@ pub fn artifact_profiles(
 ) -> Result<Vec<ProfileUse>, String> {
     state.with(|library| library.profiles_using(&id))
 }
+/// The plan to move a project to another profile or version: only the difference.
+#[tauri::command]
+pub fn switch_plan(
+    state: State<'_, LibraryState>,
+    project_id: i64,
+    profile_id: i64,
+    version: Option<u32>,
+) -> Result<Plan, String> {
+    state.with(|library| library.plan_switch(project_id, profile_id, version))
+}
+
+/// The plan to remove a project's profile: Harneo's files out, the originals back.
+#[tauri::command]
+pub fn removal_plan(state: State<'_, LibraryState>, project_id: i64) -> Result<Plan, String> {
+    state.with(|library| library.plan_removal(project_id))
+}
+
+/// The backup sets of a project, newest first.
+#[tauri::command]
+pub fn project_backups(state: State<'_, LibraryState>, id: i64) -> Result<Vec<Backup>, String> {
+    state.with(|library| library.backups(id))
+}
+
+/// Puts a backup set back into its project (the current versions are backed up first). Runs on
+/// the blocking pool: it may wait for the data-dir lock.
+#[tauri::command]
+pub async fn backup_restore(app: AppHandle, backup_id: i64) -> Result<ApplyReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.restore_backup(backup_id))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Deletes a backup set from disk and from the list.
+#[tauri::command]
+pub async fn backup_delete(app: AppHandle, backup_id: i64) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.delete_backup(backup_id))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
 
 #[cfg(test)]
 mod tests {
@@ -1122,6 +1167,9 @@ mod tests {
         assert!(project_get(state(), 1).is_err());
         assert!(project_files(state(), 1).is_err());
         assert!(project_file_content(state(), 1, "a".into()).is_err());
+        assert!(switch_plan(state(), 1, 1, None).is_err());
+        assert!(removal_plan(state(), 1).is_err());
+        assert!(project_backups(state(), 1).is_err());
         Ok(())
     }
 }

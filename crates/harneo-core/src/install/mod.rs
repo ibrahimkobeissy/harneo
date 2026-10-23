@@ -7,19 +7,29 @@ mod apply;
 mod apply_tests;
 mod backup;
 #[cfg(test)]
+mod backup_tests;
+#[cfg(test)]
 mod fixture;
+#[cfg(test)]
+mod fixture_lifecycle;
 mod plan;
 #[cfg(test)]
 mod plan_tests;
 mod registry;
 #[cfg(test)]
 mod registry_tests;
+mod removal;
+#[cfg(test)]
+mod removal_tests;
 mod render;
 #[cfg(test)]
 mod render_tests;
+mod switch;
+#[cfg(test)]
+mod switch_tests;
 
 pub use apply::ApplyReport;
-pub use plan::{Plan, Write, WriteAction};
+pub use plan::{Plan, PlanKind, Write, WriteAction};
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
 pub use render::{Rendered, RenderedFile};

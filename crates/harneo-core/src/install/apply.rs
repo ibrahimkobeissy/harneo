@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::backup::{self, write_atomic, BackupSet};
-use super::plan::{check_plan, resolve_inside, Plan, WriteAction};
+use super::plan::{check_plan, resolve_inside, Plan, PlanKind, WriteAction};
 use super::registry;
 use crate::error::{Error, Result};
 use crate::library::Library;
 
 const LOCK_FILE: &str = "install.lock";
 /// How long an apply waits for another Harneo to finish.
-const LOCK_WAIT: Duration = Duration::from_secs(10);
+pub(super) const LOCK_WAIT: Duration = Duration::from_secs(10);
 const LOCK_POLL: Duration = Duration::from_millis(50);
 
 /// What an apply did.
@@ -33,6 +33,9 @@ pub struct ApplyReport {
     pub backed_up: u32,
     /// The backup set, when one was made.
     pub backup_id: Option<i64>,
+    /// The backup set's folder, relative to the data folder. A removal unregisters its project,
+    /// so its set has no row: the folder is where the files are.
+    pub backup_folder: Option<String>,
 }
 
 /// Failure injection for tests of the rollback. The real library uses [`NoHooks`].
@@ -56,12 +59,12 @@ pub(crate) struct NoHooks;
 impl ApplyHooks for NoHooks {}
 
 /// The data-dir lock, shared by the app and the CLI. Released when dropped.
-struct DataLock {
+pub(super) struct DataLock {
     _file: File,
 }
 
 impl DataLock {
-    fn acquire(data_dir: &Path, wait: Duration) -> Result<Self> {
+    pub(super) fn acquire(data_dir: &Path, wait: Duration) -> Result<Self> {
         fs::create_dir_all(data_dir).map_err(|source| io_error(data_dir, source))?;
         let path = data_dir.join(LOCK_FILE);
         let file = File::options()
@@ -176,7 +179,30 @@ fn write_all(
             _ => {}
         }
     }
+    if matches!(plan.kind, PlanKind::Switch | PlanKind::Removal) {
+        prune_empty_folders(plan, target);
+    }
     Ok(())
+}
+
+/// Removes the folders a switch or removal emptied, from the deleted files up to the project
+/// root. A rollback puts the folders back with the files.
+fn prune_empty_folders(plan: &Plan, target: &Path) {
+    for write in plan
+        .writes
+        .iter()
+        .filter(|w| w.action == WriteAction::Delete)
+    {
+        let mut at = resolve_inside(target, &write.path)
+            .ok()
+            .and_then(|p| p.parent().map(Path::to_path_buf));
+        while let Some(dir) = at {
+            if dir == target || fs::remove_dir(&dir).is_err() {
+                break;
+            }
+            at = dir.parent().map(Path::to_path_buf);
+        }
+    }
 }
 
 /// Puts the project back as it was. Returns what could not be undone.
@@ -227,8 +253,9 @@ impl Library {
         check_state(plan, &target)?;
         let now = crate::library::records::now();
         let tx = self.store.conn.unchecked_transaction()?;
-        let project_id = registry::upsert_project(&tx, plan, now)?;
-        let set = backup::create(&data_dir, project_id, plan, &target, now)?;
+        let project_id = registry::project_for(&tx, plan, now)?;
+        let managed = registry::manifest_paths(&tx, project_id)?;
+        let set = backup::create(&data_dir, project_id, plan, &target, now, &managed)?;
         let mut journal = Journal::default();
         let outcome = write_all(plan, &target, hooks, &mut journal).and_then(|()| {
             hooks
@@ -274,6 +301,7 @@ fn report(
         deleted: count(|a| a == WriteAction::Delete),
         backed_up: set.map_or(0, |s| s.file_count),
         backup_id,
+        backup_folder: set.map(|s| s.folder.clone()),
     }
 }
 

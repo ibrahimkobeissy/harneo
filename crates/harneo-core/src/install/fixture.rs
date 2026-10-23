@@ -96,5 +96,6 @@ pub fn plan(fx: &Fx, target: &Path, writes: Vec<Write>) -> std::io::Result<Plan>
         reason: "test".to_owned(),
         writes,
         backup_count: u32::try_from(backups).unwrap_or(0),
+        ..Default::default()
     })
 }

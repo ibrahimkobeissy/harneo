@@ -236,6 +236,12 @@ pub enum Error {
         /// The id that was asked for.
         id: i64,
     },
+    /// No backup set has this id.
+    #[error("backup {id} does not exist")]
+    BackupNotFound {
+        /// The id that was asked for.
+        id: i64,
+    },
     /// The profile is installed in projects, so it cannot be deleted.
     #[error("profile {name} is used by {projects}; remove it from them first")]
     ProfileInUse {

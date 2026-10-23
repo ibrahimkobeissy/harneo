@@ -49,8 +49,27 @@ pub struct Write {
     pub artifact: Option<ArtifactId>,
 }
 
+/// What a plan is for. `apply` registers the project for every kind but `Removal`, which
+/// unregisters it, and `Restore`, which leaves the registration as it is.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum PlanKind {
+    /// A profile into a folder with no harness.
+    #[default]
+    Scaffold,
+    /// A profile into a folder that has a harness.
+    Refit,
+    /// The difference between a project's profile and another profile or version.
+    Switch,
+    /// Harneo's files out, the originals back, the project unregistered.
+    Removal,
+    /// The files of a backup set put back.
+    Restore,
+}
+
 /// Everything an install will do to one project. Nothing is written until [`Library::apply`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct Plan {
@@ -64,6 +83,17 @@ pub struct Plan {
     pub writes: Vec<Write>,
     /// Files that will be backed up first (`Replace` and `Delete`).
     pub backup_count: u32,
+    /// What the plan is for; plans from older callers are scaffolds.
+    #[serde(default)]
+    pub kind: PlanKind,
+    /// Managed files that were edited in the project since Harneo wrote them (switch and
+    /// removal). Each is still backed up before it is replaced or deleted.
+    #[serde(default)]
+    pub edited_in_project: Vec<String>,
+    /// Paths whose write puts back something that is not Harneo's content (a project's original
+    /// file): the manifest stops listing them once applied.
+    #[serde(default)]
+    pub restored: Vec<String>,
 }
 
 mod optional_bytes {
@@ -283,6 +313,9 @@ impl Library {
             profile_version: view.version,
             writes,
             backup_count: 0,
+            kind: PlanKind::Scaffold,
+            edited_in_project: Vec::new(),
+            restored: Vec::new(),
         };
         check_plan(&plan)?;
         Ok(plan)

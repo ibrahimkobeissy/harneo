@@ -15,4 +15,9 @@ backedUp: number,
 /**
  * The backup set, when one was made.
  */
-backupId: bigint | null, };
+backupId: bigint | null, 
+/**
+ * The backup set's folder, relative to the data folder. A removal unregisters its project,
+ * so its set has no row: the folder is where the files are.
+ */
+backupFolder: string | null, };

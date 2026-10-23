@@ -37,6 +37,7 @@ import type { ProfileView } from "../bindings/ProfileView";
 import type { ProfileUse } from "../bindings/ProfileUse";
 import type { Resolved } from "../bindings/Resolved";
 import type { ApplyReport } from "../bindings/ApplyReport";
+import type { Backup } from "../bindings/Backup";
 import type { InstalledFile } from "../bindings/InstalledFile";
 import type { Plan } from "../bindings/Plan";
 import type { Project } from "../bindings/Project";
@@ -564,4 +565,38 @@ export function projectFileContent(
 /** The profiles whose current version installs the artifact (bundles included). */
 export function artifactProfiles(id: string): Promise<ProfileUse[]> {
   return invoke<ProfileUse[]>("artifact_profiles", { id });
+}
+/** The plan to move a project to another profile or version: only the difference. */
+export function switchPlan(
+  projectId: bigint,
+  profileId: bigint,
+  version?: number,
+): Promise<Plan> {
+  return invoke<Plan>("switch_plan", {
+    projectId: Number(projectId),
+    profileId: Number(profileId),
+    version: version ?? null,
+  });
+}
+
+/** The plan to remove a project's profile: Harneo's files out, the originals back. */
+export function removalPlan(projectId: bigint): Promise<Plan> {
+  return invoke<Plan>("removal_plan", { projectId: Number(projectId) });
+}
+
+/** The backup sets of a project, newest first. */
+export function projectBackups(id: bigint): Promise<Backup[]> {
+  return invoke<Backup[]>("project_backups", { id: Number(id) });
+}
+
+/** Puts a backup set back into its project; the current versions are backed up first. */
+export function backupRestore(backupId: bigint): Promise<ApplyReport> {
+  return invoke<ApplyReport>("backup_restore", {
+    backupId: Number(backupId),
+  });
+}
+
+/** Deletes a backup set from disk and from the list. */
+export function backupDelete(backupId: bigint): Promise<void> {
+  return invoke<void>("backup_delete", { backupId: Number(backupId) });
 }

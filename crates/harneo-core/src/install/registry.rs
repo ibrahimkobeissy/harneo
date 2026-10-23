@@ -1,6 +1,7 @@
 //! The install registry: which projects Harneo installed profiles into, what it wrote there
 //! (the manifest) and the backup sets it made.
 
+use std::collections::HashSet;
 use std::io::Read;
 
 use rusqlite::{params, Connection, OptionalExtension};
@@ -8,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::backup::BackupSet;
-use super::plan::{digest, project_folder, resolve_inside, Plan, WriteAction};
+use super::plan::{digest, project_folder, resolve_inside, Plan, PlanKind, WriteAction};
 use crate::error::{Error, Result};
 use crate::library::{ArtifactId, Library};
 use crate::profiles::ProfileId;
@@ -124,6 +125,12 @@ pub(super) fn record(
 ) -> Result<Option<i64>> {
     for write in &plan.writes {
         match (write.action, &write.bytes) {
+            (WriteAction::New | WriteAction::Replace, _) if plan.restored.contains(&write.path) => {
+                conn.execute(
+                    "DELETE FROM installed_files WHERE project_id = ?1 AND path = ?2",
+                    params![project_id, write.path],
+                )?;
+            }
             (WriteAction::New | WriteAction::Replace, Some(bytes)) => {
                 conn.execute(
                     "INSERT OR REPLACE INTO installed_files (project_id, path, digest, artifact_id)
@@ -139,6 +146,11 @@ pub(super) fn record(
             }
             _ => {}
         }
+    }
+    if plan.kind == PlanKind::Removal {
+        // The project leaves the registry, and its backup rows with it; the set stays on disk.
+        conn.execute("DELETE FROM projects WHERE id = ?1", params![project_id])?;
+        return Ok(None);
     }
     let Some(set) = set else {
         return Ok(None);
@@ -267,5 +279,76 @@ impl Library {
             content: String::from_utf8_lossy(&bytes).into_owned(),
             truncated,
         })
+    }
+}
+
+// ---- Switch, removal and restore ---------------------------------------------------------------
+
+/// The project row an apply works on: registered or updated for an install or a switch, looked
+/// up (and required) for a removal or a restore.
+pub(super) fn project_for(conn: &Connection, plan: &Plan, now: i64) -> Result<i64> {
+    match plan.kind {
+        PlanKind::Scaffold | PlanKind::Refit | PlanKind::Switch => upsert_project(conn, plan, now),
+        PlanKind::Removal | PlanKind::Restore => conn
+            .query_row(
+                "SELECT id FROM projects WHERE path = ?1",
+                params![plan.target],
+                |r| r.get(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::Install {
+                message: format!("{} is not a project Harneo installed into", plan.target),
+            }),
+    }
+}
+
+/// The paths of a project's manifest.
+pub(super) fn manifest_paths(conn: &Connection, project_id: i64) -> Result<HashSet<String>> {
+    Ok(conn
+        .prepare("SELECT path FROM installed_files WHERE project_id = ?1")?
+        .query_map(params![project_id], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?)
+}
+
+pub(super) fn delete_backup_row(conn: &Connection, backup_id: i64) -> Result<()> {
+    conn.execute("DELETE FROM backups WHERE id = ?1", params![backup_id])?;
+    Ok(())
+}
+
+impl Library {
+    /// One backup set.
+    pub fn backup(&self, backup_id: i64) -> Result<Backup> {
+        self.store
+            .conn
+            .query_row(
+                "SELECT id, project_id, created_at, reason, file_count, folder FROM backups
+                 WHERE id = ?1",
+                params![backup_id],
+                |r| {
+                    Ok(Backup {
+                        id: r.get(0)?,
+                        project_id: r.get(1)?,
+                        created_at: r.get(2)?,
+                        reason: r.get(3)?,
+                        file_count: r.get(4)?,
+                        folder: r.get(5)?,
+                    })
+                },
+            )
+            .optional()?
+            .ok_or(Error::BackupNotFound { id: backup_id })
+    }
+
+    /// The folders of a project's backup sets, oldest first.
+    pub(super) fn backup_folders_oldest_first(&self, project_id: i64) -> Result<Vec<String>> {
+        Ok(self
+            .store
+            .conn
+            .prepare(
+                "SELECT folder FROM backups WHERE project_id = ?1
+                 ORDER BY created_at ASC, id ASC",
+            )?
+            .query_map(params![project_id], |r| r.get(0))?
+            .collect::<std::result::Result<_, _>>()?)
     }
 }

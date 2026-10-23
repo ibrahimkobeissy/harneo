@@ -78,6 +78,11 @@ pub fn run() {
             commands::project_files,
             commands::project_file_content,
             commands::artifact_profiles,
+            commands::switch_plan,
+            commands::removal_plan,
+            commands::project_backups,
+            commands::backup_restore,
+            commands::backup_delete,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {
