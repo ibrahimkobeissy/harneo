@@ -3,3 +3,5 @@
 pub(crate) mod commands;
 pub(crate) mod injection;
 pub(crate) mod leaks;
+pub(crate) mod mcp;
+pub(crate) mod supply_chain;

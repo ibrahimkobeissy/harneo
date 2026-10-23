@@ -156,6 +156,11 @@ pub fn rules() -> Vec<Box<dyn AuditRule>> {
         Box::new(rules::commands::Rce),
         Box::new(rules::commands::DangerousCommands),
         Box::new(rules::commands::SafetyBypass),
+        // rules/mcp.rs
+        Box::new(rules::mcp::BroadPermissions),
+        Box::new(rules::mcp::McpCommandInjection),
+        // rules/supply_chain.rs
+        Box::new(rules::supply_chain::SupplyChain),
     ]
 }
 
