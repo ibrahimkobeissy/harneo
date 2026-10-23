@@ -50,6 +50,9 @@ pub fn run() {
             commands::update_status,
             commands::settings_get,
             commands::settings_set,
+            commands::claude_cli_status,
+            commands::bundles_detect_preview,
+            commands::bundles_detect_library,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

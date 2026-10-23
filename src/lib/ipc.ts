@@ -8,9 +8,11 @@ import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
+import type { CliStatus } from "../bindings/CliStatus";
 import type { Collection } from "../bindings/Collection";
 import type { LinkOrigin } from "../bindings/LinkOrigin";
 import type { Links } from "../bindings/Links";
+import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
@@ -84,13 +86,23 @@ export function libraryPreview(
   return invoke<Preview>("library_preview", { source, includeManaged });
 }
 
-/** Copies the ticked artifacts of a preview into the library, with the tags chosen for each. */
+/**
+ * Copies the ticked artifacts of a preview into the library, with the tags chosen for each and
+ * the accepted bundle links as `[from, to, reason]`.
+ */
 export function libraryImport(
   preview: Preview,
   selection: string[],
   tags: Record<string, string[]>,
+  links: [string, string, string][] = [],
 ): Promise<ImportReport> {
-  return invoke<ImportReport>("library_import", { preview, selection, tags });
+  // Without accepted links the argument is left out (the backend reads it as none).
+  return invoke<ImportReport>(
+    "library_import",
+    links.length > 0
+      ? { preview, selection, tags, links }
+      : { preview, selection, tags },
+  );
 }
 
 /** The native folder picker: the chosen path, or `null` when the user cancels. */
@@ -305,4 +317,23 @@ export function updatesCheck(
 /** The update state of an artifact; `null` when it matches its source. */
 export function updateStatus(id: string): Promise<UpdateStatus | null> {
   return invoke<UpdateStatus | null>("update_status", { id });
+}
+// --- Claude detection (bundles and tags) ---
+
+/** Whether the `claude` CLI is on the PATH, and its version. */
+export function claudeCliStatus(): Promise<CliStatus> {
+  return invoke<CliStatus>("claude_cli_status");
+}
+
+/** Claude's proposed links and tags for the ticked candidates of a preview. Slow. */
+export function bundlesDetectPreview(
+  preview: Preview,
+  selection: string[],
+): Promise<Detection> {
+  return invoke<Detection>("bundles_detect_preview", { preview, selection });
+}
+
+/** Claude's proposed links and tags for stored artifacts (`null` is the whole library). */
+export function bundlesDetectLibrary(ids: string[] | null): Promise<Detection> {
+  return invoke<Detection>("bundles_detect_library", { ids });
 }

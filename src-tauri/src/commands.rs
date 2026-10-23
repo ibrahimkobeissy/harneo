@@ -5,7 +5,7 @@ use std::sync::Mutex;
 
 use harneo_core::artifact::{ArtifactKind, ScanOptions};
 
-use harneo_core::bundles::{LinkOrigin, Links};
+use harneo_core::bundles::{cli_status, ClaudeConfig, CliStatus, Detection, LinkOrigin, Links};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -176,10 +176,12 @@ pub async fn library_import(
     preview: Preview,
     selection: Vec<String>,
     tags: HashMap<String, Vec<String>>,
+    links: Option<Vec<(String, String, String)>>,
 ) -> Result<ImportReport, String> {
+    let links = links.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
         app.state::<LibraryState>()
-            .with_mut(|library| library.import(&preview, &selection, &tags))
+            .with_mut(|library| library.import_with_links(&preview, &selection, &tags, &links))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -329,6 +331,50 @@ pub fn settings_set(
     value: serde_json::Value,
 ) -> Result<(), String> {
     state.with(|library| library.settings_set(&key, &value))
+}
+
+// --- Claude detection ------------------------------------------------------------------
+
+/// Whether the `claude` CLI is on the PATH, and its version.
+#[tauri::command]
+pub async fn claude_cli_status() -> Result<CliStatus, String> {
+    tauri::async_runtime::spawn_blocking(|| cli_status(&ClaudeConfig::default()))
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Asks Claude for links and tags over the ticked candidates of a preview. The library is read
+/// first and released; the slow Claude calls run on the blocking pool without it.
+#[tauri::command]
+pub async fn bundles_detect_preview(
+    app: AppHandle,
+    preview: Preview,
+    selection: Vec<String>,
+) -> Result<Detection, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let job = app
+            .state::<LibraryState>()
+            .with(|library| library.prepare_preview_detection(&preview, &selection))?;
+        job.run(&|_, _| {}).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Asks Claude for links and tags over stored copies (`ids`, or the whole library when null).
+#[tauri::command]
+pub async fn bundles_detect_library(
+    app: AppHandle,
+    ids: Option<Vec<String>>,
+) -> Result<Detection, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let job = app
+            .state::<LibraryState>()
+            .with(|library| library.prepare_library_detection(ids.as_deref()))?;
+        job.run(&|_, _| {}).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 // --- Collections -----------------------------------------------------------------------

@@ -7,8 +7,18 @@
 //! Links come from the structured references the scan resolves (origin `reference`, added at
 //! import), from a Claude pass the user confirms (`ai`) and from the user (`manual`).
 
+mod claude_cli;
+#[cfg(test)]
+mod claude_cli_tests;
+mod detect;
+#[cfg(test)]
+mod detect_tests;
 #[cfg(test)]
 mod links_tests;
+
+pub use claude_cli::{cli_status, ClaudeConfig, CliStatus, DEFAULT_MODEL};
+pub(crate) use detect::store_accepted;
+pub use detect::{AcceptedLink, Confidence, Detection, DetectionJob, ProposedLink, TagSuggestion};
 
 use std::collections::{HashMap, HashSet};
 

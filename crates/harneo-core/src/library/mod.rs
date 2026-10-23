@@ -32,6 +32,7 @@ mod import_tests;
 mod query;
 #[cfg(test)]
 mod query_tests;
+pub(crate) mod readout;
 pub(crate) mod records;
 #[cfg(test)]
 mod secrets_tests;
@@ -133,6 +134,9 @@ pub struct ImportReport {
 pub struct Library {
     pub(crate) store: Store,
     pub(crate) git: GitConfig,
+    git: GitConfig,
+    /// How the `claude` CLI is run for bundle detection; tests swap in a fixture script.
+    pub(crate) claude: crate::bundles::ClaudeConfig,
     /// The clone of the last git preview, kept until `import` copies from it. At most one: a
     /// newer git preview replaces (and deletes) it, `import` consumes it, and dropping the
     /// library deletes it. See [`PendingClone`].
@@ -158,6 +162,7 @@ impl Library {
         Ok(Self {
             store: Store::open(data_dir)?,
             git: GitConfig::default(),
+            claude: crate::bundles::ClaudeConfig::default(),
             pending: Mutex::new(None),
             session: crate::updates::remote::Session::default(),
         })
@@ -233,6 +238,29 @@ impl Library {
         Ok(preview)
     }
 
+    /// Runs `f` with the folder a preview's candidates are read from (the local folder, or the
+    /// pending clone, which stays for `import`).
+    pub(crate) fn with_preview_root<T>(
+        &self,
+        preview: &Preview,
+        f: impl FnOnce(&Path) -> Result<T>,
+    ) -> Result<T> {
+        match &preview.source {
+            Source::Local { path } => f(path),
+            Source::Git { subfolder, .. } => {
+                let identity = preview.source.identity()?;
+                let slot = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+                match slot.as_ref() {
+                    Some(pending) if pending.identity == identity => f(&pending
+                        .checkout
+                        .path()
+                        .join(git_subfolder(subfolder.as_deref())?)),
+                    _ => Err(Error::PreviewExpired),
+                }
+            }
+        }
+    }
+
     /// The clone behind a git preview, taken out of the slot so it is deleted when the caller
     /// is done with it, however that goes.
     fn take_pending(&self, identity: &str) -> Result<PendingClone> {
@@ -299,11 +327,35 @@ impl Library {
         self.import_with(preview, selection, tags, &NoHooks)
     }
 
+    /// [`Self::import`] that also stores the links the user accepted (`from needs to`, with a
+    /// reason) as `ai` links, in the same transaction. Pairs naming an unknown artifact and
+    /// self-links are dropped.
+    pub fn import_with_links(
+        &mut self,
+        preview: &Preview,
+        selection: &[ArtifactId],
+        tags: &TagChoices,
+        links: &[crate::bundles::AcceptedLink],
+    ) -> Result<ImportReport> {
+        self.import_inner(preview, selection, tags, links, &NoHooks)
+    }
+
     fn import_with(
         &mut self,
         preview: &Preview,
         selection: &[ArtifactId],
         tag_choices: &TagChoices,
+        hooks: &dyn ImportHooks,
+    ) -> Result<ImportReport> {
+        self.import_inner(preview, selection, tag_choices, &[], hooks)
+    }
+
+    fn import_inner(
+        &mut self,
+        preview: &Preview,
+        selection: &[ArtifactId],
+        tag_choices: &TagChoices,
+        links: &[crate::bundles::AcceptedLink],
         hooks: &dyn ImportHooks,
     ) -> Result<ImportReport> {
         tags::validate_choices(tag_choices)?;
@@ -414,6 +466,7 @@ impl Library {
             }
             let fresh_ids: Vec<&str> = fresh.iter().map(|c| c.id.as_str()).collect();
             crate::bundles::add_reference_links(&tx, &fresh_ids, now)?;
+            crate::bundles::store_accepted(&tx, links)?;
             for candidate in &fresh {
                 let target = artifacts_dir.join(&candidate.id);
                 // A folder with no row is left over from a crash; it is not a library entry.

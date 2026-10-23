@@ -168,6 +168,27 @@ pub enum Error {
         /// The id that was asked for.
         id: i64,
     },
+    /// The `claude` program is missing.
+    #[error("the claude CLI is not installed, or is not on the PATH")]
+    ClaudeMissing,
+    /// A claude call ran past the limit and was stopped.
+    #[error("claude did not finish within {seconds} s and was stopped")]
+    ClaudeTimeout {
+        /// The limit, in whole seconds.
+        seconds: u64,
+    },
+    /// Claude exited with an error, or could not be started.
+    #[error("claude failed: {message}")]
+    ClaudeFailed {
+        /// Claude's last error text, cut short; never the prompt.
+        message: String,
+    },
+    /// Claude answered with something that is not the JSON that was asked for, or too much of it.
+    #[error("claude's answer could not be used: {message}")]
+    ClaudeBadOutput {
+        /// What is wrong with it.
+        message: String,
+    },
 }
 
 /// Result alias used across `harneo-core`.
