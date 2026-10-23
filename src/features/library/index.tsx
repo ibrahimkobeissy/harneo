@@ -33,7 +33,7 @@ import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
 import { FilterSheet } from "./FilterSheet";
-import { FindBundlesDialog, LibraryMenu } from "./FindBundles";
+import { FindBundlesButton, FindBundlesDialog } from "./FindBundles";
 import { onGridKeyDown } from "./gridNav";
 import { Insights } from "./Insights";
 import { ItemCard } from "./ItemCard";
@@ -469,7 +469,7 @@ export function LibraryScreen({
           List
         </button>
       </div>
-      {!collection && <LibraryMenu onFind={() => setFinding(true)} />}
+      {!collection && <FindBundlesButton onFind={() => setFinding(true)} />}
       {!collection && (
         <Button variant="primary" onClick={() => void navigate("/import")}>
           <Download size={14} aria-hidden="true" />
@@ -641,6 +641,9 @@ export function LibraryScreen({
       {finding && (
         <FindBundlesDialog
           ids={null}
+          total={
+            load.status === "ready" ? load.page.unfilteredTotal : undefined
+          }
           onClose={() => setFinding(false)}
           onAccepted={reload}
         />

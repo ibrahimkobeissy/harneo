@@ -13,6 +13,7 @@ export type DetectionPhase =
   | { kind: "idle" }
   | { kind: "running"; done: number; total: number }
   | { kind: "off" }
+  | { kind: "skipped" }
   | { kind: "missing" }
   | { kind: "error"; message: string }
   | { kind: "done"; detection: Detection };
@@ -21,8 +22,10 @@ export interface DetectionControl {
   phase: DetectionPhase;
   /** Runs detection again after an error. */
   retry: () => void;
-  /** Runs detection although it is off in Settings. */
+  /** Runs detection although it is off in Settings or was skipped. */
   detectNow: () => void;
+  /** Gives up on a run that is going, so the import can go ahead without bundles. */
+  skip: () => void;
 }
 
 function messageOf(error: unknown): string {
@@ -102,6 +105,14 @@ export function useDetection(
   }, [active]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
-  const detectNow = useCallback(() => setForced(true), []);
-  return { phase, retry, detectNow };
+  const detectNow = useCallback(() => {
+    setForced(true);
+    setAttempt((n) => n + 1);
+  }, []);
+  const skip = useCallback(() => {
+    run.current += 1;
+    finished.current = true;
+    setPhase({ kind: "skipped" });
+  }, []);
+  return { phase, retry, detectNow, skip };
 }

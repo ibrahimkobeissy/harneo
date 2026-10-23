@@ -44,6 +44,17 @@
 .callout p {
   margin: 0;
 }
+.callout a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+.callout > div {
+  flex: 1;
+}
+.callout[data-tone="bad"] .muted {
+  color: inherit;
+}
 
 /* Stepper */
 .steps {
@@ -317,16 +328,31 @@ button.row:disabled:hover {
   min-width: 0;
 }
 .chipX {
+  position: relative;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   border: 0;
+  border-radius: 50%;
   background: none;
   color: inherit;
   padding: 0;
   cursor: pointer;
-  opacity: 0.7;
+}
+/* A 24px hit area around the 16px control. */
+.chipX::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
 }
 .chipX:hover {
-  opacity: 1;
+  background: color-mix(in srgb, currentcolor 18%, transparent);
+}
+.chipX:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 1px;
 }
 .secrets {
   list-style: none;
@@ -955,7 +981,7 @@ h3.subhead {
   height: 6px;
   appearance: none;
   border: 0;
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
   background: var(--sunk);
   accent-color: var(--blue);

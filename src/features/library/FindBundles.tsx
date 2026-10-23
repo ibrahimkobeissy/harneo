@@ -1,5 +1,6 @@
-import { Boxes, Ellipsis } from "lucide-react";
+import { Boxes } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import type { Detection } from "../../bindings/Detection";
 import { Modal } from "../../app/Modal";
 import {
@@ -15,7 +16,11 @@ import { DialogFrame } from "./NewCollectionDialog";
 import styles from "./FindBundles.module.css";
 import { useEscape } from "./useEscape";
 
+/** Artifacts per Claude call (core's `BATCH`). */
+const BATCH = 20;
+
 type Phase =
+  | { kind: "confirm" }
   | { kind: "running"; done: number; total: number }
   | { kind: "missing" }
   | { kind: "error"; message: string }
@@ -34,18 +39,21 @@ function messageOf(error: unknown): string {
  */
 export function FindBundlesDialog({
   ids,
+  total,
   onClose,
   onAccepted,
 }: {
   ids: string[] | null;
+  /** Artifacts in the library, for the pre-run step of a whole-library run. */
+  total?: number;
   onClose: () => void;
   onAccepted: () => void;
 }) {
-  const [phase, setPhase] = useState<Phase>({
-    kind: "running",
-    done: 0,
-    total: 0,
-  });
+  // Reading the whole library asks first; one artifact or a chosen few run straight away.
+  const [phase, setPhase] = useState<Phase>(
+    ids === null ? { kind: "confirm" } : { kind: "running", done: 0, total: 0 },
+  );
+  const [started, setStarted] = useState(ids !== null);
   const [attempt, setAttempt] = useState(0);
   const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
   const [saving, setSaving] = useState(false);
@@ -56,6 +64,7 @@ export function FindBundlesDialog({
   useEscape(onClose);
 
   useEffect(() => {
+    if (!started) return;
     let live = true;
     let stop: (() => void) | undefined;
     void (async () => {
@@ -86,7 +95,7 @@ export function FindBundlesDialog({
     return () => {
       live = false;
     };
-  }, [attempt]);
+  }, [attempt, started]);
 
   async function accept() {
     setSaving(true);
@@ -108,6 +117,11 @@ export function FindBundlesDialog({
     }
   }
 
+  function run() {
+    setPhase({ kind: "running", done: 0, total: 0 });
+    setStarted(true);
+  }
+
   const count = proposals.accepted.length;
   const subject =
     ids === null
@@ -122,13 +136,19 @@ export function FindBundlesDialog({
         sub={`Claude reads ${subject} through your claude CLI and proposes which artifacts only work together. Nothing is saved until you accept.`}
         onSubmit={(e) => {
           e.preventDefault();
-          if (phase.kind === "done" && count > 0) void accept();
+          if (phase.kind === "confirm") run();
+          else if (phase.kind === "done" && count > 0) void accept();
         }}
         footer={
           <>
             <Button onClick={onClose}>
               {phase.kind === "done" && count > 0 ? "Cancel" : "Close"}
             </Button>
+            {phase.kind === "confirm" && (
+              <Button variant="primary" type="submit">
+                Run
+              </Button>
+            )}
             {phase.kind === "done" && (
               <Button
                 variant="primary"
@@ -143,6 +163,21 @@ export function FindBundlesDialog({
           </>
         }
       >
+        {phase.kind === "confirm" && (
+          <p className={styles.confirm}>
+            {total === undefined ? (
+              <>Claude will read your whole library in batches of {BATCH}.</>
+            ) : (
+              <>
+                Claude will read {total} artifact{total === 1 ? "" : "s"} in
+                about {Math.max(1, Math.ceil(total / BATCH))} batch
+                {total <= BATCH ? "" : "es"}.
+              </>
+            )}{" "}
+            Each batch is one call to your claude CLI, so a large library takes
+            a while and uses your Claude plan.
+          </p>
+        )}
         {phase.kind === "running" && (
           <div className={styles.busy} role="status">
             <span className={styles.spinner} aria-hidden="true" />
@@ -156,21 +191,33 @@ export function FindBundlesDialog({
               <progress
                 className={styles.bar}
                 aria-label="Detection progress"
-                max={Math.max(phase.total, 1)}
-                value={phase.done}
+                max={phase.total > 0 ? phase.total : undefined}
+                value={phase.total > 0 ? phase.done : undefined}
               />
             </div>
           </div>
         )}
         {phase.kind === "missing" && (
           <p role="alert" className={styles.warn}>
-            <b>Claude CLI not found.</b> Install it, then try again. You can
-            still link artifacts by hand from their detail panel.
+            <b>Claude CLI not found.</b> Install it with{" "}
+            <code>npm install -g @anthropic-ai/claude-code</code>, check it in{" "}
+            <Link to="/settings">Settings</Link>, then run Find bundles again.
+            Until then you can link artifacts by hand from their detail panel.
           </p>
         )}
         {phase.kind === "error" && (
           <div role="alert" className={styles.fail}>
-            <p>Claude couldn&rsquo;t finish: {phase.message}.</p>
+            <div>
+              <p>
+                <b>Claude couldn&rsquo;t finish reading.</b>
+              </p>
+              <p className={styles.muted}>
+                Claude&rsquo;s message: {phase.message}
+              </p>
+              <p>
+                Retry, or check the CLI in <Link to="/settings">Settings</Link>.
+              </p>
+            </div>
             <Button
               small
               onClick={() => {
@@ -199,56 +246,12 @@ export function FindBundlesDialog({
   );
 }
 
-/** The toolbar's overflow menu, with Find bundles for the whole library. */
-export function LibraryMenu({ onFind }: { onFind: () => void }) {
-  const [open, setOpen] = useState(false);
-  const wrap = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    function onDown(event: MouseEvent) {
-      if (wrap.current && !wrap.current.contains(event.target as Node))
-        setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen(false);
-      wrap.current?.querySelector<HTMLElement>("button")?.focus();
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [open]);
+/** The toolbar's labelled "Find bundles" button for the whole library. */
+export function FindBundlesButton({ onFind }: { onFind: () => void }) {
   return (
-    <div className={styles.anchor} ref={wrap}>
-      <Button
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label="More library actions"
-        onClick={() => setOpen(!open)}
-      >
-        <Ellipsis size={14} aria-hidden="true" />
-      </Button>
-      {open && (
-        <div className={styles.menu} role="menu" aria-label="Library actions">
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.menuItem}
-            onClick={() => {
-              setOpen(false);
-              onFind();
-            }}
-          >
-            <Boxes size={14} aria-hidden="true" />
-            Find bundles with Claude…
-          </button>
-        </div>
-      )}
-    </div>
+    <Button onClick={onFind}>
+      <Boxes size={14} aria-hidden="true" />
+      Find bundles
+    </Button>
   );
 }

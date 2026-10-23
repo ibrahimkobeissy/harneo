@@ -280,6 +280,8 @@ export function ImportScreen() {
     });
   }
 
+  const linkCount =
+    detection.phase.kind === "done" ? proposals.accepted.length : 0;
   const title = firstRun ? "Import your first artifacts" : "Import";
   const count = `${chosen.length} artifact${chosen.length === 1 ? "" : "s"}`;
 
@@ -438,6 +440,11 @@ export function ImportScreen() {
             Continue
           </Button>
         )}
+        {step === 2 && detection.phase.kind === "running" && (
+          <Button variant="ghost" onClick={detection.skip}>
+            Skip detection
+          </Button>
+        )}
         {step === 2 && (
           <Button
             variant="primary"
@@ -450,6 +457,8 @@ export function ImportScreen() {
           >
             <Download size={14} aria-hidden="true" />
             Import {count}
+            {linkCount > 0 &&
+              ` and ${linkCount} link${linkCount === 1 ? "" : "s"}`}
           </Button>
         )}
       </div>

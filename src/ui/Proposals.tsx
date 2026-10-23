@@ -1,7 +1,8 @@
 import { Boxes, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { ProposedLink } from "../bindings/ProposedLink";
 import styles from "./Proposals.module.css";
+import { Badge } from "./Badge";
 import { Tag } from "./Tag";
 
 /** One lead artifact and what Claude says it needs. */
@@ -64,8 +65,18 @@ export function useProposals(links: readonly ProposedLink[]): ProposalState {
   }, [links, off, dropped]);
 }
 
+const rank = { high: 2, medium: 1, low: 0 } as const;
+
+/** The least sure confidence among a group's members. */
+function weakest(links: readonly ProposedLink[]): ProposedLink["confidence"] {
+  return links.reduce<ProposedLink["confidence"]>(
+    (w, l) => (rank[l.confidence] < rank[w] ? l.confidence : w),
+    "high",
+  );
+}
+
 /**
- * Claude's proposed bundles: one group per lead with "+ N", the reason, a chip per member with
+ * Claude's proposed bundles: one group per lead with "needs N", the reason, a chip per member with
  * a remove button, and an accept switch per group. Shared by the import Review step and the
  * Find bundles dialog.
  */
@@ -80,12 +91,18 @@ export function Proposals({
   empty?: string;
 }) {
   const nameOf = (id: string) => names.get(id) ?? id;
+  const hintId = useId();
   if (state.groups.length === 0) return <p className={styles.empty}>{empty}</p>;
   return (
     <>
+      <p className={styles.hint} id={hintId}>
+        Accepted groups are saved as links: the lead needs the artifacts beside
+        it. Switch off to stop Claude proposing this again.
+      </p>
       {state.groups.map((g) => {
         const on = state.isOn(g.lead);
         const lead = nameOf(g.lead);
+        const sure = weakest(g.links);
         const reasons = [...new Set(g.links.map((l) => l.reason))].filter(
           (r) => r !== "",
         );
@@ -96,13 +113,18 @@ export function Proposals({
               <span className={styles.lead} title={lead}>
                 {lead}
               </span>
-              <span className={styles.n}>+ {g.links.length}</span>
+              <span className={styles.n}>needs {g.links.length}</span>
+              {sure !== "high" && <Badge>{sure} confidence</Badge>}
               <span className={styles.grow} />
+              <span className={styles.state}>
+                {on ? "Accepted" : "Skipped"}
+              </span>
               <button
                 type="button"
                 role="switch"
                 aria-checked={on}
                 aria-label={`Accept bundle of ${lead}`}
+                aria-describedby={hintId}
                 className={styles.switch}
                 onClick={() => state.toggle(g.lead)}
               >
@@ -126,7 +148,7 @@ export function Proposals({
                     aria-label={`Remove ${nameOf(l.to)} from the bundle of ${lead}`}
                     onClick={() => state.drop(l)}
                   >
-                    <X size={12} aria-hidden="true" />
+                    <X size={14} aria-hidden="true" />
                   </button>
                 </Tag>
               ))}

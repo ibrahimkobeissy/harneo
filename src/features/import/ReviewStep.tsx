@@ -144,8 +144,9 @@ export function ReviewStep({
       <h2 className={styles.h}>
         Suggested tags{" "}
         <span>
-          from each artifact's keywords and Claude: remove any you don't want,
-          or add your own
+          from each artifact's keywords
+          {detection.phase.kind === "done" && " and Claude"}: remove any you
+          don't want, or add your own
         </span>
       </h2>
       <div className={styles.bulkTags}>

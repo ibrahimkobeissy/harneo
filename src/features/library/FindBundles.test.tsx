@@ -40,6 +40,7 @@ function setup(opts: {
   path?: string;
   cliFound?: boolean;
   detect?: () => Detection;
+  unfilteredTotal?: number;
 }) {
   const calls: Call[] = [];
   mockIPC((cmd, args) => {
@@ -49,6 +50,9 @@ function setup(opts: {
       case "library_list":
         return page(
           ["alpha", "beta", "gamma", "delta"].map((n) => item(n, {}, "agent")),
+          opts.unfilteredTotal === undefined
+            ? {}
+            : { unfilteredTotal: opts.unfilteredTotal },
         );
       case "library_detail":
         return {
@@ -110,19 +114,23 @@ function setup(opts: {
 }
 
 describe("Find bundles with Claude", () => {
-  it("runs on the whole library from the toolbar menu and adds the accepted links", async () => {
+  it("asks before reading the whole library, then adds the accepted links", async () => {
     const user = userEvent.setup();
     const calls = setup({});
     await user.click(
-      await screen.findByRole("button", { name: "More library actions" }),
-    );
-    await user.click(
-      screen.getByRole("menuitem", { name: /Find bundles with Claude/ }),
+      await screen.findByRole("button", { name: "Find bundles" }),
     );
     const dialog = await screen.findByRole("dialog", {
       name: "Find bundles with Claude",
     });
-    expect(await within(dialog).findByText("+ 2")).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        /Claude will read 4 artifacts in about 1 batch\./,
+      ),
+    ).toBeVisible();
+    expect(calls.some((c) => c.cmd === "bundles_detect_library")).toBe(false);
+    await user.click(within(dialog).getByRole("button", { name: "Run" }));
+    expect(await within(dialog).findByText("needs 2")).toBeVisible();
     expect(calls.find((c) => c.cmd === "bundles_detect_library")?.args).toEqual(
       { ids: null },
     );
@@ -165,7 +173,7 @@ describe("Find bundles with Claude", () => {
     await user.click(
       await within(panel).findByRole("button", { name: "Find bundles" }),
     );
-    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(await screen.findByText("needs 2")).toBeVisible();
     expect(calls.find((c) => c.cmd === "bundles_detect_library")?.args).toEqual(
       { ids: ["id-alpha"] },
     );
@@ -213,24 +221,52 @@ describe("Find bundles with Claude", () => {
     await user.click(
       await within(panel).findByRole("button", { name: "Find bundles" }),
     );
-    expect(await screen.findByText(/claude exploded/)).toBeVisible();
+    expect(
+      await screen.findByText(/Claude.s message: claude exploded/),
+    ).toBeVisible();
+    expect(screen.getByText(/couldn.t finish reading/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: /try again|retry/i }));
-    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(await screen.findByText("needs 2")).toBeVisible();
     expect(
       calls.filter((c) => c.cmd === "bundles_detect_library"),
     ).toHaveLength(2);
   });
 
-  it("closes the toolbar menu on Escape", async () => {
+  it("counts batches of 20 for a larger library", async () => {
     const user = userEvent.setup();
-    setup({});
+    setup({ unfilteredTotal: 45 });
     await user.click(
-      await screen.findByRole("button", { name: "More library actions" }),
+      await screen.findByRole("button", { name: "Find bundles" }),
     );
     expect(
-      screen.getByRole("menuitem", { name: /Find bundles with Claude/ }),
+      await screen.findByText(
+        /Claude will read 45 artifacts in about 3 batches\./,
+      ),
     ).toBeVisible();
+  });
+
+  it("closes the confirm step without reading anything", async () => {
+    const user = userEvent.setup();
+    const calls = setup({});
+    await user.click(
+      await screen.findByRole("button", { name: "Find bundles" }),
+    );
+    await screen.findByRole("dialog", { name: "Find bundles with Claude" });
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("menuitem", { name: /Find bundles/ })).toBeNull();
+    expect(
+      screen.queryByRole("dialog", { name: "Find bundles with Claude" }),
+    ).toBeNull();
+    expect(calls.some((c) => c.cmd === "bundles_detect_library")).toBe(false);
+  });
+
+  it("names the next step for a missing CLI and an error", async () => {
+    const user = userEvent.setup();
+    setup({ path: "/library?open=id-alpha", cliFound: false });
+    const panel = await screen.findByRole("dialog", { name: "alpha details" });
+    await user.click(
+      await within(panel).findByRole("button", { name: "Find bundles" }),
+    );
+    expect(await screen.findByText(/npm install -g/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeVisible();
   });
 });

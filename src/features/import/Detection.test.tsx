@@ -139,7 +139,7 @@ describe("Review step detection", () => {
       screen.getByRole("button", { name: /Import 3 artifacts/ }),
     ).toBeDisabled();
     release(detection);
-    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(await screen.findByText("needs 2")).toBeVisible();
     expect(screen.getAllByText("Hands off to the helper.")).toHaveLength(1);
     expect(await screen.findByText("library-skill")).toBeVisible();
     expect(
@@ -151,7 +151,7 @@ describe("Review step detection", () => {
     setup({});
     const u = userEvent.setup();
     await toReview(u);
-    await screen.findByText("+ 2");
+    await screen.findByText("needs 2");
     const add = screen.getByRole("button", { name: "Add a tag to lead" });
     const row = add.closest("[role=group]");
     if (!(row instanceof HTMLElement)) throw new Error("row missing");
@@ -166,7 +166,7 @@ describe("Review step detection", () => {
     const calls = setup({});
     const u = userEvent.setup();
     await toReview(u);
-    await screen.findByText("+ 2");
+    await screen.findByText("needs 2");
     await u.click(
       screen.getByRole("button", {
         name: "Remove other from the bundle of lead",
@@ -201,6 +201,11 @@ describe("Review step detection", () => {
     const u = userEvent.setup();
     await toReview(u);
     expect(await screen.findByText("Claude CLI not found.")).toBeVisible();
+    expect(screen.getByText(/npm install -g/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Settings" })).toBeVisible();
+    expect(screen.getByText(/Library → Find bundles/)).toBeVisible();
+    // Without Claude the tags come from keywords only.
+    expect(screen.getByText(/from each artifact's keywords:/)).toBeVisible();
     expect(calls.some((c) => c.cmd === "bundles_detect_preview")).toBe(false);
     expect(
       screen.getByRole("button", { name: /Import 3 artifacts/ }),
@@ -218,20 +223,92 @@ describe("Review step detection", () => {
     });
     const u = userEvent.setup();
     await toReview(u);
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Claude couldn't finish: timed out",
-    );
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Claude couldn't finish reading.");
+    expect(alert).toHaveTextContent("Claude's message: timed out");
+    expect(within(alert).getByRole("link", { name: "Settings" })).toBeVisible();
     await u.click(screen.getByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(await screen.findByText("needs 2")).toBeVisible();
   });
 
   it("does not run when it is off in Settings, until Detect now", async () => {
     const calls = setup({ atImport: false });
     const u = userEvent.setup();
     await toReview(u);
-    expect(await screen.findByText(/off in Settings/)).toBeVisible();
+    expect(
+      await screen.findByText(/Detection at import is off in/),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
+      "href",
+      "/settings",
+    );
+    expect(screen.getByText(/Library → Find bundles/)).toBeVisible();
     expect(calls.some((c) => c.cmd === "bundles_detect_preview")).toBe(false);
     await u.click(screen.getByRole("button", { name: "Detect now" }));
-    expect(await screen.findByText("+ 2")).toBeVisible();
+    expect(await screen.findByText("needs 2")).toBeVisible();
+  });
+
+  it("leads with 'needs N', says what accepting does and counts links on the Import button", async () => {
+    setup({});
+    const u = userEvent.setup();
+    await toReview(u);
+    await screen.findByText("needs 2");
+    expect(
+      screen.getByText(/Switch off to stop Claude proposing this again/),
+    ).toBeVisible();
+    expect(screen.getAllByText("Accepted")).toHaveLength(2);
+    // The helper group has medium confidence.
+    expect(screen.getByText("medium confidence")).toBeVisible();
+    expect(screen.queryByText("high confidence")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Import 3 artifacts and 3 links" }),
+    ).toBeEnabled();
+    expect(screen.getByText(/keywords and Claude:/)).toBeVisible();
+    await u.click(
+      screen.getByRole("switch", { name: "Accept bundle of helper" }),
+    );
+    expect(screen.getByText("Skipped")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Import 3 artifacts and 2 links" }),
+    ).toBeEnabled();
+  });
+
+  it("singularises one link", async () => {
+    setup({ detect: () => ({ links: detection.links.slice(2), tags: [] }) });
+    const u = userEvent.setup();
+    await toReview(u);
+    await screen.findByText("needs 1");
+    expect(
+      screen.getByRole("button", { name: "Import 3 artifacts and 1 link" }),
+    ).toBeVisible();
+  });
+
+  it("shows an indeterminate bar until the first batch, and can skip detection while it runs", async () => {
+    const calls = setup({
+      detect: () => new Promise<Detection>(() => undefined),
+    });
+    const u = userEvent.setup();
+    await toReview(u);
+    const bar = await screen.findByRole("progressbar", {
+      name: "Detection progress",
+    });
+    expect(bar).not.toHaveAttribute("value");
+    expect(
+      screen.getByRole("button", { name: /Import 3 artifacts/ }),
+    ).toBeDisabled();
+    await u.click(screen.getByRole("button", { name: "Skip detection" }));
+    expect(screen.queryByRole("button", { name: "Skip detection" })).toBeNull();
+    expect(screen.getByText(/Detection was skipped/)).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Import 3 artifacts/ }),
+    ).toBeEnabled();
+    // Detect now picks it up again.
+    await u.click(screen.getByRole("button", { name: "Detect now" }));
+    expect(
+      await screen.findByRole("button", { name: "Skip detection" }),
+    ).toBeVisible();
+    expect(
+      calls.filter((c) => c.cmd === "bundles_detect_preview"),
+    ).toHaveLength(2);
   });
 });
