@@ -33,6 +33,7 @@ import {
   Screen,
   TrustMeter,
   kinds,
+  localDay,
   relativeDay,
 } from "../../ui";
 import styles from "./Cleanup.module.css";
@@ -302,8 +303,7 @@ export function CleanupScreen() {
       {empty && (
         <EmptyState icon={CircleCheck} title="Nothing to clean up">
           No findings, no outdated or unused artifacts.
-          {lastRead &&
-            ` Usage last read ${relativeDay(lastRead.slice(0, 10))}.`}
+          {lastRead && ` Usage last read ${relativeDay(localDay(lastRead))}.`}
         </EmptyState>
       )}
       {!usage.indexed && (

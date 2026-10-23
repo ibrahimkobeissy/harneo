@@ -24,3 +24,11 @@ export function relativeDay(day: string, now: Date = new Date()): string {
   const years = Math.floor(days / 365);
   return years === 1 ? "1 year ago" : `${years} years ago`;
 }
+
+/** The local calendar day (`YYYY-MM-DD`) of an ISO timestamp, for `relativeDay`. */
+export function localDay(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return iso;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
