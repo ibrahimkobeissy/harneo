@@ -40,14 +40,18 @@
   min-width: 2px;
   box-shadow: inset 0 0 0 1px var(--seg-edge, transparent);
 }
-/* The unused segment is nearly the track's colour in dark: give it an edge. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stack i[data-status="unused"] {
-    --seg-edge: var(--t3);
-  }
-}
-:root[data-theme="dark"] .stack i[data-status="unused"] {
+/* The unused segment (and its dot) is near the track's colour in both themes: give it an edge. */
+.stack i[data-status="unused"],
+.dot[data-status="unused"] {
   --seg-edge: var(--t3);
+}
+/* Amber fill is 2.2:1 on white: its darker ink as an edge brings the mark to 3:1 or better. */
+.stack i[data-status="outdated"],
+.dot[data-status="outdated"] {
+  --seg-edge: var(--amber);
+}
+.reading {
+  color: var(--t3);
 }
 .leg {
   display: flex;
@@ -79,10 +83,24 @@ button.legItem:hover {
   font-variant-numeric: tabular-nums;
 }
 .dot {
+  box-shadow: inset 0 0 0 1px var(--seg-edge, transparent);
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex: none;
+}
+.chart {
+  position: relative;
+  padding-top: var(--space-md);
+}
+.max {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--t3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-variant-numeric: tabular-nums;
 }
 .bars {
   display: flex;
@@ -95,6 +113,22 @@ button.legItem:hover {
   min-height: 3px;
   background: var(--chart);
   border-radius: var(--radius-xs) var(--radius-xs) 0 0;
+}
+.bars i {
+  position: relative;
+}
+.latest {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding-bottom: 1px;
+  color: var(--t1);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 .bars i[data-now] {
   background: var(--chart-strong);
@@ -160,9 +194,17 @@ button.legItem:hover {
   font-variant-numeric: tabular-nums;
 }
 .sessionsCell {
+  text-align: right;
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   font-variant-numeric: tabular-nums;
+}
+
+.sessionsHead {
+  text-align: right;
+}
+.sessionsHead button {
+  flex-direction: row-reverse;
 }
 
 /* Detail panel: the project list under the chart. */

@@ -10,23 +10,37 @@ export function SessionBars({
   height?: number;
   label: string;
 }) {
-  const max = Math.max(1, ...weekly);
+  const peak = Math.max(0, ...weekly);
+  const max = Math.max(1, peak);
   return (
     <>
-      <div
-        className={styles.bars}
-        style={{ height }}
-        role="img"
-        aria-label={label}
-      >
-        {weekly.map((n, i) => (
-          <i
-            key={i}
-            data-now={i === weekly.length - 1 || undefined}
-            style={{ height: `${Math.max(7, Math.round((n / max) * 100))}%` }}
-            title={`${n} ${n === 1 ? "session" : "sessions"}`}
-          />
-        ))}
+      <div className={styles.chart}>
+        {peak > 0 && (
+          <span className={styles.max} aria-hidden="true">
+            max {peak}
+          </span>
+        )}
+        <div
+          className={styles.bars}
+          style={{ height }}
+          role="img"
+          aria-label={label}
+        >
+          {weekly.map((n, i) => (
+            <i
+              key={i}
+              data-now={i === weekly.length - 1 || undefined}
+              style={{ height: `${Math.max(7, Math.round((n / max) * 100))}%` }}
+              title={`${n} ${n === 1 ? "session" : "sessions"}`}
+            >
+              {i === weekly.length - 1 && (
+                <b className={styles.latest} aria-hidden="true">
+                  {n}
+                </b>
+              )}
+            </i>
+          ))}
+        </div>
       </div>
       <ul className={styles.weeks}>
         {weekly.map((n, i) => (

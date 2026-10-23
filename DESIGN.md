@@ -30,8 +30,8 @@ colors:
   orange: "#c2410c"
   orange-fill: "#ea580c"
   orange-soft: "#ffedd5"
-  chart: "#bfdbfe"
-  chart-strong: "#2563eb"
+  chart: "#4f8ef7"
+  chart-strong: "#1d4ed8"
   diff-add: "#e6f6ec"
   diff-del: "#fdecec"
   tint-blue-bg: "#dbeafe"
@@ -95,7 +95,7 @@ colors:
   dark-orange: "#fdba74"
   dark-orange-fill: "#f97316"
   dark-orange-soft: "#431407"
-  dark-chart: "#1e3a8a"
+  dark-chart: "#2563eb"
   dark-chart-strong: "#60a5fa"
   dark-diff-add: "#0f2a1b"
   dark-diff-del: "#2e1214"
@@ -441,7 +441,7 @@ A slate-neutral palette with one saturated blue, four reserved state hues, and s
 - **Slate Secondary** (`t2`): descriptions, secondary labels, ghost button text.
 - **Slate Muted** (`t3`): meta text, counts, source lines, placeholder icons.
 - **Hairline** (`line`) and **Strong Hairline** (`line2`): all borders and dividers; `line2` on hover, on form controls, and as the "unused" segment of the health bar.
-- **Chart Blues** (`chart`, `chart-strong`): bars and sparklines; only the latest bar is strong.
+- **Chart Blues** (`chart`, `chart-strong`): bars and sparklines; only the latest bar is strong. Bars hold 3:1 non-text contrast against the panel (light `chart` 3.2:1 on white, dark `chart` 3.3:1 on the raised surface), and the chart prints its max and latest values so no number lives only in a tooltip.
 - **Diff washes** (`diff-add`, `diff-del`): added and removed lines in previews.
 
 ### Type tints (per artifact type)

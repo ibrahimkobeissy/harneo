@@ -183,6 +183,13 @@ describe("cards", () => {
     expect(
       await screen.findByText(/Reading Claude's session logs/),
     ).toBeVisible();
+    const health = screen.getByRole("region", { name: "Library health" });
+    expect(within(health).getAllByText("reading logs")).toHaveLength(2);
+    expect(
+      within(health).getByRole("button", {
+        name: "Filter by unused: reading logs",
+      }),
+    ).toBeVisible();
   });
 });
 
@@ -194,6 +201,12 @@ describe("list", () => {
     expect(rows[1]).toHaveTextContent("7");
     expect(rows[2]).toHaveTextContent("Unused");
     expect(rows[4]).toHaveTextContent("—");
+    expect(within(rows[1] as HTMLElement).getByText("7").className).toMatch(
+      /sessionsCell/,
+    );
+    expect(
+      within(table).getByRole("columnheader", { name: /Sessions/ }).className,
+    ).toMatch(/sessionsHead/);
     expect(
       within(table).getByRole("button", { name: "Sessions" }),
     ).toHaveAttribute("title", "Sessions in the last 8 weeks");
@@ -232,6 +245,7 @@ describe("library insights", () => {
     const health = await screen.findByRole("region", {
       name: "Library health",
     });
+    expect(within(health).getByText("findings")).toBeVisible();
     expect(within(health).getByRole("img")).toHaveAccessibleName(
       "11 current, 3 unused, 2 outdated, 1 with findings",
     );
@@ -254,6 +268,14 @@ describe("library insights", () => {
     });
     expect(chart.querySelectorAll("i")).toHaveLength(8);
     expect(screen.getByText("12 this week · +20%")).toBeVisible();
+  });
+
+  it("prints the max and the latest value on the chart", async () => {
+    setup();
+    await screen.findByRole("img", { name: /Sessions per week/ });
+    expect(screen.getByText("max 12")).toBeVisible();
+    const latest = document.querySelector("i[data-now] b");
+    expect(latest).toHaveTextContent("12");
   });
 
   it("explains an empty chart", async () => {
@@ -282,7 +304,10 @@ describe("detail panel", () => {
         .getByRole("img", { name: /Sessions per week/ })
         .querySelectorAll("i"),
     ).toHaveLength(8);
-    expect(within(dialog).getByText("Used in 2 projects")).toBeVisible();
+    expect(within(dialog).getByText("Seen in 2 projects")).toBeVisible();
+    expect(within(dialog).getAllByText(/^Used in/)).toHaveLength(1);
+    // The max and the latest value are printed, not only in tooltips.
+    expect(within(dialog).getByText("max 3")).toBeVisible();
     expect(within(dialog).getByText("/home/me/app")).toBeVisible();
   });
 

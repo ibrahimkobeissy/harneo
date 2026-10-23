@@ -44,11 +44,14 @@ function Health({
     count(facets, "notUsedYet") +
     (indexed ? 0 : unusedRaw);
   const issues = unused + outdated + findings;
+  // While indexing, current and unused are not known yet: say so instead of printing guesses.
+  const reading = (status: Status) =>
+    !indexed && (status === "current" || status === "unused");
   const segments: { status: Status; n: number; label: string }[] = [
     { status: "current", n: current, label: "current" },
     { status: "unused", n: unused, label: "unused" },
     { status: "outdated", n: outdated, label: "outdated" },
-    { status: "findings", n: findings, label: "with findings" },
+    { status: "findings", n: findings, label: "findings" },
   ];
   return (
     <Panel
@@ -65,7 +68,13 @@ function Health({
       <div
         className={styles.stack}
         role="img"
-        aria-label={segments.map((s) => `${s.n} ${s.label}`).join(", ")}
+        aria-label={segments
+          .map((s) =>
+            reading(s.status)
+              ? `${s.label} reading logs`
+              : `${s.n} ${s.label === "findings" ? "with findings" : s.label}`,
+          )
+          .join(", ")}
       >
         {segments.map(
           (s) =>
@@ -84,9 +93,18 @@ function Health({
             <>
               <i
                 className={styles.dot}
+                data-status={s.status}
                 style={{ background: colors[s.status] }}
               />
-              <b>{s.n}</b> {s.label}
+              {reading(s.status) ? (
+                <>
+                  {s.label} <span className={styles.reading}>reading logs</span>
+                </>
+              ) : (
+                <>
+                  <b>{s.n}</b> {s.label}
+                </>
+              )}
             </>
           );
           // Current is the rest: there is no Status filter that means only "healthy".
@@ -100,7 +118,7 @@ function Health({
               type="button"
               className={styles.legItem}
               aria-pressed={selected.includes(s.status)}
-              aria-label={`Filter by ${statusLabels[s.status].toLowerCase()}: ${s.n}`}
+              aria-label={`Filter by ${statusLabels[s.status].toLowerCase()}: ${reading(s.status) ? "reading logs" : s.n}`}
               onClick={() => onStatus(s.status)}
             >
               {body}

@@ -47,6 +47,9 @@ export function ItemTable({
                 <th
                   key={key}
                   scope="col"
+                  className={
+                    key === "sessions" ? ustyles.sessionsHead : undefined
+                  }
                   aria-sort={
                     active ? (descending ? "descending" : "ascending") : "none"
                   }

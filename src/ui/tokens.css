@@ -34,8 +34,9 @@
   --orange-fill: #ea580c;
   --orange-soft: #ffedd5;
   /* end tier colours */
-  --chart: #bfdbfe;
-  --chart-strong: #2563eb;
+  /* chart bars: 3:1 or better against raised (non-text contrast) */
+  --chart: #4f8ef7;
+  --chart-strong: #1d4ed8;
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
   --shadow-md:
     0 8px 24px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
@@ -177,7 +178,7 @@
     --orange-fill: #f97316;
     --orange-soft: #431407;
     /* end tier colours */
-    --chart: #1e3a8a;
+    --chart: #2563eb;
     --chart-strong: #60a5fa;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -254,7 +255,7 @@
   --orange-fill: #f97316;
   --orange-soft: #431407;
   /* end tier colours */
-  --chart: #1e3a8a;
+  --chart: #2563eb;
   --chart-strong: #60a5fa;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.5);

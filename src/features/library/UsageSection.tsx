@@ -86,7 +86,7 @@ export function UsageSection({
           {load.usage.projects.length > 0 && (
             <>
               <p className={ustyles.sub}>
-                Used in {plural(load.usage.projects.length, "project")}
+                Seen in {plural(load.usage.projects.length, "project")}
               </p>
               <ul className={ustyles.projects}>
                 {load.usage.projects.map((p) => (
