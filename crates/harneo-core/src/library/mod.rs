@@ -34,6 +34,7 @@ mod query;
 mod query_tests;
 pub(crate) mod readout;
 pub(crate) mod records;
+mod restore;
 #[cfg(test)]
 mod secrets_tests;
 mod source;
@@ -56,6 +57,8 @@ use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
 pub use collections::{Collection, CollectionKind};
 pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
+use copy::{copy_artifact, ImportHooks, NoHooks};
+pub(crate) use copy::{safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use query::{
@@ -63,6 +66,7 @@ pub use query::{
     StatusCount, TagChip, TagCount, TierCount, MAX_LIMIT,
 };
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
+pub(crate) use restore::Restored;
 pub use source::Source;
 use store::Store;
 pub use tags::{Tag, TagChoices, TagColor, TagWithCount};

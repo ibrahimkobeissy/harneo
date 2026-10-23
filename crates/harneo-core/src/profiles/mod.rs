@@ -5,6 +5,12 @@
 //! immutable version, so a project can pin one. Renaming and describing a profile are not
 //! versions.
 
+mod file;
+#[cfg(test)]
+mod file_tests;
+mod layout;
+#[cfg(test)]
+mod layout_tests;
 mod resolve;
 #[cfg(test)]
 mod resolve_tests;
@@ -21,6 +27,11 @@ use crate::artifact::ArtifactKind;
 use crate::error::{Error, Result};
 use crate::library::{records, ArtifactId, Filter, KindCount, Library, Query, SortKey, MAX_LIMIT};
 
+pub use file::{
+    ImportArtifact, ImportedProfile, ProfileImportPreview, ProfileImportReport, FORMAT,
+    FORMAT_VERSION, MAX_FILE_BYTES,
+};
+pub use layout::{Generated, Layout, LayoutConflict, PathFrom, PlannedPath};
 pub use resolve::{Resolved, ResolvedItem, Why};
 
 /// A profile id (exported to TypeScript as `bigint`, like tag and collection ids).
