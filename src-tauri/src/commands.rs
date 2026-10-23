@@ -10,7 +10,9 @@ use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
 };
-use harneo_core::updates::{CheckReport, CheckScope, UpdateStatus};
+use harneo_core::updates::{
+    CheckReport, CheckScope, FileDiff, UpdateChoice, UpdateReport, UpdateStatus,
+};
 use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -256,12 +258,15 @@ pub fn artifact_tag_remove(
 // --- Updates ---------------------------------------------------------------------------
 
 /// Looks at the sources for artifacts that changed at their source. Git is asked first and
-/// cloned only when it moved, which takes time, so the work runs on the blocking pool.
+/// cloned only when it moved, which takes time, so the work runs on the blocking pool and the
+/// library lock is held only to read what is needed and to store what was found.
 #[tauri::command]
 pub async fn updates_check(app: AppHandle, scope: CheckScope) -> Result<CheckReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<LibraryState>()
-            .with(|library| library.check_updates(&scope))
+        let state = app.state::<LibraryState>();
+        let job = state.with(|library| library.prepare_check(&scope))?;
+        let outcome = job.run();
+        state.with(|library| library.finish_check(outcome))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -274,6 +279,61 @@ pub fn update_status(
     id: String,
 ) -> Result<Option<UpdateStatus>, String> {
     state.with(|library| library.update_status(&id))
+}
+
+/// What updating an artifact would change, file by file. Copies the upstream version into a
+/// staging folder (a clone when none is kept), so it runs on the blocking pool without the
+/// library lock.
+#[tauri::command]
+pub async fn update_diff(app: AppHandle, id: String) -> Result<Vec<FileDiff>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<LibraryState>();
+        let job = state.with(|library| library.prepare_update(&id))?;
+        job.run()
+            .and_then(|prepared| prepared.diff())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Updates one artifact as the user chose; the lock is held only for the reads and the swap.
+#[tauri::command]
+pub async fn update_apply(
+    app: AppHandle,
+    id: String,
+    choice: UpdateChoice,
+) -> Result<UpdateReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<LibraryState>();
+        match choice {
+            UpdateChoice::KeepMine => state.with_mut(|library| library.update(&id, choice)),
+            UpdateChoice::TakeUpstream => {
+                let job = state.with(|library| library.prepare_update(&id))?;
+                let prepared = job.run().map_err(|e| e.to_string())?;
+                state.with_mut(|library| library.finish_update(prepared))
+            }
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Updates every outdated artifact without local edits; the edited ones come back as skipped.
+#[tauri::command]
+pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<LibraryState>();
+        let plan = state.with(|library| library.plan_update_all())?;
+        Ok(plan.run(|prepared| {
+            // A failed copy is reported for that artifact only; the lock error text stays.
+            state
+                .with_mut(|library| library.finish_update(prepared))
+                .map_err(|message| harneo_core::Error::Update { message })
+        }))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 // --- Links, bundles and settings ---------------------------------------------------------

@@ -256,7 +256,10 @@ fn sweep_stale(root: &Path, older_than: Duration) {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name = name.to_string_lossy();
-        if !(name.starts_with(".clone-") || name.starts_with(".import-")) {
+        if !(name.starts_with(".clone-")
+            || name.starts_with(".import-")
+            || name.starts_with(".update-"))
+        {
             continue;
         }
         let stale = entry

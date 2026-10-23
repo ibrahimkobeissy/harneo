@@ -11,6 +11,13 @@
 //! import. A copy whose files no longer match it has *local edits*. Rows imported before the
 //! digest existed get it on their first check and count as unedited.
 
+mod apply;
+#[cfg(test)]
+mod apply_tests;
+mod check;
+mod diff;
+#[cfg(test)]
+mod diff_tests;
 pub(crate) mod remote;
 #[cfg(test)]
 mod status_tests;
@@ -32,7 +39,13 @@ use crate::artifact::Artifact;
 use crate::error::{Error, Result};
 use crate::library::records::{self, SourceRecord};
 use crate::library::{Library, LibraryItem};
-use remote::{Failure, Upstream};
+pub use apply::{UpdateAllPlan, UpdateChoice, UpdateJob, UpdateOutcome, UpdateReport};
+pub use check::{CheckJob, CheckOutcome};
+pub use diff::{DiffLine, DiffStatus, FileDiff, Hunk, LineKind};
+
+/// The metadata key that records the commit an artifact was last updated from (git sources).
+/// Without it the commit is the source's, from import.
+pub(crate) const IMPORTED_COMMIT: &str = "importedCommit";
 
 /// What to check.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -144,6 +157,7 @@ pub struct UpdateBadge {
 }
 
 /// A stored artifact as the check sees it.
+#[derive(Debug)]
 struct Stored {
     id: String,
     source_path: String,
@@ -271,136 +285,6 @@ fn versions(
 }
 
 impl Library {
-    /// Looks at the sources in `scope` and records which artifacts are outdated or removed
-    /// upstream. A source that cannot be read (offline, no access, missing folder) is reported
-    /// in its own entry and never stops the others. A git source whose remote commit equals the
-    /// one seen last time is not cloned. A clone made here is kept for the session.
-    pub fn check_updates(&self, scope: &CheckScope) -> Result<CheckReport> {
-        let conn = &self.store.conn;
-        let (source_filter, only) = match scope {
-            CheckScope::All => (None, None),
-            CheckScope::Source { id } => (Some(id.clone()), None),
-            CheckScope::Artifact { id } => {
-                let source: Option<String> = conn
-                    .query_row(
-                        "SELECT source_id FROM artifacts WHERE id = ?1",
-                        params![id],
-                        |r| r.get(0),
-                    )
-                    .optional()?;
-                let source = source.ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
-                (Some(source), Some(id.as_str()))
-            }
-        };
-        let mut report = CheckReport::default();
-        for (source, remote_commit) in source_rows(conn, source_filter.as_deref())? {
-            let result = self.check_source(&source, remote_commit.as_deref(), only)?;
-            report.sources.push(SourceCheck {
-                id: source.id,
-                result,
-            });
-        }
-        Ok(report)
-    }
-
-    fn check_source(
-        &self,
-        source: &SourceRecord,
-        remote_commit: Option<&str>,
-        only: Option<&str>,
-    ) -> Result<SourceResult> {
-        let conn = &self.store.conn;
-        let stored = stored_of_source(conn, &source.id)?;
-        self.backfill_copy_digests(&stored)?;
-        // The commit last seen on the remote; before any check, the one imported from.
-        let known = remote_commit.or(source.commit_sha.as_deref());
-        let upstream =
-            match remote::fetch(&self.git, &self.session, self.store.root(), source, known) {
-                Ok(upstream) => upstream,
-                Err(Failure::Missing) => return Ok(SourceResult::Missing),
-                Err(Failure::Unreachable(reason)) => {
-                    return Ok(SourceResult::Unreachable { reason })
-                }
-            };
-        let now = records::now();
-        let (commit, scanned) = match upstream {
-            Upstream::Unchanged => {
-                conn.execute(
-                    "UPDATE sources SET checked_at = ?2 WHERE id = ?1",
-                    params![source.id, now],
-                )?;
-                return result_from_table(conn, &source.id, 0);
-            }
-            Upstream::Scanned { commit, artifacts } => (commit, artifacts),
-        };
-        let tx = conn.unchecked_transaction()?;
-        for item in stored.iter().filter(|s| only.is_none_or(|id| s.id == id)) {
-            let found = scanned.iter().find(|a| a.path == item.source_path);
-            let existing = existing_row(&tx, &item.id)?;
-            match classify(item, found) {
-                Verdict::Current => {
-                    tx.execute(
-                        "DELETE FROM upstream WHERE artifact_id = ?1",
-                        params![item.id],
-                    )?;
-                }
-                Verdict::Outdated(upstream) => {
-                    let digest = upstream.digest.clone();
-                    let kept = existing.as_ref().is_some_and(|e| {
-                        e.state == UpstreamState::Skipped && e.upstream_digest == digest
-                    });
-                    if !kept {
-                        let (from, to) = versions(
-                            &item.artifact,
-                            Some(&upstream),
-                            source.commit_sha.as_deref(),
-                            commit.as_deref(),
-                        );
-                        let row = NewRow {
-                            id: &item.id,
-                            state: UpstreamState::Outdated,
-                            upstream_digest: digest,
-                            upstream_commit: &commit,
-                            from_version: from,
-                            to_version: to,
-                            checked_at: now,
-                        };
-                        write_row(&tx, &row)?;
-                    }
-                }
-                Verdict::Removed => {
-                    let (from, _) = versions(&item.artifact, None, None, None);
-                    let row = NewRow {
-                        id: &item.id,
-                        state: UpstreamState::Removed,
-                        upstream_digest: None,
-                        upstream_commit: &commit,
-                        from_version: from,
-                        to_version: None,
-                        checked_at: now,
-                    };
-                    write_row(&tx, &row)?;
-                }
-            }
-        }
-        tx.execute(
-            "UPDATE sources SET checked_at = ?2, remote_commit = COALESCE(?3, remote_commit)
-             WHERE id = ?1",
-            params![source.id, now, commit],
-        )?;
-        tx.commit()?;
-        let known_paths: Vec<&str> = stored.iter().map(|s| s.source_path.as_str()).collect();
-        let new_upstream = scanned
-            .iter()
-            .filter(|a| !known_paths.contains(&a.path.as_str()))
-            .count();
-        result_from_table(
-            conn,
-            &source.id,
-            u32::try_from(new_upstream).unwrap_or(u32::MAX),
-        )
-    }
-
     /// Records the copy digest of rows imported before it existed, from what is stored now.
     fn backfill_copy_digests(&self, stored: &[Stored]) -> Result<()> {
         for item in stored.iter().filter(|s| s.copy_digest.is_none()) {

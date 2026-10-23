@@ -55,7 +55,7 @@ use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
 pub use collections::{Collection, CollectionKind};
-use copy::{copy_artifact, ImportHooks, NoHooks};
+pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use query::{
@@ -141,7 +141,7 @@ pub struct Library {
     /// library deletes it. See [`PendingClone`].
     pending: Mutex<Option<PendingClone>>,
     /// Clones the update check made, kept for the session (see `updates::remote`).
-    pub(crate) session: crate::updates::remote::Session,
+    pub(crate) session: std::sync::Arc<crate::updates::remote::Session>,
 }
 
 /// A git preview's clone, waiting for `import`. Previews are plain data that travel over IPC,
@@ -165,7 +165,7 @@ impl Library {
             git: GitConfig::default(),
             claude: crate::bundles::ClaudeConfig::default(),
             pending: Mutex::new(None),
-            session: crate::updates::remote::Session::default(),
+            session: std::sync::Arc::default(),
         })
     }
 
@@ -743,7 +743,7 @@ fn io_error(path: &Path, source: std::io::Error) -> Error {
 }
 
 /// Regular files below `dir`, relative to it with forward slashes, sorted.
-fn stored_files(dir: &Path) -> Result<Vec<String>> {
+pub(crate) fn stored_files(dir: &Path) -> Result<Vec<String>> {
     fn walk(dir: &Path, prefix: &str, out: &mut Vec<String>) -> Result<()> {
         for entry in fs::read_dir(dir).map_err(|e| io_error(dir, e))? {
             let entry = entry.map_err(|e| io_error(dir, e))?;

@@ -23,6 +23,9 @@ import type { Usage } from "../bindings/Usage";
 import type { UsageSummary } from "../bindings/UsageSummary";
 import type { CheckReport } from "../bindings/CheckReport";
 import type { CheckScope } from "../bindings/CheckScope";
+import type { FileDiff } from "../bindings/FileDiff";
+import type { UpdateChoice } from "../bindings/UpdateChoice";
+import type { UpdateReport } from "../bindings/UpdateReport";
 import type { UpdateStatus } from "../bindings/UpdateStatus";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
@@ -336,4 +339,22 @@ export function bundlesDetectPreview(
 /** Claude's proposed links and tags for stored artifacts (`null` is the whole library). */
 export function bundlesDetectLibrary(ids: string[] | null): Promise<Detection> {
   return invoke<Detection>("bundles_detect_library", { ids });
+}
+
+/** What updating an artifact would change, per file (`+`, `~`, `-` with hunks). */
+export function updateDiff(id: string): Promise<FileDiff[]> {
+  return invoke<FileDiff[]>("update_diff", { id });
+}
+
+/** Takes the upstream version (an edited copy is backed up first) or keeps the user's. */
+export function updateApply(
+  id: string,
+  choice: UpdateChoice,
+): Promise<UpdateReport> {
+  return invoke<UpdateReport>("update_apply", { id, choice });
+}
+
+/** Updates every outdated artifact without local edits; edited ones come back skipped. */
+export function updateAll(): Promise<UpdateReport[]> {
+  return invoke<UpdateReport[]>("update_all");
 }

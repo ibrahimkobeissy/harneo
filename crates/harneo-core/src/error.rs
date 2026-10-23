@@ -207,6 +207,11 @@ pub enum Error {
         /// The id that was asked for.
         id: i64,
     },
+    /// An update cannot be made.
+    #[error("cannot update: {message}")]
+    Update {
+        /// Why, ready to show.
+    },
 }
 
 /// Result alias used across `harneo-core`.
