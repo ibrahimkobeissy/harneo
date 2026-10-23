@@ -27,6 +27,9 @@
   width: var(--size-modal);
   max-height: 80vh;
 }
+.wide {
+  width: min(960px, calc(100vw - var(--size-gutter)));
+}
 .palette {
   top: 12vh;
   width: var(--size-palette);

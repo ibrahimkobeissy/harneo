@@ -471,11 +471,21 @@
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   color: var(--t3);
+  display: flex;
+  gap: var(--space-xs);
+  min-width: min(100%, 16ch);
+  flex: 1 1 0;
+}
+.srcText {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: min(100%, 16ch);
-  flex: 1 1 0;
+  min-width: 0;
+}
+/* "→ 3.4.1" stays whole while the source's name gives way. */
+.srcStep {
+  flex: none;
+  color: var(--amber);
 }
 .date {
   color: var(--t3);

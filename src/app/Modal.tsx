@@ -4,6 +4,8 @@ import styles from "./Modal.module.css";
 interface ModalProps {
   label: string;
   variant?: "dialog" | "palette";
+  /** Room for side-by-side content (diffs). */
+  wide?: boolean;
   onClose?: () => void;
   children: ReactNode;
 }
@@ -23,6 +25,7 @@ const focusable = [
 export function Modal({
   label,
   variant = "dialog",
+  wide = false,
   onClose,
   children,
 }: ModalProps) {
@@ -71,7 +74,7 @@ export function Modal({
         aria-label={label}
         tabIndex={-1}
         ref={ref}
-        className={`${styles.box} ${variant === "palette" ? styles.palette : styles.dialog}`}
+        className={`${styles.box} ${variant === "palette" ? styles.palette : styles.dialog} ${wide ? styles.wide : ""}`}
         onKeyDown={trapTab}
       >
         {children}

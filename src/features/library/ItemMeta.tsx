@@ -12,6 +12,34 @@ export function sourceText(item: LibraryItem): string {
   return branch ? `${label} @ ${branch}` : label;
 }
 
+/** The card's source line: "label · → 3.4.1" while the artifact is outdated. */
+export function sourceLine(item: LibraryItem): string {
+  const { update } = item;
+  if (update === null) return sourceText(item);
+  return update.toVersion
+    ? `${sourceText(item)} · → ${update.toVersion}`
+    : `${sourceText(item)} · changed`;
+}
+
+/** "Update 3.4.1" (warn); just "Update" when upstream has no version to name. */
+export function UpdateTag({ item }: { item: LibraryItem }) {
+  const { update } = item;
+  if (update === null) return null;
+  return (
+    <Badge tone="warn">
+      <span
+        title={
+          update.localEdits
+            ? "Changed at its source; you also edited the library copy"
+            : "Changed at its source since you imported it"
+        }
+      >
+        {update.toVersion ? `Update ${update.toVersion}` : "Update"}
+      </span>
+    </Badge>
+  );
+}
+
 /** At most `max` tag chips, then a "+n" for the rest. */
 export function TagChips({
   tags,

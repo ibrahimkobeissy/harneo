@@ -2,6 +2,7 @@ import {
   ArrowLeft,
   Boxes,
   CircleAlert,
+  CircleArrowUp,
   FileText,
   FolderMinus,
   Trash2,
@@ -17,6 +18,7 @@ import type { Audit } from "../../bindings/Audit";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
 import type { Links } from "../../bindings/Links";
+import type { UpdateStatus } from "../../bindings/UpdateStatus";
 import { Modal } from "../../app/Modal";
 import {
   collectionRemove,
@@ -24,9 +26,11 @@ import {
   libraryFind,
   libraryRemove,
   linksOf,
+  updateStatus,
 } from "../../lib/ipc";
 import {
   AnyNote,
+  Badge,
   Button,
   FindingTitle,
   announce,
@@ -36,6 +40,8 @@ import {
   TrustMeter,
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
+import { LocalEditDialog, UpdateDialog, versionStep } from "./UpdateDialogs";
+import updates from "./Updates.module.css";
 import { BundleSection } from "./BundleSection";
 import { FindBundlesDialog } from "./FindBundles";
 import styles from "./Detail.module.css";
@@ -51,7 +57,7 @@ type Load =
   | { status: "ready"; detail: ArtifactDetail };
 
 /** Loads one artifact; the previous one is dropped as soon as `id` changes. */
-function useDetail(id: string): Load {
+function useDetail(id: string, tick: number): Load {
   const [state, setState] = useState<{ id: string; load: Load }>({
     id: "",
     load: { status: "loading" },
@@ -70,8 +76,31 @@ function useDetail(id: string): Load {
     return () => {
       current = false;
     };
-  }, [id]);
+  }, [id, tick]);
   return state.id === id ? state.load : { status: "loading" };
+}
+
+/** The update state of one artifact, re-read when `tick` changes; null while unknown or current. */
+function useUpdateStatus(id: string, tick: number): UpdateStatus | null {
+  const [state, setState] = useState<{
+    id: string;
+    status: UpdateStatus | null;
+  }>({ id: "", status: null });
+  useEffect(() => {
+    let current = true;
+    updateStatus(id).then(
+      (status) => {
+        if (current) setState({ id, status: status ?? null });
+      },
+      () => {
+        if (current) setState({ id, status: null });
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, [id, tick]);
+  return state.id === id ? state.status : null;
 }
 
 const refKey = (r: Reference) => `${r.kind}:${r.target}`;
@@ -111,7 +140,43 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function SourceSection({ detail }: { detail: ArtifactDetail }) {
+/** The drawer's notice that the artifact changed at its source, with the Update button. */
+function UpdateCallout({
+  status,
+  onUpdate,
+}: {
+  status: UpdateStatus | null;
+  onUpdate: (status: UpdateStatus) => void;
+}) {
+  if (status === null || status.state !== "outdated") return null;
+  const step = versionStep(status.fromVersion, status.toVersion);
+  return (
+    <section className={styles.sec} aria-label="Update available">
+      <div className={updates.callout} data-tone="warn">
+        <CircleArrowUp size={16} aria-hidden="true" />
+        <div className={updates.calloutBody}>
+          <b>{step ? `Update available: ${step}` : "Update available"}</b>
+          <p>
+            {status.localEdits
+              ? "You edited this artifact locally. You'll choose between your version and upstream."
+              : "Upstream changed since you imported it."}
+          </p>
+        </div>
+        <Button small onClick={() => onUpdate(status)}>
+          Update
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+function SourceSection({
+  detail,
+  update,
+}: {
+  detail: ArtifactDetail;
+  update: UpdateStatus | null;
+}) {
   const { source, sourcePath, importedAt } = detail.provenance;
   const imported = formatDate(importedAt);
   return (
@@ -144,6 +209,21 @@ function SourceSection({ detail }: { detail: ArtifactDetail }) {
         ) : (
           <Row label="Folder">
             <span className={styles.mono}>{source.location}</span>
+          </Row>
+        )}
+        {update !== null && update.state === "outdated" && (
+          <Row label="Version">
+            <span className={styles.mono}>
+              {update.fromVersion ?? "imported"}
+            </span>{" "}
+            <Badge tone="warn">
+              {update.toVersion ? `${update.toVersion} available` : "changed"}
+            </Badge>
+          </Row>
+        )}
+        {update !== null && update.state === "removed" && (
+          <Row label="Upstream">
+            <Badge tone="bad">Removed at source</Badge>
           </Row>
         )}
         <Row label="Path">
@@ -350,6 +430,7 @@ export function DetailPanel({
   collection = null,
   onMembershipChanged = () => {},
   onLeftCollection = () => {},
+  onUpdated = () => {},
 }: {
   id: string;
   /** Scroll to the Trust section and move focus to its heading (`?focus=trust`). */
@@ -368,8 +449,14 @@ export function DetailPanel({
   onMembershipChanged?: () => void;
   /** The artifact was taken out of `collection` with "Remove from collection". */
   onLeftCollection?: () => void;
+  /** The library copy was updated (or the user kept theirs): the list's badges follow. */
+  onUpdated?: () => void;
 }) {
-  const load = useDetail(id);
+  const [tick, setTick] = useState(0);
+  // The status the dialog opened with: it must outlive the refresh that follows an update.
+  const [updating, setUpdating] = useState<UpdateStatus | null>(null);
+  const load = useDetail(id, tick);
+  const update = useUpdateStatus(id, tick);
   const detail = load.status === "ready" ? load.detail : null;
   const targets = useReferenceTargets(
     detail ? detail.artifact.references : null,
@@ -535,6 +622,7 @@ export function DetailPanel({
           )}
           {detail && (
             <>
+              <UpdateCallout status={update} onUpdate={setUpdating} />
               <section className={styles.sec}>
                 <p className={styles.desc}>
                   {detail.artifact.description ?? "No description."}
@@ -553,7 +641,7 @@ export function DetailPanel({
                 kind={detail.artifact.kind}
                 name={detail.artifact.name}
               />
-              <SourceSection detail={detail} />
+              <SourceSection detail={detail} update={update} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>
                 <ul className={styles.files}>
@@ -575,6 +663,32 @@ export function DetailPanel({
           )}
         </div>
       </aside>
+      {updating !== null &&
+        detail &&
+        (updating.localEdits ? (
+          <LocalEditDialog
+            id={id}
+            name={detail.artifact.name}
+            toVersion={updating.toVersion}
+            onClose={() => setUpdating(null)}
+            onUpdated={() => {
+              setTick((n) => n + 1);
+              onUpdated();
+            }}
+          />
+        ) : (
+          <UpdateDialog
+            id={id}
+            name={detail.artifact.name}
+            fromVersion={updating.fromVersion}
+            toVersion={updating.toVersion}
+            onClose={() => setUpdating(null)}
+            onUpdated={() => {
+              setTick((n) => n + 1);
+              onUpdated();
+            }}
+          />
+        ))}
       {confirming && detail && (
         <Modal label={`Delete ${detail.artifact.name}`}>
           <div className={styles.confirm}>

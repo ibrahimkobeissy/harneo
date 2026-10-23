@@ -81,3 +81,42 @@ describe("Settings: Claude CLI", () => {
     ).toHaveAttribute("aria-checked", "true");
   });
 });
+
+describe("update settings", () => {
+  it("shows the toggle on by default and stores a change", async () => {
+    const user = userEvent.setup();
+    const stored: Record<string, unknown> = {};
+    mockIPC((cmd, args) => {
+      const { key, value } = (args ?? {}) as { key?: string; value?: unknown };
+      if (cmd === "settings_get") return null;
+      if (cmd === "settings_set") {
+        stored[String(key)] = value;
+        return undefined;
+      }
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return undefined;
+    });
+    render(<SettingsScreen />);
+    const box = await screen.findByRole("checkbox", {
+      name: "Check for updates at start",
+    });
+    await waitFor(() => expect(box).toBeEnabled());
+    expect(box).toBeChecked();
+    await user.click(box);
+    await waitFor(() => expect(stored["updates.autoCheck"]).toBe(false));
+    expect(box).not.toBeChecked();
+  });
+
+  it("shows the toggle off when the setting is false", async () => {
+    mockIPC((cmd) => {
+      if (cmd === "settings_get") return false;
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return undefined;
+    });
+    render(<SettingsScreen />);
+    const box = await screen.findByRole("checkbox", {
+      name: "Check for updates at start",
+    });
+    await waitFor(() => expect(box).not.toBeChecked());
+  });
+});

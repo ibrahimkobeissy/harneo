@@ -58,6 +58,9 @@ import { Pager } from "./Pager";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { SearchBox } from "./SearchBox";
 import { useNarrow } from "./useNarrow";
+import { UpdateAllDialog } from "./UpdateDialogs";
+import { UpdateProblems, UpdatesControls } from "./UpdatesBar";
+import { useUpdateCheck } from "./useUpdateCheck";
 import { Welcome } from "./Welcome";
 
 type Load =
@@ -163,6 +166,8 @@ export function LibraryScreen({
   const [dragging, setDragging] = useState(false);
   const [finding, setFinding] = useState(false);
   const filtersButton = useRef<HTMLButtonElement>(null);
+  const [updatingAll, setUpdatingAll] = useState(false);
+  const check = useUpdateCheck(reload);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   // The card to give focus back to once the panel has closed.
   const returnTo = useRef<string | null>(null);
@@ -335,6 +340,9 @@ export function LibraryScreen({
           }}
         />
       )}
+      {page && !collection && (
+        <UpdateProblems check={check} sources={page.facets.sources} />
+      )}
       {page && (
         <div className={styles.toolbar}>
           {(narrow || collapsed) && (
@@ -373,6 +381,13 @@ export function LibraryScreen({
             }
           />
           <span className={styles.grow} />
+          {!collection && (
+            <UpdatesControls
+              check={check}
+              outdated={page.facets.outdated}
+              onUpdateAll={() => setUpdatingAll(true)}
+            />
+          )}
           <button
             type="button"
             className={
@@ -598,6 +613,7 @@ export function LibraryScreen({
           }}
           onClose={closePanel}
           onTagsChanged={reload}
+          onUpdated={reload}
           onLinksChanged={reload}
           collection={collection}
           onMembershipChanged={() => {
@@ -622,6 +638,12 @@ export function LibraryScreen({
           ids={null}
           onClose={() => setFinding(false)}
           onAccepted={reload}
+        />
+      )}
+      {updatingAll && (
+        <UpdateAllDialog
+          onClose={() => setUpdatingAll(false)}
+          onUpdated={reload}
         />
       )}
     </div>

@@ -1,0 +1,21 @@
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+.row input {
+  accent-color: var(--blue);
+}
+.note {
+  margin: var(--space-sm) 0 0;
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.error {
+  margin: var(--space-sm) 0 0;
+  color: var(--red);
+}
+.wrap {
+  margin-bottom: var(--space-lg);
+}

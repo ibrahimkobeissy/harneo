@@ -6,8 +6,9 @@ import {
   Findings,
   importedDate,
   ItemTrust,
-  sourceText,
+  sourceLine,
   StatusBadge,
+  UpdateTag,
   TagChips,
 } from "./ItemMeta";
 import { KindChip } from "./KindChip";
@@ -100,8 +101,8 @@ export function ItemTable({
             </td>
             <td>{kinds[item.kind].label}</td>
             <td className={styles.mono}>
-              <span className={styles.ell} title={sourceText(item)}>
-                {sourceText(item)}
+              <span className={styles.ell} title={sourceLine(item)}>
+                {sourceLine(item)}
               </span>
             </td>
             <td>
@@ -123,7 +124,11 @@ export function ItemTable({
               ) : null}
             </td>
             <td>
-              <StatusBadge status={shownStatus(item, indexed)} />
+              {item.update ? (
+                <UpdateTag item={item} />
+              ) : (
+                <StatusBadge status={shownStatus(item, indexed)} />
+              )}
             </td>
             <td>
               <BundleBadge item={item} />

@@ -1,0 +1,307 @@
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-xl);
+  min-height: 0;
+  flex: 1;
+}
+.dialog h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  word-break: break-word;
+}
+.h3 {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--text-section);
+}
+.sub {
+  display: block;
+  margin: 0;
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.muted {
+  margin: 0;
+  color: var(--t3);
+}
+.error {
+  margin: 0;
+  color: var(--red);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  word-break: break-all;
+}
+.scroll {
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+}
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+/* The changes list: one row per file. */
+.changes,
+.names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.change {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+  min-width: 0;
+}
+.changeHead,
+.pairHead,
+.names li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  min-width: 0;
+}
+.pairHead {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: 500;
+  padding-inline: 0;
+}
+.sign {
+  flex: none;
+  width: 1.2em;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+[data-status="added"] > * > .sign {
+  color: var(--green);
+}
+[data-status="changed"] > * > .sign {
+  color: var(--amber);
+}
+[data-status="removed"] > * > .sign {
+  color: var(--red);
+}
+.path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.word {
+  flex: none;
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+.toggle {
+  flex: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-label);
+  color: var(--blue);
+  cursor: pointer;
+  padding: var(--space-xxs);
+}
+.toggle:focus-visible,
+.choice:focus-within {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.hunks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: 0 var(--space-md) var(--space-md);
+}
+
+/* Code: the tokens' diff colours behind the added and removed lines. */
+.code {
+  margin: 0;
+  overflow: auto;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  line-height: var(--leading-code);
+  color: var(--t1);
+  white-space: pre;
+}
+.ln {
+  display: block;
+  padding: 0 var(--space-sm);
+}
+.ln[data-kind="added"] {
+  background: var(--diff-add);
+}
+.ln[data-kind="removed"] {
+  background: var(--diff-del);
+}
+.no {
+  display: inline-block;
+  min-width: 2.2em;
+  margin-right: var(--space-sm);
+  color: var(--t3);
+  text-align: right;
+  user-select: none;
+}
+
+/* Yours against Upstream. */
+.pair {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.colHead {
+  font-size: var(--text-label);
+  font-weight: 600;
+  color: var(--t2);
+}
+.choices {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.choice[data-on="true"] {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+.choice input {
+  margin-top: 3px;
+}
+.choice b {
+  display: block;
+  font-weight: 600;
+}
+.done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md);
+  border-radius: var(--radius);
+  background: var(--sunk);
+  color: var(--t1);
+}
+.done p {
+  margin: 0;
+}
+.names li {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+}
+
+/* Callouts: the drawer's update notice and the toolbar's source errors. */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md) 14px;
+  border-radius: var(--radius);
+  background: var(--sunk);
+  color: var(--t2);
+}
+.callout[data-tone="warn"] {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.callout[data-tone="bad"] {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.callout svg {
+  flex: none;
+  margin-top: 2px;
+}
+.callout p {
+  margin: 0;
+}
+.calloutBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+}
+.calloutBody b {
+  color: inherit;
+}
+.calloutBody ul {
+  margin: 0;
+  padding-left: var(--space-lg);
+}
+
+/* The toolbar's Check for updates. */
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+.checkBar {
+  margin-bottom: var(--space-md);
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}
+@media (max-width: 40rem) {
+  .cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

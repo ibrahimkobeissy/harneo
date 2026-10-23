@@ -10,6 +10,7 @@ import { sidebarShortcut } from "./platform";
 import { UsageIndexProvider } from "./usageIndex";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
+import { useAutoUpdateCheck } from "./useAutoUpdateCheck";
 
 type Overlay = "none" | "shortcuts" | "palette";
 
@@ -22,6 +23,7 @@ function isTyping(target: EventTarget | null): boolean {
 }
 
 export function Layout() {
+  useAutoUpdateCheck();
   const [overlay, setOverlay] = useState<Overlay>("none");
   const [collapsed, setCollapsed] = usePersisted(
     "harneo.sidebar.collapsed",
