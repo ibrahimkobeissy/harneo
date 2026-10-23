@@ -152,6 +152,10 @@ pub fn rules() -> Vec<Box<dyn AuditRule>> {
         // rules/leaks.rs
         Box::new(rules::leaks::PlaintextSecrets),
         Box::new(rules::leaks::CredentialTheft),
+        // rules/commands.rs
+        Box::new(rules::commands::Rce),
+        Box::new(rules::commands::DangerousCommands),
+        Box::new(rules::commands::SafetyBypass),
     ]
 }
 
