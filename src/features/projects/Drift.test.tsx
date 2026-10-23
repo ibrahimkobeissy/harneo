@@ -93,6 +93,7 @@ interface Opts {
   diffError?: boolean;
   planError?: boolean;
   applyError?: boolean;
+  applyGate?: Promise<void>;
   promoteError?: boolean;
   addedError?: boolean;
   candidate?: string | null;
@@ -156,6 +157,8 @@ function setup(path: string, opts: Opts = {}) {
           return plan();
         case "install_apply":
           if (opts.applyError) throw new Error("disk full");
+          if (opts.applyGate)
+            return opts.applyGate.then(() => ({ written: 2 }));
           return { written: 2 };
         case "drift_promote":
           if (opts.promoteError) throw new Error("audit refused it");
@@ -246,6 +249,37 @@ describe("Projects list and sidebar", () => {
     const nav = screen.getByRole("link", { name: "Projects" });
     await waitFor(() => expect(nav).toHaveTextContent("1"));
     expect(within(nav).getByTitle("1 project has drifted files")).toBeVisible();
+  });
+
+  it("leads with what needs attention, and explains a Missing card", async () => {
+    setup("/projects", {
+      projects: ["ok", "lib", "gone", "drifty"].map((n, i) =>
+        project(i + 1, n),
+      ),
+      summaries: [
+        { projectId: 1n, summary: summary() },
+        { projectId: 2n, summary: summary({ libraryNewer: 2 }) },
+        { projectId: 3n, summary: summary({ status: "missing" }) },
+        { projectId: 4n, summary: summary({ status: "drift", drifted: 1 }) },
+      ],
+    });
+    expect(await screen.findByText("3 need attention")).toBeVisible();
+    const list = screen.getByRole("list", { name: "Projects" });
+    await waitFor(() =>
+      expect(
+        within(list)
+          .getAllByRole("link")
+          .map((l) => l.textContent),
+      ).toEqual([
+        expect.stringContaining("/work/gone"),
+        expect.stringContaining("/work/drifty"),
+        expect.stringContaining("/work/lib"),
+        expect.stringContaining("/work/ok"),
+      ]),
+    );
+    expect(
+      within(list).getByText(/The folder is gone, so nothing can be compared/),
+    ).toBeVisible();
   });
 
   it("pluralises the sidebar tooltip and reloads on a rescan event", async () => {
@@ -369,31 +403,83 @@ describe("Drift tab", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("re-applies one file straight away", async () => {
+  it("confirms a single re-apply with the diff before writing", async () => {
     const u = userEvent.setup();
     const calls = setup("/projects/1");
     await u.click(
-      await screen.findByRole("button", { name: "Re-apply profile version" }),
+      await screen.findByRole("button", {
+        name: "Replace with the profile's version",
+      }),
     );
+    const dlg = await screen.findByRole("dialog", {
+      name: "Replace code-reviewer.md with the profile's version?",
+    });
+    expect(calls.some((c) => c.cmd === "install_apply")).toBe(false);
+    expect(await within(dlg).findByText("tools: Read")).toBeVisible();
+    await u.click(within(dlg).getByRole("button", { name: "Replace file" }));
     expect(
       await screen.findByText(
-        "Re-applied code-reviewer.md; the project's version is backed up.",
+        "Replaced code-reviewer.md with the profile's version; the project's version is backed up.",
       ),
     ).toBeVisible();
     expect(
       calls.find((c) => c.cmd === "drift_reapply_plan")?.args,
     ).toMatchObject({ paths: [edited.path] });
+    expect(calls.some((c) => c.cmd === "install_apply")).toBe(true);
   });
 
-  it("reports a single re-apply that failed", async () => {
+  it("shows a failed single re-apply inside its dialog", async () => {
     const u = userEvent.setup();
     setup("/projects/1", { applyError: true });
     await u.click(
-      await screen.findByRole("button", { name: "Re-apply profile version" }),
+      await screen.findByRole("button", {
+        name: "Replace with the profile's version",
+      }),
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      `Could not re-apply ${edited.path}. disk full`,
+    const dlg = await screen.findByRole("dialog");
+    await within(dlg).findByText("tools: Read");
+    await u.click(within(dlg).getByRole("button", { name: "Replace file" }));
+    expect(await within(dlg).findByRole("alert")).toHaveTextContent(
+      "Nothing was changed. disk full",
     );
+  });
+
+  it("cannot be dismissed while the apply runs", async () => {
+    const u = userEvent.setup();
+    let finish: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    setup("/projects/1", { applyGate: gate });
+    await u.click(
+      await screen.findByRole("button", {
+        name: "Replace with the profile's version",
+      }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    await within(dlg).findByText("tools: Read");
+    await u.click(within(dlg).getByRole("button", { name: "Replace file" }));
+    const cancel = await within(dlg).findByRole("button", { name: "Cancel" });
+    expect(cancel).toBeDisabled();
+    await u.keyboard("{Escape}");
+    expect(screen.getByRole("dialog")).toBeVisible();
+    finish();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
+  it("shows no diff when it cannot be loaded, and still confirms", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { diffError: true });
+    await u.click(
+      await screen.findByRole("button", {
+        name: "Replace with the profile's version",
+      }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    expect(
+      await within(dlg).findByRole("button", { name: "Replace file" }),
+    ).toBeEnabled();
+    expect(within(dlg).queryByText("tools: Read")).toBeNull();
   });
 
   it("promotes after the prototype's confirm", async () => {

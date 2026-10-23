@@ -3,7 +3,10 @@ import { Modal } from "../../app/Modal";
 import { Button, type ButtonVariant } from "../../ui";
 import styles from "./Projects.module.css";
 
-/** A modal with a title, a scrolling body, Cancel and one action. Esc and the scrim close it. */
+/**
+ * A modal with a title, a scrolling body, Cancel and one action. Esc, the scrim and Cancel close
+ * it, except while `busy`: a running apply cannot be walked away from.
+ */
 export function DialogShell({
   title,
   sub,
@@ -29,18 +32,18 @@ export function DialogShell({
 }) {
   useEffect(() => {
     function onKeyDown(ev: KeyboardEvent) {
-      if (ev.key === "Escape" && !ev.defaultPrevented) onClose();
+      if (ev.key === "Escape" && !ev.defaultPrevented && !busy) onClose();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, busy]);
 
   function submitForm(ev: FormEvent) {
     ev.preventDefault();
     onSubmit();
   }
   return (
-    <Modal label={title} wide={wide} onClose={onClose}>
+    <Modal label={title} wide={wide} onClose={busy ? undefined : onClose}>
       <form className={styles.dlg} onSubmit={submitForm}>
         <div className={styles.dhead}>
           <h2>{title}</h2>
@@ -48,7 +51,9 @@ export function DialogShell({
         </div>
         <div className={styles.dbody}>{children}</div>
         <div className={styles.dfoot}>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button disabled={busy} onClick={onClose}>
+            Cancel
+          </Button>
           <Button variant={variant} type="submit" disabled={busy || !canSubmit}>
             {submit}
           </Button>

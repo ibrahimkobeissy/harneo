@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
+import type { Hunk } from "../../bindings/Hunk";
 import type { Plan } from "../../bindings/Plan";
 import type { WriteAction } from "../../bindings/WriteAction";
-import { driftReapplyPlan, installApply } from "../../lib/ipc";
-import { Badge, type BadgeTone } from "../../ui";
+import { driftDiff, driftReapplyPlan, installApply } from "../../lib/ipc";
+import { Badge, type BadgeTone, CodeView } from "../../ui";
 import { DialogShell } from "./DialogShell";
 import { messageOf, plural } from "./format";
 import styles from "./Projects.module.css";
@@ -33,6 +34,9 @@ export function ReapplyDialog({
 }) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
+  const [diff, setDiff] = useState<{ path: string; hunks: Hunk[] } | null>(
+    null,
+  );
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
 
@@ -52,6 +56,25 @@ export function ReapplyDialog({
   }, [projectId, paths]);
 
   const writes = (plan?.writes ?? []).filter((w) => labels[w.action]);
+  // One file gets its diff, so the user sees what the replacement overwrites.
+  const only = paths?.length === 1 ? paths[0] : undefined;
+  const shown = writes.some((w) => w.path === only && w.action === "replace")
+    ? only
+    : undefined;
+  useEffect(() => {
+    if (shown === undefined) return;
+    let live = true;
+    driftDiff(projectId, shown).then(
+      (hunks) => {
+        if (live) setDiff({ path: shown, hunks });
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [projectId, shown]);
+  const hunks = diff && diff.path === shown ? diff.hunks : null;
 
   async function apply() {
     if (!plan) return;
@@ -70,7 +93,13 @@ export function ReapplyDialog({
     <DialogShell
       title={title}
       sub={`${projectName}'s versions are backed up first, then the profile's versions are written.`}
-      submit={applying ? "Re-applying…" : "Re-apply"}
+      submit={
+        applying
+          ? "Re-applying…"
+          : only !== undefined
+            ? "Replace file"
+            : "Re-apply"
+      }
       busy={applying}
       canSubmit={plan !== null && writes.length > 0}
       onSubmit={() => void apply()}
@@ -108,6 +137,11 @@ export function ReapplyDialog({
             <p className={styles.rowPlain}>Nothing to re-apply.</p>
           )}
         </section>
+      )}
+      {shown !== undefined && hunks && (
+        <div className={styles.reapplyDiff}>
+          <CodeView path={shown} bytes={null} hunks={hunks} />
+        </div>
       )}
       {applyError && (
         <p className={styles.err} role="alert">

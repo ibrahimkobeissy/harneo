@@ -3,30 +3,18 @@ import type { ApplyReport } from "../../bindings/ApplyReport";
 import type { Plan } from "../../bindings/Plan";
 import type { Project } from "../../bindings/Project";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
-import type { Write } from "../../bindings/Write";
-import type { WriteAction } from "../../bindings/WriteAction";
 import { installApply, switchPlan } from "../../lib/ipc";
-import { Badge, type BadgeTone } from "../../ui";
 import { DialogShell } from "./DialogShell";
 import { messageOf } from "./format";
+import { groupPlan, PlanFiles } from "./PlanFiles";
 import styles from "./Projects.module.css";
-
-const groups: {
-  title: string;
-  action: WriteAction;
-  label: string;
-  tone: BadgeTone;
-}[] = [
-  { title: "Add", action: "new", label: "Add", tone: "ok" },
-  { title: "Remove", action: "delete", label: "Remove", tone: "bad" },
-  { title: "Update", action: "replace", label: "Update", tone: "warn" },
-];
 
 /** The Switch / Upgrade modal: the difference as Add, Remove and Update, then "Apply difference". */
 export function SwitchDialog({
   project,
   profiles,
   upgrade,
+  backupDir,
   onClose,
   onApplied,
 }: {
@@ -34,6 +22,7 @@ export function SwitchDialog({
   profiles: ProfileSummary[];
   /** Same profile, newer version, so no profile list. */
   upgrade: boolean;
+  backupDir: string | null;
   onClose: () => void;
   onApplied: (
     report: ApplyReport,
@@ -73,10 +62,10 @@ export function SwitchDialog({
   const plan = fresh?.plan ?? null;
   const planError = fresh?.error ?? null;
   const target = profiles.find((p) => p.id === chosen);
-  const edited = new Set(plan?.editedInProject ?? []);
-  const changing =
-    plan?.writes.filter((w) => w.action !== "keep" && w.action !== "skip") ??
-    [];
+  const edited = plan?.editedInProject.length ?? 0;
+  const changing = plan
+    ? Object.values(groupPlan(plan)).reduce((n, list) => n + list.length, 0)
+    : 0;
 
   async function apply() {
     if (!plan) return;
@@ -158,30 +147,27 @@ export function SwitchDialog({
         </p>
       )}
       {plan && (
-        <section className={styles.diff} aria-label="Difference">
-          <header className={styles.diffHead}>
+        <>
+          <p className={styles.fromTo}>
             {from} → {to}
-          </header>
-          {groups.map((g) => (
-            <Group
-              key={g.action}
-              {...g}
-              writes={plan.writes.filter((w) => w.action === g.action)}
-              edited={edited}
-            />
-          ))}
-          {changing.length === 0 && (
+          </p>
+          <PlanFiles
+            plan={plan}
+            show={["add", "update", "restored", "deleted", "edited"]}
+            backupDir={backupDir}
+          />
+          {changing === 0 && (
             <p className={styles.rowPlain}>
               Same files; only the version changes.
             </p>
           )}
-        </section>
+        </>
       )}
-      {plan && edited.size > 0 && (
+      {plan && edited > 0 && (
         <p className={styles.note}>
-          {edited.size === 1 ? "One file was" : `${edited.size} files were`}{" "}
-          edited in the project since Harneo wrote them. They are backed up
-          before they change.
+          {edited === 1 ? "One file was" : `${edited} files were`} edited in the
+          project since Harneo wrote them. They are backed up before they
+          change.
         </p>
       )}
       {applyError && (
@@ -190,34 +176,5 @@ export function SwitchDialog({
         </p>
       )}
     </DialogShell>
-  );
-}
-
-function Group({
-  title,
-  label,
-  tone,
-  writes,
-  edited,
-}: {
-  title: string;
-  label: string;
-  tone: BadgeTone;
-  writes: Write[];
-  edited: ReadonlySet<string>;
-}) {
-  if (writes.length === 0) return null;
-  return (
-    <ul className={styles.diffGroup} aria-label={title}>
-      {writes.map((w) => (
-        <li key={w.path} className={styles.diffRow}>
-          <span className={styles.diffTag}>
-            <Badge tone={tone}>{label}</Badge>
-          </span>
-          <span className={styles.diffPath}>{w.path}</span>
-          {edited.has(w.path) && <Badge tone="warn">Edited in project</Badge>}
-        </li>
-      ))}
-    </ul>
   );
 }

@@ -2,12 +2,13 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Backup } from "../../bindings/Backup";
 import type { Plan } from "../../bindings/Plan";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import type { Project } from "../../bindings/Project";
 import { ProjectScreen, ProjectsScreen } from ".";
+import { Toast } from "./Toast";
 import { ago, dateOf, statusOf, toBase64 } from "./format";
 
 const NOW = Math.floor(Date.now() / 1000);
@@ -550,11 +551,16 @@ describe("Switch / Upgrade modal", () => {
       within(dialog).getByRole("list", { name: "Add" }),
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByRole("list", { name: "Remove" }),
-    ).toHaveTextContent("Edited in project");
+      within(dialog).getByRole("list", {
+        name: "Edited in project, backed up first",
+      }),
+    ).toHaveTextContent(".claude/agents/old.md");
     expect(
       within(dialog).getByRole("list", { name: "Update" }),
     ).toHaveTextContent("CLAUDE.md");
+    expect(dialog).toHaveTextContent(
+      "1 file backed up before anything changes, to /data/harneo/backups/",
+    );
     expect(within(dialog).queryByText("HARNESS.md")).not.toBeInTheDocument();
     expect(dialog).toHaveTextContent("One file was edited in the project");
     await userEvent.click(
@@ -660,19 +666,26 @@ describe("Switch / Upgrade modal", () => {
   });
 });
 
+async function openRemove() {
+  await userEvent.click(
+    await screen.findByRole("button", { name: "More actions" }),
+  );
+  await userEvent.click(
+    await screen.findByRole("menuitem", { name: "Remove the harness" }),
+  );
+}
+
 describe("Clean removal", () => {
   async function open(opts: Opts = {}) {
     const calls = setup("/projects/1", opts);
-    await userEvent.click(
-      await screen.findByRole("button", { name: /Remove profile/ }),
-    );
+    await openRemove();
     return calls;
   }
 
   it("counts files from the removal plan and returns to the list with a toast", async () => {
     const calls = await open();
     const dialog = await screen.findByRole("dialog", {
-      name: "Remove Web from shop?",
+      name: "Remove the harness from shop?",
     });
     expect(
       await within(dialog).findByText(
@@ -681,15 +694,64 @@ describe("Clean removal", () => {
     ).toBeInTheDocument();
     expect(dialog).toHaveTextContent("CLAUDE.local.md");
     expect(dialog).toHaveTextContent("The project leaves the registry.");
+    expect(
+      within(dialog).getByRole("list", {
+        name: "Restored: your original comes back",
+      }),
+    ).toHaveTextContent("CLAUDE.md");
+    expect(
+      within(dialog).getByRole("list", {
+        name: "Deleted: Harneo created these",
+      }),
+    ).toHaveTextContent("HARNESS.md");
+    expect(within(dialog).queryByText("Update")).toBeNull();
     await userEvent.click(
       within(dialog).getByRole("button", {
         name: "Remove and restore originals",
       }),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent(
-      "Removed the harness from shop; 1 original restored. Backed up in backups/shop/2026-10-23.",
+    const toast = await screen.findByRole("status");
+    expect(toast).toHaveTextContent(
+      "Removed the harness from shop; 1 original restored.",
     );
+    expect(toast).toHaveTextContent("/data/harneo/backups/shop/2026-10-23");
     expect(calls.some((c) => c.cmd === "install_apply")).toBe(true);
+  });
+
+  it("keeps the removal toast until dismissed, with copy and open", async () => {
+    const calls = await open();
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("CLAUDE.md");
+    await userEvent.click(
+      within(dialog).getByRole("button", {
+        name: "Remove and restore originals",
+      }),
+    );
+    const toast = await screen.findByRole("status");
+    await userEvent.click(
+      within(toast).getByRole("button", { name: "Open backup folder" }),
+    );
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.cmd === "plugin:opener|open_path")?.args,
+      ).toMatchObject({ path: "/data/harneo/backups/shop/2026-10-23" }),
+    );
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    await userEvent.click(
+      within(toast).getByRole("button", { name: "Copy path" }),
+    );
+    expect(writeText).toHaveBeenCalledWith(
+      "/data/harneo/backups/shop/2026-10-23",
+    );
+    expect(
+      await within(toast).findByRole("button", { name: "Copied" }),
+    ).toBeInTheDocument();
+    vi.unstubAllGlobals();
+    await userEvent.click(
+      within(toast).getByRole("button", { name: "Dismiss" }),
+    );
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows the toast on the projects list", async () => {
@@ -735,6 +797,11 @@ describe("Clean removal", () => {
     expect(
       await within(dialog).findByText(/2 files were edited/),
     ).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("list", {
+        name: "Edited in project, backed up first",
+      }),
+    ).toHaveTextContent("a.md");
     await userEvent.click(
       within(dialog).getByRole("button", {
         name: "Remove and restore originals",
@@ -756,5 +823,68 @@ describe("Clean removal", () => {
         name: "Remove and restore originals",
       }),
     ).toBeDisabled();
+  });
+});
+
+describe("Toast", () => {
+  it("offers copy and open for a folder and survives a failing clipboard", async () => {
+    const open = vi.fn();
+    render(
+      <Toast
+        notice={{ text: "Backed up in ", tone: "ok", folder: "/data/b" }}
+        onDismiss={() => undefined}
+        onOpenFolder={open}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Copy path" }));
+    expect(screen.getByRole("button", { name: "Copy path" })).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Open backup folder" }),
+    );
+    expect(open).toHaveBeenCalledWith("/data/b");
+  });
+
+  it("has no open button without a handler, and a plain success leaves by itself", async () => {
+    vi.useFakeTimers();
+    const dismiss = vi.fn();
+    const { rerender } = render(
+      <Toast
+        notice={{ text: "x", tone: "ok", folder: "/data/b" }}
+        onDismiss={dismiss}
+      />,
+    );
+    expect(
+      screen.queryByRole("button", { name: "Open backup folder" }),
+    ).toBeNull();
+    vi.advanceTimersByTime(60000);
+    expect(dismiss).not.toHaveBeenCalled();
+    rerender(<Toast notice={{ text: "y", tone: "ok" }} onDismiss={dismiss} />);
+    vi.advanceTimersByTime(9000);
+    expect(dismiss).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000);
+    expect(dismiss).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
+
+describe("Overflow menu", () => {
+  it("closes on Esc and on a click elsewhere, and toggles from its button", async () => {
+    setup("/projects/1");
+    const more = await screen.findByRole("button", { name: "More actions" });
+    await userEvent.click(more);
+    expect(
+      screen.getByRole("menuitem", { name: "Remove the harness" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+    await userEvent.click(more);
+    await userEvent.click(more);
+    expect(screen.queryByRole("menu")).toBeNull();
+    await userEvent.click(more);
+    await userEvent.click(document.body);
+    expect(screen.queryByRole("menu")).toBeNull();
+    await userEvent.click(more);
+    await userEvent.click(screen.getByRole("menu"));
+    expect(screen.getByRole("menu")).toBeVisible();
   });
 });

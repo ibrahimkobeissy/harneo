@@ -62,7 +62,7 @@ export function BackupsTab({
       ) : (
         <ul className={styles.group} aria-label="Backups">
           {backups.map((b) => (
-            <li key={String(b.id)} className={styles.row}>
+            <li key={String(b.id)} className={styles.row} title={b.folder}>
               <Archive
                 size={16}
                 aria-hidden="true"
@@ -71,8 +71,8 @@ export function BackupsTab({
               <div className={styles.grow}>
                 <b>{b.reason}</b>
                 <div className={styles.sec}>
-                  {dateTimeOf(b.createdAt)} · {plural(b.fileCount, "file")} ·{" "}
-                  <span className={styles.mono}>{b.folder}</span>
+                  {dateTimeOf(b.createdAt)} · {plural(b.fileCount, "file")}{" "}
+                  saved
                 </div>
               </div>
               <Button

@@ -14,13 +14,7 @@ import type { DriftFile } from "../../bindings/DriftFile";
 import type { DriftReport } from "../../bindings/DriftReport";
 import type { Hunk } from "../../bindings/Hunk";
 import type { Project } from "../../bindings/Project";
-import {
-  driftDiff,
-  driftPromote,
-  driftPromoteAdded,
-  driftReapplyPlan,
-  installApply,
-} from "../../lib/ipc";
+import { driftDiff, driftPromote, driftPromoteAdded } from "../../lib/ipc";
 import {
   Button,
   Callout,
@@ -36,6 +30,7 @@ import { ReapplyDialog } from "./ReapplyDialog";
 
 type Dialog =
   | { kind: "all" }
+  | { kind: "one"; paths: string[] }
   | { kind: "library" }
   | { kind: "promote"; path: string }
   | null;
@@ -80,7 +75,6 @@ export function DriftTab({
   const [picked, setPicked] = useState<string | null>(null);
   const file = drifted.find((f) => f.path === picked) ?? drifted[0] ?? null;
   const [dialog, setDialog] = useState<Dialog>(null);
-  const [busy, setBusy] = useState(false);
   const [diff, setDiff] = useState<{
     path: string;
     hunks: Hunk[];
@@ -111,20 +105,6 @@ export function DriftTab({
     onNotice(text, "ok");
     onChanged();
   };
-
-  async function reapplyOne(path: string) {
-    setBusy(true);
-    try {
-      await installApply(await driftReapplyPlan(project.id, [path]));
-      done(
-        `Re-applied ${path.split("/").pop()}; the project's version is backed up.`,
-      );
-    } catch (err) {
-      onNotice(`Could not re-apply ${path}. ${messageOf(err)}`, "bad");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function importAdded(path: string) {
     try {
@@ -210,12 +190,14 @@ export function DriftTab({
           <div className={styles.viewer}>
             <div className={styles.vbar}>
               <FileDiff size={14} aria-hidden="true" />
-              <span className={styles.vpath}>{file.path}</span>
+              {(deleted || !current || current.error) && (
+                <span className={styles.vpath}>{file.path}</span>
+              )}
               <span className={styles.grow} />
               <span title={promoteWhy ?? undefined}>
                 <Button
                   small
-                  disabled={promoteWhy !== null || busy}
+                  disabled={promoteWhy !== null}
                   onClick={() =>
                     setDialog({ kind: "promote", path: file.path })
                   }
@@ -226,11 +208,10 @@ export function DriftTab({
               </span>
               <Button
                 small
-                disabled={busy}
-                onClick={() => void reapplyOne(file.path)}
+                onClick={() => setDialog({ kind: "one", paths: [file.path] })}
               >
                 <RotateCcw size={14} aria-hidden="true" />
-                Re-apply profile version
+                Replace with the profile's version
               </Button>
             </div>
             {promoteWhy && <p className={styles.viewNote}>{promoteWhy}</p>}
@@ -287,6 +268,20 @@ export function DriftTab({
           onClose={() => setDialog(null)}
           onDone={(n) =>
             done(`Re-applied ${plural(n, "file")}; originals backed up.`)
+          }
+        />
+      )}
+      {dialog?.kind === "one" && (
+        <ReapplyDialog
+          projectId={project.id}
+          projectName={project.name}
+          paths={dialog.paths}
+          title={`Replace ${dialog.paths[0]?.split("/").pop()} with the profile's version?`}
+          onClose={() => setDialog(null)}
+          onDone={() =>
+            done(
+              `Replaced ${dialog.paths[0]?.split("/").pop()} with the profile's version; the project's version is backed up.`,
+            )
           }
         />
       )}

@@ -7,10 +7,11 @@ import {
   GitCompare,
   FolderTree,
   Archive,
-  SquarePen,
+  FolderOpen,
+  MoreHorizontal,
   Undo2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import type { Backup } from "../../bindings/Backup";
 import type { DriftReport } from "../../bindings/DriftReport";
@@ -138,10 +139,11 @@ export function ProjectScreen() {
       : "files");
   const dataDir = app.status === "ready" ? app.info.dataDir : null;
 
-  async function open() {
-    if (!project) return;
+  const backupDir = dataDir ? `${dataDir}/backups/` : null;
+
+  async function openIt(path: string) {
     try {
-      await openFolder(project.path);
+      await openFolder(path);
     } catch (err) {
       say(`Could not open the folder. ${messageOf(err)}`, "bad");
     }
@@ -157,8 +159,8 @@ export function ProjectScreen() {
   );
   const actions = (
     <div className={styles.actions}>
-      <Button onClick={() => void open()}>
-        <SquarePen size={14} aria-hidden="true" />
+      <Button onClick={() => void openIt(project.path)}>
+        <FolderOpen size={14} aria-hidden="true" />
         Open
       </Button>
       <Button
@@ -173,10 +175,11 @@ export function ProjectScreen() {
         <ArrowLeftRight size={14} aria-hidden="true" />
         Switch profile
       </Button>
-      <Button variant="danger" onClick={() => setDialog("remove")}>
-        <Undo2 size={14} aria-hidden="true" />
-        Remove profile
-      </Button>
+      <OverflowMenu
+        label="More actions"
+        itemLabel="Remove the harness"
+        onPick={() => setDialog("remove")}
+      />
     </div>
   );
 
@@ -298,6 +301,7 @@ export function ProjectScreen() {
           project={project}
           profiles={profiles}
           upgrade={dialog === "upgrade"}
+          backupDir={backupDir}
           onClose={() => setDialog(null)}
           onApplied={(_, to) => {
             setDialog(null);
@@ -312,20 +316,86 @@ export function ProjectScreen() {
       {dialog === "remove" && (
         <RemoveDialog
           project={project}
+          backupDir={backupDir}
           onClose={() => setDialog(null)}
           onRemoved={(report, restored) => {
-            const where = report.backupFolder
-              ? ` Backed up in ${report.backupFolder}.`
-              : "";
             void navigate("/projects", {
               state: {
-                toast: `Removed the harness from ${project.name}; ${restored} ${restored === 1 ? "original" : "originals"} restored.${where}`,
+                toast: `Removed the harness from ${project.name}; ${restored} ${restored === 1 ? "original" : "originals"} restored.`,
+                folder: report.backupFolder
+                  ? dataDir
+                    ? `${dataDir}/${report.backupFolder}`
+                    : report.backupFolder
+                  : undefined,
               },
             });
           }}
         />
       )}
-      {notice && <Toast notice={notice} onDismiss={dismiss} />}
+      {notice && (
+        <Toast
+          notice={notice}
+          onDismiss={dismiss}
+          onOpenFolder={(f) => void openIt(f)}
+        />
+      )}
     </Screen>
+  );
+}
+
+/** A "more" button with one menu item; closes on Esc, a click elsewhere or a pick. */
+function OverflowMenu({
+  label,
+  itemLabel,
+  onPick,
+}: {
+  label: string;
+  itemLabel: string;
+  onPick: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(ev: MouseEvent) {
+      if (ev.target instanceof Node && !ref.current?.contains(ev.target))
+        setOpen(false);
+    }
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return (
+    <div className={styles.menuWrap} ref={ref}>
+      <Button
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <MoreHorizontal size={14} aria-hidden="true" />
+      </Button>
+      {open && (
+        <div className={styles.menu} role="menu">
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onPick();
+            }}
+          >
+            <Undo2 size={14} aria-hidden="true" />
+            {itemLabel}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

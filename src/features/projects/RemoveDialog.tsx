@@ -5,15 +5,18 @@ import type { Project } from "../../bindings/Project";
 import { installApply, removalPlan } from "../../lib/ipc";
 import { DialogShell } from "./DialogShell";
 import { messageOf, plural } from "./format";
+import { PlanFiles } from "./PlanFiles";
 import styles from "./Projects.module.css";
 
 /** The clean-removal confirm: how many files go, how many originals come back. */
 export function RemoveDialog({
   project,
+  backupDir,
   onClose,
   onRemoved,
 }: {
   project: Project;
+  backupDir: string | null;
   onClose: () => void;
   onRemoved: (report: ApplyReport, restored: number) => void;
 }) {
@@ -57,7 +60,7 @@ export function RemoveDialog({
 
   return (
     <DialogShell
-      title={`Remove ${project.profileName} from ${project.name}?`}
+      title={`Remove the harness from ${project.name}?`}
       submit={applying ? "Removing…" : "Remove and restore originals"}
       variant="danger-solid"
       busy={applying}
@@ -73,6 +76,13 @@ export function RemoveDialog({
           <span className={styles.mono}>settings.local.json</span> are never
           touched. The project leaves the registry.
         </p>
+      )}
+      {plan && (
+        <PlanFiles
+          plan={plan}
+          show={["deleted", "restored", "edited"]}
+          backupDir={backupDir}
+        />
       )}
       {plan && edited > 0 && (
         <p className={styles.note}>
