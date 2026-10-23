@@ -3,6 +3,7 @@ export { Badge, type BadgeTone } from "./Badge";
 export { Button, type ButtonVariant } from "./Button";
 export { EmptyState } from "./EmptyState";
 export { Kbd } from "./Kbd";
+export { kinds, type KindMeta } from "./kinds";
 export { Logo } from "./Logo";
 export { NavItem } from "./NavItem";
 export { Panel } from "./Panel";

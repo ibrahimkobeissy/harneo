@@ -56,6 +56,21 @@ pub fn run() {
             commands::claude_cli_status,
             commands::bundles_detect_preview,
             commands::bundles_detect_library,
+            commands::profiles_list,
+            commands::profile_get,
+            commands::profile_create,
+            commands::profile_save,
+            commands::profile_rename,
+            commands::profile_describe,
+            commands::profile_delete,
+            commands::profile_clone,
+            commands::profile_from_collection,
+            commands::profile_resolve,
+            commands::profile_layout,
+            commands::profile_export,
+            commands::profile_import_preview,
+            commands::profile_import_commit,
+            commands::artifact_set_manual_only,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

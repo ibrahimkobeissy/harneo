@@ -12,6 +12,10 @@ use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
 };
+use harneo_core::profiles::{
+    Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
+    ProfileView, Resolved, MAX_FILE_BYTES,
+};
 use harneo_core::updates::{
     CheckReport, CheckScope, FileDiff, UpdateChoice, UpdateReport, UpdateStatus,
 };
@@ -604,6 +608,159 @@ pub fn usage_summary(state: State<'_, UsageState>) -> Result<UsageSummary, Strin
     state.index()?.usage_summary().map_err(|e| e.to_string())
 }
 
+// --- Profiles --------------------------------------------------------------------------
+
+/// Every profile with what its current version holds.
+#[tauri::command]
+pub fn profiles_list(state: State<'_, LibraryState>) -> Result<Vec<ProfileSummary>, String> {
+    state.with(|library| library.profiles())
+}
+
+/// A profile at `version` (the current one when absent), with its history.
+#[tauri::command]
+pub fn profile_get(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    version: Option<u32>,
+) -> Result<ProfileView, String> {
+    state.with(|library| library.profile(id, version))
+}
+
+/// Creates a profile at version 1.
+#[tauri::command]
+pub fn profile_create(
+    state: State<'_, LibraryState>,
+    name: String,
+    description: String,
+    spec: ProfileSpec,
+) -> Result<ProfileId, String> {
+    state.with(|library| library.create_profile(&name, &description, &spec))
+}
+
+/// Saves the spec as the next version; resolves with the version now current.
+#[tauri::command]
+pub fn profile_save(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    spec: ProfileSpec,
+) -> Result<u32, String> {
+    state.with(|library| library.save_profile(id, &spec))
+}
+
+/// Renames a profile (not a new version).
+#[tauri::command]
+pub fn profile_rename(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    name: String,
+) -> Result<(), String> {
+    state.with(|library| library.rename_profile(id, &name))
+}
+
+/// Changes a profile's description (not a new version).
+#[tauri::command]
+pub fn profile_describe(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    description: String,
+) -> Result<(), String> {
+    state.with(|library| library.set_profile_description(id, &description))
+}
+
+/// Deletes a profile and its versions.
+#[tauri::command]
+pub fn profile_delete(state: State<'_, LibraryState>, id: ProfileId) -> Result<(), String> {
+    state.with(|library| library.delete_profile(id))
+}
+
+/// Copies a profile under a new name.
+#[tauri::command]
+pub fn profile_clone(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    name: String,
+) -> Result<ProfileId, String> {
+    state.with(|library| library.clone_profile(id, &name))
+}
+
+/// A new profile holding a collection's artifacts.
+#[tauri::command]
+pub fn profile_from_collection(
+    state: State<'_, LibraryState>,
+    collection_id: i64,
+    name: String,
+) -> Result<ProfileId, String> {
+    state.with(|library| library.profile_from_collection(collection_id, &name))
+}
+
+/// What a spec installs: bundles pulled in, Settings and MCP servers, missing ids.
+#[tauri::command]
+pub fn profile_resolve(
+    state: State<'_, LibraryState>,
+    spec: ProfileSpec,
+) -> Result<Resolved, String> {
+    state.with(|library| library.resolve(&spec))
+}
+
+/// The file tree a spec installs, with conflicts.
+#[tauri::command]
+pub fn profile_layout(state: State<'_, LibraryState>, spec: ProfileSpec) -> Result<Layout, String> {
+    state.with(|library| library.layout(&spec))
+}
+
+/// Writes the profile file to `path` (the UI's native save dialog picked it). The bytes are
+/// written here with `std::fs`, never through a shell.
+#[tauri::command]
+pub fn profile_export(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    version: Option<u32>,
+    path: String,
+) -> Result<(), String> {
+    let bytes = state.with(|library| library.export_profile(id, version))?;
+    std::fs::write(&path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
+}
+
+/// Reads a profile file the user picked, refusing one over the size cap before reading it.
+fn read_profile_file(path: &str) -> Result<Vec<u8>, String> {
+    let meta = std::fs::metadata(path).map_err(|e| format!("cannot read {path}: {e}"))?;
+    if meta.len() > MAX_FILE_BYTES as u64 {
+        return Err("the profile file is larger than 50 MiB".to_owned());
+    }
+    std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))
+}
+
+/// What importing the profile file at `path` would do.
+#[tauri::command]
+pub fn profile_import_preview(
+    state: State<'_, LibraryState>,
+    path: String,
+) -> Result<ProfileImportPreview, String> {
+    let bytes = read_profile_file(&path)?;
+    state.with(|library| library.import_profile_file(&bytes))
+}
+
+/// Imports the profile file at `path`; `name` overrides the file's name.
+#[tauri::command]
+pub fn profile_import_commit(
+    state: State<'_, LibraryState>,
+    path: String,
+    name: Option<String>,
+) -> Result<ProfileImportReport, String> {
+    let bytes = read_profile_file(&path)?;
+    state.with_mut(|library| library.import_profile_file_commit(&bytes, name.as_deref()))
+}
+
+/// Sets a skill's library default for manual-only invocation.
+#[tauri::command]
+pub fn artifact_set_manual_only(
+    state: State<'_, LibraryState>,
+    id: String,
+    manual_only: bool,
+) -> Result<(), String> {
+    state.with(|library| library.set_manual_only(&id, manual_only))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -646,6 +803,76 @@ mod tests {
         assert_eq!(json["total"], 0);
         assert!(json["items"].as_array().is_some_and(Vec::is_empty));
         assert!(json["facets"]["kinds"].is_array());
+        Ok(())
+    }
+
+    #[test]
+    fn every_profile_command_runs_through_managed_state() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let data = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join("skills/alpha"))?;
+        std::fs::write(
+            source.path().join("skills/alpha/SKILL.md"),
+            "---\nname: alpha\ndescription: A skill\n---\nBody\n",
+        )?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(data.path())?)));
+        let state = || app.state::<LibraryState>();
+        let src = Source::Local {
+            path: source.path().to_path_buf(),
+        };
+        let preview = state().with(|l| l.preview(&src))?;
+        let ids = vec![preview.candidates[0].id.clone()];
+        state().with_mut(|l| l.import(&preview, &ids, &HashMap::new()))?;
+        let alpha = ids[0].clone();
+
+        assert!(profiles_list(state())?.is_empty());
+        let spec = ProfileSpec {
+            items: vec![alpha.clone()],
+            ..ProfileSpec::default()
+        };
+        let id = profile_create(state(), "Light".into(), "d".into(), spec.clone())?;
+        assert_eq!(profiles_list(state())?.len(), 1);
+        assert_eq!(profile_get(state(), id, None)?.name, "Light");
+        assert_eq!(profile_save(state(), id, spec.clone())?, 1);
+        profile_rename(state(), id, "Lighter".into())?;
+        profile_describe(state(), id, "new".into())?;
+        assert_eq!(profile_get(state(), id, Some(1))?.description, "new");
+        assert_eq!(profile_resolve(state(), spec.clone())?.artifacts.len(), 1);
+        assert!(!profile_layout(state(), spec)?.paths.is_empty());
+        artifact_set_manual_only(state(), alpha.clone(), true)?;
+
+        let copy = profile_clone(state(), id, "Copy".into())?;
+        let manual = state().with(|l| l.create_manual_collection("kit"))?;
+        state().with(|l| l.add_to_collection(manual.id, &alpha))?;
+        let from = profile_from_collection(state(), manual.id, "From kit".into())?;
+
+        let file = data.path().join("light.harneo-profile.json");
+        let path = file.to_string_lossy().into_owned();
+        profile_export(state(), id, None, path.clone())?;
+        assert!(file.is_file());
+        let shown = profile_import_preview(state(), path.clone())?;
+        assert!(shown.name_clash);
+        let report = profile_import_commit(state(), path, Some("Imported".into()))?;
+        assert_eq!(report.name, "Imported");
+
+        for gone in [id, copy, from, report.profile_id] {
+            profile_delete(state(), gone)?;
+        }
+        assert!(profiles_list(state())?.is_empty());
+        assert!(profile_get(state(), id, None).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn read_profile_file_reads_and_reports_missing() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let file = dir.path().join("a.harneo-profile.json");
+        std::fs::write(&file, b"{}")?;
+        assert_eq!(read_profile_file(&file.to_string_lossy())?, b"{}");
+        let err = read_profile_file(&dir.path().join("nope").to_string_lossy()).err();
+        assert!(err.is_some_and(|m| m.contains("cannot read")));
         Ok(())
     }
 

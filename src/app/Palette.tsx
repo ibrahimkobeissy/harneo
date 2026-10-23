@@ -1,8 +1,8 @@
-import { Keyboard, Search, type LucideIcon } from "lucide-react";
+import { Keyboard, Layers, Plus, Search, type LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { kinds } from "../features/library/kinds";
-import { libraryList } from "../lib/ipc";
+import { libraryList, profilesList } from "../lib/ipc";
 import { Kbd } from "../ui";
 import { Modal } from "./Modal";
 import styles from "./Palette.module.css";
@@ -11,7 +11,7 @@ import { actions, places, settingsDestination } from "./routes";
 interface Entry {
   id: string;
   label: string;
-  group: "Places" | "Actions" | "Help" | "Artifacts";
+  group: "Places" | "Actions" | "Profiles" | "Help" | "Artifacts";
   icon: LucideIcon;
   /** Where Enter goes; defaults to `id`. */
   to?: string;
@@ -72,6 +72,33 @@ function useArtifactEntries(text: string): Entry[] {
   return text === "" ? [] : found;
 }
 
+/** Every profile as "name vN", for the palette's Profiles group. */
+function useProfileEntries(): Entry[] {
+  const [found, setFound] = useState<Entry[]>([]);
+  useEffect(() => {
+    let stale = false;
+    profilesList()
+      .then((list) => {
+        if (stale) return;
+        setFound(
+          list.map((p) => ({
+            id: `profile-${p.id}`,
+            label: `${p.name} v${p.version}`,
+            group: "Profiles" as const,
+            icon: Layers,
+            to: `/profiles/${p.id}`,
+          })),
+        );
+      })
+      // Quiet: without profiles the group is just absent.
+      .catch(() => undefined);
+    return () => {
+      stale = true;
+    };
+  }, []);
+  return found;
+}
+
 const entries: readonly Entry[] = [
   ...[...places, settingsDestination].map((d) => ({
     id: d.path,
@@ -86,13 +113,19 @@ const entries: readonly Entry[] = [
     icon: d.icon,
   })),
   {
+    id: "/profiles/new",
+    label: "New profile",
+    group: "Actions",
+    icon: Plus,
+  },
+  {
     id: "shortcuts",
     label: "Keyboard shortcuts",
     group: "Help",
     icon: Keyboard,
   },
 ];
-const groups = ["Places", "Actions", "Help", "Artifacts"] as const;
+const groups = ["Places", "Actions", "Profiles", "Help", "Artifacts"] as const;
 const optionId = (e: Entry) => `palette-${e.id.replace(/\W/g, "") || "x"}`;
 
 interface PaletteProps {
@@ -107,12 +140,13 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
 
   const q = query.trim().toLowerCase();
   const artifactRows = useArtifactEntries(q);
+  const profileRows = useProfileEntries();
   const matches = useMemo(
-    () => [
-      ...entries.filter((e) => e.label.toLowerCase().includes(q)),
-      ...artifactRows,
-    ],
-    [q, artifactRows],
+    () =>
+      [...entries, ...profileRows]
+        .filter((e) => e.label.toLowerCase().includes(q))
+        .concat(artifactRows),
+    [q, artifactRows, profileRows],
   );
   const current = Math.min(active, Math.max(matches.length - 1, 0));
   const activeEntry = matches[current];

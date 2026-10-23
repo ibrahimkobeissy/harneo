@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { open } from "@tauri-apps/plugin-dialog";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
@@ -28,6 +28,13 @@ import type { FileDiff } from "../bindings/FileDiff";
 import type { UpdateChoice } from "../bindings/UpdateChoice";
 import type { UpdateReport } from "../bindings/UpdateReport";
 import type { UpdateStatus } from "../bindings/UpdateStatus";
+import type { Layout } from "../bindings/Layout";
+import type { ProfileImportPreview } from "../bindings/ProfileImportPreview";
+import type { ProfileImportReport } from "../bindings/ProfileImportReport";
+import type { ProfileSpec } from "../bindings/ProfileSpec";
+import type { ProfileSummary } from "../bindings/ProfileSummary";
+import type { ProfileView } from "../bindings/ProfileView";
+import type { Resolved } from "../bindings/Resolved";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -366,4 +373,139 @@ export function onBundlesDetectProgress(
   return listen<DetectProgress>("bundles-detect-progress", (event) =>
     handler(event.payload),
   );
+}
+
+// --- Profiles --------------------------------------------------------------------------
+// Profile ids are `bigint` in the generated types but cross IPC as plain JSON numbers.
+
+/** Every profile by name, with its type counts and the projects using it. */
+export function profilesList(): Promise<ProfileSummary[]> {
+  return invoke<ProfileSummary[]>("profiles_list");
+}
+
+/** A profile at `version` (the current one when omitted), with its history. */
+export function profileGet(id: bigint, version?: number): Promise<ProfileView> {
+  return invoke<ProfileView>("profile_get", {
+    id: Number(id),
+    version: version ?? null,
+  });
+}
+
+/** Creates a profile at version 1; rejects on an invalid spec or a taken name. */
+export function profileCreate(
+  name: string,
+  description: string,
+  spec: ProfileSpec,
+): Promise<bigint> {
+  return invoke<number>("profile_create", { name, description, spec }).then(
+    BigInt,
+  );
+}
+
+/** Saves the spec as the next version; resolves with the version now current. */
+export function profileSave(id: bigint, spec: ProfileSpec): Promise<number> {
+  return invoke<number>("profile_save", { id: Number(id), spec });
+}
+
+/** Renames a profile (not a new version). */
+export function profileRename(id: bigint, name: string): Promise<void> {
+  return invoke<void>("profile_rename", { id: Number(id), name });
+}
+
+/** Changes a profile's description (not a new version). */
+export function profileDescribe(
+  id: bigint,
+  description: string,
+): Promise<void> {
+  return invoke<void>("profile_describe", { id: Number(id), description });
+}
+
+/** Deletes a profile and all its versions. */
+export function profileDelete(id: bigint): Promise<void> {
+  return invoke<void>("profile_delete", { id: Number(id) });
+}
+
+/** Copies a profile under a new name; resolves with the copy's id. */
+export function profileClone(id: bigint, name: string): Promise<bigint> {
+  return invoke<number>("profile_clone", { id: Number(id), name }).then(BigInt);
+}
+
+/** A new profile holding a collection's artifacts. */
+export function profileFromCollection(
+  collectionId: bigint,
+  name: string,
+): Promise<bigint> {
+  return invoke<number>("profile_from_collection", {
+    collectionId: Number(collectionId),
+    name,
+  }).then(BigInt);
+}
+
+/** What a spec installs: bundles pulled in, Settings, MCP servers, missing ids. */
+export function profileResolve(spec: ProfileSpec): Promise<Resolved> {
+  return invoke<Resolved>("profile_resolve", { spec });
+}
+
+/** The file tree a spec installs, with conflicts. */
+export function profileLayout(spec: ProfileSpec): Promise<Layout> {
+  return invoke<Layout>("profile_layout", { spec });
+}
+
+/** The native save dialog for a profile file: the chosen path, or `null` on cancel. */
+export async function pickProfileSavePath(
+  defaultName: string,
+): Promise<string | null> {
+  return save({
+    defaultPath: defaultName,
+    filters: [{ name: "Harneo profile", extensions: ["json"] }],
+  });
+}
+
+/** The native open dialog for a profile file: the chosen path, or `null` on cancel. */
+export async function pickProfileFile(): Promise<string | null> {
+  const chosen = await open({
+    multiple: false,
+    directory: false,
+    filters: [{ name: "Harneo profile", extensions: ["json"] }],
+  });
+  return typeof chosen === "string" ? chosen : null;
+}
+
+/** Writes the profile (at `version`, else the current one) to `path`. */
+export function profileExport(
+  id: bigint,
+  path: string,
+  version?: number,
+): Promise<void> {
+  return invoke<void>("profile_export", {
+    id: Number(id),
+    version: version ?? null,
+    path,
+  });
+}
+
+/** Reads the profile file at `path` and says what importing it would do. */
+export function profileImportPreview(
+  path: string,
+): Promise<ProfileImportPreview> {
+  return invoke<ProfileImportPreview>("profile_import_preview", { path });
+}
+
+/** Imports the profile file at `path`; `name` overrides the file's own name. */
+export function profileImportCommit(
+  path: string,
+  name?: string,
+): Promise<ProfileImportReport> {
+  return invoke<ProfileImportReport>("profile_import_commit", {
+    path,
+    name: name ?? null,
+  });
+}
+
+/** Sets a skill's library default for manual-only invocation. */
+export function artifactSetManualOnly(
+  id: string,
+  manualOnly: boolean,
+): Promise<void> {
+  return invoke<void>("artifact_set_manual_only", { id, manualOnly });
 }

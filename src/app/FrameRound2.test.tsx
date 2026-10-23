@@ -25,6 +25,7 @@ beforeEach(() => {
         .query.filter.text;
       return page(text ? [] : [item("one")]);
     }
+    if (cmd === "profiles_list") return [];
     return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
   });
 });
@@ -177,6 +178,7 @@ describe("palette artifacts", () => {
           .query;
         return respond(q.filter.text);
       }
+      if (cmd === "profiles_list") return [];
       return cmd === "app_info"
         ? { version: "1.2.3", dataDir: "/d" }
         : undefined;
