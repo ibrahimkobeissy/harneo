@@ -6,7 +6,7 @@ import {
   Layers,
   Plus,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useCollections } from "../../app/collections";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
@@ -47,6 +47,7 @@ export function AddToMenu({
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [using, setUsing] = useState<ProfileUse[]>([]);
   const [said, setSaid] = useState<string | null>(null);
+  const headId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const manual = collections.filter((c) => c.kind === "manual");
 
@@ -158,6 +159,9 @@ export function AddToMenu({
       </Button>
       {open && (
         <div className={styles.menu} role="menu" aria-label="Add to">
+          <p className={styles.menuHead} id={`${headId}-c`}>
+            Collections
+          </p>
           {manual.map((c) => {
             const on = member.includes(Number(c.id));
             return (
@@ -191,23 +195,34 @@ export function AddToMenu({
             New collection…
           </button>
           {profiles.length > 0 && (
-            <div className={styles.menuSep} role="separator" />
+            <>
+              <div className={styles.menuSep} role="separator" />
+              <p className={styles.menuHead} id={`${headId}-p`}>
+                Profiles
+              </p>
+            </>
           )}
-          {profiles.map((p) => (
-            <button
-              key={String(p.id)}
-              type="button"
-              role="menuitem"
-              className={styles.menuItem}
-              onClick={() => void addProfile(p)}
-            >
-              <Layers size={14} aria-hidden="true" />
-              <span className={styles.menuName}>Profile: {p.name}</span>
-              {using.some((u) => Number(u.id) === Number(p.id)) && (
-                <span className={styles.menuTag}>in profile</span>
-              )}
-            </button>
-          ))}
+          <div
+            className={styles.menuScroll}
+            role="group"
+            aria-labelledby={`${headId}-p`}
+          >
+            {profiles.map((p) => (
+              <button
+                key={String(p.id)}
+                type="button"
+                role="menuitem"
+                className={styles.menuItem}
+                onClick={() => void addProfile(p)}
+              >
+                <Layers size={14} aria-hidden="true" />
+                <span className={styles.menuName}>{p.name}</span>
+                {using.some((u) => Number(u.id) === Number(p.id)) && (
+                  <span className={styles.menuTag}>in profile</span>
+                )}
+              </button>
+            ))}
+          </div>
           {said && (
             <p role="status" className={styles.menuSaid}>
               {said}

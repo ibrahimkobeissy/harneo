@@ -7,6 +7,7 @@ import {
   importedDate,
   ItemTrust,
   sourceText,
+  ManualChip,
   ScanBadge,
   StatusBadge,
   UpdateTag,
@@ -96,6 +97,7 @@ export function ItemTable({
                   >
                     {item.name}
                   </button>
+                  <ManualChip item={item} short />
                   <ScanBadge item={item} short />
                 </span>
               </td>

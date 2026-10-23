@@ -286,6 +286,19 @@ describe("Add to… → Profile", () => {
     return within(await screen.findByRole("menu", { name: "Add to" }));
   }
 
+  it("groups the menu under Collections and Profiles, without a Profile: prefix", async () => {
+    const user = userEvent.setup();
+    setup("/library?open=id-alpha");
+    const menu = await openMenu(user);
+    expect(await menu.findByText("Collections")).toBeInTheDocument();
+    expect(menu.getByText("Profiles")).toBeInTheDocument();
+    const group = menu.getByRole("group", { name: "Profiles" });
+    expect(
+      within(group).getByRole("menuitem", { name: "Light" }),
+    ).toBeVisible();
+    expect(menu.queryByText(/^Profile:/)).toBeNull();
+  });
+
   it("adds the artifact and says how many came bundled", async () => {
     const user = userEvent.setup();
     const { sent } = setup("/library?open=id-alpha", { extra: 2 });

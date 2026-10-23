@@ -437,6 +437,19 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
+.manualChip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+  padding: 0 var(--space-xs);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius-xs);
+  color: var(--t2);
+  font-size: var(--text-label);
+  line-height: var(--leading);
+  white-space: nowrap;
+}
 .tileTags {
   display: flex;
   gap: var(--space-xs);

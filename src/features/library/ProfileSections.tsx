@@ -63,17 +63,20 @@ export function ManualOnlySection({
             <span className={styles.mono}>disable-model-invocation: true</span>.
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-labelledby="d-manual"
-          className={styles.switch}
-          disabled={busy}
-          onClick={() => void toggle()}
-        >
-          <i />
-        </button>
+        <span className={styles.switchEnd}>
+          <span aria-hidden="true">{on ? "On" : "Off"}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-labelledby="d-manual"
+            className={styles.switch}
+            disabled={busy}
+            onClick={() => void toggle()}
+          >
+            <i />
+          </button>
+        </span>
       </div>
       {said && (
         <p role="status" className={styles.status}>

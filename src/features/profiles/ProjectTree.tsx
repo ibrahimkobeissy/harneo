@@ -183,16 +183,19 @@ function FileInfo({
         {item && item.kind === "skill" && (
           <div className={styles.switchRow}>
             <span>Manual only</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={item.manualOnly}
-              aria-label={`Manual only for ${item.name}`}
-              className={`${styles.toggle} ${item.manualOnly ? styles.toggleOn : ""}`}
-              onClick={() => onManualOnly(item.id, !item.manualOnly)}
-            >
-              <i />
-            </button>
+            <span className={styles.toggleEnd}>
+              <span aria-hidden="true">{item.manualOnly ? "On" : "Off"}</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={item.manualOnly}
+                aria-label={`Manual only for ${item.name}`}
+                className={`${styles.toggle} ${item.manualOnly ? styles.toggleOn : ""}`}
+                onClick={() => onManualOnly(item.id, !item.manualOnly)}
+              >
+                <i />
+              </button>
+            </span>
           </div>
         )}
       </div>

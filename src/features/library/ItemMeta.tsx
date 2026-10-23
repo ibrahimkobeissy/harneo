@@ -1,3 +1,4 @@
+import { Hand } from "lucide-react";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Status } from "../../bindings/Status";
 import { Badge, type BadgeTone, Tag, TrustMeter } from "../../ui";
@@ -28,6 +29,30 @@ export function UpdateTag({ item }: { item: LibraryItem }) {
         {update.toVersion ? `Update ${update.toVersion}` : "Update"}
       </span>
     </Badge>
+  );
+}
+
+/**
+ * A quiet marker for a skill that is manual only (never auto-invoked): an outlined chip, not a
+ * status badge, so it sits beside the tags and leaves the card foot's one badge alone.
+ */
+export function ManualChip({
+  item,
+  short = false,
+}: {
+  item: LibraryItem;
+  /** The list's trailing slot: the hand alone, the words kept for screen readers. */
+  short?: boolean;
+}) {
+  if (!item.manualOnly) return null;
+  return (
+    <span
+      className={styles.manualChip}
+      title="Never auto-invoked: runs only when you call it"
+    >
+      <Hand size={11} aria-hidden="true" />
+      {short ? <span className={styles.sr}>Manual only</span> : "Manual only"}
+    </span>
   );
 }
 

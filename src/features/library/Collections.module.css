@@ -309,6 +309,19 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.menuHead {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm) var(--space-xxs);
+  color: var(--t3);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+/* About six profiles show; the rest scroll. */
+.menuScroll {
+  max-height: calc(6 * 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .menuSep {
   height: var(--hairline);
   margin: var(--space-xs) 0;

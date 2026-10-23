@@ -12,6 +12,8 @@
   --t3: #64748b;
   --line: #e2e8f0;
   --line2: #cbd5e1;
+  /* off track of every switch: 3:1 or better against raised, side and sunk rows */
+  --switch-off: #7c8ba1;
   --blue: #2563eb;
   --blue-hover: #1d4ed8;
   --blue-soft: #eff6ff;
@@ -154,6 +156,7 @@
     --t3: #8794a8;
     --line: #1f2a40;
     --line2: #2c3a55;
+    --switch-off: #64748b;
     --blue: #3b82f6;
     --blue-hover: #60a5fa;
     --blue-soft: #101b33;
@@ -230,6 +233,7 @@
   --t3: #8794a8;
   --line: #1f2a40;
   --line2: #2c3a55;
+  --switch-off: #64748b;
   --blue: #3b82f6;
   --blue-hover: #60a5fa;
   --blue-soft: #101b33;

@@ -3,6 +3,7 @@ import {
   CardBadge,
   CardCounts,
   ItemTrust,
+  ManualChip,
   sourceText,
   TagChips,
   UsageFoot,
@@ -50,6 +51,7 @@ export function ItemCard({
       </span>
       <span className={styles.desc}>{item.description ?? ""}</span>
       <span className={styles.tileTags}>
+        <ManualChip item={item} />
         <TagChips tags={item.tags} />
       </span>
       <span className={styles.tileFoot}>

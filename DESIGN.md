@@ -12,6 +12,7 @@ colors:
   t3: "#64748b"
   line: "#e2e8f0"
   line2: "#cbd5e1"
+  switch-off: "#7c8ba1"
   blue: "#2563eb"
   blue-hover: "#1d4ed8"
   blue-soft: "#eff6ff"
@@ -76,6 +77,7 @@ colors:
   dark-t3: "#8794a8"
   dark-line: "#1f2a40"
   dark-line2: "#2c3a55"
+  dark-switch-off: "#64748b"
   dark-blue: "#3b82f6"
   dark-blue-hover: "#60a5fa"
   dark-blue-soft: "#101b33"
@@ -432,7 +434,8 @@ A slate-neutral palette with one saturated blue, four reserved state hues, and s
 ### Neutral
 - **Canvas White** (`bg`): the main working ground.
 - **Sidebar Wash** (`side`): sidebar, builder cart, group headers, file-tree pane, table hover, and the background of unused cards.
-- **Sunk Slate** (`sunk`): hover fills, neutral badges and callouts, the off segment of switches.
+- **Sunk Slate** (`sunk`): hover fills, neutral badges and callouts.
+- **Switch Off** (`switch-off`; dark `dark-switch-off`): the off track of every switch (Settings, Proposals, the detail panel's Manual only, the builder's toggle). Measured 3.2:1 to 3.5:1 against raised, sidebar and sunk rows in light and 3.6:1 to 4.0:1 in dark, so the off state meets the 3:1 non-text bar; the knob is `raised`, and a switch's On/Off word sits beside it where space allows.
 - **Raised White** (`raised`): cards, panels, drawers, modals, inputs. Equal to the canvas in light; one step lighter than the canvas in dark.
 - **Ink** (`t1`): primary text and names. Also the toast background (inverted).
 - **Slate Secondary** (`t2`): descriptions, secondary labels, ghost button text.

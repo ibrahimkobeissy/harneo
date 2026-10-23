@@ -4,6 +4,13 @@
   justify-content: space-between;
   gap: var(--space-md);
 }
+.switchEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--t2);
+  font-size: var(--text-label);
+}
 .switchText h3 {
   margin: 0;
 }
@@ -20,10 +27,10 @@
   flex: none;
   width: 34px;
   height: 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   border: 0;
   padding: 2px;
-  background: var(--line2);
+  background: var(--switch-off);
   cursor: pointer;
   display: inline-flex;
   align-items: center;

@@ -590,14 +590,21 @@
   justify-content: space-between;
   margin-top: var(--space-sm);
 }
+.toggleEnd {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--t2);
+  font-size: var(--text-label);
+}
 .toggle {
   position: relative;
   width: 32px;
   height: 18px;
   padding: 0;
   border: 0;
-  border-radius: 9px;
-  background: var(--line2);
+  border-radius: var(--radius-pill);
+  background: var(--switch-off);
   cursor: pointer;
 }
 .toggle i {
