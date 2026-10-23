@@ -7,6 +7,7 @@ import { CollectionsProvider } from "./collections";
 import styles from "./Layout.module.css";
 import { Palette } from "./Palette";
 import { sidebarShortcut } from "./platform";
+import { UsageIndexProvider } from "./usageIndex";
 import { ShortcutsDialog } from "./ShortcutsDialog";
 import { Sidebar } from "./Sidebar";
 
@@ -59,42 +60,44 @@ export function Layout() {
 
   return (
     <CollectionsProvider>
-      <div className={styles.frame} data-collapsed={collapsed || undefined}>
-        <a href="#main" className={styles.skip}>
-          Skip to content
-        </a>
-        <div className={styles.slot}>
-          <div className={styles.slotIn} inert={collapsed}>
-            <Sidebar
-              onShortcuts={() => setOverlay("shortcuts")}
-              onSearch={() => setOverlay("palette")}
-              onCollapse={() => setCollapsed(true)}
-            />
+      <UsageIndexProvider>
+        <div className={styles.frame} data-collapsed={collapsed || undefined}>
+          <a href="#main" className={styles.skip}>
+            Skip to content
+          </a>
+          <div className={styles.slot}>
+            <div className={styles.slotIn} inert={collapsed}>
+              <Sidebar
+                onShortcuts={() => setOverlay("shortcuts")}
+                onSearch={() => setOverlay("palette")}
+                onCollapse={() => setCollapsed(true)}
+              />
+            </div>
+            {collapsed && (
+              <button
+                type="button"
+                className={styles.expand}
+                aria-label="Show sidebar"
+                title={`Show sidebar  ${sidebarShortcut()}`}
+                onClick={() => setCollapsed(false)}
+              >
+                <PanelLeftOpen size={16} aria-hidden="true" />
+              </button>
+            )}
           </div>
-          {collapsed && (
-            <button
-              type="button"
-              className={styles.expand}
-              aria-label="Show sidebar"
-              title={`Show sidebar  ${sidebarShortcut()}`}
-              onClick={() => setCollapsed(false)}
-            >
-              <PanelLeftOpen size={16} aria-hidden="true" />
-            </button>
+          <main id="main" tabIndex={-1} className={styles.main}>
+            <Outlet />
+          </main>
+          {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
+          {overlay === "palette" && (
+            <Palette
+              onClose={close}
+              onShortcuts={() => setOverlay("shortcuts")}
+            />
           )}
+          <NewCollectionHost />
         </div>
-        <main id="main" tabIndex={-1} className={styles.main}>
-          <Outlet />
-        </main>
-        {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
-        {overlay === "palette" && (
-          <Palette
-            onClose={close}
-            onShortcuts={() => setOverlay("shortcuts")}
-          />
-        )}
-        <NewCollectionHost />
-      </div>
+      </UsageIndexProvider>
     </CollectionsProvider>
   );
 }

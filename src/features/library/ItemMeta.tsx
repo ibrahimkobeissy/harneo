@@ -1,7 +1,11 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
-import { Badge, Tag, TrustMeter } from "../../ui";
+import type { Status } from "../../bindings/Status";
+import { Badge, type BadgeTone, Tag, TrustMeter } from "../../ui";
 import { tagTint } from "./kinds";
 import styles from "./Library.module.css";
+import { statusLabels } from "./params";
+import ustyles from "./Usage.module.css";
+import { plural, relativeDay } from "./usage";
 
 export function sourceText(item: LibraryItem): string {
   const { label, branch } = item.source;
@@ -117,5 +121,63 @@ export function BundleBadge({ item }: { item: LibraryItem }) {
     <Badge tone="info">
       <span title="Installed together, always">{`Bundle of ${item.bundleSize}`}</span>
     </Badge>
+  );
+}
+
+const statusBadge: Record<Status, { tone: BadgeTone; label: string }> = {
+  findings: { tone: "bad", label: statusLabels.findings },
+  outdated: { tone: "warn", label: statusLabels.outdated },
+  unused: { tone: "neutral", label: statusLabels.unused },
+  notUsedYet: { tone: "info", label: statusLabels.notUsedYet },
+  current: { tone: "ok", label: statusLabels.current },
+};
+
+/** The status as a badge (list column, and the card footer when it needs attention). */
+export function StatusBadge({ status }: { status: Status }) {
+  const { tone, label } = statusBadge[status];
+  return <Badge tone={tone}>{label}</Badge>;
+}
+
+/**
+ * The usage line of a card footer: sessions, "unused · last X", "not used yet", or "Not tracked"
+ * for kinds the logs do not record. Nothing while the first index is still running.
+ */
+export function UsageFoot({
+  item,
+  status,
+  indexed,
+}: {
+  item: LibraryItem;
+  status: Status;
+  indexed: boolean;
+}) {
+  if (item.usage === null) {
+    return (
+      <span
+        className={ustyles.foot}
+        title="Claude's logs do not record when this kind is used"
+      >
+        Not tracked
+      </span>
+    );
+  }
+  if (!indexed) return null;
+  const { sessions, lastUsed } = item.usage;
+  let text: string;
+  if (status === "unused")
+    text = lastUsed ? `unused · last ${relativeDay(lastUsed)}` : "unused";
+  else if (status === "notUsedYet") text = "not used yet";
+  else text = plural(sessions, "session");
+  return (
+    <span
+      className={ustyles.foot}
+      title={
+        lastUsed
+          ? `${plural(sessions, "session")} in the last 8 weeks; last used ${lastUsed}`
+          : `${plural(sessions, "session")} in the last 8 weeks`
+      }
+    >
+      {text}
+    </span>
   );
 }

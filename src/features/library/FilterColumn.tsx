@@ -6,9 +6,9 @@ import { FilterResizer } from "./FilterResizer";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
 import styles from "./Library.module.css";
-import type { LibraryParams } from "./params";
+import { type LibraryParams, statusLabels } from "./params";
 
-export type FilterGroup = "types" | "tags" | "sources" | "tiers";
+export type FilterGroup = "types" | "tags" | "sources" | "tiers" | "statuses";
 
 function Option({
   on,
@@ -74,6 +74,7 @@ export function FilterColumn({
   onTrustMin,
   onHasFindings,
   onClearTrust,
+  indexed = true,
   dock,
 }: {
   facets: Facets;
@@ -84,6 +85,8 @@ export function FilterColumn({
   onHasFindings: (on: boolean) => void;
   /** Resets the minimum score, the tiers and Has findings together. */
   onClearTrust: () => void;
+  /** False until an index run has completed: Unused is not offered before then. */
+  indexed?: boolean;
   /** Set when the column sits inline beside the screen: it can then collapse and resize. */
   dock?: {
     collapsed: boolean;
@@ -194,6 +197,22 @@ export function FilterColumn({
           count={facets.withFindings}
           onToggle={() => onHasFindings(!params.hasFindings)}
         />
+        <GroupHead
+          title="Status"
+          active={params.statuses.length > 0}
+          onClear={() => onClearGroup("statuses")}
+        />
+        {facets.statuses
+          .filter((s) => indexed || s.status !== "unused")
+          .map(({ status, count }) => (
+            <Option
+              key={status}
+              on={params.statuses.includes(status)}
+              label={statusLabels[status]}
+              count={count}
+              onToggle={() => onToggle("statuses", status)}
+            />
+          ))}
         <GroupHead
           title="Tag"
           active={params.tags.length > 0}

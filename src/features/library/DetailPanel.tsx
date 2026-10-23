@@ -39,6 +39,7 @@ import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import { TagsSection } from "./TagsSection";
+import { UsageSection } from "./UsageSection";
 
 type Load =
   | { status: "loading" }
@@ -535,6 +536,10 @@ export function DetailPanel({
                 initial={detail.links}
                 onOpen={(next) => onOpen(next, detail.artifact.name)}
                 onChanged={onLinksChanged}
+              />
+              <UsageSection
+                kind={detail.artifact.kind}
+                name={detail.artifact.name}
               />
               <SourceSection detail={detail} />
               <section className={styles.sec} aria-labelledby="d-files">

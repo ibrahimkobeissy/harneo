@@ -4,9 +4,16 @@
   padding: var(--space-md) var(--space-lg);
   background: var(--raised);
 }
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
 .title {
+  margin: 0;
   font-size: var(--text-label);
   font-weight: 500;
   color: var(--t2);
-  margin-bottom: var(--space-sm);
 }

@@ -2,6 +2,7 @@ import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Filter } from "../../bindings/Filter";
 import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
+import type { Status } from "../../bindings/Status";
 import type { Tier } from "../../bindings/Tier";
 import { kinds } from "./kinds";
 
@@ -21,6 +22,7 @@ export interface LibraryParams {
   trustMin: number | null;
   tiers: Tier[];
   hasFindings: boolean;
+  statuses: Status[];
   /** The artifact open in the detail panel. */
   open: string | null;
   /** `trust`: the panel scrolls to its Trust section (Security links finding rows here). */
@@ -36,7 +38,24 @@ export const sortKeys: readonly SortKey[] = [
   "tagCount",
   "trust",
   "importedAt",
+  "sessions",
 ];
+
+export const statuses: readonly Status[] = [
+  "findings",
+  "outdated",
+  "unused",
+  "notUsedYet",
+  "current",
+];
+
+export const statusLabels: Record<Status, string> = {
+  findings: "Findings",
+  outdated: "Outdated",
+  unused: "Unused",
+  notUsedYet: "Not used yet",
+  current: "Current",
+};
 
 export const tiers: readonly Tier[] = [
   "trusted",
@@ -60,7 +79,7 @@ export const sortLabels: Record<SortKey, string> = {
 /** The first click on a column sorts newest first for dates and A to Z otherwise. */
 export function defaultDescending(key: SortKey): boolean {
   // Highest trust first, like the dates' newest first.
-  return key === "importedAt" || key === "trust";
+  return key === "importedAt" || key === "trust" || key === "sessions";
 }
 
 /**
@@ -94,6 +113,9 @@ export function parseParams(
       .getAll("tier")
       .filter((t): t is Tier => tiers.includes(t as Tier)),
     hasFindings: sp.get("findings") === "1",
+    statuses: sp
+      .getAll("status")
+      .filter((t): t is Status => statuses.includes(t as Status)),
     open: sp.get("open") || null,
     focus: sp.get("open") && sp.get("focus") === "trust" ? "trust" : null,
   };
@@ -119,6 +141,7 @@ export function toSearchParams(
     sp.set("trust", String(p.trustMin));
   p.tiers.forEach((t) => sp.append("tier", t));
   if (p.hasFindings) sp.set("findings", "1");
+  p.statuses.forEach((t) => sp.append("status", t));
   if (p.open) sp.set("open", p.open);
   if (p.open && p.focus) sp.set("focus", p.focus);
   return sp;
@@ -135,7 +158,7 @@ export function toFilter(p: LibraryParams): Filter {
     tiers: p.tiers,
     hasFindings: p.hasFindings,
     outdated: false,
-    statuses: [],
+    statuses: p.statuses,
   };
 }
 
@@ -152,7 +175,12 @@ export function toQuery(p: LibraryParams): Query {
 
 export function hasFilters(p: LibraryParams): boolean {
   return (
-    p.types.length + p.tags.length + p.sources.length + p.tiers.length > 0 ||
+    p.types.length +
+      p.tags.length +
+      p.sources.length +
+      p.tiers.length +
+      p.statuses.length >
+      0 ||
     p.trustMin !== null ||
     p.hasFindings ||
     p.text.trim() !== ""

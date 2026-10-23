@@ -18,6 +18,7 @@ import type { Page } from "../../bindings/Page";
 import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
 import { useCollections } from "../../app/collections";
+import { useUsageIndex } from "../../app/usageIndex";
 import { collectionPage, libraryList } from "../../lib/ipc";
 import {
   Badge,
@@ -33,6 +34,7 @@ import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
 import { FilterSheet } from "./FilterSheet";
 import { onGridKeyDown } from "./gridNav";
+import { Insights } from "./Insights";
 import { ItemCard } from "./ItemCard";
 import { ItemTable } from "./ItemTable";
 import cstyles from "./Collections.module.css";
@@ -132,6 +134,7 @@ export function LibraryScreen({
   const fallback: DefaultSort = manual ? "position" : "name";
   const params = parseParams(searchParams, fallback);
   const query = toQuery(params);
+  const { indexed, runs } = useUsageIndex();
   const [load, reload] = useLibraryPage(
     JSON.stringify({
       collection: collection ? Number(collection.id) : null,
@@ -230,6 +233,14 @@ export function LibraryScreen({
     }
   });
 
+  // A finished index run changes sessions and statuses: load them again.
+  const seenRuns = useRef(runs);
+  useEffect(() => {
+    if (seenRuns.current === runs) return;
+    seenRuns.current = runs;
+    reload();
+  });
+
   const filtered = hasFilters(params);
 
   if (
@@ -258,6 +269,7 @@ export function LibraryScreen({
       trustMin: null,
       tiers: [],
       hasFindings: false,
+      statuses: [],
     });
   }
 
@@ -287,6 +299,7 @@ export function LibraryScreen({
         onClearTrust={() =>
           update({ trustMin: null, tiers: [], hasFindings: false })
         }
+        indexed={indexed}
         dock={
           docked
             ? {
@@ -305,6 +318,7 @@ export function LibraryScreen({
     params.tags.length +
     params.sources.length +
     params.tiers.length +
+    params.statuses.length +
     (params.trustMin !== null ? 1 : 0) +
     (params.hasFindings ? 1 : 0);
 
@@ -388,7 +402,7 @@ export function LibraryScreen({
                     aria-pressed={active}
                     onClick={() => sortBy(key)}
                   >
-                    {sortLabels[key]}
+                    {key === "sessions" ? "Most used" : sortLabels[key]}
                     {active && (
                       <>
                         <Arrow size={12} aria-hidden="true" />
@@ -479,6 +493,13 @@ export function LibraryScreen({
         actions={actions}
         toolbar={toolbar}
       >
+        {!collection && page && page.unfilteredTotal > 0 && (
+          <Insights
+            facets={page.facets}
+            selected={params.statuses}
+            onStatus={(status) => toggle("statuses", status)}
+          />
+        )}
         <div aria-busy={load.status === "loading"}>
           {load.status === "error" && (
             <div role="alert">
@@ -528,7 +549,12 @@ export function LibraryScreen({
           {page && page.items.length > 0 && params.view === "cards" && (
             <div className={styles.grid} onKeyDown={onGridKeyDown}>
               {page.items.map((item) => (
-                <ItemCard key={item.id} item={item} onOpen={openItem} />
+                <ItemCard
+                  key={item.id}
+                  item={item}
+                  onOpen={openItem}
+                  indexed={indexed}
+                />
               ))}
             </div>
           )}
@@ -539,6 +565,7 @@ export function LibraryScreen({
               descending={params.descending}
               onSort={sortBy}
               onOpen={openItem}
+              indexed={indexed}
             />
           )}
           {page && (

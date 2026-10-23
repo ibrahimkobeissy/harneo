@@ -7,12 +7,15 @@ import {
   importedDate,
   ItemTrust,
   sourceText,
+  StatusBadge,
   TagChips,
 } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import { sortKeys, sortLabels } from "./params";
+import ustyles from "./Usage.module.css";
+import { shownStatus } from "./usage";
 
 export function ItemTable({
   items,
@@ -20,12 +23,14 @@ export function ItemTable({
   descending,
   onSort,
   onOpen,
+  indexed = true,
 }: {
   items: LibraryItem[];
   sort: SortKey;
   descending: boolean;
   onSort: (key: SortKey) => void;
   onOpen: (item: LibraryItem) => void;
+  indexed?: boolean;
 }) {
   const Arrow = descending ? ArrowDown : ArrowUp;
   return (
@@ -45,6 +50,11 @@ export function ItemTable({
                 <button
                   type="button"
                   className={styles.sortBtn}
+                  title={
+                    key === "sessions"
+                      ? "Sessions in the last 8 weeks"
+                      : undefined
+                  }
                   onClick={() => onSort(key)}
                 >
                   {sortLabels[key]}
@@ -53,6 +63,7 @@ export function ItemTable({
               </th>
             );
           })}
+          <th scope="col">Status</th>
           <th scope="col">Bundle</th>
         </tr>
       </thead>
@@ -62,6 +73,7 @@ export function ItemTable({
             key={item.id}
             className={styles.row}
             data-tier={item.tier ?? undefined}
+            data-unused={shownStatus(item, indexed) === "unused" || undefined}
             onClick={(event) => {
               // The name button handles its own click; the rest of the row delegates to it.
               if (!(
@@ -101,6 +113,18 @@ export function ItemTable({
               <ItemTrust item={item} />
             </td>
             <td className={styles.date}>{importedDate(item)}</td>
+            <td className={ustyles.sessionsCell}>
+              {item.usage === null ? (
+                <span title="Not tracked: the logs do not record this kind">
+                  —
+                </span>
+              ) : indexed ? (
+                item.usage.sessions
+              ) : null}
+            </td>
+            <td>
+              <StatusBadge status={shownStatus(item, indexed)} />
+            </td>
             <td>
               <BundleBadge item={item} />
             </td>

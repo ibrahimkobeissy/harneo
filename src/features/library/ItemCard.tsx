@@ -5,11 +5,14 @@ import {
   Findings,
   ItemTrust,
   sourceText,
+  StatusBadge,
   TagChips,
+  UsageFoot,
 } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
+import { shownStatus } from "./usage";
 
 /** Single-instance types (Settings, CLAUDE.md) are named after their type: say it once. */
 function sameText(a: string, b: string): boolean {
@@ -19,16 +22,21 @@ function sameText(a: string, b: string): boolean {
 export function ItemCard({
   item,
   onOpen,
+  indexed = true,
 }: {
   item: LibraryItem;
   onOpen: (item: LibraryItem) => void;
+  /** False until an index run has completed: unused is not shown before then. */
+  indexed?: boolean;
 }) {
+  const status = shownStatus(item, indexed);
   return (
     <button
       type="button"
       className={styles.tile}
       data-item-id={item.id}
       data-tier={item.tier ?? undefined}
+      data-unused={status === "unused" || undefined}
       onClick={() => onOpen(item)}
     >
       <span className={styles.tileHead}>
@@ -53,8 +61,12 @@ export function ItemCard({
         <ItemTrust item={item} />
         <span className={styles.tileMeta}>
           <CardCounts item={item} />
+          <UsageFoot item={item} status={status} indexed={indexed} />
           <BundleBadge item={item} />
           <Findings item={item} />
+          {(status === "outdated" || status === "findings") && (
+            <StatusBadge status={status} />
+          )}
         </span>
       </span>
     </button>

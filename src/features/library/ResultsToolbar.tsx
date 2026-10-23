@@ -4,7 +4,7 @@ import { Button, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import type { FilterGroup } from "./FilterColumn";
-import type { LibraryParams } from "./params";
+import { type LibraryParams, statusLabels } from "./params";
 
 /**
  * What the results are: one removable chip per active filter, "N of M artifacts", Clear all
@@ -71,6 +71,11 @@ export function ResultsToolbar({
       key: `tier:${t}`,
       label: tierLabels[t],
       remove: () => onRemove("tiers", t),
+    })),
+    ...params.statuses.map((t) => ({
+      key: `status:${t}`,
+      label: statusLabels[t],
+      remove: () => onRemove("statuses", t),
     })),
     ...(params.hasFindings
       ? [
