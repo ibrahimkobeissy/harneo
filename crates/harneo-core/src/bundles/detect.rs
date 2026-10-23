@@ -506,12 +506,9 @@ impl Library {
                 records::load(conn, id)?.ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
             let folder = self.store.artifacts_dir().join(id);
             let artifact = &detail.artifact;
-            let audit = match detail.audit {
-                Some(audit) => audit,
-                None => audit::audit_stored(&readout::stored_view_of(artifact)?, &folder, &options),
-            };
-            // The stored audit is not trusted: the copy may have been edited since import.
-            let audit = audit::audit(&readout::stored_view_of(artifact)?, &folder, &options);
+            // The stored audit is not trusted: the copy may have been edited since import, so
+            // audit what is stored now (for MCP, the stored server.json that install writes).
+            let audit = audit::audit_stored(&readout::stored_view_of(artifact)?, &folder, &options);
             let text = if is_flagged(&audit) {
                 None
             } else {
