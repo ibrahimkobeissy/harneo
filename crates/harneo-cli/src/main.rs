@@ -4,8 +4,8 @@ mod audit;
 mod profiles;
 mod scaffold;
 mod scan;
-mod update;
 mod status;
+mod update;
 
 use std::io::{BufRead, IsTerminal};
 use std::path::PathBuf;
