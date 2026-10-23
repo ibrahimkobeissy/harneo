@@ -1,14 +1,22 @@
+import { Info } from "lucide-react";
 import { AboutPanel } from "../../app/AboutPanel";
 import { Screen } from "../../ui";
 import { ClaudeSettings } from "./ClaudeSettings";
+import styles from "./Settings.module.css";
 import { UpdatesPanel } from "./UpdatesPanel";
 
 export function SettingsScreen() {
   return (
     <Screen title="Settings" narrow>
-      <ClaudeSettings />
-      <UpdatesPanel />
-      <AboutPanel />
+      <div className={styles.page}>
+        <ClaudeSettings />
+        <UpdatesPanel />
+        {/* About keeps its own content; this wrapper gives it the group look. */}
+        <div className={styles.about}>
+          <Info size={15} aria-hidden="true" />
+          <AboutPanel />
+        </div>
+      </div>
     </Screen>
   );
 }

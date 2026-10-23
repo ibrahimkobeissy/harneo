@@ -49,12 +49,17 @@ function view(name: string, origin: LinkView["origin"], reason = ""): LinkView {
   return { id: `id-${name}`, kind: "agent", name, origin, reason };
 }
 
-function setup(path = "/library", failAdd = false) {
-  let alphaNeeds: LinkView[] = [
+function setup(
+  path = "/library",
+  failAdd = false,
+  start: { needs?: LinkView[]; neededBy?: LinkView[] } = {},
+) {
+  let alphaNeeds: LinkView[] = start.needs ?? [
     view("beta", "reference"),
     view("gamma", "ai", "Calls gamma for review"),
     view("delta", "manual"),
   ];
+  const alphaNeededBy = start.neededBy ?? [];
   const calls: string[] = [];
   const searches: string[] = [];
   mockIPC((cmd, args) => {
@@ -78,13 +83,16 @@ function setup(path = "/library", failAdd = false) {
       }
       case "library_detail":
         if (a.id === "id-alpha")
-          return detail("alpha", { needs: alphaNeeds, neededBy: [] });
+          return detail("alpha", {
+            needs: alphaNeeds,
+            neededBy: alphaNeededBy,
+          });
         return detail(String(a.id).replace("id-", ""), {
           needs: [],
           neededBy: [view("alpha", "reference")],
         });
       case "links_of":
-        return { needs: alphaNeeds, neededBy: [] };
+        return { needs: alphaNeeds, neededBy: alphaNeededBy };
       case "link_remove":
         calls.push(`remove ${a.from}>${a.to}`);
         alphaNeeds = alphaNeeds.filter((l) => l.id !== a.to);
@@ -134,9 +142,9 @@ describe("bundles in the library", () => {
     setup("/library?open=id-alpha");
     const panel = await screen.findByRole("dialog", { name: "alpha details" });
     const needs = await within(panel).findByRole("list", { name: "Needs" });
-    expect(within(needs).getByText("reference")).toBeInTheDocument();
+    expect(within(needs).getByText("Reference")).toBeInTheDocument();
     expect(within(needs).getByText("Claude")).toBeInTheDocument();
-    expect(within(needs).getByText("manual")).toBeInTheDocument();
+    expect(within(needs).getByText("Manual")).toBeInTheDocument();
     expect(
       within(panel).getByText("Calls gamma for review"),
     ).toBeInTheDocument();
@@ -246,5 +254,35 @@ describe("bundles in the library", () => {
     expect(await within(panel).findByRole("alert")).toHaveTextContent(
       "no such artifact",
     );
+  });
+
+  it("shows one line and Add a link when there are no links", async () => {
+    setup("/library?open=id-alpha", false, { needs: [] });
+    const panel = await screen.findByRole("dialog", { name: "alpha details" });
+    expect(
+      await within(panel).findByText("Needs nothing, nothing needs it."),
+    ).toBeVisible();
+    expect(within(panel).queryByRole("heading", { name: /^Needs/ })).toBeNull();
+    expect(
+      within(panel).getByRole("button", { name: /Add a link/ }),
+    ).toBeVisible();
+  });
+
+  it("leaves what needs it out of the picker", async () => {
+    const user = userEvent.setup();
+    setup("/library?open=id-alpha", false, {
+      neededBy: [view("zeta", "manual")],
+    });
+    const panel = await screen.findByRole("dialog", { name: "alpha details" });
+    await user.click(
+      await within(panel).findByRole("button", { name: /Add a link/ }),
+    );
+    const list = await within(panel).findByRole("listbox", {
+      name: "Artifacts",
+    });
+    await waitFor(() =>
+      expect(within(list).getAllByRole("option")).toHaveLength(1),
+    );
+    expect(within(list).queryByText("zeta")).toBeNull();
   });
 });

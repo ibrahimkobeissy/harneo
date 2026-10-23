@@ -73,7 +73,8 @@
   border-radius: 10px;
   border: 0;
   padding: 2px;
-  background: var(--line2);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 var(--hairline) var(--line2);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -88,13 +89,72 @@
 }
 .switch[aria-checked="true"] {
   background: var(--blue);
+  box-shadow: none;
 }
 .switch[aria-checked="true"] i {
   transform: translateX(14px);
 }
+.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 .switch:focus-visible {
   outline: 2px solid var(--blue);
   outline-offset: 2px;
+}
+.note {
+  margin: var(--space-xs) 0 0;
+  color: var(--t2);
+}
+.hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  margin-top: var(--space-xs);
+  color: var(--t2);
+}
+.page {
+  max-width: 720px;
+}
+/* About keeps its own markup; the wrapper makes its panel look like a group. */
+.about {
+  position: relative;
+  margin-bottom: var(--space-lg);
+}
+.about > svg {
+  position: absolute;
+  top: var(--space-sm);
+  left: var(--space-md);
+  height: 1.5em;
+  color: var(--t3);
+}
+.about > section {
+  padding: 0;
+  overflow: hidden;
+}
+.about > section > div:first-child {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md) var(--space-sm) 37px;
+  background: var(--side);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.about > section > div:first-child h2 {
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--t1);
+}
+.about > section > dl {
+  margin: 0;
+  padding: var(--space-md) var(--space-md) 0;
+}
+.about > section > p {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
 }
 .error {
   margin: 0;

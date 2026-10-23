@@ -47,6 +47,34 @@ describe("Settings: Claude CLI", () => {
     ).toBeVisible();
   });
 
+  it("offers install help and Check again, and disables Model and Detect, when the CLI is missing", async () => {
+    const user = userEvent.setup();
+    let calls = 0;
+    mockIPC((cmd) => {
+      if (cmd === "claude_cli_status") {
+        calls += 1;
+        return calls === 1
+          ? { found: false, path: null, version: null }
+          : { found: true, path: "/bin/claude", version: "2.1.0" };
+      }
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return null;
+    });
+    render(<SettingsScreen />);
+    expect(await screen.findByText("Not found")).toBeVisible();
+    expect(
+      screen.getByText(/Install Claude Code \(https:\/\/code.claude.com\)/),
+    ).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled();
+    expect(
+      screen.getByRole("switch", { name: "Detect bundles and tags at import" }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+    expect(await screen.findByText("Found")).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "Model" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Check again" })).toBeNull();
+  });
+
   it("loads the stored model and toggle, and saves changes through settings_set", async () => {
     const user = userEvent.setup();
     const sets = setup(
@@ -97,14 +125,14 @@ describe("update settings", () => {
       return undefined;
     });
     render(<SettingsScreen />);
-    const box = await screen.findByRole("checkbox", {
+    const box = await screen.findByRole("switch", {
       name: "Check for updates at start",
     });
     await waitFor(() => expect(box).toBeEnabled());
-    expect(box).toBeChecked();
+    expect(box).toHaveAttribute("aria-checked", "true");
     await user.click(box);
     await waitFor(() => expect(stored["updates.autoCheck"]).toBe(false));
-    expect(box).not.toBeChecked();
+    expect(box).toHaveAttribute("aria-checked", "false");
   });
 
   it("shows the toggle off when the setting is false", async () => {
@@ -114,9 +142,9 @@ describe("update settings", () => {
       return undefined;
     });
     render(<SettingsScreen />);
-    const box = await screen.findByRole("checkbox", {
+    const box = await screen.findByRole("switch", {
       name: "Check for updates at start",
     });
-    await waitFor(() => expect(box).not.toBeChecked());
+    await waitFor(() => expect(box).toHaveAttribute("aria-checked", "false"));
   });
 });

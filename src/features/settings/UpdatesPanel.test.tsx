@@ -13,9 +13,9 @@ describe("UpdatesPanel", () => {
       return undefined;
     });
     render(<UpdatesPanel />);
-    const box = screen.getByRole("checkbox", { name });
+    const box = screen.getByRole("switch", { name });
     await waitFor(() => expect(box).toBeEnabled());
-    expect(box).toBeChecked();
+    expect(box).toHaveAttribute("aria-checked", "true");
   });
 
   it("reverts the toggle and shows the error when saving fails", async () => {
@@ -26,10 +26,10 @@ describe("UpdatesPanel", () => {
       return undefined;
     });
     render(<UpdatesPanel />);
-    const box = screen.getByRole("checkbox", { name });
+    const box = screen.getByRole("switch", { name });
     await waitFor(() => expect(box).toBeEnabled());
     await user.click(box);
     expect(await screen.findByRole("alert")).toHaveTextContent("read-only");
-    expect(box).toBeChecked();
+    expect(box).toHaveAttribute("aria-checked", "true");
   });
 });

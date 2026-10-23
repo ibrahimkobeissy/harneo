@@ -5,14 +5,14 @@ import type { LinkOrigin } from "../../bindings/LinkOrigin";
 import type { Links } from "../../bindings/Links";
 import type { LinkView } from "../../bindings/LinkView";
 import { libraryList, linkAdd, linkRemove, linksOf } from "../../lib/ipc";
-import { Badge, announce } from "../../ui";
+import { announce } from "../../ui";
 import styles from "./BundleSection.module.css";
 import { kinds } from "./kinds";
 
 const originLabels: Record<LinkOrigin, string> = {
-  reference: "reference",
+  reference: "Reference",
   ai: "Claude",
-  manual: "manual",
+  manual: "Manual",
 };
 
 type Direction = "needs" | "neededBy";
@@ -79,9 +79,9 @@ function LinkRow({
         <span className={styles.name}>{link.name}</span>
         <span className={styles.kind}>{kinds[link.kind].label}</span>
       </button>
-      <Badge tone={link.origin === "ai" ? "info" : "neutral"}>
+      <span className={`${styles.origin} ${styles[link.origin]}`}>
         {originLabels[link.origin]}
-      </Badge>
+      </span>
       {link.origin === "reference" ? (
         <span className={styles.slot} />
       ) : (
@@ -171,12 +171,19 @@ export function BundleSection({
   const listId = useId();
   const found = useCandidates(query, picking);
 
-  const taken = new Set([artifactId, ...links.needs.map((l) => l.id)]);
+  // Leave out what it needs already and what needs it, so no A-needs-B-needs-A by hand.
+  const taken = new Set([
+    artifactId,
+    ...links.needs.map((l) => l.id),
+    ...links.neededBy.map((l) => l.id),
+  ]);
   const options = found.filter((i) => !taken.has(i.id));
   const at = Math.min(active, Math.max(options.length - 1, 0));
   const hasReference = [...links.needs, ...links.neededBy].some(
     (l) => l.origin === "reference",
   );
+
+  const alone = links.needs.length === 0 && links.neededBy.length === 0;
 
   async function change(action: () => Promise<void>, message: string) {
     setError(null);
@@ -243,24 +250,30 @@ export function BundleSection({
       <h3 id="d-bundle">
         Bundle <span className={styles.hint}>installed together, always</span>
       </h3>
-      <List
-        title="Needs"
-        empty="Needs nothing else."
-        links={links.needs}
-        direction="needs"
-        onOpen={onOpen}
-        onRemove={remove}
-      />
-      <List
-        title="Needed by"
-        empty="Nothing needs it."
-        links={links.neededBy}
-        direction="neededBy"
-        onOpen={onOpen}
-        onRemove={remove}
-      />
+      {alone ? (
+        <p className={styles.muted}>Needs nothing, nothing needs it.</p>
+      ) : (
+        <>
+          <List
+            title="Needs"
+            empty="Needs nothing else."
+            links={links.needs}
+            direction="needs"
+            onOpen={onOpen}
+            onRemove={remove}
+          />
+          <List
+            title="Needed by"
+            empty="Nothing needs it."
+            links={links.neededBy}
+            direction="neededBy"
+            onOpen={onOpen}
+            onRemove={remove}
+          />
+        </>
+      )}
       {hasReference && (
-        <p className={styles.muted}>
+        <p className={styles.note}>
           Reference links come from the artifact&rsquo;s own files, so they
           cannot be removed here.
         </p>

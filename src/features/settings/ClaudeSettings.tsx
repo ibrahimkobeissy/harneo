@@ -2,11 +2,15 @@ import { Bot } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { CliStatus } from "../../bindings/CliStatus";
 import { claudeCliStatus, settingsGet, settingsSet } from "../../lib/ipc";
-import { announce } from "../../ui";
+import { Button, announce } from "../../ui";
+import { Group } from "./Group";
 import styles from "./Settings.module.css";
+import { Switch } from "./Switch";
 
 const MODEL_KEY = "bundles.model";
 const AT_IMPORT_KEY = "bundles.atImport";
+
+const missing: CliStatus = { found: false, path: null, version: null };
 
 const models = [
   { value: "haiku", label: "Haiku (fast, the default)" },
@@ -23,12 +27,20 @@ export function ClaudeSettings() {
   const modelId = useId();
   const toggleId = useId();
 
+  /** Asks the backend again; the status row reads "Looking…" meanwhile. */
+  function check() {
+    setCli(undefined);
+    claudeCliStatus().then(
+      (status) => setCli(status ?? missing),
+      () => setCli(missing),
+    );
+  }
+
   useEffect(() => {
     let live = true;
     claudeCliStatus().then(
-      (status) =>
-        live && setCli(status ?? { found: false, path: null, version: null }),
-      () => live && setCli({ found: false, path: null, version: null }),
+      (status) => live && setCli(status ?? missing),
+      () => live && setCli(missing),
     );
     settingsGet(MODEL_KEY).then(
       (value) => {
@@ -59,28 +71,39 @@ export function ClaudeSettings() {
   }
 
   const known = models.some((m) => m.value === model);
+  const notFound = cli?.found === false;
   return (
-    <section className={styles.group} aria-labelledby="claude-settings">
-      <header className={styles.ghead}>
-        <Bot size={15} aria-hidden="true" />
-        <h2 id="claude-settings">Claude CLI</h2>
-      </header>
+    <Group
+      id="claude-settings"
+      title="Claude CLI"
+      icon={<Bot size={15} aria-hidden="true" />}
+    >
       <div className={styles.row}>
         <div className={styles.grow}>
           <b>
             {cli === undefined ? "Looking…" : cli.found ? "Found" : "Not found"}
           </b>
           <div className={styles.sec}>
-            {cli?.found === false
+            {notFound
               ? "Bundles and tags won't be suggested at import; add them by hand."
               : "Used for bundle detection and tag suggestions at import. Artifact text is sent to Claude through your own CLI; no API key."}
           </div>
+          {notFound && (
+            <div className={styles.hint}>
+              Install Claude Code (https://code.claude.com), then Check again.
+            </div>
+          )}
         </div>
         {cli?.found && (
           <div className={styles.where}>
             <span className={styles.mono}>{cli.path}</span>
             {cli.version && <span className={styles.mono}>{cli.version}</span>}
           </div>
+        )}
+        {notFound && (
+          <Button small onClick={check}>
+            Check again
+          </Button>
         )}
       </div>
       <div className={styles.row}>
@@ -91,12 +114,14 @@ export function ClaudeSettings() {
           <div className={styles.sec}>
             Which model reads your artifacts. Haiku is fast and cheap; the
             larger ones find subtler links.
+            {notFound && " Needs the Claude CLI."}
           </div>
         </div>
         <select
           id={modelId}
           className={styles.select}
           value={model}
+          disabled={notFound}
           onChange={(e) => {
             const previous = model;
             setModel(e.target.value);
@@ -118,28 +143,24 @@ export function ClaudeSettings() {
           </label>
           <div className={styles.sec}>
             When off, the Review step offers a Detect now button instead.
+            {notFound && " Needs the Claude CLI."}
           </div>
         </div>
-        <button
+        <Switch
           id={toggleId}
-          type="button"
-          role="switch"
-          aria-checked={atImport}
-          className={styles.switch}
-          onClick={() => {
-            const next = !atImport;
+          checked={atImport}
+          disabled={notFound}
+          onChange={(next) => {
             setAtImport(next);
             void save(AT_IMPORT_KEY, next, () => setAtImport(!next));
           }}
-        >
-          <i />
-        </button>
+        />
       </div>
       {error && (
         <p role="alert" className={styles.error}>
           {error}
         </p>
       )}
-    </section>
+    </Group>
   );
 }
