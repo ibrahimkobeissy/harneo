@@ -2,7 +2,7 @@ import { ArrowLeft, CircleAlert, Download, Info } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { ImportReport } from "../../bindings/ImportReport";
-import type { Preview } from "../../bindings/Preview";
+import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import type { TagColor } from "../../bindings/TagColor";
 import type { Source } from "../../bindings/Source";
 import {
@@ -80,7 +80,7 @@ export function ImportScreen() {
   });
   const [failure, setFailure] = useState<ImportFailure | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [preview, setPreview] = useState<Preview | null>(null);
+  const [preview, setPreview] = useState<PreviewTicket | null>(null);
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);

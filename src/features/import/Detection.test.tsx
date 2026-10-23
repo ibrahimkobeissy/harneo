@@ -323,8 +323,11 @@ describe("Review step detection", () => {
     expect(
       await screen.findByRole("button", { name: "Skip detection" }),
     ).toBeVisible();
+    const runs = calls.filter((c) => c.cmd === "bundles_detect_preview");
+    expect(runs).toHaveLength(2);
+    // The automatic run relies on the setting; Detect now is the user's own request.
     expect(
-      calls.filter((c) => c.cmd === "bundles_detect_preview"),
-    ).toHaveLength(2);
+      runs.map((r) => (r.args as { userInitiated: boolean }).userInitiated),
+    ).toEqual([false, true]);
   });
 });

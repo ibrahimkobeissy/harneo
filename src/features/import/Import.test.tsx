@@ -90,7 +90,7 @@ function setup(opts: {
       case "home_claude_dir":
         return "/home/me/.claude";
       case "library_preview":
-        return opts.preview ? opts.preview() : preview;
+        return opts.preview ? opts.preview() : { ...preview, token: "tok-1" };
       case "library_import":
         if (opts.failImport) throw new Error(opts.failImport);
         return (
@@ -309,8 +309,9 @@ describe("Import screen", () => {
     await u.click(screen.getByRole("button", { name: "Import 2 artifacts" }));
     await screen.findByText("Imported 2 artifacts into your library");
     const call = calls.find((c) => c.cmd === "library_import");
+    // Only the backend's token stands for the preview; no preview goes back.
     expect(call?.args).toEqual({
-      preview,
+      token: "tok-1",
       selection: ["id-alpha", "id-settings"],
       tags: { "id-alpha": ["review"], "id-settings": [] },
     });

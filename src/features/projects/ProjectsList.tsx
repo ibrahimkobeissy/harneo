@@ -5,7 +5,7 @@ import type { Project } from "../../bindings/Project";
 import { useChanged } from "../../lib/useChanged";
 import { useDriftSummaries } from "../../lib/useDriftSummaries";
 import {
-  openFolder,
+  openBackupsFolder,
   profilesList,
   projectsList,
   projectsRemoved,
@@ -202,7 +202,7 @@ export function ProjectsScreen() {
           notice={notice}
           onDismiss={dismiss}
           onOpenFolder={(f) =>
-            void openFolder(f).catch((err: unknown) =>
+            void openBackupsFolder(f).catch((err: unknown) =>
               setNotice({
                 text: `Could not open the folder. ${messageOf(err)}`,
                 tone: "bad",

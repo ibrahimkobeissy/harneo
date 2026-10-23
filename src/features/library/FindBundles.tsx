@@ -78,7 +78,7 @@ export function FindBundlesDialog({
         stop = await onBundlesDetectProgress((p) => {
           if (live) setPhase({ kind: "running", done: p.done, total: p.total });
         }).catch(() => undefined);
-        const detection = await bundlesDetectLibrary(scope.current);
+        const detection = await bundlesDetectLibrary(scope.current, true);
         if (!live) return;
         const found = await resolveNames(
           detection.links.flatMap((l) => [l.from, l.to]),

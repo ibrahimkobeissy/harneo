@@ -303,6 +303,9 @@ pub(crate) fn run(config: &ClaudeConfig, prompt: &str, schema: &str) -> Result<V
         "--no-session-persistence",
         "--strict-mcp-config",
         "--disable-slash-commands",
+        // No settings files at all: the user's and the project's hooks must not act on the run.
+        "--setting-sources",
+        "",
     ];
     let out = run_with(config, &args, Some(prompt), config.timeout)?;
     if !out.success {

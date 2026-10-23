@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ApplyReport } from "../../bindings/ApplyReport";
-import type { Plan } from "../../bindings/Plan";
+import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { Project } from "../../bindings/Project";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import { installApply, switchPlan } from "../../lib/ipc";
@@ -35,7 +35,7 @@ export function SwitchDialog({
   );
   const [result, setResult] = useState<{
     for: bigint;
-    plan: Plan | null;
+    plan: PlanTicket | null;
     error: string | null;
   } | null>(null);
   const [applying, setApplying] = useState(false);

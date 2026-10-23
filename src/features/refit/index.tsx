@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import type { ApplyReport } from "../../bindings/ApplyReport";
 import type { Comparison } from "../../bindings/Comparison";
-import type { Plan } from "../../bindings/Plan";
+import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import type { Project } from "../../bindings/Project";
 import type { RefitAction } from "../../bindings/RefitAction";
@@ -72,7 +72,7 @@ export function RefitScreen() {
   const [stepError, setStepError] = useState<string | null>(null);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [choices, setChoices] = useState<Record<string, RefitAction>>({});
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<PlanTicket | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [report, setReport] = useState<ApplyReport | null>(null);
   const [confirming, setConfirming] = useState(false);

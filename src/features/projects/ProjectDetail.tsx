@@ -21,7 +21,8 @@ import type { Project } from "../../bindings/Project";
 import { useAppInfo } from "../../app/useAppInfo";
 import {
   driftCheck,
-  openFolder,
+  openBackupsFolder,
+  openProjectFolder,
   profilesList,
   projectBackups,
   projectFiles,
@@ -113,6 +114,15 @@ export function ProjectScreen() {
     (text: string, tone: "ok" | "bad") => setNotice({ text, tone }),
     [],
   );
+  async function openIt(open: () => Promise<void>) {
+    try {
+      await open();
+    } catch (err) {
+      say(`Could not open the folder. ${messageOf(err)}`, "bad");
+    }
+  }
+  const openBackups = (folder: string) =>
+    openIt(() => openBackupsFolder(folder));
 
   if (id === null || loadError) {
     return (
@@ -169,7 +179,7 @@ export function ProjectScreen() {
           <Toast
             notice={notice}
             onDismiss={dismiss}
-            onOpenFolder={(f) => void openFolder(f)}
+            onOpenFolder={(f) => void openBackups(f)}
           />
         )}
       </Screen>
@@ -195,14 +205,6 @@ export function ProjectScreen() {
 
   const backupDir = dataDir ? `${dataDir}/backups/` : null;
 
-  async function openIt(path: string) {
-    try {
-      await openFolder(path);
-    } catch (err) {
-      say(`Could not open the folder. ${messageOf(err)}`, "bad");
-    }
-  }
-
   const crumb = (
     <div className={styles.crumb}>
       <Link to="/projects">
@@ -213,7 +215,7 @@ export function ProjectScreen() {
   );
   const actions = (
     <div className={styles.actions}>
-      <Button onClick={() => void openIt(project.path)}>
+      <Button onClick={() => void openIt(() => openProjectFolder(project.id))}>
         <FolderOpen size={14} aria-hidden="true" />
         Open
       </Button>
@@ -390,7 +392,7 @@ export function ProjectScreen() {
         <Toast
           notice={notice}
           onDismiss={dismiss}
-          onOpenFolder={(f) => void openIt(f)}
+          onOpenFolder={(f) => void openBackups(f)}
         />
       )}
     </Screen>

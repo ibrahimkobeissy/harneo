@@ -1,6 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
+import type { ProfileImportTicket } from "../../bindings/ProfileImportTicket";
 import type { ProfileImportReport } from "../../bindings/ProfileImportReport";
 import { profileImportCommit } from "../../lib/ipc";
 import { Callout, kinds } from "../../ui";
@@ -38,17 +39,15 @@ function ArtifactList({
 
 /** What a profile file would do: artifacts already here, artifacts it adds, a name clash. */
 export function ImportDialog({
-  path,
-  preview,
+  ticket,
   onDone,
   onClose,
 }: {
-  path: string;
-  preview: ProfileImportPreview;
+  ticket: ProfileImportTicket;
   onDone: (report: ProfileImportReport) => void;
   onClose: () => void;
 }) {
-  const { profile, artifacts, nameClash } = preview;
+  const { profile, artifacts, nameClash } = ticket;
   const [name, setName] = useState(`${profile.name} (imported)`);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +60,10 @@ export function ImportDialog({
     setError(null);
     try {
       onDone(
-        await profileImportCommit(path, nameClash ? name.trim() : undefined),
+        await profileImportCommit(
+          ticket.token,
+          nameClash ? name.trim() : undefined,
+        ),
       );
     } catch (err) {
       setError(String(err));

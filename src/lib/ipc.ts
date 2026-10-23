@@ -1,9 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { ImportReport } from "../bindings/ImportReport";
-import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
 import type { ChangeScope } from "../bindings/ChangeScope";
 import type { WatchStatus } from "../bindings/WatchStatus";
@@ -35,7 +34,6 @@ import type { UpdateChoice } from "../bindings/UpdateChoice";
 import type { UpdateReport } from "../bindings/UpdateReport";
 import type { UpdateStatus } from "../bindings/UpdateStatus";
 import type { Layout } from "../bindings/Layout";
-import type { ProfileImportPreview } from "../bindings/ProfileImportPreview";
 import type { ProfileImportReport } from "../bindings/ProfileImportReport";
 import type { ProfileSpec } from "../bindings/ProfileSpec";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
@@ -46,7 +44,9 @@ import type { ApplyReport } from "../bindings/ApplyReport";
 import type { Backup } from "../bindings/Backup";
 import type { InstalledFile } from "../bindings/InstalledFile";
 import type { Comparison } from "../bindings/Comparison";
-import type { Plan } from "../bindings/Plan";
+import type { PlanTicket } from "../bindings/PlanTicket";
+import type { PreviewTicket } from "../bindings/PreviewTicket";
+import type { ProfileImportTicket } from "../bindings/ProfileImportTicket";
 import type { RefitAction } from "../bindings/RefitAction";
 import type { AddedPreview } from "../bindings/AddedPreview";
 import type { DriftReport } from "../bindings/DriftReport";
@@ -108,13 +108,14 @@ export function homeClaudeDir(): Promise<string> {
 
 /**
  * Scans a source and lists what it holds. A git source is cloned first, so this can take a
- * while; the clone waits in the library for `libraryImport`.
+ * while; the clone waits in the library for `libraryImport`. The backend keeps the preview: the
+ * result carries a `token` that stands for it in `libraryImport` and the detection calls.
  */
 export function libraryPreview(
   source: Source,
   includeManaged = false,
-): Promise<Preview> {
-  return invoke<Preview>("library_preview", { source, includeManaged });
+): Promise<PreviewTicket> {
+  return invoke<PreviewTicket>("library_preview", { source, includeManaged });
 }
 
 /**
@@ -122,7 +123,7 @@ export function libraryPreview(
  * the accepted bundle links as `[from, to, reason]`.
  */
 export function libraryImport(
-  preview: Preview,
+  preview: PreviewTicket,
   selection: string[],
   tags: Record<string, string[]>,
   links: [string, string, string][] = [],
@@ -131,8 +132,8 @@ export function libraryImport(
   return invoke<ImportReport>(
     "library_import",
     links.length > 0
-      ? { preview, selection, tags, links }
-      : { preview, selection, tags },
+      ? { token: preview.token, selection, tags, links }
+      : { token: preview.token, selection, tags },
   );
 }
 
@@ -356,17 +357,32 @@ export function claudeCliStatus(): Promise<CliStatus> {
   return invoke<CliStatus>("claude_cli_status");
 }
 
-/** Claude's proposed links and tags for the ticked candidates of a preview. Slow. */
+/**
+ * Claude's proposed links and tags for the ticked candidates of a preview. Slow. The backend
+ * refuses unless Settings turned detection on or `userInitiated` says the user asked for this
+ * run (Detect now, Find bundles).
+ */
 export function bundlesDetectPreview(
-  preview: Preview,
+  preview: PreviewTicket,
   selection: string[],
+  userInitiated: boolean,
 ): Promise<Detection> {
-  return invoke<Detection>("bundles_detect_preview", { preview, selection });
+  return invoke<Detection>("bundles_detect_preview", {
+    token: preview.token,
+    selection,
+    userInitiated,
+  });
 }
 
-/** Claude's proposed links and tags for stored artifacts (`null` is the whole library). */
-export function bundlesDetectLibrary(ids: string[] | null): Promise<Detection> {
-  return invoke<Detection>("bundles_detect_library", { ids });
+/**
+ * Claude's proposed links and tags for stored artifacts (`null` is the whole library); see
+ * `bundlesDetectPreview` for `userInitiated`.
+ */
+export function bundlesDetectLibrary(
+  ids: string[] | null,
+  userInitiated: boolean,
+): Promise<Detection> {
+  return invoke<Detection>("bundles_detect_library", { ids, userInitiated });
 }
 
 /** What updating an artifact would change, per file (`+`, `~`, `-` with hunks). */
@@ -471,53 +487,38 @@ export function profileLayout(spec: ProfileSpec): Promise<Layout> {
   return invoke<Layout>("profile_layout", { spec });
 }
 
-/** The native save dialog for a profile file: the chosen path, or `null` on cancel. */
-export async function pickProfileSavePath(
-  defaultName: string,
-): Promise<string | null> {
-  return save({
-    defaultPath: defaultName,
-    filters: [{ name: "Harneo profile", extensions: ["json"] }],
-  });
-}
-
-/** The native open dialog for a profile file: the chosen path, or `null` on cancel. */
-export async function pickProfileFile(): Promise<string | null> {
-  const chosen = await open({
-    multiple: false,
-    directory: false,
-    filters: [{ name: "Harneo profile", extensions: ["json"] }],
-  });
-  return typeof chosen === "string" ? chosen : null;
-}
-
-/** Writes the profile (at `version`, else the current one) to `path`. */
+/**
+ * Opens the backend's save dialog and writes the profile (at `version`, else the current one)
+ * where the user chose. `defaultName` only pre-fills the file name. Resolves with the path
+ * written, or `null` when the user cancelled.
+ */
 export function profileExport(
   id: bigint,
-  path: string,
+  defaultName: string,
   version?: number,
-): Promise<void> {
-  return invoke<void>("profile_export", {
+): Promise<string | null> {
+  return invoke<string | null>("profile_export", {
     id: Number(id),
     version: version ?? null,
-    path,
+    defaultName,
   });
 }
 
-/** Reads the profile file at `path` and says what importing it would do. */
-export function profileImportPreview(
-  path: string,
-): Promise<ProfileImportPreview> {
-  return invoke<ProfileImportPreview>("profile_import_preview", { path });
+/**
+ * Opens the backend's file dialog and says what importing the chosen profile file would do;
+ * the backend keeps the file under the `token`. Resolves with `null` when the user cancelled.
+ */
+export function profileImportPreview(): Promise<ProfileImportTicket | null> {
+  return invoke<ProfileImportTicket | null>("profile_import_preview");
 }
 
-/** Imports the profile file at `path`; `name` overrides the file's own name. */
+/** Imports the file held under `token`; `name` overrides the file's own name. */
 export function profileImportCommit(
-  path: string,
+  token: string,
   name?: string,
 ): Promise<ProfileImportReport> {
   return invoke<ProfileImportReport>("profile_import_commit", {
-    path,
+    token,
     name: name ?? null,
   });
 }
@@ -541,8 +542,8 @@ export function scaffoldPlan(
   target: string,
   profileId: bigint,
   version?: number,
-): Promise<Plan> {
-  return invoke<Plan>("scaffold_plan", {
+): Promise<PlanTicket> {
+  return invoke<PlanTicket>("scaffold_plan", {
     target,
     profileId: Number(profileId),
     version: version ?? null,
@@ -568,8 +569,8 @@ export function refitPlan(
   profileId: bigint,
   choices: Record<string, RefitAction>,
   version?: number,
-): Promise<Plan> {
-  return invoke<Plan>("refit_plan", {
+): Promise<PlanTicket> {
+  return invoke<PlanTicket>("refit_plan", {
     target,
     profileId: Number(profileId),
     version: version ?? null,
@@ -577,9 +578,13 @@ export function refitPlan(
   });
 }
 
-/** Writes a plan into its project, with backups first and a rollback on failure. */
-export function installApply(plan: Plan): Promise<ApplyReport> {
-  return invoke<ApplyReport>("install_apply", { plan });
+/**
+ * Writes a plan into its project, with backups first and a rollback on failure. Only the plan's
+ * token goes to the backend, which applies the plan it kept: a plan from the window is never
+ * trusted.
+ */
+export function installApply(plan: PlanTicket): Promise<ApplyReport> {
+  return invoke<ApplyReport>("install_apply", { token: plan.token });
 }
 
 /** Every project Harneo installed a profile into. */
@@ -622,8 +627,8 @@ export function switchPlan(
   projectId: bigint,
   profileId: bigint,
   version?: number,
-): Promise<Plan> {
-  return invoke<Plan>("switch_plan", {
+): Promise<PlanTicket> {
+  return invoke<PlanTicket>("switch_plan", {
     projectId: Number(projectId),
     profileId: Number(profileId),
     version: version ?? null,
@@ -631,8 +636,8 @@ export function switchPlan(
 }
 
 /** The plan to remove a project's profile: Harneo's files out, the originals back. */
-export function removalPlan(projectId: bigint): Promise<Plan> {
-  return invoke<Plan>("removal_plan", { projectId: Number(projectId) });
+export function removalPlan(projectId: bigint): Promise<PlanTicket> {
+  return invoke<PlanTicket>("removal_plan", { projectId: Number(projectId) });
 }
 
 /** The backup sets of a project, newest first. */
@@ -693,8 +698,8 @@ export function driftDiff(projectId: bigint, path: string): Promise<Hunk[]> {
 export function driftReapplyPlan(
   projectId: bigint,
   paths?: string[],
-): Promise<Plan> {
-  return invoke<Plan>("drift_reapply_plan", {
+): Promise<PlanTicket> {
+  return invoke<PlanTicket>("drift_reapply_plan", {
     projectId: Number(projectId),
     paths: paths ?? null,
   });
@@ -722,9 +727,26 @@ export function driftPromoteAdded(
   });
 }
 
-/** Opens a project folder in the system file manager. */
-export function openFolder(path: string): Promise<void> {
-  return openPath(path);
+/** Opens a registered project's folder in the system file manager; the backend finds the path. */
+export function openProjectFolder(projectId: bigint): Promise<void> {
+  return invoke<void>("open_project_folder", {
+    target: { kind: "project", id: Number(projectId) },
+  });
+}
+
+/**
+ * Opens Harneo's backups folder, or one backup set inside it: `folder` is a backup set's path,
+ * of which only the part after `backups` is sent (the backend checks it names plain folders
+ * inside the backups folder and resolves the real path itself).
+ */
+export function openBackupsFolder(folder?: string): Promise<void> {
+  const parts = folder?.split(/[\\/]/).filter(Boolean) ?? [];
+  const at = parts.lastIndexOf("backups");
+  const set =
+    at >= 0 && at < parts.length - 1 ? parts.slice(at + 1).join("/") : null;
+  return invoke<void>("open_project_folder", {
+    target: { kind: "backups", set },
+  });
 }
 
 /** Opens a web page in the system browser (the opener scope allows only code.claude.com). */

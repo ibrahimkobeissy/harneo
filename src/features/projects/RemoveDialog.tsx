@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ApplyReport } from "../../bindings/ApplyReport";
-import type { Plan } from "../../bindings/Plan";
+import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { Project } from "../../bindings/Project";
 import { installApply, removalPlan } from "../../lib/ipc";
 import { DialogShell } from "./DialogShell";
@@ -20,7 +20,7 @@ export function RemoveDialog({
   onClose: () => void;
   onRemoved: (report: ApplyReport, restored: number) => void;
 }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<PlanTicket | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);

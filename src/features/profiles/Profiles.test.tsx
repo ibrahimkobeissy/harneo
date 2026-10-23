@@ -74,14 +74,13 @@ function setup(opts: Opts = {}) {
       case "profiles_list":
         if (opts.failList) throw new Error(opts.failList);
         return opts.profiles ?? [];
-      case "plugin:dialog|save":
-        return opts.savePath === undefined ? "/tmp/x.json" : opts.savePath;
-      case "plugin:dialog|open":
-        return opts.openPath === undefined ? "/tmp/in.json" : opts.openPath;
+      // The dialogs are the backend's: it answers with the path it wrote, or null on cancel.
       case "profile_export":
-        return null;
+        return opts.savePath === undefined ? "/tmp/x.json" : opts.savePath;
       case "profile_import_preview":
-        return opts.preview ?? preview;
+        return opts.openPath === null
+          ? null
+          : { token: "file-tok", ...(opts.preview ?? preview) };
       case "profile_import_commit":
         return { profileId: 9, name: "Team default", imported: ["b"] };
       case "profile_clone":
@@ -237,16 +236,13 @@ describe("Profiles list", () => {
     await waitFor(() =>
       expect(screen.getByText(/Exported My Light v2 to/)).toBeVisible(),
     );
-    expect(
-      calls.find((c) => c.cmd === "plugin:dialog|save")?.args,
-    ).toMatchObject({
-      options: { defaultPath: "my-light.harneo-profile.json" },
-    });
+    // No path goes to the backend: it opens the dialog and picks the path itself.
     expect(calls.find((c) => c.cmd === "profile_export")?.args).toEqual({
       id: 1,
       version: null,
-      path: "/home/me/my-light.harneo-profile.json",
+      defaultName: "my-light.harneo-profile.json",
     });
+    expect(calls.some((c) => c.cmd.startsWith("plugin:dialog"))).toBe(false);
   });
 
   it("does nothing when the save dialog is cancelled", async () => {
@@ -256,9 +252,22 @@ describe("Profiles list", () => {
       await screen.findByRole("button", { name: "Export Light" }),
     );
     await waitFor(() =>
-      expect(calls.some((c) => c.cmd === "plugin:dialog|save")).toBe(true),
+      expect(calls.some((c) => c.cmd === "profile_export")).toBe(true),
     );
-    expect(calls.some((c) => c.cmd === "profile_export")).toBe(false);
+    expect(screen.queryByText(/Exported/)).toBeNull();
+  });
+
+  it("does nothing when the open dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    const calls = setup({ openPath: null });
+    await user.click(
+      await screen.findByRole("button", { name: "Import profile file" }),
+    );
+    await waitFor(() =>
+      expect(calls.some((c) => c.cmd === "profile_import_preview")).toBe(true),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(calls.some((c) => c.cmd === "profile_import_commit")).toBe(false);
   });
 
   it("previews a file, then commits it", async () => {
@@ -281,7 +290,7 @@ describe("Profiles list", () => {
     );
     expect(await screen.findByText(/Imported Team default/)).toBeVisible();
     expect(calls.find((c) => c.cmd === "profile_import_commit")?.args).toEqual({
-      path: "/tmp/in.json",
+      token: "file-tok",
       name: null,
     });
     expect(calls.filter((c) => c.cmd === "profiles_list")).toHaveLength(2);
@@ -307,7 +316,7 @@ describe("Profiles list", () => {
     );
     await screen.findByText(/Imported Team default/);
     expect(calls.find((c) => c.cmd === "profile_import_commit")?.args).toEqual({
-      path: "/tmp/in.json",
+      token: "file-tok",
       name: "Team default (imported)",
     });
   });
@@ -316,7 +325,6 @@ describe("Profiles list", () => {
     const user = userEvent.setup();
     mockIPC((cmd) => {
       if (cmd === "profiles_list") return [];
-      if (cmd === "plugin:dialog|open") return "/tmp/bad.json";
       throw new Error("not a Harneo profile file");
     });
     render(

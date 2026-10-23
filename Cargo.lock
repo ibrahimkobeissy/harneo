@@ -1657,6 +1657,7 @@ dependencies = [
 name = "harneo-app"
 version = "0.1.0"
 dependencies = [
+ "getrandom 0.4.3",
  "harneo-core",
  "serde",
  "serde_json",

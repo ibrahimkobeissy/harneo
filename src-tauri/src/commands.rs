@@ -7,7 +7,7 @@ use harneo_core::artifact::{ArtifactKind, ScanOptions};
 use harneo_core::usage;
 
 use harneo_core::bundles::{
-    cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
+    cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, DetectionJob, LinkOrigin, Links,
 };
 use harneo_core::drift::{AddedPreview, DriftReport, ProjectDrift, PromoteReport};
 use harneo_core::install::{
@@ -27,7 +27,56 @@ use harneo_core::updates::{
 use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
+
+use crate::held::Held;
+
+/// Plans waiting for `install_apply`, by token.
+pub type PlanCache = Held<Plan>;
+/// Library previews waiting for an import or a detection, by token.
+pub type PreviewCache = Held<Preview>;
+/// Profile files the user picked, read once, waiting for the commit.
+pub type ProfileFileCache = Held<Vec<u8>>;
+
+/// A plan the backend keeps. The window shows `plan` and sends back only `token`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct PlanTicket {
+    pub token: String,
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub plan: Plan,
+}
+
+/// A library preview the backend keeps. The window shows `preview` and sends back `token`.
+#[derive(Debug, Clone, PartialEq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct PreviewTicket {
+    pub token: String,
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub preview: Preview,
+}
+
+/// A picked profile file the backend keeps, with what importing it would do.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ProfileImportTicket {
+    pub token: String,
+    #[serde(flatten)]
+    #[ts(flatten)]
+    pub preview: ProfileImportPreview,
+}
+
+fn hold_plan(cache: &PlanCache, plan: Plan) -> Result<PlanTicket, String> {
+    let token = cache.put(plan.clone())?;
+    Ok(PlanTicket { token, plan })
+}
 
 /// What the About panel shows. `data_dir` crosses IPC as a string, since a path is not JSON.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -171,36 +220,63 @@ pub async fn library_preview(
     app: AppHandle,
     source: Source,
     include_managed: Option<bool>,
-) -> Result<Preview, String> {
+) -> Result<PreviewTicket, String> {
     let options = ScanOptions {
         include_managed: include_managed.unwrap_or(false),
         ..ScanOptions::default()
     };
     let source = normalized(source).map_err(|e| e.to_string())?;
-    tauri::async_runtime::spawn_blocking(move || {
-        app.state::<LibraryState>()
-            .with(|library| library.preview_with(&source, &options))
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    tauri::async_runtime::spawn_blocking(move || preview_held(&app, &source, &options))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
-/// Copies the ticked candidates of a preview into the library with the chosen tags.
+/// Scans the source and keeps the preview under a new token.
+fn preview_held<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    source: &Source,
+    options: &ScanOptions,
+) -> Result<PreviewTicket, String> {
+    let preview = app
+        .state::<LibraryState>()
+        .with(|library| library.preview_with(source, options))?;
+    let token = app.state::<PreviewCache>().put(preview.clone())?;
+    Ok(PreviewTicket { token, preview })
+}
+
+/// Copies the ticked candidates of the preview held under `token` into the library with the
+/// chosen tags. The preview is the backend's own; only the user's choices come from the window.
 #[tauri::command]
 pub async fn library_import(
     app: AppHandle,
-    preview: Preview,
+    token: String,
     selection: Vec<String>,
     tags: HashMap<String, Vec<String>>,
     links: Option<Vec<(String, String, String)>>,
 ) -> Result<ImportReport, String> {
     let links = links.unwrap_or_default();
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<LibraryState>()
-            .with_mut(|library| library.import_with_links(&preview, &selection, &tags, &links))
+        import_held(&app, &token, &selection, &tags, &links)
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+/// Imports from the preview held under `token`; the preview is dropped once it went in.
+fn import_held<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    token: &str,
+    selection: &[String],
+    tags: &HashMap<String, Vec<String>>,
+    links: &[(String, String, String)],
+) -> Result<ImportReport, String> {
+    let previews = app.state::<PreviewCache>();
+    let preview = previews.get(token)?;
+    let report = app
+        .state::<LibraryState>()
+        .with_mut(|library| library.import_with_links(&preview, selection, tags, links))?;
+    previews.discard(token);
+    Ok(report)
 }
 
 // --- Tags ------------------------------------------------------------------------------
@@ -420,18 +496,18 @@ pub async fn claude_cli_status() -> Result<CliStatus, String> {
 /// Event name for detection progress; the payload is `DetectProgress`.
 const DETECT_PROGRESS_EVENT: &str = "bundles-detect-progress";
 
-/// Asks Claude for links and tags over the ticked candidates of a preview. The library is read
-/// first and released; the slow Claude calls run on the blocking pool without it.
+/// Asks Claude for links and tags over the ticked candidates of the preview held under `token`.
+/// The library is read first and released; the slow Claude calls run on the blocking pool
+/// without it. `user_initiated` is the user's own action; without it core needs the setting.
 #[tauri::command]
 pub async fn bundles_detect_preview(
     app: AppHandle,
-    preview: Preview,
+    token: String,
     selection: Vec<String>,
+    user_initiated: bool,
 ) -> Result<Detection, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let job = app
-            .state::<LibraryState>()
-            .with(|library| library.prepare_preview_detection(&preview, &selection))?;
+        let job = preview_job(&app, &token, &selection, user_initiated)?;
         job.run(&|done, total| {
             let _ = app.emit(DETECT_PROGRESS_EVENT, DetectProgress::new(done, total));
         })
@@ -441,16 +517,37 @@ pub async fn bundles_detect_preview(
     .map_err(|e| e.to_string())?
 }
 
+/// What a detection over the held preview will send; core refuses without consent.
+fn preview_job<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    token: &str,
+    selection: &[String],
+    user_initiated: bool,
+) -> Result<DetectionJob, String> {
+    let preview = app.state::<PreviewCache>().get(token)?;
+    app.state::<LibraryState>()
+        .with(|library| library.prepare_preview_detection(&preview, selection, user_initiated))
+}
+
+/// What a detection over stored copies will send; core refuses without consent.
+fn library_job<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    ids: Option<&[String]>,
+    user_initiated: bool,
+) -> Result<DetectionJob, String> {
+    app.state::<LibraryState>()
+        .with(|library| library.prepare_library_detection(ids, user_initiated))
+}
+
 /// Asks Claude for links and tags over stored copies (`ids`, or the whole library when null).
 #[tauri::command]
 pub async fn bundles_detect_library(
     app: AppHandle,
     ids: Option<Vec<String>>,
+    user_initiated: bool,
 ) -> Result<Detection, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        let job = app
-            .state::<LibraryState>()
-            .with(|library| library.prepare_library_detection(ids.as_deref()))?;
+        let job = library_job(&app, ids.as_deref(), user_initiated)?;
         job.run(&|done, total| {
             let _ = app.emit(DETECT_PROGRESS_EVENT, DetectProgress::new(done, total));
         })
@@ -751,17 +848,52 @@ pub fn profile_layout(state: State<'_, LibraryState>, spec: ProfileSpec) -> Resu
     state.with(|library| library.layout(&spec))
 }
 
-/// Writes the profile file to `path` (the UI's native save dialog picked it). The bytes are
-/// written here with `std::fs`, never through a shell.
+/// The file name the save dialog starts with: only the last path component of what the window
+/// suggests, so it can never steer the dialog elsewhere.
+fn suggested_name(name: &str) -> String {
+    let last = name.rsplit(['/', '\\']).next().unwrap_or_default().trim();
+    if last.is_empty() || last == ".." {
+        "profile.harneo-profile.json".to_owned()
+    } else {
+        last.to_owned()
+    }
+}
+
+/// Asks the user where to save the profile file and writes it there. The path comes from the
+/// native dialog opened here, never from the window; `default_name` only pre-fills the name.
+/// Resolves with the path written, or `None` when the user cancelled.
 #[tauri::command]
-pub fn profile_export(
-    state: State<'_, LibraryState>,
+pub async fn profile_export(
+    app: AppHandle,
     id: ProfileId,
     version: Option<u32>,
-    path: String,
-) -> Result<(), String> {
-    let bytes = state.with(|library| library.export_profile(id, version))?;
-    std::fs::write(&path, bytes).map_err(|e| format!("cannot write {path}: {e}"))
+    default_name: String,
+) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = app
+            .state::<LibraryState>()
+            .with(|library| library.export_profile(id, version))?;
+        let picked = app
+            .dialog()
+            .file()
+            .set_file_name(suggested_name(&default_name))
+            .add_filter("Harneo profile", &["json"])
+            .blocking_save_file()
+            .map(|chosen| chosen.into_path().map_err(|e| e.to_string()))
+            .transpose()?;
+        write_export(picked.as_deref(), &bytes)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Writes the exported bytes where the dialog said; no path (a cancelled dialog) writes nothing.
+fn write_export(path: Option<&std::path::Path>, bytes: &[u8]) -> Result<Option<String>, String> {
+    let Some(path) = path else {
+        return Ok(None);
+    };
+    std::fs::write(path, bytes).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
+    Ok(Some(path.to_string_lossy().into_owned()))
 }
 
 /// Reads a profile file the user picked, refusing one over the size cap before reading it.
@@ -773,25 +905,55 @@ fn read_profile_file(path: &str) -> Result<Vec<u8>, String> {
     std::fs::read(path).map_err(|e| format!("cannot read {path}: {e}"))
 }
 
-/// What importing the profile file at `path` would do.
-#[tauri::command]
-pub fn profile_import_preview(
-    state: State<'_, LibraryState>,
-    path: String,
-) -> Result<ProfileImportPreview, String> {
-    let bytes = read_profile_file(&path)?;
-    state.with(|library| library.import_profile_file(&bytes))
+/// Reads the file into the cache and says what importing it would do.
+fn preview_profile_bytes<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    bytes: Vec<u8>,
+) -> Result<ProfileImportTicket, String> {
+    let preview = app
+        .state::<LibraryState>()
+        .with(|library| library.import_profile_file(&bytes))?;
+    let token = app.state::<ProfileFileCache>().put(bytes)?;
+    Ok(ProfileImportTicket { token, preview })
 }
 
-/// Imports the profile file at `path`; `name` overrides the file's name.
+/// Asks the user for a profile file (a native dialog opened here, not a path from the window) and
+/// says what importing it would do. The file's bytes stay in the backend under the token.
+/// Resolves with `None` when the user cancelled.
+#[tauri::command]
+pub async fn profile_import_preview(app: AppHandle) -> Result<Option<ProfileImportTicket>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let picked = app
+            .dialog()
+            .file()
+            .add_filter("Harneo profile", &["json"])
+            .blocking_pick_file()
+            .map(|chosen| chosen.into_path().map_err(|e| e.to_string()))
+            .transpose()?;
+        picked
+            .map(|path| {
+                let bytes = read_profile_file(&path.to_string_lossy())?;
+                preview_profile_bytes(&app, bytes)
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Imports the file held under `token`; `name` overrides the file's name.
 #[tauri::command]
 pub fn profile_import_commit(
     state: State<'_, LibraryState>,
-    path: String,
+    files: State<'_, ProfileFileCache>,
+    token: String,
     name: Option<String>,
 ) -> Result<ProfileImportReport, String> {
-    let bytes = read_profile_file(&path)?;
-    state.with_mut(|library| library.import_profile_file_commit(&bytes, name.as_deref()))
+    let bytes = files.get(&token)?;
+    let report =
+        state.with_mut(|library| library.import_profile_file_commit(&bytes, name.as_deref()))?;
+    files.discard(&token);
+    Ok(report)
 }
 
 /// Sets a skill's library default for manual-only invocation.
@@ -815,11 +977,15 @@ pub fn scaffold_check(state: State<'_, LibraryState>, target: String) -> Result<
 #[tauri::command]
 pub fn scaffold_plan(
     state: State<'_, LibraryState>,
+    plans: State<'_, PlanCache>,
     target: String,
     profile_id: i64,
     version: Option<u32>,
-) -> Result<Plan, String> {
-    state.with(|library| library.plan_scaffold(std::path::Path::new(&target), profile_id, version))
+) -> Result<PlanTicket, String> {
+    let plan = state.with(|library| {
+        library.plan_scaffold(std::path::Path::new(&target), profile_id, version)
+    })?;
+    hold_plan(&plans, plan)
 }
 
 /// Compares a project's harness with a profile, item by item. Reads the project, writes nothing.
@@ -847,30 +1013,41 @@ pub async fn refit_plan(
     profile_id: i64,
     version: Option<u32>,
     choices: std::collections::BTreeMap<String, RefitAction>,
-) -> Result<Plan, String> {
+) -> Result<PlanTicket, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<LibraryState>().with(|library| {
+        let plan = app.state::<LibraryState>().with(|library| {
             library.refit_plan(std::path::Path::new(&target), profile_id, version, &choices)
-        })
+        })?;
+        hold_plan(&app.state::<PlanCache>(), plan)
     })
     .await
     .map_err(|e| e.to_string())?
 }
 
-/// Writes a plan into its project, backing up first and rolling back on a failure. Runs on the
-/// blocking pool: it may wait for the data-dir lock.
+/// Writes the plan held under `token` into its project, backing up first and rolling back on a
+/// failure. Only a plan this backend made can be applied: the window never sends one. A failed
+/// apply keeps the plan for another try. Runs on the blocking pool: it may wait for the
+/// data-dir lock.
 #[tauri::command]
-pub async fn install_apply(app: AppHandle, plan: Plan) -> Result<ApplyReport, String> {
-    tauri::async_runtime::spawn_blocking(move || {
-        let report = app
-            .state::<LibraryState>()
-            .with(|library| library.apply(&plan));
-        // The registry may have changed: watch the new project's harness paths.
-        crate::watch::refresh_watch(&app);
-        report
-    })
-    .await
-    .map_err(|e| e.to_string())?
+pub async fn install_apply(app: AppHandle, token: String) -> Result<ApplyReport, String> {
+    tauri::async_runtime::spawn_blocking(move || apply_held(&app, &token))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Applies the plan held under `token`, once.
+fn apply_held<R: tauri::Runtime>(app: &AppHandle<R>, token: &str) -> Result<ApplyReport, String> {
+    let plans = app.state::<PlanCache>();
+    let plan = plans.take(token)?;
+    let report = app
+        .state::<LibraryState>()
+        .with(|library| library.apply(&plan));
+    if report.is_err() {
+        plans.restore(token, plan);
+    }
+    // The registry may have changed: watch the new project's harness paths.
+    crate::watch::refresh_watch(app);
+    report
 }
 
 /// Every project Harneo installed a profile into.
@@ -922,17 +1099,24 @@ pub fn artifact_profiles(
 #[tauri::command]
 pub fn switch_plan(
     state: State<'_, LibraryState>,
+    plans: State<'_, PlanCache>,
     project_id: i64,
     profile_id: i64,
     version: Option<u32>,
-) -> Result<Plan, String> {
-    state.with(|library| library.plan_switch(project_id, profile_id, version))
+) -> Result<PlanTicket, String> {
+    let plan = state.with(|library| library.plan_switch(project_id, profile_id, version))?;
+    hold_plan(&plans, plan)
 }
 
 /// The plan to remove a project's profile: Harneo's files out, the originals back.
 #[tauri::command]
-pub fn removal_plan(state: State<'_, LibraryState>, project_id: i64) -> Result<Plan, String> {
-    state.with(|library| library.plan_removal(project_id))
+pub fn removal_plan(
+    state: State<'_, LibraryState>,
+    plans: State<'_, PlanCache>,
+    project_id: i64,
+) -> Result<PlanTicket, String> {
+    let plan = state.with(|library| library.plan_removal(project_id))?;
+    hold_plan(&plans, plan)
 }
 
 /// The backup sets of a project, newest first.
@@ -1004,8 +1188,10 @@ pub async fn drift_reapply_plan(
     app: AppHandle,
     project_id: i64,
     paths: Option<Vec<String>>,
-) -> Result<Plan, String> {
-    blocking(app, move |library| library.plan_reapply(project_id, paths)).await
+) -> Result<PlanTicket, String> {
+    let held = app.clone();
+    let plan = blocking(app, move |library| library.plan_reapply(project_id, paths)).await?;
+    hold_plan(&held.state::<PlanCache>(), plan)
 }
 
 /// Makes the project's edited file the library copy of its artifact.
@@ -1026,6 +1212,64 @@ pub async fn drift_promote_added(
     path: String,
 ) -> Result<AddedPreview, String> {
     blocking(app, move |library| library.promote_added(project_id, &path)).await
+}
+
+/// Where `open_project_folder` may point: a registered project, or the backups folder (or one
+/// backup set inside it, written `<project id>/<stamp>`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum FolderTarget {
+    Project { id: i64 },
+    Backups { set: Option<String> },
+}
+
+/// The folder a target names, resolved from the registry and the data dir. A backup set is one
+/// plain folder name inside `backups`, never a path.
+fn resolve_folder(
+    state: &LibraryState,
+    data_dir: &std::path::Path,
+    target: &FolderTarget,
+) -> Result<std::path::PathBuf, String> {
+    let folder = match target {
+        FolderTarget::Project { id } => {
+            std::path::PathBuf::from(state.with(|library| library.project(*id))?.path)
+        }
+        FolderTarget::Backups { set: None } => data_dir.join("backups"),
+        FolderTarget::Backups { set: Some(set) } => {
+            // `<project id>/<stamp>`: plain folder names only, nothing that climbs out.
+            let parts: Vec<&str> = set.split('/').collect();
+            let plain = parts.len() <= 3
+                && parts.iter().all(|part| {
+                    !part.is_empty()
+                        && *part != "."
+                        && *part != ".."
+                        && !part.contains(['\\', '\0'])
+                });
+            if !plain {
+                return Err("not a backup folder".to_owned());
+            }
+            data_dir.join("backups").join(set)
+        }
+    };
+    if !folder.is_dir() {
+        return Err(format!("{} is not a folder", folder.display()));
+    }
+    Ok(folder)
+}
+
+/// Opens a registered project's folder, or Harneo's backups folder, in the system file manager.
+/// The folder is resolved here from the registry and the data dir; the window names no path.
+#[tauri::command]
+pub fn open_project_folder(
+    app: AppHandle,
+    state: State<'_, LibraryState>,
+    target: FolderTarget,
+) -> Result<(), String> {
+    let data_dir = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
+    let folder = resolve_folder(&state, &data_dir, &target)?;
+    app.opener()
+        .open_path(folder.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -1108,6 +1352,7 @@ mod tests {
         )?;
         let app = tauri::test::mock_app();
         app.manage(LibraryState::from_result(Ok(Library::open(data.path())?)));
+        app.manage(ProfileFileCache::default());
         let state = || app.state::<LibraryState>();
         let src = Source::Local {
             path: source.path().to_path_buf(),
@@ -1139,14 +1384,24 @@ mod tests {
         state().with(|l| l.add_to_collection(manual.id, &alpha))?;
         let from = profile_from_collection(state(), manual.id, "From kit".into())?;
 
+        // The dialog is the backend's; what follows it is the held file.
         let file = data.path().join("light.harneo-profile.json");
-        let path = file.to_string_lossy().into_owned();
-        profile_export(state(), id, None, path.clone())?;
-        assert!(file.is_file());
-        let shown = profile_import_preview(state(), path.clone())?;
-        assert!(shown.name_clash);
-        let report = profile_import_commit(state(), path, Some("Imported".into()))?;
+        std::fs::write(&file, state().with(|l| l.export_profile(id, None))?)?;
+        let held = app.state::<ProfileFileCache>();
+        let ticket =
+            preview_profile_bytes(app.handle(), read_profile_file(&file.to_string_lossy())?)?;
+        assert!(ticket.preview.name_clash);
+        let report =
+            profile_import_commit(state(), held, ticket.token.clone(), Some("Imported".into()))?;
         assert_eq!(report.name, "Imported");
+        // The held file is used once.
+        let again = profile_import_commit(
+            state(),
+            app.state::<ProfileFileCache>(),
+            ticket.token,
+            Some("Twice".into()),
+        );
+        assert!(again.is_err());
 
         for gone in [id, copy, from, report.profile_id] {
             profile_delete(state(), gone)?;
@@ -1339,18 +1594,155 @@ mod tests {
         let dir = tempfile::tempdir()?;
         let app = tauri::test::mock_app();
         app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        app.manage(PlanCache::default());
         let state = || app.state::<LibraryState>();
+        let plans = || app.state::<PlanCache>();
         let target = tempfile::tempdir()?;
         let target_text = target.path().to_string_lossy().into_owned();
-        assert!(scaffold_plan(state(), target_text.clone(), 1, None).is_err());
+        assert!(scaffold_plan(state(), plans(), target_text.clone(), 1, None).is_err());
         assert!(scaffold_check(state(), target_text).is_ok());
         assert!(projects_list(state())?.is_empty());
         assert!(project_get(state(), 1).is_err());
         assert!(project_files(state(), 1).is_err());
         assert!(project_file_content(state(), 1, "a".into()).is_err());
-        assert!(switch_plan(state(), 1, 1, None).is_err());
-        assert!(removal_plan(state(), 1).is_err());
+        assert!(switch_plan(state(), plans(), 1, 1, None).is_err());
+        assert!(removal_plan(state(), plans(), 1).is_err());
         assert!(project_backups(state(), 1).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn only_backend_held_plans_and_previews_are_acted_on() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let data = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join("skills/alpha"))?;
+        std::fs::write(
+            source.path().join("skills/alpha/SKILL.md"),
+            "---\nname: alpha\ndescription: A skill\n---\nBody\n",
+        )?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(data.path())?)));
+        app.manage(PlanCache::default());
+        app.manage(PreviewCache::default());
+        app.manage(crate::watch::WatchState::default());
+        let handle = app.handle();
+
+        // A token the backend never issued is refused, for plans and for previews.
+        assert!(apply_held(handle, "00000000000000000000000000000000").is_err());
+        let none = HashMap::new();
+        assert!(import_held(handle, "forged", &[], &none, &[]).is_err());
+
+        // A held preview imports once the user's choices come back, then is gone.
+        let preview = app.state::<LibraryState>().with(|l| {
+            l.preview(&Source::Local {
+                path: source.path().to_path_buf(),
+            })
+        })?;
+        let ids = vec![preview.candidates[0].id.clone()];
+        let token = app.state::<PreviewCache>().put(preview)?;
+        assert_eq!(import_held(handle, &token, &ids, &none, &[])?.imported, ids);
+        assert!(import_held(handle, &token, &ids, &none, &[]).is_err());
+
+        // The backend refuses detection without consent, before anything is read for Claude.
+        let held_preview = app
+            .state::<PreviewCache>()
+            .put(app.state::<LibraryState>().with(|l| {
+                l.preview(&Source::Local {
+                    path: source.path().to_path_buf(),
+                })
+            })?)?;
+        assert!(preview_job(handle, &held_preview, &ids, false).is_err());
+        assert!(library_job(handle, None, false).is_err());
+        assert!(preview_job(handle, &held_preview, &ids, true).is_ok());
+        assert!(library_job(handle, None, true).is_ok());
+        assert!(preview_job(handle, "forged", &ids, true).is_err());
+
+        let again = preview_held(
+            handle,
+            &Source::Local {
+                path: source.path().to_path_buf(),
+            },
+            &ScanOptions::default(),
+        )?;
+        assert_eq!(again.token.len(), 32);
+
+        // A held plan applies once: the token is spent, whatever the window sends next.
+        let profile = app.state::<LibraryState>().with(|l| {
+            l.create_profile(
+                "P",
+                "",
+                &ProfileSpec {
+                    items: ids.clone(),
+                    ..ProfileSpec::default()
+                },
+            )
+        })?;
+        let target = tempfile::tempdir()?;
+        let ticket = scaffold_plan(
+            app.state(),
+            app.state(),
+            target.path().to_string_lossy().into_owned(),
+            profile,
+            None,
+        )?;
+        assert_eq!(ticket.token.len(), 32);
+        apply_held(handle, &ticket.token)?;
+        assert!(target.path().join(".claude").is_dir());
+        assert!(apply_held(handle, &ticket.token).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn a_cancelled_export_writes_nothing_and_a_chosen_path_gets_the_bytes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        assert_eq!(write_export(None, b"x")?, None);
+        let file = dir.path().join("p.json");
+        assert_eq!(
+            write_export(Some(&file), b"{}")?,
+            Some(file.to_string_lossy().into_owned())
+        );
+        assert_eq!(std::fs::read(&file)?, b"{}");
+        let err = write_export(Some(&dir.path().join("no/such/p.json")), b"x").err();
+        assert!(err.is_some_and(|m| m.contains("cannot write")));
+        Ok(())
+    }
+
+    #[test]
+    fn folders_open_only_for_registered_projects_and_the_backups(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let data = tempfile::tempdir()?;
+        std::fs::create_dir_all(data.path().join("backups/3/set-1"))?;
+        let state = LibraryState::from_result(Ok(Library::open(data.path())?));
+        let at = |target| resolve_folder(&state, data.path(), &target);
+        assert_eq!(
+            at(FolderTarget::Backups { set: None })?,
+            data.path().join("backups")
+        );
+        assert_eq!(
+            at(FolderTarget::Backups {
+                set: Some("3/set-1".into())
+            })?,
+            data.path().join("backups/3/set-1")
+        );
+        for bad in [
+            "..", "../x", "3/../..", "a\\b", "", ".", "3//x", "1/2/3/4", "missing",
+        ] {
+            assert!(
+                at(FolderTarget::Backups {
+                    set: Some(bad.into())
+                })
+                .is_err(),
+                "{bad}"
+            );
+        }
+        assert!(at(FolderTarget::Project { id: 9 }).is_err());
+        assert_eq!(
+            suggested_name("../../etc/evil.json"),
+            "evil.json".to_owned()
+        );
+        assert_eq!(suggested_name(".."), "profile.harneo-profile.json");
         Ok(())
     }
 }

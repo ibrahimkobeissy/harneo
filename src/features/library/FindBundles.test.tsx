@@ -133,7 +133,7 @@ describe("Find bundles with Claude", () => {
     await user.click(within(dialog).getByRole("button", { name: "Run" }));
     expect(await within(dialog).findByText("needs 2")).toBeVisible();
     expect(calls.find((c) => c.cmd === "bundles_detect_library")?.args).toEqual(
-      { ids: null },
+      { ids: null, userInitiated: true },
     );
     // Refuse the delta group; keep alpha's.
     await user.click(
@@ -176,7 +176,7 @@ describe("Find bundles with Claude", () => {
     );
     expect(await screen.findByText("needs 2")).toBeVisible();
     expect(calls.find((c) => c.cmd === "bundles_detect_library")?.args).toEqual(
-      { ids: ["id-alpha"] },
+      { ids: ["id-alpha"], userInitiated: true },
     );
   });
 

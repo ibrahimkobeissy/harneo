@@ -80,19 +80,25 @@ describe("links, bundles and settings wrappers", () => {
 describe("detection wrappers", () => {
   it("send the right command and argument keys", async () => {
     const calls = record("r");
-    const preview = { sources: [] } as never;
+    const preview = { token: "tk", sources: [] } as never;
     expect(await ipc.claudeCliStatus()).toBe("r");
-    expect(await ipc.bundlesDetectPreview(preview, ["x"])).toBe("r");
-    expect(await ipc.bundlesDetectLibrary(null)).toBe("r");
-    expect(await ipc.bundlesDetectLibrary(["a"])).toBe("r");
+    expect(await ipc.bundlesDetectPreview(preview, ["x"], false)).toBe("r");
+    expect(await ipc.bundlesDetectLibrary(null, true)).toBe("r");
+    expect(await ipc.bundlesDetectLibrary(["a"], false)).toBe("r");
     expect(calls).toEqual([
       { cmd: "claude_cli_status", args: {} },
       {
         cmd: "bundles_detect_preview",
-        args: { preview, selection: ["x"] },
+        args: { token: "tk", selection: ["x"], userInitiated: false },
       },
-      { cmd: "bundles_detect_library", args: { ids: null } },
-      { cmd: "bundles_detect_library", args: { ids: ["a"] } },
+      {
+        cmd: "bundles_detect_library",
+        args: { ids: null, userInitiated: true },
+      },
+      {
+        cmd: "bundles_detect_library",
+        args: { ids: ["a"], userInitiated: false },
+      },
     ]);
   });
 });
@@ -123,7 +129,7 @@ describe("update wrappers", () => {
 describe("install wrappers", () => {
   it("send the right command and argument keys", async () => {
     const calls = record("r");
-    const plan = { target: "/p" } as never;
+    const plan = { token: "tk", target: "/p" } as never;
     expect(await ipc.scaffoldPlan("/p", 3n)).toBe("r");
     await ipc.scaffoldPlan("/p", 3n, 2);
     expect(await ipc.installApply(plan)).toBe("r");
@@ -140,7 +146,7 @@ describe("install wrappers", () => {
         cmd: "scaffold_plan",
         args: { target: "/p", profileId: 3, version: 2 },
       },
-      { cmd: "install_apply", args: { plan } },
+      { cmd: "install_apply", args: { token: "tk" } },
       { cmd: "projects_list", args: {} },
       { cmd: "project_get", args: { id: 4 } },
       { cmd: "project_files", args: { id: 4 } },

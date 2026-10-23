@@ -1,6 +1,7 @@
 //! Harneo's desktop shell: window setup and thin IPC commands. Logic lives in `harneo-core`.
 
 mod commands;
+mod held;
 mod watch;
 
 /// Starts the app. A failure to start is reported and exits non-zero rather than panicking,
@@ -12,6 +13,9 @@ pub fn run() {
         .manage(commands::LibraryState::open())
         .manage(commands::UsageState::open())
         .manage(watch::WatchState::default())
+        .manage(commands::PlanCache::default())
+        .manage(commands::PreviewCache::default())
+        .manage(commands::ProfileFileCache::default())
         .setup(|app| {
             watch::start(app.handle());
             Ok(())
@@ -105,6 +109,7 @@ pub fn run() {
             commands::drift_reapply_plan,
             commands::drift_promote,
             commands::drift_promote_added,
+            commands::open_project_folder,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

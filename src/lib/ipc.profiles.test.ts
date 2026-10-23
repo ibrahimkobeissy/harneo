@@ -41,8 +41,8 @@ describe("profile wrappers", () => {
     await profileFromCollection(3n, "From");
     await profileResolve(spec);
     await profileLayout(spec);
-    await profileImportCommit("/p.json");
-    await profileImportCommit("/p.json", "N");
+    await profileImportCommit("tok");
+    await profileImportCommit("tok", "N");
     await artifactSetManualOnly("a", true);
     expect(calls).toEqual([
       ["profile_create", { name: "A", description: "d", spec }],
@@ -56,8 +56,8 @@ describe("profile wrappers", () => {
       ["profile_from_collection", { collectionId: 3, name: "From" }],
       ["profile_resolve", { spec }],
       ["profile_layout", { spec }],
-      ["profile_import_commit", { path: "/p.json", name: null }],
-      ["profile_import_commit", { path: "/p.json", name: "N" }],
+      ["profile_import_commit", { token: "tok", name: null }],
+      ["profile_import_commit", { token: "tok", name: "N" }],
       ["artifact_set_manual_only", { id: "a", manualOnly: true }],
     ]);
   });

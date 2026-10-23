@@ -225,7 +225,7 @@ function setup(path: string, opts: Opts = {}) {
       case "backup_delete":
         if (opts.restoreError) throw new Error(opts.restoreError);
         return null;
-      case "plugin:opener|open_path":
+      case "open_project_folder":
         if (opts.openError) throw new Error(opts.openError);
         return null;
       default:
@@ -413,12 +413,11 @@ describe("Project detail", () => {
       await screen.findByRole("button", { name: /^Open$/ }),
     );
     await waitFor(() =>
-      expect(calls.some((c) => c.cmd === "plugin:opener|open_path")).toBe(true),
+      expect(calls.some((c) => c.cmd === "open_project_folder")).toBe(true),
     );
-    expect(
-      calls.find((c) => c.cmd === "plugin:opener|open_path")?.args,
-    ).toMatchObject({
-      path: "/work/shop",
+    // The window names the project, never a path: the backend resolves the folder.
+    expect(calls.find((c) => c.cmd === "open_project_folder")?.args).toEqual({
+      target: { kind: "project", id: 1 },
     });
   });
 
@@ -733,9 +732,9 @@ describe("Clean removal", () => {
       within(toast).getByRole("button", { name: "Open backup folder" }),
     );
     await waitFor(() =>
-      expect(
-        calls.find((c) => c.cmd === "plugin:opener|open_path")?.args,
-      ).toMatchObject({ path: "/data/harneo/backups/shop/2026-10-23" }),
+      expect(calls.find((c) => c.cmd === "open_project_folder")?.args).toEqual({
+        target: { kind: "backups", set: "shop/2026-10-23" },
+      }),
     );
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });

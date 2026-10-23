@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { AppRoutes } from "../../App";
-import { openFolder } from "../../lib/ipc";
+import { openBackupsFolder, openProjectFolder } from "../../lib/ipc";
 import { page } from "../../test/library";
 
 const proj = (id: number, name: string) => ({
@@ -64,16 +64,39 @@ describe("projects in the app frame", () => {
   });
 });
 
-describe("openFolder", () => {
-  it("asks the opener plugin to open the path", async () => {
+describe("opening folders", () => {
+  it("names a project or a backup set, never a path to open", async () => {
     const calls: { cmd: string; args: unknown }[] = [];
     mockIPC((cmd, args) => {
       calls.push({ cmd, args });
       return null;
     });
-    await openFolder("/work/shop");
+    await openProjectFolder(4n);
+    await openBackupsFolder("/data/backups/4/2026-10-23");
+    await openBackupsFolder("C:\\data\\backups\\4\\x");
+    await openBackupsFolder("/data/backups");
+    await openBackupsFolder();
     expect(calls).toEqual([
-      { cmd: "plugin:opener|open_path", args: { path: "/work/shop" } },
+      {
+        cmd: "open_project_folder",
+        args: { target: { kind: "project", id: 4 } },
+      },
+      {
+        cmd: "open_project_folder",
+        args: { target: { kind: "backups", set: "4/2026-10-23" } },
+      },
+      {
+        cmd: "open_project_folder",
+        args: { target: { kind: "backups", set: "4/x" } },
+      },
+      {
+        cmd: "open_project_folder",
+        args: { target: { kind: "backups", set: null } },
+      },
+      {
+        cmd: "open_project_folder",
+        args: { target: { kind: "backups", set: null } },
+      },
     ]);
   });
 });

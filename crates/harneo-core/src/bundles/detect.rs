@@ -432,6 +432,18 @@ fn model_of(value: Option<&Value>) -> String {
 }
 
 impl Library {
+    /// Detection sends artifact text to Claude, so it needs the user's consent (spec/bundles.md
+    /// Decision 2): the `bundles.atImport` setting is on, or the user started this run.
+    fn require_consent(&self, user_initiated: bool) -> Result<()> {
+        if user_initiated
+            || self.settings_get("bundles.atImport")? == Some(serde_json::Value::Bool(true))
+        {
+            Ok(())
+        } else {
+            Err(Error::DetectionNotAllowed)
+        }
+    }
+
     fn job(&self, inputs: Vec<DetectInput>) -> Result<DetectionJob> {
         let mut config = self.claude.clone();
         config.model = model_of(self.settings_get("bundles.model")?.as_ref());
@@ -451,7 +463,9 @@ impl Library {
         &self,
         preview: &Preview,
         selection: &[ArtifactId],
+        user_initiated: bool,
     ) -> Result<DetectionJob> {
+        self.require_consent(user_initiated)?;
         let identity = preview.source.identity()?;
         let mut chosen = Vec::new();
         let mut seen = HashSet::new();
@@ -485,7 +499,12 @@ impl Library {
     }
 
     /// What a detection over stored copies (`ids`, or the whole library) will send.
-    pub fn prepare_library_detection(&self, only: Option<&[ArtifactId]>) -> Result<DetectionJob> {
+    pub fn prepare_library_detection(
+        &self,
+        only: Option<&[ArtifactId]>,
+        user_initiated: bool,
+    ) -> Result<DetectionJob> {
+        self.require_consent(user_initiated)?;
         let conn = &self.store.conn;
         let wanted: Vec<String> = match only {
             Some(only) => only.to_vec(),
@@ -520,19 +539,19 @@ impl Library {
     }
 
     /// Reads the ticked candidates of `preview` and asks Claude for links and tags. Holds the
-    /// library for the whole run; the app uses [`Self::prepare_preview_detection`] instead.
+    /// library for the whole run; calling it is the user's explicit request. The app uses [`Self::prepare_preview_detection`] instead.
     pub fn detect_for_preview(
         &self,
         preview: &Preview,
         selection: &[ArtifactId],
     ) -> Result<Detection> {
-        self.prepare_preview_detection(preview, selection)?
+        self.prepare_preview_detection(preview, selection, true)?
             .run(&|_, _| {})
     }
 
     /// Asks Claude for links and tags over stored copies (`ids`, or the whole library).
     pub fn detect_in_library(&self, only: Option<&[ArtifactId]>) -> Result<Detection> {
-        self.prepare_library_detection(only)?.run(&|_, _| {})
+        self.prepare_library_detection(only, true)?.run(&|_, _| {})
     }
 
     /// Stores the links the user chose as `ai`, confirmed; returns how many were stored.

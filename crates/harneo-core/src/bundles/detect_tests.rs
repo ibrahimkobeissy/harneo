@@ -292,7 +292,7 @@ fn artifacts_go_in_batches_of_twenty_with_progress() -> TestResult {
     let preview = s.library.preview(&local(src.path()))?;
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
     s.claude(&json!({"links": [], "tags": []}))?;
-    let job = s.library.prepare_preview_detection(&preview, &ids)?;
+    let job = s.library.prepare_preview_detection(&preview, &ids, true)?;
     assert_eq!(job.artifact_count(), 45);
     let ticks = Mutex::new(Vec::new());
     job.run(&|done, total| {
@@ -477,5 +477,59 @@ fn a_library_copy_edited_to_hold_a_token_after_import_is_withheld() -> TestResul
     assert!(!sent.contains(&token), "the edited text is never sent");
     assert!(!sent.contains("Plain body text."));
     assert!(sent.contains("plain") && sent.contains("A plain skill"));
+    Ok(())
+}
+
+#[test]
+fn detection_is_refused_without_consent_and_runs_with_the_setting_or_a_user_action() -> TestResult {
+    let mut s = setup()?;
+    let src = tempfile::tempdir()?;
+    write(
+        src.path(),
+        "agents/a.md",
+        "---\nname: a\ndescription: Agent\n---\nBody\n",
+    )?;
+    let preview = s.library.preview(&local(src.path()))?;
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    s.claude(&json!({"links": [], "tags": []}))?;
+    // Off by default, and an explicit false: refused before anything is read or spawned.
+    assert!(matches!(
+        s.library.prepare_preview_detection(&preview, &ids, false),
+        Err(Error::DetectionNotAllowed)
+    ));
+    assert!(matches!(
+        s.library.prepare_library_detection(None, false),
+        Err(Error::DetectionNotAllowed)
+    ));
+    s.library.settings_set("bundles.atImport", &json!(false))?;
+    assert!(matches!(
+        s.library.prepare_library_detection(None, false),
+        Err(Error::DetectionNotAllowed)
+    ));
+    assert_eq!(s.calls()?, 0);
+    // The user starting it is consent for that run; so is the setting.
+    s.library.prepare_preview_detection(&preview, &ids, true)?;
+    s.library.settings_set("bundles.atImport", &json!(true))?;
+    s.library.prepare_preview_detection(&preview, &ids, false)?;
+    s.library.prepare_library_detection(None, false)?;
+    Ok(())
+}
+
+#[test]
+fn claude_runs_without_user_or_project_settings() -> TestResult {
+    let mut s = setup()?;
+    let src = tempfile::tempdir()?;
+    write(
+        src.path(),
+        "agents/a.md",
+        "---\nname: a\ndescription: A\n---\nx\n",
+    )?;
+    let preview = s.library.preview(&local(src.path()))?;
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    s.library.import(&preview, &ids, &TagChoices::new())?;
+    s.claude(&json!({"links": [], "tags": []}))?;
+    s.library.detect_in_library(None)?;
+    let args = fs::read_to_string(s.bin.path().join("args-0.txt"))?;
+    assert!(args.contains("--setting-sources\n\n"), "{args:?}");
     Ok(())
 }

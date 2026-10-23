@@ -171,6 +171,10 @@ pub enum Error {
     /// The `claude` program is missing.
     #[error("the claude CLI is not installed, or is not on the PATH")]
     ClaudeMissing,
+    /// Detection was asked for without the user's consent: the `bundles.atImport` setting is off
+    /// and the call was not started by the user.
+    #[error("detection is off: turn it on in Settings, or start it yourself")]
+    DetectionNotAllowed,
     /// A claude call ran past the limit and was stopped.
     #[error("claude did not finish within {seconds} s and was stopped")]
     ClaudeTimeout {

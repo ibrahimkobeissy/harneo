@@ -553,6 +553,11 @@ impl Library {
 
     /// Deletes an artifact's copy and its index rows (tags and collection entries go with them).
     pub fn remove(&mut self, id: &str) -> Result<()> {
+        // Validate before touching the disk: a crafted id (`..`, a path) must never reach a rename.
+        let is_hex = id.len() == 16 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+        if !is_hex || records::load(&self.store.conn, id)?.is_none() {
+            return Err(Error::NotInLibrary { id: id.to_owned() });
+        }
         let target = self.store.artifacts_dir().join(id);
         let trash = tempfile::Builder::new()
             .prefix(".remove-")

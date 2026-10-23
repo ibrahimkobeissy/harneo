@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Detection } from "../../bindings/Detection";
-import type { Preview } from "../../bindings/Preview";
+import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import {
   bundlesDetectPreview,
   claudeCliStatus,
@@ -38,7 +38,7 @@ function messageOf(error: unknown): string {
  */
 export function useDetection(
   active: boolean,
-  preview: Preview | null,
+  preview: PreviewTicket | null,
   selection: readonly string[],
   onDetected: (detection: Detection) => void,
 ): DetectionControl {
@@ -85,7 +85,12 @@ export function useDetection(
             setPhase({ kind: "running", done: p.done, total: p.total });
           }
         }).catch(() => undefined);
-        const detection = await bundlesDetectPreview(preview, [...selection]);
+        const detection = await bundlesDetectPreview(
+          preview,
+          [...selection],
+          // Detect now is the user's own action; the automatic run relies on the setting.
+          forced,
+        );
         if (!current()) return;
         finished.current = true;
         onDone.current(detection);

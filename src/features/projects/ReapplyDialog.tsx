@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Hunk } from "../../bindings/Hunk";
-import type { Plan } from "../../bindings/Plan";
+import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { WriteAction } from "../../bindings/WriteAction";
 import { driftDiff, driftReapplyPlan, installApply } from "../../lib/ipc";
 import { Badge, type BadgeTone, CodeView } from "../../ui";
@@ -32,7 +32,7 @@ export function ReapplyDialog({
   onClose: () => void;
   onDone: (count: number) => void;
 }) {
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<PlanTicket | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [diff, setDiff] = useState<{ path: string; hunks: Hunk[] } | null>(
     null,

@@ -534,3 +534,21 @@ fn preview_serialises_with_a_tagged_source() -> TestResult {
     assert_eq!(back, preview);
     Ok(())
 }
+
+#[test]
+fn remove_checks_the_id_before_touching_the_disk() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.library.preview(&s.source)?;
+    s.library
+        .import(&preview, &all_ids(&preview), &TagChoices::new())?;
+    let before = stored_folders(&s.data)?;
+    // A traversal id would rename a folder outside the artifacts dir if it reached the disk.
+    for bad in ["..", "../x", "", "ABCDEF0123456789", "00000000000000000"] {
+        assert!(matches!(
+            s.library.remove(bad),
+            Err(Error::NotInLibrary { .. })
+        ));
+    }
+    assert_eq!(stored_folders(&s.data)?, before);
+    Ok(())
+}

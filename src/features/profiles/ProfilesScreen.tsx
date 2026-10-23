@@ -1,11 +1,9 @@
 import { FileUp, Layers, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
+import type { ProfileImportTicket } from "../../bindings/ProfileImportTicket";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import {
-  pickProfileFile,
-  pickProfileSavePath,
   profileExport,
   profileImportPreview,
   profilesList,
@@ -45,10 +43,7 @@ export function ProfilesScreen() {
   const [cloning, setCloning] = useState<ProfileSummary | null>(null);
   const [renaming, setRenaming] = useState<ProfileSummary | null>(null);
   const [deleting, setDeleting] = useState<ProfileSummary | null>(null);
-  const [importing, setImporting] = useState<{
-    path: string;
-    preview: ProfileImportPreview;
-  } | null>(null);
+  const [importing, setImporting] = useState<ProfileImportTicket | null>(null);
 
   const reload = useCallback(() => {
     profilesList()
@@ -96,9 +91,12 @@ export function ProfilesScreen() {
 
   async function exportProfile(profile: ProfileSummary) {
     try {
-      const path = await pickProfileSavePath(exportFileName(profile.name));
+      // The save dialog is the backend's: it picks the path and writes the file.
+      const path = await profileExport(
+        profile.id,
+        exportFileName(profile.name),
+      );
       if (path === null) return;
-      await profileExport(profile.id, path);
       say(`Exported ${profile.name} v${profile.version} to ${path}.`);
     } catch (err) {
       say(`Could not export ${profile.name}: ${String(err)}`, true);
@@ -107,10 +105,11 @@ export function ProfilesScreen() {
 
   async function importFile() {
     try {
-      const path = await pickProfileFile();
-      if (path === null) return;
+      // The file dialog is the backend's; the file stays there under a token.
+      const ticket = await profileImportPreview();
+      if (ticket === null) return;
       setNotice(null);
-      setImporting({ path, preview: await profileImportPreview(path) });
+      setImporting(ticket);
     } catch (err) {
       say(`Could not read the profile file: ${String(err)}`, true);
     }
@@ -235,8 +234,7 @@ export function ProfilesScreen() {
       )}
       {importing && (
         <ImportDialog
-          path={importing.path}
-          preview={importing.preview}
+          ticket={importing}
           onClose={() => setImporting(null)}
           onDone={(report) => {
             setImporting(null);

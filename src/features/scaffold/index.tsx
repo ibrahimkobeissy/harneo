@@ -2,7 +2,7 @@ import { ArrowLeft, CircleAlert, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import type { ApplyReport } from "../../bindings/ApplyReport";
-import type { Plan } from "../../bindings/Plan";
+import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import {
   homeClaudeDir,
@@ -58,7 +58,7 @@ export function ScaffoldScreen() {
   const [profileId, setProfileId] = useState<bigint | null>(null);
   const [planning, setPlanning] = useState(false);
   const [planError, setPlanError] = useState<string | null>(null);
-  const [plan, setPlan] = useState<Plan | null>(null);
+  const [plan, setPlan] = useState<PlanTicket | null>(null);
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [report, setReport] = useState<ApplyReport | null>(null);
