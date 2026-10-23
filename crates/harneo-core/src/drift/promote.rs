@@ -80,6 +80,7 @@ impl Library {
     pub fn promote(&self, project_id: i64, path: &str) -> Result<PromoteReport> {
         let project = self.project(project_id)?;
         let root = crate::install::project_folder(&project.path)?;
+        let _lock = self.lock_data_dir()?;
         let entry = self
             .installed_files(project_id)?
             .into_iter()
@@ -110,6 +111,7 @@ impl Library {
         let file = safe_join(&folder, &stored)?;
         let old = std::fs::read(&file).map_err(|e| io_error(&file, e))?;
         let main = stored == view.path;
+        let mut replaced_keys: Option<Vec<String>> = None;
         let bytes = match artifact.kind {
             ArtifactKind::Settings if main => {
                 let date = crate::install::utc_date(project.applied_at);
@@ -123,7 +125,9 @@ impl Library {
                         "{path} has plugins merged in by Harneo; re-apply it instead"
                     )));
                 }
-                crate::library::rewrite(&view, &view.path, disk.clone())?.0
+                let (bytes, keys) = crate::library::rewrite(&view, &view.path, disk.clone())?;
+                replaced_keys = Some(keys);
+                bytes
             }
             ArtifactKind::ClaudeMd if path == "CLAUDE.md" => without_import(&disk, &old),
             _ => disk.clone(),
@@ -143,6 +147,22 @@ impl Library {
                 }
             }
             let tx = self.store.conn.unchecked_transaction()?;
+            // For updates the copy now counts as edited, so it is never replaced unasked.
+            let mut marked = artifact.clone();
+            marked.metadata.insert(
+                crate::updates::PROMOTED_AT.to_owned(),
+                serde_json::Value::from(records::now()),
+            );
+            tx.execute(
+                "UPDATE artifacts SET artifact = ?2 WHERE id = ?1",
+                rusqlite::params![id, serde_json::to_string(&marked)?],
+            )?;
+            if let Some(keys) = &replaced_keys {
+                tx.execute(
+                    "UPDATE artifacts SET replaced_secret_keys = ?2 WHERE id = ?1",
+                    rusqlite::params![id, serde_json::to_string(keys)?],
+                )?;
+            }
             records::update_audit(&tx, &id, &fresh, records::now())?;
             crate::updates::record_copy_digest(&tx, &id, &crate::updates::copy_digest(&folder)?)?;
             tx.execute(
@@ -153,8 +173,15 @@ impl Library {
             Ok(())
         })();
         if let Err(error) = recorded {
-            // The library copy goes back as it was; the error says why.
-            let _ = write(&old);
+            // The library copy goes back as it was; the error says why, and when even that
+            // failed, where the previous copy is.
+            if let Err(restore) = write(&old) {
+                return Err(refuse(format!(
+                    "{error}; restoring the previous library copy also failed ({restore}); \
+                     it is saved in {}",
+                    backup.display()
+                )));
+            }
             return Err(error);
         }
         Ok(PromoteReport {

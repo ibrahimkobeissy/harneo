@@ -233,6 +233,12 @@ fn undo(set: Option<&BackupSet>, target: &Path, journal: &Journal) -> Vec<String
 }
 
 impl Library {
+    /// Takes the data-dir lock (waiting up to the usual time) for a change to the library's
+    /// files that must not interleave with an apply or a restore. Released when dropped.
+    pub(crate) fn lock_data_dir(&self) -> Result<impl Sized> {
+        DataLock::acquire(&self.data_dir()?, LOCK_WAIT)
+    }
+
     /// The data folder (the parent of `library/`).
     pub(crate) fn data_dir(&self) -> Result<PathBuf> {
         self.store

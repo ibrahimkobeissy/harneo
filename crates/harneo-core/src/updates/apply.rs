@@ -93,6 +93,16 @@ pub struct UpdateJob {
     versions: (Option<String>, Option<String>),
     /// *Update all*: leave the copy alone if it turns out to be edited.
     protect_edits: bool,
+    /// What the user was shown, to be unchanged when the update is applied.
+    seen: Seen,
+}
+
+/// The state the update was prepared against: the `upstream` row and the library copy.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Seen {
+    state: String,
+    upstream_digest: Option<String>,
+    copy_digest: Option<String>,
 }
 
 /// The upstream copy, staged and audited, waiting to be swapped in.
@@ -107,6 +117,7 @@ pub struct PreparedUpdate {
     replaced_secret_keys: Vec<String>,
     versions: (Option<String>, Option<String>),
     protect_edits: bool,
+    seen: Seen,
 }
 
 fn io_error(path: &Path, source: io::Error) -> Error {
@@ -167,6 +178,7 @@ impl UpdateJob {
             replaced_secret_keys: copied.replaced_secret_keys,
             versions: self.versions.clone(),
             protect_edits: self.protect_edits,
+            seen: self.seen.clone(),
         })
     }
 }
@@ -232,6 +244,16 @@ impl Library {
                 message: "it is removed at its source".to_owned(),
             });
         }
+        let current = self.store.artifacts_dir().join(id);
+        let seen = Seen {
+            state,
+            upstream_digest: self.upstream_digest(id)?,
+            copy_digest: if current.is_dir() {
+                Some(copy_digest(&current)?)
+            } else {
+                None
+            },
+        };
         Ok(UpdateJob {
             git: self.git.clone(),
             session: Arc::clone(&self.session),
@@ -242,7 +264,49 @@ impl Library {
             source_path: detail.provenance.source_path,
             versions: (from, to),
             protect_edits,
+            seen,
         })
+    }
+
+    fn upstream_digest(&self, id: &str) -> Result<Option<String>> {
+        Ok(self
+            .store
+            .conn
+            .query_row(
+                "SELECT upstream_digest FROM upstream WHERE artifact_id = ?1",
+                params![id],
+                |r| r.get(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
+    /// Refuses an update whose preparation is stale: the flag changed (a *Keep mine* or a newer
+    /// check), the library copy changed (a promote), or the staged upstream is not the content
+    /// the check saw.
+    fn check_still_current(&self, prepared: &PreparedUpdate) -> Result<()> {
+        let id = prepared.id.as_str();
+        let stale = |what: &str| Error::Update {
+            message: format!("{what} since it was prepared; check again"),
+        };
+        let (state, ..) = self.flagged(id).map_err(|_| stale("its flag changed"))?;
+        let upstream_digest = self.upstream_digest(id)?;
+        if state != prepared.seen.state || upstream_digest != prepared.seen.upstream_digest {
+            return Err(stale("its flag changed"));
+        }
+        let folder = self.store.artifacts_dir().join(id);
+        let copy = if folder.is_dir() {
+            Some(copy_digest(&folder)?)
+        } else {
+            None
+        };
+        if copy != prepared.seen.copy_digest {
+            return Err(stale("the library copy changed"));
+        }
+        if prepared.artifact.digest != upstream_digest {
+            return Err(stale("its source changed"));
+        }
+        Ok(())
     }
 
     /// The row of `upstream` for `id`: its state and versions; an error when there is none.
@@ -308,6 +372,7 @@ impl Library {
         hooks: &dyn ImportHooks,
     ) -> Result<UpdateReport> {
         let id = prepared.id.clone();
+        self.check_still_current(&prepared)?;
         let edited = self.has_local_edits(&id)?;
         if edited && prepared.protect_edits {
             return Ok(UpdateReport::new(

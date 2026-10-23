@@ -394,6 +394,22 @@ fn the_artifact_scope_judges_only_that_artifact() -> TestResult {
 }
 
 #[test]
+fn an_artifact_check_never_hides_the_other_changed_artifacts() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    let (a, b) = (f.id_of("a")?, f.id_of("b")?);
+    commit_change(&f, "agents/a.md", &agent("a", "two"))?;
+    commit_change(&f, "agents/b.md", &agent("b", "two"))?;
+    f.library
+        .check_updates(&CheckScope::Artifact { id: a.clone() })?;
+    assert_eq!(f.library.update_status(&b)?, None);
+    f.library.check_updates(&CheckScope::All)?;
+    assert!(f.library.update_status(&a)?.is_some());
+    assert!(f.library.update_status(&b)?.is_some(), "b is flagged too");
+    Ok(())
+}
+
+#[test]
 fn a_source_scope_checks_only_that_source() -> TestResult {
     let mut f = fixture()?;
     f.import(None, None)?;

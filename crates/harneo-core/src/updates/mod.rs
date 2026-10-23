@@ -48,6 +48,9 @@ pub use diff::{DiffLine, DiffStatus, FileDiff, Hunk, LineKind};
 /// The metadata key that records the commit an artifact was last updated from (git sources).
 /// Without it the commit is the source's, from import.
 pub(crate) const IMPORTED_COMMIT: &str = "importedCommit";
+/// Metadata key set when a project's edit is promoted into the library copy: for updates the
+/// copy then counts as edited (backed up, Yours vs Upstream) until an update replaces it.
+pub(crate) const PROMOTED_AT: &str = "promotedAt";
 
 /// What to check.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -334,19 +337,32 @@ impl Library {
         }))
     }
 
-    /// The stored copy no longer matches its recorded digest. A copy with no recorded digest
-    /// (not checked yet) counts as unedited.
+    /// The stored copy no longer matches its recorded digest, or a project's edit was promoted
+    /// into it (see [`PROMOTED_AT`]). A copy with no recorded digest (not checked yet) counts
+    /// as unedited.
     pub(crate) fn has_local_edits(&self, id: &str) -> Result<bool> {
-        let recorded: Option<String> = self
+        let row: Option<(Option<String>, String)> = self
             .store
             .conn
             .query_row(
-                "SELECT copy_digest FROM artifacts WHERE id = ?1",
+                "SELECT copy_digest, artifact FROM artifacts WHERE id = ?1",
                 params![id],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )
-            .optional()?
-            .flatten();
+            .optional()?;
+        let Some((recorded, json)) = row else {
+            return Ok(false);
+        };
+        let promoted = serde_json::from_str::<serde_json::Value>(&json)
+            .ok()
+            .is_some_and(|v| {
+                v.pointer("/metadata")
+                    .and_then(|m| m.get(PROMOTED_AT))
+                    .is_some()
+            });
+        if promoted {
+            return Ok(true);
+        }
         let Some(recorded) = recorded else {
             return Ok(false);
         };

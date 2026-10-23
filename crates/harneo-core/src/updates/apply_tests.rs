@@ -373,3 +373,65 @@ fn a_finding_about_an_artifact_updated_meanwhile_is_dropped() -> TestResult {
     assert_eq!(l.library.update_status(&id)?, None);
     Ok(())
 }
+
+fn prepared(
+    l: &Local,
+    id: &str,
+) -> std::result::Result<(UpdateJob, super::apply::PreparedUpdate), Error> {
+    let job = l.library.prepare_update(id)?;
+    let staged = job.run()?;
+    Ok((job, staged))
+}
+
+fn flagged_a() -> std::result::Result<(Local, String), Box<dyn std::error::Error>> {
+    let l = local(&[("agents/a.md", agent("a", "one"))])?;
+    let id = l.agent_id("a")?;
+    write(l.src.path(), "agents/a.md", &agent("a", "two"))?;
+    l.check()?;
+    Ok((l, id))
+}
+
+#[test]
+fn keep_mine_between_prepare_and_finish_wins() -> TestResult {
+    let (mut l, id) = flagged_a()?;
+    let (_job, staged) = prepared(&l, &id)?;
+    l.library.update(&id, UpdateChoice::KeepMine)?;
+    let err = l.library.finish_update(staged).expect_err("refused");
+    assert!(matches!(err, Error::Update { .. }), "{err}");
+    assert!(l.stored(&id, "a.md")?.contains("one"), "copy untouched");
+    assert_eq!(
+        l.library.update_status(&id)?.map(|s| s.state),
+        Some(UpstreamState::Skipped)
+    );
+    Ok(())
+}
+
+#[test]
+fn a_change_to_the_library_copy_between_prepare_and_finish_refuses() -> TestResult {
+    let (mut l, id) = flagged_a()?;
+    let (_job, staged) = prepared(&l, &id)?;
+    let file = l
+        .data
+        .path()
+        .join("library/artifacts")
+        .join(&id)
+        .join("a.md");
+    fs::write(&file, agent("a", "promoted meanwhile"))?;
+    let err = l.library.finish_update(staged).expect_err("refused");
+    assert!(matches!(err, Error::Update { .. }), "{err}");
+    assert!(l.stored(&id, "a.md")?.contains("promoted meanwhile"));
+    Ok(())
+}
+
+#[test]
+fn staged_content_that_differs_from_the_checked_digest_refuses() -> TestResult {
+    let (mut l, id) = flagged_a()?;
+    let job = l.library.prepare_update(&id)?;
+    // Upstream moves on after the check and before the copy is staged.
+    write(l.src.path(), "agents/a.md", &agent("a", "three"))?;
+    let staged = job.run()?;
+    let err = l.library.finish_update(staged).expect_err("refused");
+    assert!(matches!(err, Error::Update { .. }), "{err}");
+    assert!(l.stored(&id, "a.md")?.contains("one"), "copy untouched");
+    Ok(())
+}

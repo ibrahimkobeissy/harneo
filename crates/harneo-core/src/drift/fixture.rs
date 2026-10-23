@@ -15,7 +15,7 @@ pub const SKILL: &str = ".claude/skills/s/SKILL.md";
 
 pub struct Fx {
     pub data: tempfile::TempDir,
-    _src: tempfile::TempDir,
+    pub src: tempfile::TempDir,
     pub library: Library,
     pub profile: i64,
 }
@@ -72,7 +72,7 @@ pub fn fx() -> std::result::Result<Fx, Box<dyn std::error::Error>> {
     let profile = library.create_profile("web", "", &spec)?;
     Ok(Fx {
         data,
-        _src: src,
+        src,
         library,
         profile,
     })

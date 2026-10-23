@@ -117,3 +117,40 @@ fn an_added_artifact_comes_back_as_a_preview_with_its_candidate() -> TestResult 
     assert!(f.library.promote_added(id, "../x").is_err());
     Ok(())
 }
+
+#[test]
+fn a_promoted_copy_is_never_replaced_by_an_update_without_a_backup() -> TestResult {
+    let mut f = fx()?;
+    let (dir, id) = project(&f)?;
+    put(dir.path(), AGENT, EDITED)?;
+    let report = f.library.promote(id, AGENT)?;
+    put(
+        f.src.path(),
+        AGENT,
+        "---\nname: rev\ndescription: Reviews code\n---\nUpstream\n",
+    )?;
+    f.library.check_updates(&crate::updates::CheckScope::All)?;
+    let status = f.library.update_status(&report.artifact)?.expect("flagged");
+    assert!(status.local_edits, "a promoted copy counts as edited");
+
+    let all = f.library.update_all()?;
+    assert!(
+        all.iter().any(|r| r.id == report.artifact
+            && r.outcome == crate::updates::UpdateOutcome::SkippedLocalEdits),
+        "{all:?}"
+    );
+    assert_eq!(library_copy(&f, &report.artifact, "rev.md")?, EDITED);
+
+    let taken = f
+        .library
+        .update(&report.artifact, crate::updates::UpdateChoice::TakeUpstream)?;
+    let backup = taken.backup.expect("a backup");
+    assert_eq!(
+        fs::read_to_string(std::path::Path::new(&backup).join("rev.md"))?,
+        EDITED
+    );
+    assert!(library_copy(&f, &report.artifact, "rev.md")?.contains("Upstream"));
+    // Taking upstream makes the copy plain again.
+    assert!(!f.library.has_local_edits(&report.artifact)?);
+    Ok(())
+}

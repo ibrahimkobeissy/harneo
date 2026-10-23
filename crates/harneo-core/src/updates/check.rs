@@ -50,6 +50,9 @@ enum Found {
         commit: Option<String>,
         judgements: Vec<Judgement>,
         new_upstream: u32,
+        /// The source's seen commit moves only when every artifact of it was judged; after a
+        /// one-artifact check the others must still be looked at next time.
+        advance: bool,
     },
 }
 
@@ -164,6 +167,7 @@ impl CheckJob {
             commit,
             judgements,
             new_upstream: u32::try_from(new_upstream).unwrap_or(u32::MAX),
+            advance: self.only.is_none(),
         }
     }
 }
@@ -230,7 +234,7 @@ impl Library {
     fn store_source(&self, source_id: &str, found: Found) -> Result<SourceResult> {
         let conn = &self.store.conn;
         let now = records::now();
-        let (commit, judgements, new_upstream) = match found {
+        let (commit, judgements, new_upstream, advance) = match found {
             Found::Missing => return Ok(SourceResult::Missing),
             Found::Unreachable(reason) => return Ok(SourceResult::Unreachable { reason }),
             Found::Unchanged => {
@@ -244,7 +248,8 @@ impl Library {
                 commit,
                 judgements,
                 new_upstream,
-            } => (commit, judgements, new_upstream),
+                advance,
+            } => (commit, judgements, new_upstream, advance),
         };
         let tx = conn.unchecked_transaction()?;
         for judgement in judgements {
@@ -302,10 +307,11 @@ impl Library {
                 )?,
             }
         }
+        let seen = if advance { commit } else { None };
         tx.execute(
             "UPDATE sources SET checked_at = ?2, remote_commit = COALESCE(?3, remote_commit)
              WHERE id = ?1",
-            params![source_id, now, commit],
+            params![source_id, now, seen],
         )?;
         tx.commit()?;
         result_from_table(conn, source_id, new_upstream)
