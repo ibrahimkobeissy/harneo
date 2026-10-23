@@ -17,6 +17,8 @@ mod executable_tests;
 pub(crate) mod fixture;
 #[cfg(test)]
 pub(crate) mod fixture_lifecycle;
+#[cfg(test)]
+mod hardening_tests;
 mod plan;
 #[cfg(test)]
 mod plan_tests;

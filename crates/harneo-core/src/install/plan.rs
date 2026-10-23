@@ -50,6 +50,11 @@ pub struct Write {
     /// The file is written executable (a script); unix only, absent means not.
     #[serde(default)]
     pub executable: bool,
+    /// The exact unix permission bits to give the file (a restored original keeps the mode it
+    /// had); absent means the umask default for a new file and the current mode for a replaced one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mode: Option<u32>,
 }
 
 /// What a plan is for. `apply` registers the project for every kind but `Removal`, which
@@ -179,6 +184,9 @@ pub(crate) fn safe_parts(rel: &str) -> Result<Vec<&str>> {
         if part.eq_ignore_ascii_case(".git") {
             return Err(refuse("Harneo never touches .git"));
         }
+        if let Some(why) = windows_hostile(part) {
+            return Err(refuse(why));
+        }
         parts.push(part);
     }
     if Path::new(rel).is_absolute() {
@@ -193,11 +201,72 @@ pub(crate) fn safe_parts(rel: &str) -> Result<Vec<&str>> {
     Ok(parts)
 }
 
+/// Why `part` would mean something else on Windows (a drive, a stream, a device, an alias),
+/// checked on every platform so a profile's files stay portable.
+fn windows_hostile(part: &str) -> Option<&'static str> {
+    if part.contains(':') {
+        return Some("a name with ':' (a drive or stream on Windows)");
+    }
+    if part.ends_with('.') || part.ends_with(' ') {
+        return Some("a name ending in '.' or a space (an alias on Windows)");
+    }
+    let bytes = part.as_bytes();
+    if bytes
+        .windows(2)
+        .any(|w| w[0] == b'~' && w[1].is_ascii_digit())
+    {
+        return Some("a name that looks like a Windows short name");
+    }
+    let stem = part.split('.').next().unwrap_or(part).trim_end();
+    let upper = stem.to_ascii_uppercase();
+    let numbered = |prefix: &str| {
+        upper
+            .strip_prefix(prefix)
+            .is_some_and(|n| matches!(n.as_bytes(), [b'1'..=b'9']))
+    };
+    if matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL") || numbered("COM") || numbered("LPT")
+    {
+        return Some("a reserved device name on Windows");
+    }
+    None
+}
+
+/// The most a file Harneo compares, backs up or restores may hold: it is read whole into memory.
+pub(crate) const MAX_READ_BYTES: u64 = 64 * 1024 * 1024;
+
+/// The bytes of `path`, refusing a file over [`MAX_READ_BYTES`].
+pub(crate) fn read_capped(path: &Path) -> Result<Vec<u8>> {
+    use std::io::Read;
+    let io = |source| Error::Io {
+        path: path.display().to_string(),
+        source,
+    };
+    let mut bytes = Vec::new();
+    fs::File::open(path)
+        .map_err(io)?
+        .take(MAX_READ_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(io)?;
+    if bytes.len() as u64 > MAX_READ_BYTES {
+        return Err(install(format!(
+            "{} is too large to handle (over {} MiB)",
+            path.display(),
+            MAX_READ_BYTES / (1024 * 1024)
+        )));
+    }
+    Ok(bytes)
+}
+
 /// `target/rel` after the path rules, refusing a symlink at any existing step below `target`.
 pub(crate) fn resolve_inside(target: &Path, rel: &str) -> Result<PathBuf> {
     let mut path = target.to_path_buf();
     for part in safe_parts(rel)? {
         path.push(part);
+        if !path.starts_with(target) {
+            return Err(Error::UnsafePath {
+                path: rel.to_owned(),
+            });
+        }
         match fs::symlink_metadata(&path) {
             Ok(meta) if meta.file_type().is_symlink() => {
                 return Err(Error::UnsafePath {
@@ -321,6 +390,7 @@ impl Library {
                     PathFrom::Generated { .. } => None,
                 },
                 executable: file.executable,
+                mode: None,
             })
             .collect();
         let plan = Plan {

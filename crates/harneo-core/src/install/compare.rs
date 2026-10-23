@@ -268,10 +268,7 @@ fn is_file(path: &Path) -> Result<bool> {
 }
 
 fn read(path: &Path) -> Result<Vec<u8>> {
-    fs::read(path).map_err(|source| Error::Io {
-        path: path.display().to_string(),
-        source,
-    })
+    super::plan::read_capped(path)
 }
 
 impl Row {
@@ -573,6 +570,7 @@ fn item_writes(item: &Item, action: RefitAction) -> Vec<Write> {
         diff,
         artifact,
         executable: false,
+        mode: None,
     };
     let exec = |mut w: Write, f: &ProfileFile| {
         w.executable = f.executable;

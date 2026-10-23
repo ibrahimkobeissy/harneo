@@ -390,6 +390,7 @@ impl Library {
                     PathFrom::Generated { .. } => None,
                 },
                 executable: file.executable,
+                mode: None,
                 path,
             });
         }

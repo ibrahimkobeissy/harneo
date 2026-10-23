@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use super::backup::{find_deleted_originals, find_originals};
+use super::backup::{find_deleted_originals, find_originals, Original};
 use super::plan::{project_folder, Plan, PlanKind, Write, WriteAction};
 use super::registry::{InstalledFile, Project};
 use super::switch::{backup_count, current_bytes, take_out};
@@ -16,7 +16,7 @@ impl Library {
         &self,
         project: &Project,
         paths: &[&str],
-    ) -> Result<HashMap<String, Vec<u8>>> {
+    ) -> Result<HashMap<String, Original>> {
         if paths.is_empty() {
             return Ok(HashMap::new());
         }
@@ -51,16 +51,17 @@ impl Library {
         let folders = self.backup_folders_newest_first(project.id)?;
         let deleted =
             find_deleted_originals(&self.data_dir()?, &folders, |p| !manifest.contains_key(p))?;
-        for (path, bytes) in deleted {
+        for (path, original) in deleted {
             if current_bytes(&target, &path)?.is_none() {
                 restored.push(path.clone());
                 writes.push(Write {
                     path,
                     action: WriteAction::New,
-                    bytes: Some(bytes),
+                    bytes: Some(original.bytes),
                     diff: None,
                     artifact: None,
                     executable: false,
+                    mode: original.mode,
                 });
             }
         }

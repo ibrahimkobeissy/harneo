@@ -5,7 +5,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 
-use super::plan::{digest, project_folder, resolve_inside, Plan, PlanKind, Write, WriteAction};
+use super::backup::Original;
+use super::plan::{
+    digest, project_folder, read_capped, resolve_inside, Plan, PlanKind, Write, WriteAction,
+};
 use super::registry::InstalledFile;
 use crate::error::{Error, Result};
 use crate::library::Library;
@@ -15,10 +18,7 @@ use crate::profiles::{PathFrom, ProfileId, ProfileView};
 pub(super) fn current_bytes(target: &Path, rel: &str) -> Result<Option<Vec<u8>>> {
     let path = resolve_inside(target, rel)?;
     match fs::symlink_metadata(&path) {
-        Ok(meta) if meta.is_file() => fs::read(&path).map(Some).map_err(|source| Error::Io {
-            path: path.display().to_string(),
-            source,
-        }),
+        Ok(meta) if meta.is_file() => read_capped(&path).map(Some),
         Ok(_) => Err(Error::Install {
             message: format!("{rel} is not a regular file"),
         }),
@@ -55,7 +55,7 @@ pub(super) fn take_out(
     target: &Path,
     manifest: &HashMap<&str, &InstalledFile>,
     gone: &[&str],
-    originals: &HashMap<String, Vec<u8>>,
+    originals: &HashMap<String, Original>,
     edited: &mut Vec<String>,
     restored: &mut Vec<String>,
 ) -> Result<Vec<Write>> {
@@ -67,12 +67,16 @@ pub(super) fn take_out(
                 edited.push(path.to_owned());
             }
         }
-        let (action, bytes) = match originals.get(path) {
+        let (action, bytes, mode) = match originals.get(path) {
             Some(original) => {
                 restored.push(path.to_owned());
-                (put_action(disk.is_some()), Some(original.clone()))
+                (
+                    put_action(disk.is_some()),
+                    Some(original.bytes.clone()),
+                    original.mode,
+                )
             }
-            None => (WriteAction::Delete, None),
+            None => (WriteAction::Delete, None, None),
         };
         writes.push(Write {
             path: path.to_owned(),
@@ -81,6 +85,7 @@ pub(super) fn take_out(
             diff: None,
             artifact: None,
             executable: false,
+            mode,
         });
     }
     Ok(writes)
@@ -134,6 +139,7 @@ impl Library {
                     PathFrom::Generated { .. } => None,
                 },
                 executable: file.executable,
+                mode: None,
             };
             match manifest.get(file.path.as_str()) {
                 Some(known) if known.digest == digest(&file.bytes) => {}

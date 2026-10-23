@@ -25,4 +25,9 @@ artifact: string | null,
 /**
  * The file is written executable (a script); unix only, absent means not.
  */
-executable: boolean, };
+executable: boolean, 
+/**
+ * The exact unix permission bits to give the file (a restored original keeps the mode it
+ * had); absent means the umask default for a new file and the current mode for a replaced one.
+ */
+mode?: number, };

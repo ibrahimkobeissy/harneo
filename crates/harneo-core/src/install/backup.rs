@@ -13,7 +13,9 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 
 use super::apply::{ApplyReport, DataLock, NoHooks};
-use super::plan::{digest, resolve_inside, utc_stamp, Plan, PlanKind, Write, WriteAction};
+use super::plan::{
+    digest, read_capped, resolve_inside, utc_stamp, Plan, PlanKind, Write, WriteAction,
+};
 use super::registry;
 use crate::error::{Error, Result};
 use crate::library::Library;
@@ -32,6 +34,8 @@ struct Entry {
     /// The file was one Harneo manages (listed in the manifest) when it was backed up, so the
     /// copy is not one of the project's originals.
     managed: bool,
+    /// The unix permission bits of the original; `None` when it did not exist (or off unix).
+    mode: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -52,7 +56,7 @@ pub(crate) struct BackupSet {
     /// Files copied (what `backups.file_count` counts).
     pub(crate) file_count: u32,
     /// `(project path, original bytes)` of every file the set holds.
-    originals: Vec<(String, Vec<u8>)>,
+    originals: Vec<(String, Vec<u8>, Option<u32>)>,
 }
 
 fn io_error(path: &Path, source: io::Error) -> Error {
@@ -62,9 +66,63 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     }
 }
 
+/// The permission bits of a file (unix); `None` elsewhere.
+#[cfg(unix)]
+fn mode_of(meta: &fs::Metadata) -> Option<u32> {
+    use std::os::unix::fs::PermissionsExt;
+    Some(meta.permissions().mode() & 0o7777)
+}
+
+#[cfg(not(unix))]
+fn mode_of(_meta: &fs::Metadata) -> Option<u32> {
+    None
+}
+
+#[cfg(unix)]
+fn set_mode(path: &Path, mode: u32) -> io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(mode))
+}
+
+#[cfg(not(unix))]
+fn set_mode(_path: &Path, _mode: u32) -> io::Result<()> {
+    Ok(())
+}
+
+/// The mode a new file gets in `dir` (0666 minus the umask), read off a probe file made with
+/// the standard library's default permissions. `None` off unix.
+fn default_mode(dir: &Path) -> io::Result<Option<u32>> {
+    if !cfg!(unix) {
+        return Ok(None);
+    }
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos());
+    let probe = dir.join(format!(".harneo-mode-{}-{nanos}", std::process::id()));
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)?;
+    let mode = fs::metadata(&probe).map(|m| mode_of(&m));
+    let _ = fs::remove_file(&probe);
+    mode
+}
+
 /// Writes `bytes` to `path` through a temp file in the same folder, so a reader never sees a
-/// half-written file. Keeps the permissions of a file that is replaced.
+/// half-written file. Keeps the permissions of a file that is replaced; a new file gets the
+/// default mode (0666 minus the umask), not the temp file's 0600.
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
+    write_file(path, bytes, None, false)
+}
+
+/// [`write_atomic`] with an exact `mode` (a restored original) and, when `noclobber`, a refusal
+/// to replace a file that appeared since the check.
+pub(super) fn write_file(
+    path: &Path,
+    bytes: &[u8],
+    mode: Option<u32>,
+    noclobber: bool,
+) -> io::Result<()> {
     use std::io::Write;
     let dir = path
         .parent()
@@ -74,11 +132,31 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> io::Result<()> {
         .tempfile_in(dir)?;
     temp.write_all(bytes)?;
     temp.as_file().sync_all()?;
-    if let Ok(meta) = fs::metadata(path) {
-        fs::set_permissions(temp.path(), meta.permissions())?;
+    let wanted = match (mode, fs::metadata(path)) {
+        (Some(m), _) => Some(m),
+        (None, Ok(meta)) => mode_of(&meta),
+        (None, Err(_)) => default_mode(dir)?,
+    };
+    if let Some(m) = wanted {
+        set_mode(temp.path(), m)?;
     }
-    temp.persist(path).map_err(|e| e.error)?;
+    if noclobber {
+        temp.persist_noclobber(path).map_err(|e| e.error)?;
+    } else {
+        temp.persist(path).map_err(|e| e.error)?;
+    }
+    sync_dir(dir);
     Ok(())
+}
+
+/// Flushes the folder entry of a renamed file (unix); best effort, since some filesystems
+/// refuse to sync a folder.
+fn sync_dir(dir: &Path) {
+    if cfg!(unix) {
+        if let Ok(folder) = fs::File::open(dir) {
+            let _ = folder.sync_all();
+        }
+    }
 }
 
 /// Copies every file `plan` replaces or deletes into a new set. `None` when the plan touches no
@@ -109,15 +187,17 @@ pub(crate) fn create(
         let path = resolve_inside(target, &write.path)?;
         match fs::symlink_metadata(&path) {
             Ok(meta) if meta.is_file() => {
-                let bytes = fs::read(&path).map_err(|e| io_error(&path, e))?;
+                let bytes = read_capped(&path)?;
+                let mode = mode_of(&meta);
                 entries.push(Entry {
                     path: write.path.clone(),
                     digest: Some(digest(&bytes)),
                     existed_before: true,
                     reason,
                     managed: managed.contains(&write.path),
+                    mode,
                 });
-                originals.push((write.path.clone(), bytes));
+                originals.push((write.path.clone(), bytes, mode));
             }
             Ok(_) => {
                 return Err(Error::Install {
@@ -130,6 +210,7 @@ pub(crate) fn create(
                 existed_before: false,
                 reason,
                 managed: managed.contains(&write.path),
+                mode: None,
             }),
             // A file to replace or delete that vanished since the preview: nothing to keep.
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
@@ -144,13 +225,13 @@ pub(crate) fn create(
     let stamp = utc_stamp(now);
     let (dir, name) = fresh_dir(&parent, &stamp)?;
     let made = (|| -> Result<()> {
-        for (rel, bytes) in &originals {
+        for (rel, bytes, _) in &originals {
             let dest = rel.split('/').fold(dir.clone(), |acc, part| acc.join(part));
             if let Some(folder) = dest.parent() {
                 fs::create_dir_all(folder).map_err(|e| io_error(folder, e))?;
             }
             write_atomic(&dest, bytes).map_err(|e| io_error(&dest, e))?;
-            let copied = fs::read(&dest).map_err(|e| io_error(&dest, e))?;
+            let copied = read_capped(&dest)?;
             if copied != *bytes {
                 return Err(Error::Install {
                     message: format!("the backup of {rel} did not match the original"),
@@ -204,14 +285,22 @@ impl BackupSet {
     /// Puts the original bytes of `rel` back (the file is restored from memory, which was
     /// read and checked when the set was made).
     pub(crate) fn restore(&self, target: &Path, rel: &str) -> io::Result<()> {
-        let Some((_, bytes)) = self.originals.iter().find(|(p, _)| p == rel) else {
+        let Some((_, bytes, mode)) = self.originals.iter().find(|(p, ..)| p == rel) else {
             return Ok(());
         };
         let path = resolve_inside(target, rel).map_err(io::Error::other)?;
         if let Some(folder) = path.parent() {
             fs::create_dir_all(folder)?;
         }
-        write_atomic(&path, bytes)
+        write_file(&path, bytes, *mode, false)
+    }
+
+    /// The bytes `rel` had when the set was made; `None` when the set holds no such file.
+    pub(crate) fn original(&self, rel: &str) -> Option<&[u8]> {
+        self.originals
+            .iter()
+            .find(|(p, ..)| p == rel)
+            .map(|(_, bytes, _)| bytes.as_slice())
     }
 
     /// Deletes the set from disk (used when the apply it was made for was fully undone).
@@ -233,6 +322,9 @@ struct StoredEntry {
     managed: bool,
     #[serde(default)]
     reason: String,
+    /// Absent in sets made before modes were recorded.
+    #[serde(default)]
+    mode: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -247,6 +339,14 @@ pub(crate) struct StoredFile {
     pub(crate) bytes: Vec<u8>,
     /// Harneo's own file at the time, not one of the project's originals.
     pub(crate) managed: bool,
+    pub(crate) mode: Option<u32>,
+}
+
+/// One of the project's own files as a set held it.
+#[derive(Debug)]
+pub(crate) struct Original {
+    pub(crate) bytes: Vec<u8>,
+    pub(crate) mode: Option<u32>,
 }
 
 /// The folder of a set on disk, refusing a stored folder that leaves `<data dir>/backups`.
@@ -281,7 +381,7 @@ fn read_file(dir: &Path, entry: &StoredEntry) -> Result<Vec<u8>> {
         .path
         .split('/')
         .fold(dir.to_path_buf(), |a, p| a.join(p));
-    let bytes = fs::read(&path).map_err(|e| io_error(&path, e))?;
+    let bytes = read_capped(&path)?;
     if entry.digest.as_deref() != Some(digest(&bytes).as_str()) {
         return Err(Error::Install {
             message: format!(
@@ -291,6 +391,13 @@ fn read_file(dir: &Path, entry: &StoredEntry) -> Result<Vec<u8>> {
         });
     }
     Ok(bytes)
+}
+
+fn original(dir: &Path, entry: &StoredEntry) -> Result<Original> {
+    Ok(Original {
+        bytes: read_file(dir, entry)?,
+        mode: entry.mode,
+    })
 }
 
 /// Every file the set in `folder` holds (the ones that existed before), verified.
@@ -305,6 +412,7 @@ pub(crate) fn read_set(data_dir: &Path, folder: &str) -> Result<Vec<StoredFile>>
             path: entry.path.clone(),
             bytes: read_file(&dir, entry)?,
             managed: entry.managed,
+            mode: entry.mode,
         });
     }
     Ok(files)
@@ -318,7 +426,7 @@ pub(crate) fn find_originals(
     data_dir: &Path,
     folders: &[String],
     wanted: &HashSet<&str>,
-) -> Result<HashMap<String, Vec<u8>>> {
+) -> Result<HashMap<String, Original>> {
     let mut found = HashMap::new();
     for folder in folders {
         let dir = set_dir(data_dir, folder)?;
@@ -330,7 +438,7 @@ pub(crate) fn find_originals(
             .filter(|e| e.existed_before && !e.managed && wanted.contains(e.path.as_str()))
         {
             if !found.contains_key(&entry.path) {
-                found.insert(entry.path.clone(), read_file(&dir, entry)?);
+                found.insert(entry.path.clone(), original(&dir, entry)?);
             }
         }
     }
@@ -343,7 +451,7 @@ pub(crate) fn find_deleted_originals(
     data_dir: &Path,
     folders: &[String],
     wanted: impl Fn(&str) -> bool,
-) -> Result<HashMap<String, Vec<u8>>> {
+) -> Result<HashMap<String, Original>> {
     let mut found = HashMap::new();
     for folder in folders {
         let dir = set_dir(data_dir, folder)?;
@@ -354,7 +462,7 @@ pub(crate) fn find_deleted_originals(
             e.existed_before && !e.managed && e.reason == "deleted" && wanted(e.path.as_str())
         }) {
             if !found.contains_key(&entry.path) {
-                found.insert(entry.path.clone(), read_file(&dir, entry)?);
+                found.insert(entry.path.clone(), original(&dir, entry)?);
             }
         }
     }
@@ -404,6 +512,7 @@ impl Library {
                 diff: None,
                 artifact,
                 executable: false,
+                mode: file.mode,
             });
         }
         writes.sort_by(|a, b| a.path.cmp(&b.path));

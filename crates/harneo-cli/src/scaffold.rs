@@ -150,6 +150,7 @@ mod tests {
             diff: None,
             artifact: None,
             executable: false,
+            mode: None,
         };
         let plan = Plan {
             target: "/p".into(),

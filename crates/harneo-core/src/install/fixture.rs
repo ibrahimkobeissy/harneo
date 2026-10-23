@@ -80,6 +80,7 @@ pub fn write(path: &str, action: WriteAction, text: Option<&str>) -> Write {
         diff: None,
         artifact: None,
         executable: false,
+        mode: None,
     }
 }
 

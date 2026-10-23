@@ -9,8 +9,8 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::backup::{self, write_atomic, BackupSet};
-use super::plan::{check_plan, resolve_inside, Plan, PlanKind, WriteAction};
+use super::backup::{self, write_file, BackupSet};
+use super::plan::{check_plan, digest, read_capped, resolve_inside, Plan, PlanKind, WriteAction};
 use super::registry;
 use crate::error::{Error, Result};
 use crate::library::{make_executable, Library};
@@ -153,9 +153,35 @@ fn check_state(plan: &Plan, target: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Refuses to touch a file that is not what the backup holds: re-read right before it is
+/// replaced or deleted, so an edit made since the backup is never overwritten.
+fn recheck(set: Option<&BackupSet>, path: &Path, rel: &str, action: WriteAction) -> Result<()> {
+    let current = match fs::symlink_metadata(path) {
+        Ok(meta) if meta.is_file() => Some(read_capped(path)?),
+        Ok(_) => {
+            return Err(Error::Install {
+                message: format!("{rel} is not a regular file"),
+            })
+        }
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(io_error(path, e)),
+    };
+    let changed = |what: &str| Error::Install {
+        message: format!("{rel} {what} since it was backed up; preview again"),
+    };
+    match (set.and_then(|s| s.original(rel)), current) {
+        (Some(was), Some(now)) if digest(was) == digest(&now) => Ok(()),
+        (Some(_), Some(_)) => Err(changed("changed")),
+        (Some(_), None) if action == WriteAction::Replace => Err(changed("disappeared")),
+        (None, Some(_)) => Err(changed("appeared")),
+        _ => Ok(()),
+    }
+}
+
 fn write_all(
     plan: &Plan,
     target: &Path,
+    set: Option<&BackupSet>,
     hooks: &dyn ApplyHooks,
     journal: &mut Journal,
 ) -> Result<()> {
@@ -165,21 +191,27 @@ fn write_all(
         match (write.action, &write.bytes) {
             (WriteAction::New | WriteAction::Replace, Some(bytes)) => {
                 hooks.before_write(&write.path).map_err(step)?;
-                if write.action == WriteAction::New {
-                    journal.created.push(path.clone());
-                } else {
+                let new = write.action == WriteAction::New;
+                if !new {
+                    recheck(set, &path, &write.path, write.action)?;
                     journal.changed.push(write.path.clone());
                 }
                 if let Some(folder) = path.parent() {
                     journal.make_folders(folder, target).map_err(step)?;
                 }
-                write_atomic(&path, bytes).map_err(step)?;
-                if write.executable {
+                // A new file must not replace one that appeared since the check, and is only
+                // journalled (so a rollback may delete it) once this apply has made it.
+                write_file(&path, bytes, write.mode, new).map_err(step)?;
+                if new {
+                    journal.created.push(path.clone());
+                }
+                if write.executable && write.mode.is_none_or(|m| m & 0o111 == 0) {
                     make_executable(&path).map_err(step)?;
                 }
             }
             (WriteAction::Delete, _) => {
                 hooks.before_write(&write.path).map_err(step)?;
+                recheck(set, &path, &write.path, write.action)?;
                 journal.changed.push(write.path.clone());
                 match fs::remove_file(&path) {
                     Err(e) if e.kind() != io::ErrorKind::NotFound => return Err(step(e)),
@@ -283,7 +315,7 @@ impl Library {
         let managed = registry::manifest_paths(&tx, project_id)?;
         let set = backup::create(&data_dir, project_id, plan, &target, now, &managed)?;
         let mut journal = Journal::default();
-        let outcome = write_all(plan, &target, hooks, &mut journal).and_then(|()| {
+        let outcome = write_all(plan, &target, set.as_ref(), hooks, &mut journal).and_then(|()| {
             hooks
                 .before_commit()
                 .map_err(|e| io_error(&target, e))
