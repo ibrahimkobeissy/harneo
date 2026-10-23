@@ -9,6 +9,7 @@
 
 use std::ops::Range;
 use std::path::{Component, Path};
+use std::sync::OnceLock;
 
 use serde_json::{Map, Value};
 
@@ -147,9 +148,17 @@ pub struct AuditInput {
     pub files: Vec<InputFile>,
     /// Why the others were not (symlink, secret name, too large, not text...). Not findings.
     pub unread: Vec<Diagnostic>,
+    /// Reach inference, computed once per input (see [`AuditInput::trace`]).
+    trace: OnceLock<super::reach::Trace>,
 }
 
 impl AuditInput {
+    /// What the artifact can reach and the lines that show it; inferred on first use, then shared
+    /// by the reach result and the `permission-combo` rule.
+    pub(crate) fn trace(&self) -> &super::reach::Trace {
+        self.trace.get_or_init(|| super::reach::trace(self))
+    }
+
     /// Reads `artifact`'s files below `root` within `options`' limits.
     pub fn read(artifact: &Artifact, root: &Path, options: &ScanOptions) -> Self {
         let mut walker = Walker::new(root, options);
@@ -185,6 +194,7 @@ impl AuditInput {
             metadata: artifact.metadata.clone(),
             files,
             unread,
+            trace: OnceLock::new(),
         }
     }
 
@@ -218,6 +228,7 @@ impl AuditInput {
                 .map(|(p, t)| InputFile::new(p, classify(&artifact, p), (*t).to_owned()))
                 .collect(),
             unread: Vec::new(),
+            trace: OnceLock::new(),
         }
     }
 
