@@ -46,6 +46,8 @@ pub fn run() {
             commands::link_remove,
             commands::link_reject,
             commands::bundle_of,
+            commands::updates_check,
+            commands::update_status,
             commands::settings_get,
             commands::settings_set,
         ])

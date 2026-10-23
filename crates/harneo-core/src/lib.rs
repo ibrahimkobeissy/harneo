@@ -7,6 +7,7 @@ pub mod bundles;
 pub mod error;
 pub mod library;
 pub mod paths;
+pub mod updates;
 pub mod usage;
 
 pub use error::{Error, Result};

@@ -38,6 +38,7 @@ function useArtifactEntries(text: string): Entry[] {
           trustMin: null,
           tiers: [],
           hasFindings: false,
+          outdated: false,
         },
         sort: "name",
         descending: false,

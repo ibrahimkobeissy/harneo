@@ -19,6 +19,9 @@ import type { IndexProgress } from "../bindings/IndexProgress";
 import type { IndexReport } from "../bindings/IndexReport";
 import type { Usage } from "../bindings/Usage";
 import type { UsageSummary } from "../bindings/UsageSummary";
+import type { CheckReport } from "../bindings/CheckReport";
+import type { CheckScope } from "../bindings/CheckScope";
+import type { UpdateStatus } from "../bindings/UpdateStatus";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -288,4 +291,18 @@ export function settingsGet(key: string): Promise<unknown> {
 /** Stores one app setting. */
 export function settingsSet(key: string, value: unknown): Promise<void> {
   return invoke<void>("settings_set", { key, value });
+}
+
+// --- Updates ---
+
+/** Looks at the sources for artifacts that changed at their source; one entry per source. */
+export function updatesCheck(
+  scope: CheckScope = { type: "all" },
+): Promise<CheckReport> {
+  return invoke<CheckReport>("updates_check", { scope });
+}
+
+/** The update state of an artifact; `null` when it matches its source. */
+export function updateStatus(id: string): Promise<UpdateStatus | null> {
+  return invoke<UpdateStatus | null>("update_status", { id });
 }

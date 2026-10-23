@@ -23,7 +23,7 @@ mod copies_tests;
 mod copy;
 #[cfg(test)]
 mod find_tests;
-mod git;
+pub(crate) mod git;
 #[cfg(test)]
 mod git_tests;
 pub mod ids;
@@ -132,11 +132,13 @@ pub struct ImportReport {
 #[derive(Debug)]
 pub struct Library {
     pub(crate) store: Store,
-    git: GitConfig,
+    pub(crate) git: GitConfig,
     /// The clone of the last git preview, kept until `import` copies from it. At most one: a
     /// newer git preview replaces (and deletes) it, `import` consumes it, and dropping the
     /// library deletes it. See [`PendingClone`].
     pending: Mutex<Option<PendingClone>>,
+    /// Clones the update check made, kept for the session (see `updates::remote`).
+    pub(crate) session: crate::updates::remote::Session,
 }
 
 /// A git preview's clone, waiting for `import`. Previews are plain data that travel over IPC,
@@ -157,6 +159,7 @@ impl Library {
             store: Store::open(data_dir)?,
             git: GitConfig::default(),
             pending: Mutex::new(None),
+            session: crate::updates::remote::Session::default(),
         })
     }
 
@@ -399,6 +402,12 @@ impl Library {
                     keys,
                     audit,
                 )?;
+                let stored_copy = staging.path().join(&candidate.id);
+                crate::updates::record_copy_digest(
+                    &tx,
+                    &candidate.id,
+                    &crate::updates::copy_digest(&stored_copy)?,
+                )?;
                 if let Some(names) = tag_choices.get(&candidate.id) {
                     tags::apply_names(&tx, &candidate.id, names)?;
                 }
@@ -559,7 +568,7 @@ impl Library {
 }
 
 /// A git subfolder as a relative path of plain components: no `..`, no absolute path.
-fn git_subfolder(subfolder: Option<&str>) -> Result<PathBuf> {
+pub(crate) fn git_subfolder(subfolder: Option<&str>) -> Result<PathBuf> {
     let text = subfolder.unwrap_or_default().trim().trim_matches('/');
     let path = PathBuf::from(text);
     if path.components().all(|c| matches!(c, Component::Normal(_))) {
@@ -601,7 +610,9 @@ impl Library {
     /// One page of the library: filtered, sorted, with the total and the facet counts (see
     /// `query` for the semantics).
     pub fn list(&self, query: &Query) -> Result<Page> {
-        query::list(&self.store.conn, query)
+        let mut page = query::list(&self.store.conn, query)?;
+        self.attach_badges(&mut page.items)?;
+        Ok(page)
     }
 }
 
@@ -663,7 +674,9 @@ impl Library {
     /// manual collection `SortKey::Position` keeps its manual order (ascending is first to
     /// last); for a smart one `Position` sorts by name.
     pub fn collection_page(&self, collection_id: i64, query: &Query) -> Result<Page> {
-        collections::page(&self.store.conn, collection_id, query)
+        let mut page = collections::page(&self.store.conn, collection_id, query)?;
+        self.attach_badges(&mut page.items)?;
+        Ok(page)
     }
 }
 

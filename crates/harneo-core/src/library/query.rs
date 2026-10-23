@@ -35,6 +35,10 @@ const LABEL_SQL: &str = "(CASE WHEN s.kind = 'local' \
     THEN replace(s.location, rtrim(s.location, replace(s.location, '/', '')), '') \
     ELSE s.location END)";
 
+/// The condition for an outdated artifact (alias `a` is the artifact row).
+const OUTDATED_SQL: &str =
+    "EXISTS (SELECT 1 FROM upstream u WHERE u.artifact_id = a.id AND u.state = 'outdated')";
+
 /// What to keep. Empty lists and empty text mean no restriction.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase", default)]
@@ -52,6 +56,8 @@ pub struct Filter {
     pub tiers: Vec<Tier>,
     /// Only artifacts whose audit has at least one finding.
     pub has_findings: bool,
+    /// Only artifacts whose source changed since they were imported.
+    pub outdated: bool,
 }
 
 /// What to sort the list by.
@@ -150,6 +156,8 @@ pub struct LibraryItem {
     pub finding_count: u32,
     /// Members of the artifact's bundle other than itself (see `bundles::bundle_of`).
     pub bundle_size: u32,
+    /// Set when the artifact's own files changed at its source (see `updates`).
+    pub update: Option<crate::updates::UpdateBadge>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -201,6 +209,9 @@ pub struct Facets {
     /// Artifacts with at least one audit finding among those the other filters keep (the count
     /// behind "Has findings", whether or not that filter is on).
     pub with_findings: u32,
+    /// Outdated artifacts among those the other filters keep (the count behind "Outdated",
+    /// whether or not that filter is on).
+    pub outdated: u32,
 }
 
 /// One page of the list.
@@ -309,6 +320,9 @@ fn build(
     }
     if filter.has_findings {
         parts.push("COALESCE(json_array_length(a.findings), 0) > 0".to_owned());
+    }
+    if filter.outdated {
+        parts.push(OUTDATED_SQL.to_owned());
     }
     if let Some(text) = filter
         .text
@@ -505,6 +519,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 .transpose()?,
             finding_count: count(finding_count),
             bundle_size: 0,
+            update: None,
         });
     }
     drop(stmt);
@@ -668,11 +683,26 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
         params_from_iter(params.iter()),
         |r| r.get(0),
     )?;
+    // Outdated: everything except the Outdated filter itself.
+    let others = Filter {
+        outdated: false,
+        ..filter.clone()
+    };
+    let (clause, params) = build(&others, None, scope)?;
+    let outdated: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+             WHERE {clause} AND {OUTDATED_SQL}"
+        ),
+        params_from_iter(params.iter()),
+        |r| r.get(0),
+    )?;
     Ok(Facets {
         kinds,
         tags,
         sources,
         tiers,
         with_findings: count(with_findings),
+        outdated: count(outdated),
     })
 }

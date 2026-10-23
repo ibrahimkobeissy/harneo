@@ -25,4 +25,8 @@ tiers: Array<Tier>,
 /**
  * Only artifacts whose audit has at least one finding.
  */
-hasFindings: boolean, };
+hasFindings: boolean, 
+/**
+ * Only artifacts whose source changed since they were imported.
+ */
+outdated: boolean, };

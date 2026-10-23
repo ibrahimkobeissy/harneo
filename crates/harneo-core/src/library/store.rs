@@ -128,8 +128,32 @@ CREATE TABLE links (
 CREATE INDEX links_to ON links(to_id);
 ";
 
+/// Version 4: update checking. `artifacts.copy_digest` is the digest of the stored copy's files
+/// (what local edits are measured against; NULL until recorded), `updated_at` Unix seconds of the
+/// last update. `sources.checked_at` is the last update check, `remote_commit` the commit the
+/// remote had then. `upstream` holds one row per artifact whose source differs from the
+/// library: `outdated` (its own files changed), `removed` (gone at the source) or `skipped`
+/// (the user kept their copy for this `upstream_digest`).
+const V4: &str = "
+ALTER TABLE artifacts ADD COLUMN copy_digest TEXT;
+ALTER TABLE artifacts ADD COLUMN updated_at  INTEGER;
+ALTER TABLE sources   ADD COLUMN checked_at    INTEGER;
+ALTER TABLE sources   ADD COLUMN remote_commit TEXT;
+
+CREATE TABLE upstream (
+    artifact_id     TEXT PRIMARY KEY REFERENCES artifacts(id) ON DELETE CASCADE,
+    state           TEXT NOT NULL CHECK (state IN ('outdated', 'removed', 'skipped')),
+    upstream_digest TEXT,
+    upstream_commit TEXT,
+    from_version    TEXT,
+    to_version      TEXT,
+    checked_at      INTEGER NOT NULL
+) STRICT;
+CREATE INDEX upstream_state ON upstream(state);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -353,6 +377,70 @@ mod tests {
             )
             .expect("row survives");
         assert_eq!(row, ("old".to_owned(), 5, None, None, None));
+    }
+
+    /// A version 3 database with a source and an artifact gains the update columns and table.
+    #[test]
+    fn a_v3_database_migrates_to_the_update_schema_keeping_its_data() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v3 db");
+            for sql in [V1, V2, V3] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location, commit_sha) VALUES ('s1', 'git', 'u', 'abc');
+                 INSERT INTO artifacts (id, source_id, kind, name, source_path, digest, imported_at, artifact)
+                 VALUES ('a1', 's1', 'agent', 'old', 'agents/old.md', 'd1', 5, '{}');
+                 PRAGMA user_version = 3;",
+            )
+            .expect("v3 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let row: (String, String, Option<String>, Option<i64>) = store
+            .conn
+            .query_row(
+                "SELECT a.name, a.digest, a.copy_digest, a.updated_at FROM artifacts a",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )
+            .expect("row survives");
+        assert_eq!(row, ("old".to_owned(), "d1".to_owned(), None, None));
+        let source: (String, Option<i64>, Option<String>) = store
+            .conn
+            .query_row(
+                "SELECT commit_sha, checked_at, remote_commit FROM sources",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .expect("source survives");
+        assert_eq!(source, ("abc".to_owned(), None, None));
+        store
+            .conn
+            .execute(
+                "INSERT INTO upstream (artifact_id, state, checked_at) VALUES ('a1', 'outdated', 1)",
+                [],
+            )
+            .expect("upstream row");
+        assert!(store
+            .conn
+            .execute(
+                "INSERT INTO upstream (artifact_id, state, checked_at) VALUES ('a1', 'bogus', 1)",
+                [],
+            )
+            .is_err());
+        store
+            .conn
+            .execute("DELETE FROM artifacts", [])
+            .expect("delete");
+        assert_eq!(
+            count(&store, "upstream"),
+            0,
+            "upstream goes with the artifact"
+        );
     }
 
     #[test]

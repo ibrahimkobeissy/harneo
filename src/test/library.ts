@@ -25,6 +25,7 @@ export function item(
     tier: null,
     findingCount: 0,
     bundleSize: 0,
+    update: null,
     ...over,
   };
 }
@@ -34,7 +35,14 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
   return {
     items,
     total: items.length,
-    facets: { kinds: [], tags: [], sources: [], tiers: [], withFindings: 0 },
+    facets: {
+      kinds: [],
+      tags: [],
+      sources: [],
+      tiers: [],
+      withFindings: 0,
+      outdated: 0,
+    },
     ...over,
     unfilteredTotal: over.unfilteredTotal ?? over.total ?? items.length,
   };

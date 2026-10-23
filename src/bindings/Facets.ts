@@ -28,4 +28,9 @@ tiers: Array<TierCount>,
  * Artifacts with at least one audit finding among those the other filters keep (the count
  * behind "Has findings", whether or not that filter is on).
  */
-withFindings: number, };
+withFindings: number, 
+/**
+ * Outdated artifacts among those the other filters keep (the count behind "Outdated",
+ * whether or not that filter is on).
+ */
+outdated: number, };

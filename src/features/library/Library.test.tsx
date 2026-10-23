@@ -18,6 +18,7 @@ import { LibraryScreen } from ".";
 const facets: Page["facets"] = {
   tiers: [],
   withFindings: 0,
+  outdated: 0,
   kinds: [
     { kind: "skill", count: 5 },
     { kind: "agent", count: 2 },
@@ -460,6 +461,7 @@ describe("filters and search", () => {
         trustMin: null,
         tiers: [],
         hasFindings: false,
+        outdated: false,
       },
       sort: "importedAt",
       descending: true,

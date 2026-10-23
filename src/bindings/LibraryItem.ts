@@ -3,6 +3,7 @@ import type { ArtifactKind } from "./ArtifactKind";
 import type { SourceSummary } from "./SourceSummary";
 import type { TagChip } from "./TagChip";
 import type { Tier } from "./Tier";
+import type { UpdateBadge } from "./UpdateBadge";
 
 /**
  * What a card or row shows; the full artifact is `Library::detail`.
@@ -39,4 +40,8 @@ findingCount: number,
 /**
  * Members of the artifact's bundle other than itself (see `bundles::bundle_of`).
  */
-bundleSize: number, };
+bundleSize: number, 
+/**
+ * Set when the artifact's own files changed at its source (see `updates`).
+ */
+update: UpdateBadge | null, };

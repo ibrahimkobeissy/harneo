@@ -65,6 +65,7 @@ function setup(existing: Row[], onArtifact: number[] = []) {
           facets: {
             tiers: [],
             withFindings: 0,
+            outdated: 0,
             kinds: [],
             sources: [],
             tags: tags

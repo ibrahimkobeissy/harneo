@@ -67,6 +67,7 @@ interface Stored {
 const facets = {
   tiers: [],
   withFindings: 0,
+  outdated: 0,
   kinds: [
     { kind: "skill" as const, count: 2 },
     { kind: "agent" as const, count: 1 },
@@ -217,6 +218,7 @@ const smartSkills: Stored = {
     trustMin: null,
     tiers: [],
     hasFindings: false,
+    outdated: false,
   },
   members: [],
 };
@@ -344,6 +346,7 @@ describe("new collection", () => {
         trustMin: null,
         tiers: [],
         hasFindings: false,
+        outdated: false,
       },
     });
     await waitFor(() => expect(where()).toBe("/collections/10"));
@@ -458,6 +461,7 @@ describe("new collection", () => {
         trustMin: null,
         tiers: [],
         hasFindings: false,
+        outdated: false,
       },
     });
   });
@@ -634,6 +638,7 @@ describe("collection screen", () => {
             trustMin: null,
             tiers: [],
             hasFindings: false,
+            outdated: false,
           },
         },
       ],
@@ -668,6 +673,7 @@ describe("collection screen", () => {
         trustMin: null,
         tiers: [],
         hasFindings: false,
+        outdated: false,
       },
     });
     expect(pageQueries.length).toBeGreaterThan(1);

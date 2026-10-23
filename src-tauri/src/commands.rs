@@ -10,6 +10,7 @@ use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
 };
+use harneo_core::updates::{CheckReport, CheckScope, UpdateStatus};
 use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -248,6 +249,29 @@ pub fn artifact_tag_remove(
     tag_id: i64,
 ) -> Result<(), String> {
     state.with(|library| library.untag_artifact(&id, tag_id))
+}
+
+// --- Updates ---------------------------------------------------------------------------
+
+/// Looks at the sources for artifacts that changed at their source. Git is asked first and
+/// cloned only when it moved, which takes time, so the work runs on the blocking pool.
+#[tauri::command]
+pub async fn updates_check(app: AppHandle, scope: CheckScope) -> Result<CheckReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.check_updates(&scope))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The update state of an artifact, `None` when it matches its source.
+#[tauri::command]
+pub fn update_status(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<Option<UpdateStatus>, String> {
+    state.with(|library| library.update_status(&id))
 }
 
 // --- Links, bundles and settings ---------------------------------------------------------
@@ -613,6 +637,15 @@ mod tests {
             settings_get(state(), "bundles.model".into())?,
             Some(serde_json::json!("haiku"))
         );
+        Ok(())
+    }
+
+    #[test]
+    fn update_status_runs_through_managed_state() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        assert!(update_status(app.state::<LibraryState>(), "nope".into()).is_err());
         Ok(())
     }
 

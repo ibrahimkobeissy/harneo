@@ -117,6 +117,48 @@ pub(crate) fn clone(
     })
 }
 
+/// The commit `branch` (a branch or tag, or the remote's HEAD when `None`) points to on the
+/// remote, asked with `git ls-remote` so nothing is downloaded. A tag resolves to the commit
+/// it points at, the same one a clone would check out.
+pub(crate) fn ls_remote(config: &GitConfig, url: &str, branch: Option<&str>) -> Result<String> {
+    let patterns: Vec<String> = match branch {
+        Some(b) => vec![
+            format!("refs/heads/{b}"),
+            format!("refs/tags/{b}"),
+            format!("refs/tags/{b}^{{}}"),
+        ],
+        None => vec!["HEAD".to_owned()],
+    };
+    let mut args: Vec<&OsStr> = ["-c", "protocol.ext.allow=never", "ls-remote", "--", url]
+        .into_iter()
+        .map(OsStr::new)
+        .collect();
+    args.extend(patterns.iter().map(OsStr::new));
+    let output = run(config, &args)?;
+    if !output.success {
+        return Err(clone_error(&output.stderr, url, branch));
+    }
+    let listed: Vec<(&str, &str)> = output
+        .stdout
+        .lines()
+        .filter_map(|line| line.split_once('\t'))
+        .collect();
+    let find = |name: &str| listed.iter().find(|(_, r)| *r == name).map(|(sha, _)| *sha);
+    let sha = match branch {
+        None => find("HEAD"),
+        Some(b) => find(&format!("refs/heads/{b}"))
+            .or_else(|| find(&format!("refs/tags/{b}^{{}}")))
+            .or_else(|| find(&format!("refs/tags/{b}"))),
+    };
+    match (sha, branch) {
+        (Some(sha), _) => Ok(sha.to_owned()),
+        (None, Some(branch)) => Err(Error::GitBranchNotFound {
+            branch: branch.to_owned(),
+        }),
+        (None, None) => Err(failed("the remote has no HEAD")),
+    }
+}
+
 struct Output {
     success: bool,
     stdout: String,

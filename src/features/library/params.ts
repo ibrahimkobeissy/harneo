@@ -133,6 +133,7 @@ export function toFilter(p: LibraryParams): Filter {
     trustMin: p.trustMin !== null && p.trustMin > 0 ? p.trustMin : null,
     tiers: p.tiers,
     hasFindings: p.hasFindings,
+    outdated: false,
   };
 }
 
