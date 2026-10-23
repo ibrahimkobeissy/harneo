@@ -1,4 +1,4 @@
-import { Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
+import { Layers, Pencil, SlidersHorizontal, Trash2 } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import type { Collection } from "../../bindings/Collection";
@@ -9,6 +9,7 @@ import {
   collectionDelete,
   collectionRename,
   collectionUpdateRule,
+  profileFromCollection,
 } from "../../lib/ipc";
 import { Button, Tag } from "../../ui";
 import styles from "./Collections.module.css";
@@ -239,7 +240,22 @@ export function CollectionBar({
   onRuleSaved: () => void;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [making, setMaking] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { refresh } = useCollections();
+
+  async function createProfile() {
+    setMaking(true);
+    setProfileError(null);
+    try {
+      const id = await profileFromCollection(collection.id, collection.name);
+      void navigate(`/profiles/${id}`);
+    } catch (err) {
+      setProfileError(String(err));
+      setMaking(false);
+    }
+  }
   const close = () => setDialog(null);
   return (
     <div className={styles.bar}>
@@ -256,6 +272,10 @@ export function CollectionBar({
         )}
       </div>
       <div className={styles.barActions}>
+        <Button small disabled={making} onClick={() => void createProfile()}>
+          <Layers size={14} aria-hidden="true" />
+          Create profile
+        </Button>
         {collection.rule && (
           <Button small onClick={() => setDialog("rule")}>
             <SlidersHorizontal size={14} aria-hidden="true" />
@@ -271,6 +291,11 @@ export function CollectionBar({
           Delete
         </Button>
       </div>
+      {profileError && (
+        <p role="alert" className={styles.error}>
+          {profileError}
+        </p>
+      )}
       {dialog === "rename" && (
         <RenameDialog collection={collection} onClose={close} />
       )}

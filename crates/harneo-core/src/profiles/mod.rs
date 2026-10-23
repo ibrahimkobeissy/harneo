@@ -16,6 +16,9 @@ mod resolve;
 mod resolve_tests;
 #[cfg(test)]
 mod tests;
+mod used_in;
+#[cfg(test)]
+mod used_in_tests;
 
 use std::collections::{BTreeMap, HashSet};
 
@@ -33,6 +36,7 @@ pub use file::{
 };
 pub use layout::{Generated, Layout, LayoutConflict, PathFrom, PlannedPath};
 pub use resolve::{Resolved, ResolvedItem, Why};
+pub use used_in::ProfileUse;
 
 /// A profile id (exported to TypeScript as `bigint`, like tag and collection ids).
 pub type ProfileId = i64;

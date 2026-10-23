@@ -9,6 +9,8 @@ const facets: Facets = {
   tiers: [],
   withFindings: 0,
   outdated: 0,
+  auto: 0,
+  manualOnly: 0,
   statuses: [],
   kinds: [],
   tags: [],

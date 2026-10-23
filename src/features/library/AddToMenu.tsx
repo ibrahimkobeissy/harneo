@@ -1,12 +1,25 @@
-import { Bookmark, BookmarkPlus, Check, ChevronDown, Plus } from "lucide-react";
+import {
+  Bookmark,
+  BookmarkPlus,
+  Check,
+  ChevronDown,
+  Layers,
+  Plus,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useCollections } from "../../app/collections";
+import type { ArtifactKind } from "../../bindings/ArtifactKind";
+import type { ProfileSummary } from "../../bindings/ProfileSummary";
+import type { ProfileUse } from "../../bindings/ProfileUse";
 import {
   artifactCollections,
+  artifactProfiles,
   collectionAdd,
   collectionRemove,
+  profilesList,
 } from "../../lib/ipc";
 import { Button, announce } from "../../ui";
+import { addToProfile } from "./addToProfile";
 import styles from "./Collections.module.css";
 
 /**
@@ -15,15 +28,25 @@ import styles from "./Collections.module.css";
  */
 export function AddToMenu({
   artifactId,
+  artifactName = "This artifact",
+  artifactKind = "skill",
   onChanged,
+  onProfileChanged = () => {},
 }: {
   artifactId: string;
+  artifactName?: string;
+  artifactKind?: ArtifactKind;
   onChanged: () => void;
+  /** A profile got a new version with the artifact in it. */
+  onProfileChanged?: () => void;
 }) {
   const { collections, refresh, openNew } = useCollections();
   const [open, setOpen] = useState(false);
   const [member, setMember] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
+  const [using, setUsing] = useState<ProfileUse[]>([]);
+  const [said, setSaid] = useState<string | null>(null);
   const wrap = useRef<HTMLDivElement>(null);
   const manual = collections.filter((c) => c.kind === "manual");
 
@@ -37,6 +60,20 @@ export function AddToMenu({
       (err: unknown) => {
         if (current) setError(String(err));
       },
+    );
+    profilesList().then(
+      (list) => {
+        if (current) setProfiles(Array.isArray(list) ? list : []);
+      },
+      (err: unknown) => {
+        if (current) setError(String(err));
+      },
+    );
+    artifactProfiles(artifactId).then(
+      (list) => {
+        if (current) setUsing(Array.isArray(list) ? list : []);
+      },
+      () => undefined,
     );
     function onDown(event: MouseEvent) {
       if (wrap.current && !wrap.current.contains(event.target as Node))
@@ -75,6 +112,33 @@ export function AddToMenu({
       }
       refresh();
       onChanged();
+    } catch (err) {
+      setError(String(err));
+    }
+  }
+
+  async function addProfile(profile: ProfileSummary) {
+    setError(null);
+    setSaid(null);
+    try {
+      const result = await addToProfile(profile, {
+        id: artifactId,
+        name: artifactName,
+        kind: artifactKind,
+      });
+      setSaid(result.message);
+      announce(result.message);
+      if (result.saved) {
+        setUsing([
+          ...using,
+          {
+            id: profile.id,
+            name: profile.name,
+            version: profile.version + 1,
+          },
+        ]);
+        onProfileChanged();
+      }
     } catch (err) {
       setError(String(err));
     }
@@ -126,6 +190,29 @@ export function AddToMenu({
             <BookmarkPlus size={14} aria-hidden="true" />
             New collection…
           </button>
+          {profiles.length > 0 && (
+            <div className={styles.menuSep} role="separator" />
+          )}
+          {profiles.map((p) => (
+            <button
+              key={String(p.id)}
+              type="button"
+              role="menuitem"
+              className={styles.menuItem}
+              onClick={() => void addProfile(p)}
+            >
+              <Layers size={14} aria-hidden="true" />
+              <span className={styles.menuName}>Profile: {p.name}</span>
+              {using.some((u) => Number(u.id) === Number(p.id)) && (
+                <span className={styles.menuTag}>in profile</span>
+              )}
+            </button>
+          ))}
+          {said && (
+            <p role="status" className={styles.menuSaid}>
+              {said}
+            </p>
+          )}
           {error && (
             <p role="alert" className={styles.error}>
               {error}

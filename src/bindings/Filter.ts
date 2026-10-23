@@ -34,4 +34,8 @@ outdated: boolean,
 /**
  * Statuses (see `usage::Status`).
  */
-statuses: Array<Status>, };
+statuses: Array<Status>, 
+/**
+ * Invocation: `Some(true)` keeps manual-only skills, `Some(false)` everything else.
+ */
+manualOnly?: boolean | null, };

@@ -26,6 +26,7 @@ const detail: ArtifactDetail = {
   audit: null,
   auditedAt: null,
   links: { needs: [], neededBy: [] },
+  manualOnly: false,
   provenance: {
     source: {
       id: "s1",
@@ -66,6 +67,8 @@ function setup(existing: Row[], onArtifact: number[] = []) {
             tiers: [],
             withFindings: 0,
             outdated: 0,
+            auto: 0,
+            manualOnly: 0,
             statuses: [],
             kinds: [],
             sources: [],

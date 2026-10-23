@@ -38,6 +38,7 @@ function detailOf(id: string): ArtifactDetail {
     audit: null,
     auditedAt: null,
     links: { needs: [], neededBy: [] },
+    manualOnly: false,
     provenance: {
       source: {
         id: "s1",
@@ -68,6 +69,8 @@ const facets = {
   tiers: [],
   withFindings: 0,
   outdated: 0,
+  auto: 0,
+  manualOnly: 0,
   statuses: [],
   kinds: [
     { kind: "skill" as const, count: 2 },

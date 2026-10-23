@@ -19,6 +19,8 @@ const facets: Page["facets"] = {
   tiers: [],
   withFindings: 0,
   outdated: 0,
+  auto: 0,
+  manualOnly: 0,
   statuses: [],
   kinds: [
     { kind: "skill", count: 5 },

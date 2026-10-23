@@ -39,4 +39,12 @@ outdated: number,
  * In `Status` order; only statuses present among the artifacts the other filters keep, plus
  * selected ones at 0.
  */
-statuses: Array<StatusCount>, };
+statuses: Array<StatusCount>, 
+/**
+ * Artifacts that are not manual only, among those the other filters keep.
+ */
+auto: number, 
+/**
+ * Manual-only skills among those the other filters keep.
+ */
+manualOnly: number, };

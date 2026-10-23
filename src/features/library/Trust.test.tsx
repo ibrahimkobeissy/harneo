@@ -59,6 +59,7 @@ function detail(name: string, a: Audit | null): ArtifactDetail {
     audit: a,
     auditedAt: a ? 1_700_000_000n : null,
     links: { needs: [], neededBy: [] },
+    manualOnly: false,
     provenance: {
       source: {
         id: "s1",
@@ -92,6 +93,8 @@ function setup(path = "/library") {
           facets: {
             withFindings: 1,
             outdated: 0,
+            auto: 0,
+            manualOnly: 0,
             statuses: [],
             kinds: [],
             tags: [],

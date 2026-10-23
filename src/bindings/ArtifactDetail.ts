@@ -28,4 +28,9 @@ auditedAt: bigint | null,
 /**
  * What the artifact needs and what needs it (confirmed links).
  */
-links: Links, };
+links: Links, 
+/**
+ * A skill installed with `disable-model-invocation` by default: the library flag, or the
+ * skill's own frontmatter.
+ */
+manualOnly: boolean, };

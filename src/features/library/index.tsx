@@ -277,6 +277,7 @@ export function LibraryScreen({
       tiers: [],
       hasFindings: false,
       statuses: [],
+      invocation: [],
     });
   }
 
@@ -326,6 +327,7 @@ export function LibraryScreen({
     params.sources.length +
     params.tiers.length +
     params.statuses.length +
+    params.invocation.length +
     (params.trustMin !== null ? 1 : 0) +
     (params.hasFindings ? 1 : 0);
 

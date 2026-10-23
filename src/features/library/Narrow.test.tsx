@@ -10,6 +10,8 @@ const facets = {
   tiers: [],
   withFindings: 0,
   outdated: 0,
+  auto: 0,
+  manualOnly: 0,
   statuses: [],
   kinds: [{ kind: "skill" as const, count: 2 }],
   tags: [{ name: "review", color: "violet" as const, count: 1 }],

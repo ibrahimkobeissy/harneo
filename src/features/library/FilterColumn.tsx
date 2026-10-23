@@ -6,9 +6,16 @@ import { FilterResizer } from "./FilterResizer";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
 import styles from "./Library.module.css";
-import { type LibraryParams, statusLabels } from "./params";
+import {
+  type Invocation,
+  type LibraryParams,
+  invocationLabels,
+  invocations,
+  statusLabels,
+} from "./params";
 
-export type FilterGroup = "types" | "tags" | "sources" | "tiers" | "statuses";
+export type FilterGroup =
+  "types" | "tags" | "sources" | "tiers" | "statuses" | "invocation";
 
 function Option({
   on,
@@ -213,6 +220,20 @@ export function FilterColumn({
               onToggle={() => onToggle("statuses", status)}
             />
           ))}
+        <GroupHead
+          title="Invocation"
+          active={params.invocation.length > 0}
+          onClear={() => onClearGroup("invocation")}
+        />
+        {invocations.map((value: Invocation) => (
+          <Option
+            key={value}
+            on={params.invocation.includes(value)}
+            label={invocationLabels[value]}
+            count={value === "auto" ? facets.auto : facets.manualOnly}
+            onToggle={() => onToggle("invocation", value)}
+          />
+        ))}
         <GroupHead
           title="Tag"
           active={params.tags.length > 0}

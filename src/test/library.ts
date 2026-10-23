@@ -28,6 +28,7 @@ export function item(
     update: null,
     usage: null,
     status: "current",
+    manualOnly: false,
     ...over,
   };
 }
@@ -44,6 +45,8 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
       tiers: [],
       withFindings: 0,
       outdated: 0,
+      auto: 0,
+      manualOnly: 0,
       statuses: [],
     },
     ...over,

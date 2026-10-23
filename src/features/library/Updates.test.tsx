@@ -49,6 +49,7 @@ function detail(name: string): ArtifactDetail {
     audit: null,
     auditedAt: null,
     links: { needs: [], neededBy: [] },
+    manualOnly: false,
     provenance: {
       source: {
         id: "s1",

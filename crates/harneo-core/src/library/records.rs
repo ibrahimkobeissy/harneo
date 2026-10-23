@@ -61,6 +61,9 @@ pub struct ArtifactDetail {
     pub audited_at: Option<i64>,
     /// What the artifact needs and what needs it (confirmed links).
     pub links: crate::bundles::Links,
+    /// A skill installed with `disable-model-invocation` by default: the library flag, or the
+    /// skill's own frontmatter.
+    pub manual_only: bool,
 }
 
 pub(crate) fn now() -> i64 {
@@ -219,13 +222,15 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
     let row = conn
         .query_row(
             "SELECT a.artifact, a.source_path, a.digest, a.imported_at, a.replaced_secret_keys,
-                    s.id, s.kind, s.location, s.branch, s.subfolder, s.commit_sha
+                    s.id, s.kind, s.location, s.branch, s.subfolder, s.commit_sha,
+                    a.manual_only
              FROM artifacts a JOIN sources s ON s.id = a.source_id WHERE a.id = ?1",
             params![id],
             |r| {
                 Ok((
                     r.get::<_, String>(0)?,
                     r.get::<_, String>(4)?,
+                    r.get::<_, bool>(11)?,
                     Provenance {
                         source_path: r.get(1)?,
                         digest: r.get(2)?,
@@ -244,19 +249,27 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
             },
         )
         .optional()?;
-    let Some((json, keys, mut provenance)) = row else {
+    let Some((json, keys, flag, mut provenance)) = row else {
         return Ok(None);
     };
     provenance.replaced_secret_keys = serde_json::from_str(&keys)?;
     let stored = load_audit(conn, id)?;
+    let artifact: Artifact = serde_json::from_str(&json)?;
+    let own = match artifact.metadata.get("disable-model-invocation") {
+        Some(serde_json::Value::Bool(on)) => *on,
+        Some(serde_json::Value::String(text)) => text == "true",
+        _ => false,
+    };
+    let manual_only = artifact.kind == crate::artifact::ArtifactKind::Skill && (flag || own);
     Ok(Some(ArtifactDetail {
         id: id.to_owned(),
-        artifact: serde_json::from_str(&json)?,
+        artifact,
         provenance,
         files: Vec::new(),
         audit: stored.as_ref().map(|(audit, _)| audit.clone()),
         audited_at: stored.map(|(_, at)| at),
         links: crate::bundles::links_of(conn, id)?,
+        manual_only,
     }))
 }
 

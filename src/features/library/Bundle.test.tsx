@@ -12,6 +12,7 @@ import { LibraryScreen } from ".";
 function detail(name: string, links: Links): ArtifactDetail {
   return {
     id: `id-${name}`,
+    manualOnly: false,
     artifact: {
       kind: "skill",
       name,

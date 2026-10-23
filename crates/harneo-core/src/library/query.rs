@@ -57,6 +57,19 @@ pub struct Filter {
     pub outdated: bool,
     /// Statuses (see `usage::Status`).
     pub statuses: Vec<Status>,
+    /// Invocation: `Some(true)` keeps manual-only skills, `Some(false)` everything else.
+    #[ts(optional = nullable)]
+    pub manual_only: Option<bool>,
+}
+
+/// SQL for "is manual only" over an alias with `kind`, `manual_only` and `artifact`: a skill
+/// whose library default is set, or whose own frontmatter says `disable-model-invocation: true`.
+pub(crate) fn manual_only_sql(alias: &str) -> String {
+    format!(
+        "({alias}.kind = 'skill' AND ({alias}.manual_only = 1 OR \
+         COALESCE(json_extract({alias}.artifact, '$.metadata.\"disable-model-invocation\"') \
+         IN (1, 'true'), 0)))"
+    )
 }
 
 /// What to sort the list by.
@@ -163,6 +176,8 @@ pub struct LibraryItem {
     /// Sessions and last use; `None` for kinds the logs do not track.
     pub usage: Option<UsageBrief>,
     pub status: Status,
+    /// A skill installed with `disable-model-invocation` by default (see [`manual_only_sql`]).
+    pub manual_only: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -220,6 +235,10 @@ pub struct Facets {
     /// In `Status` order; only statuses present among the artifacts the other filters keep, plus
     /// selected ones at 0.
     pub statuses: Vec<StatusCount>,
+    /// Artifacts that are not manual only, among those the other filters keep.
+    pub auto: u32,
+    /// Manual-only skills among those the other filters keep.
+    pub manual_only: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -260,6 +279,7 @@ enum Facet {
     Sources,
     Tiers,
     Statuses,
+    Invocation,
 }
 
 fn placeholders(n: usize) -> String {
@@ -353,6 +373,12 @@ fn build(
                 .iter()
                 .map(|s| Value::Text(s.as_str().to_owned())),
         );
+    }
+    if omit != Some(Facet::Invocation) {
+        if let Some(manual) = filter.manual_only {
+            let sql = manual_only_sql("a");
+            parts.push(if manual { sql } else { format!("NOT {sql}") });
+        }
     }
     if let Some(text) = filter
         .text
@@ -481,9 +507,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
                   WHERE json_extract(value, '$.resolved') = 1),
-                {sessions}, {last_used}, {status}
+                {sessions}, {last_used}, {status}, {manual}
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
-                      a.trust_score, a.tier, a.findings, s.kind AS skind, s.location, s.branch
+                      a.trust_score, a.tier, a.findings, a.manual_only, s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
                WHERE {clause}
                ORDER BY {order} {direction}, a.id ASC
@@ -491,6 +517,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
         sessions = usage::sessions_sql("p"),
         last_used = usage::last_used_sql("p"),
         status = usage::status_sql("p"),
+        manual = manual_only_sql("p"),
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(params.iter()), |r| {
@@ -515,6 +542,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, i64>(17)?,
             r.get::<_, Option<String>>(18)?,
             r.get::<_, String>(19)?,
+            r.get::<_, bool>(20)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -540,6 +568,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             sessions,
             last_used,
             status,
+            manual_only,
         ) = row?;
         let kind = parse_kind(kind)?;
         items.push(LibraryItem {
@@ -572,6 +601,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 last_used,
             }),
             status: Status::parse(&status),
+            manual_only,
         });
     }
     drop(stmt);
@@ -773,7 +803,28 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
             count: found.get(&status).copied().unwrap_or(0),
         })
         .collect();
+    // Invocation: everything except the Invocation filter itself.
+    let (clause, params) = build(filter, Some(Facet::Invocation), scope)?;
+    let manual: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+             WHERE {clause} AND {}",
+            manual_only_sql("a")
+        ),
+        params_from_iter(params.iter()),
+        |r| r.get(0),
+    )?;
+    let kept: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+             WHERE {clause}"
+        ),
+        params_from_iter(params.iter()),
+        |r| r.get(0),
+    )?;
     Ok(Facets {
+        auto: count(kept - manual),
+        manual_only: count(manual),
         statuses,
         kinds,
         tags,

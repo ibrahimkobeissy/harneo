@@ -50,4 +50,8 @@ update: UpdateBadge | null,
 /**
  * Sessions and last use; `None` for kinds the logs do not track.
  */
-usage: UsageBrief | null, status: Status, };
+usage: UsageBrief | null, status: Status, 
+/**
+ * A skill installed with `disable-model-invocation` by default (see [`manual_only_sql`]).
+ */
+manualOnly: boolean, };

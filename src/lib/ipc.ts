@@ -34,6 +34,7 @@ import type { ProfileImportReport } from "../bindings/ProfileImportReport";
 import type { ProfileSpec } from "../bindings/ProfileSpec";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { ProfileView } from "../bindings/ProfileView";
+import type { ProfileUse } from "../bindings/ProfileUse";
 import type { Resolved } from "../bindings/Resolved";
 import type { ApplyReport } from "../bindings/ApplyReport";
 import type { InstalledFile } from "../bindings/InstalledFile";
@@ -558,4 +559,9 @@ export function projectFileContent(
     id: Number(id),
     path,
   });
+}
+
+/** The profiles whose current version installs the artifact (bundles included). */
+export function artifactProfiles(id: string): Promise<ProfileUse[]> {
+  return invoke<ProfileUse[]>("artifact_profiles", { id });
 }

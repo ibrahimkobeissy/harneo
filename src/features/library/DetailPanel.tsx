@@ -48,6 +48,7 @@ import styles from "./Detail.module.css";
 import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
+import { ManualOnlySection, UsedInSection } from "./ProfileSections";
 import { TagsSection } from "./TagsSection";
 import { UsageSection } from "./UsageSection";
 
@@ -466,6 +467,8 @@ export function DetailPanel({
   // Links added by Find bundles: the Bundle section remounts on the fresh list.
   const [fresh, setFresh] = useState<{ id: string; links: Links } | null>(null);
   const [linksRev, setLinksRev] = useState(0);
+  // Bumped when the Add to… menu saves a profile: Used in follows.
+  const [profilesRev, setProfilesRev] = useState(0);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -579,7 +582,13 @@ export function DetailPanel({
           </div>
           {detail && (
             <div className={styles.actions}>
-              <AddToMenu artifactId={id} onChanged={onMembershipChanged} />
+              <AddToMenu
+                artifactId={id}
+                artifactName={detail.artifact.name}
+                artifactKind={detail.artifact.kind}
+                onChanged={onMembershipChanged}
+                onProfileChanged={() => setProfilesRev((n) => n + 1)}
+              />
               <Button small onClick={() => setFinding(true)}>
                 <Boxes size={14} aria-hidden="true" />
                 Find bundles
@@ -629,6 +638,15 @@ export function DetailPanel({
                 </p>
               </section>
               <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
+              {detail.artifact.kind === "skill" && (
+                <ManualOnlySection
+                  key={id}
+                  id={id}
+                  name={detail.artifact.name}
+                  manualOnly={detail.manualOnly}
+                  onChanged={onUpdated}
+                />
+              )}
               <TrustSection audit={detail.audit} />
               <BundleSection
                 key={`${id}:${linksRev}`}
@@ -641,6 +659,7 @@ export function DetailPanel({
                 kind={detail.artifact.kind}
                 name={detail.artifact.name}
               />
+              <UsedInSection id={id} rev={profilesRev} />
               <SourceSection detail={detail} update={update} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>

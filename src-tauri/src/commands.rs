@@ -15,7 +15,7 @@ use harneo_core::library::{
 };
 use harneo_core::profiles::{
     Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
-    ProfileView, Resolved, MAX_FILE_BYTES,
+    ProfileUse, ProfileView, Resolved, MAX_FILE_BYTES,
 };
 use harneo_core::updates::{
     CheckReport, CheckScope, FileDiff, UpdateChoice, UpdateReport, UpdateStatus,
@@ -817,6 +817,15 @@ pub fn project_file_content(
     state.with(|library| library.project_file_content(id, &path))
 }
 
+/// The profiles whose current version installs the artifact.
+#[tauri::command]
+pub fn artifact_profiles(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<Vec<ProfileUse>, String> {
+    state.with(|library| library.profiles_using(&id))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -898,6 +907,7 @@ mod tests {
         assert_eq!(profile_resolve(state(), spec.clone())?.artifacts.len(), 1);
         assert!(!profile_layout(state(), spec)?.paths.is_empty());
         artifact_set_manual_only(state(), alpha.clone(), true)?;
+        assert_eq!(artifact_profiles(state(), alpha.clone())?.len(), 1);
 
         let copy = profile_clone(state(), id, "Copy".into())?;
         let manual = state().with(|l| l.create_manual_collection("kit"))?;

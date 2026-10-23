@@ -309,6 +309,22 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.menuSep {
+  height: var(--hairline);
+  margin: var(--space-xs) 0;
+  background: var(--line);
+}
+.menuTag {
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+.menuSaid {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-top: var(--hairline) solid var(--line);
+  color: var(--t2);
+  font-size: var(--text-label);
+}
 .menuEmpty {
   margin: 0;
   padding: var(--space-xs) var(--space-sm);

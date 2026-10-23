@@ -77,6 +77,7 @@ pub fn run() {
             commands::project_get,
             commands::project_files,
             commands::project_file_content,
+            commands::artifact_profiles,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {
