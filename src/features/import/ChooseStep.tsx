@@ -11,10 +11,17 @@ import { useEffect, useRef, useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Candidate } from "../../bindings/Candidate";
 import type { Preview } from "../../bindings/Preview";
-import { Badge, Button } from "../../ui";
+import {
+  Badge,
+  Button,
+  FindingTitle,
+  SeverityBadge,
+  severityOrder,
+  severityTone,
+} from "../../ui";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
-import { criticalRule, severityOrder, TierLabel } from "./trust";
+import { criticalRule, TierLabel } from "./trust";
 import styles from "./Import.module.css";
 
 /** Candidates grouped by kind, in the order kinds first appear. */
@@ -70,7 +77,7 @@ function Findings({
           <Badge tone="warn">{plural(warnings, "warning")}</Badge>
         )}
         {worst && (
-          <Badge tone={worst === "low" || worst === "medium" ? "warn" : "bad"}>
+          <Badge tone={severityTone[worst]}>
             {plural(audit.length, "audit finding")}
           </Badge>
         )}
@@ -101,10 +108,8 @@ function AuditList({ candidate }: { candidate: Candidate }) {
           <ShieldAlert size={14} aria-hidden="true" />
           <span>
             <span>
-              <span className={styles.sev} data-sev={f.severity}>
-                {f.severity}
-              </span>
-              <span className={styles.mono}>{f.rule}</span>
+              <SeverityBadge severity={f.severity} />
+              <FindingTitle rule={f.rule} />
               <span className={styles.msg}>{f.message}</span>
             </span>
             <span className={`${styles.mono} ${styles.file}`}>
@@ -517,7 +522,8 @@ export function ChooseStep({
                       </span>
                       {criticalRule(c) && (
                         <span className={`${styles.reason} ${styles.block}`}>
-                          Critical finding: {criticalRule(c)}
+                          Critical finding:{" "}
+                          <FindingTitle rule={criticalRule(c) ?? ""} />
                         </span>
                       )}
                       <span className={`${styles.line} ${styles.block}`}>

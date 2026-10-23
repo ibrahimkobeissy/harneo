@@ -111,7 +111,7 @@ describe("Security page", () => {
     const trust = await screen.findByRole("region", { name: "Trust scores" });
     expect(within(trust).getByText("4 artifacts")).toBeInTheDocument();
     expect(within(trust).getByRole("img")).toHaveAccessibleName(
-      "Trust score distribution: 2 trusted, 0 review, 1 risky, 1 dangerous",
+      "Trust score distribution: 2 Trusted, 0 Needs review, 1 Risky, 1 Dangerous",
     );
     expect(within(trust).getByText("80–100")).toBeInTheDocument();
     const findings = screen.getByRole("region", { name: "Findings" });

@@ -349,6 +349,51 @@
           "#fef2f2"
         ]
       },
+      "orange": {
+        "role": "tertiary",
+        "displayName": "Risk Orange",
+        "canonical": "#c2410c",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
+        ]
+      },
+      "orange-fill": {
+        "role": "tertiary",
+        "displayName": "Risk Orange Fill",
+        "canonical": "#ea580c",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
+        ]
+      },
+      "orange-soft": {
+        "role": "tertiary",
+        "displayName": "Risk Orange Wash",
+        "canonical": "#ffedd5",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
+        ]
+      },
       "chart": {
         "role": "neutral",
         "displayName": "Chart Blue",
@@ -1157,6 +1202,51 @@
           "#f87171",
           "#fecaca",
           "#fef2f2"
+        ]
+      },
+      "dark-orange": {
+        "role": "tertiary",
+        "displayName": "Risk Orange (dark)",
+        "canonical": "#fdba74",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
+        ]
+      },
+      "dark-orange-fill": {
+        "role": "tertiary",
+        "displayName": "Risk Orange Fill (dark)",
+        "canonical": "#f97316",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
+        ]
+      },
+      "dark-orange-soft": {
+        "role": "tertiary",
+        "displayName": "Risk Orange Wash (dark)",
+        "canonical": "#431407",
+        "tonalRamp": [
+          "#431407",
+          "#7c2d12",
+          "#c2410c",
+          "#ea580c",
+          "#f97316",
+          "#fdba74",
+          "#fed7aa",
+          "#fff7ed"
         ]
       },
       "dark-chart": {

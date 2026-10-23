@@ -11,16 +11,22 @@ import {
 import { useEffect, useState } from "react";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import { libraryAudits, libraryReaudit } from "../../lib/ipc";
-import { Button, EmptyState, Panel, Screen } from "../../ui";
+import {
+  Button,
+  EmptyState,
+  Panel,
+  Screen,
+  severityLabels,
+  severityOrder,
+  tiers,
+} from "../../ui";
 import {
   histogram,
   isAudited,
   reaches,
   reachesAnything,
   reachTiles,
-  severities,
   tierOfBucket,
-  tiers,
   type ReachKey,
 } from "./model";
 import { FindingsTable, ReachTable } from "./Tables";
@@ -144,7 +150,7 @@ export function SecurityScreen() {
   const tierCount = tiers.map(
     (t) => audited.filter((a) => a.audit.tier === t.tier).length,
   );
-  const sevCount = severities.map(
+  const sevCount = severityOrder.map(
     (s) =>
       audited.flatMap((a) => a.audit.findings).filter((f) => f.severity === s)
         .length,
@@ -171,7 +177,7 @@ export function SecurityScreen() {
             className={styles.bars}
             role="img"
             aria-label={`Trust score distribution: ${tiers
-              .map((t, i) => `${tierCount[i]} ${t.label.toLowerCase()}`)
+              .map((t, i) => `${tierCount[i]} ${t.label}`)
               .join(", ")}`}
           >
             {hist.map((n, i) => (
@@ -195,7 +201,7 @@ export function SecurityScreen() {
             {tiers.map((t, i) => (
               <li key={t.tier} data-tier={t.tier}>
                 <i className={styles.dot} aria-hidden="true" />
-                <b>{tierCount[i]}</b> {t.label.toLowerCase()}{" "}
+                <b>{tierCount[i]}</b> {t.label}{" "}
                 <span className={styles.mono}>
                   {t.lo}–{t.hi}
                 </span>
@@ -209,10 +215,10 @@ export function SecurityScreen() {
             {findingTotal} in {plural(withFindings.length, "artifact")}
           </p>
           <div className={styles.sevRow}>
-            {severities.map((s, i) => (
+            {severityOrder.map((s, i) => (
               <div key={s} data-sev={s}>
                 <b>{sevCount[i]}</b>
-                <span>{s}</span>
+                <span>{severityLabels[s]}</span>
               </div>
             ))}
           </div>

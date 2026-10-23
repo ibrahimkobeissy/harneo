@@ -1,27 +1,24 @@
 import { Link } from "react-router";
 import type { Reach } from "../../bindings/Reach";
-import { Badge, type BadgeTone } from "../../ui";
+import {
+  AnyNote,
+  FindingTitle,
+  hasAny,
+  SeverityBadge,
+  severityRank,
+  TrustMeter,
+} from "../../ui";
 import {
   findingRows,
   kindLabel,
   reachKeys,
   reaches,
-  severityLabel,
-  severityRank,
   sortRows,
   type Audited,
   type ReachKey,
 } from "./model";
 import { SortHeader, useSort } from "./SortHeader";
 import styles from "./Security.module.css";
-import { TrustMeter } from "./TrustMeter";
-
-const tone: Record<string, BadgeTone> = {
-  critical: "bad",
-  high: "bad",
-  medium: "warn",
-  low: "neutral",
-};
 
 function ArtifactLink({ a }: { a: Audited }) {
   return (
@@ -101,16 +98,16 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
               }
             >
               <td>
-                <Badge tone={tone[f.severity] ?? "neutral"}>
-                  {severityLabel[f.severity]}
-                </Badge>
+                <SeverityBadge severity={f.severity} />
               </td>
               <td>
                 <ArtifactLink a={a} />
               </td>
               <td>{kindLabel[a.kind]}</td>
               <td>
-                <span className={styles.rule}>{f.rule}</span>
+                <span className={styles.rule}>
+                  <FindingTitle rule={f.rule} />
+                </span>
                 <span className={styles.msg}>{f.message}</span>
                 <span className={styles.where}>
                   {f.file}
@@ -151,7 +148,7 @@ function ReachCell({ reach, k }: { reach: Reach; k: ReachKey }) {
   const more = list.length > 2 ? ` +${list.length - 2}` : "";
   return (
     <span
-      className={list.includes("*") ? styles.hot : undefined}
+      className={hasAny(list) ? styles.hot : undefined}
       title={list.join(", ")}
     >
       {shown}
@@ -212,6 +209,9 @@ export function ReachTable({ list }: { list: readonly Audited[] }) {
           )}
         </tbody>
       </table>
+      {rows.some((a) => reachKeys.some((k) => hasAny(a.audit.reach[k]))) && (
+        <AnyNote className={styles.note} />
+      )}
     </div>
   );
 }

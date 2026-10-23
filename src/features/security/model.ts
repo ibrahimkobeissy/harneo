@@ -1,7 +1,6 @@
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import type { Audit } from "../../bindings/Audit";
-import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Finding } from "../../bindings/Finding";
 import type { Reach } from "../../bindings/Reach";
 import type { Tier } from "../../bindings/Tier";
@@ -10,42 +9,6 @@ import type { Tier } from "../../bindings/Tier";
 export interface Audited extends ArtifactAudit {
   audit: Audit;
 }
-
-export interface TierInfo {
-  tier: Tier;
-  label: string;
-  lo: number;
-  hi: number;
-}
-
-/** The four bands of a trust score, best first. */
-export const tiers: readonly TierInfo[] = [
-  { tier: "trusted", label: "Trusted", lo: 80, hi: 100 },
-  { tier: "review", label: "Review", lo: 60, hi: 79 },
-  { tier: "risky", label: "Risky", lo: 40, hi: 59 },
-  { tier: "dangerous", label: "Dangerous", lo: 0, hi: 39 },
-];
-
-export const severities: readonly AuditSeverity[] = [
-  "critical",
-  "high",
-  "medium",
-  "low",
-];
-
-export const severityRank: Record<AuditSeverity, number> = {
-  critical: 4,
-  high: 3,
-  medium: 2,
-  low: 1,
-};
-
-export const severityLabel: Record<AuditSeverity, string> = {
-  critical: "Critical",
-  high: "High",
-  medium: "Medium",
-  low: "Low",
-};
 
 export function isAudited(a: ArtifactAudit): a is Audited {
   return a.audit !== null;

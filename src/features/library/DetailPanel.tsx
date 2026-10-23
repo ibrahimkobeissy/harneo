@@ -6,12 +6,12 @@ import {
   Trash2,
   TriangleAlert,
   X,
+  ShieldAlert,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Collection } from "../../bindings/Collection";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { Audit } from "../../bindings/Audit";
-import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
 import { Modal } from "../../app/Modal";
@@ -21,7 +21,16 @@ import {
   libraryFind,
   libraryRemove,
 } from "../../lib/ipc";
-import { Button, announce, TrustMeter } from "../../ui";
+import {
+  AnyNote,
+  Button,
+  FindingTitle,
+  announce,
+  hasAny,
+  severityLabels,
+  severityOrder,
+  TrustMeter,
+} from "../../ui";
 import { AddToMenu } from "./AddToMenu";
 import styles from "./Detail.module.css";
 import { formatDate } from "./ItemMeta";
@@ -141,13 +150,6 @@ function SourceSection({ detail }: { detail: ArtifactDetail }) {
   );
 }
 
-const severities: { severity: AuditSeverity; title: string }[] = [
-  { severity: "critical", title: "Critical" },
-  { severity: "high", title: "High" },
-  { severity: "medium", title: "Medium" },
-  { severity: "low", title: "Low" },
-];
-
 const reachRows = [
   { key: "files", label: "Files" },
   { key: "network", label: "Network" },
@@ -177,23 +179,24 @@ function TrustSection({ audit }: { audit: Audit | null }) {
       {audit.findings.length === 0 ? (
         <p className={styles.muted}>No findings.</p>
       ) : (
-        severities.map(({ severity, title }) => {
+        severityOrder.map((severity) => {
           const items = audit.findings.filter((f) => f.severity === severity);
           if (items.length === 0) return null;
           return (
             <div key={severity}>
               <h4 className={styles.sub}>
-                {title} ({items.length})
+                {severityLabels[severity]} ({items.length})
               </h4>
               <ul className={styles.diags}>
                 {items.map((f, i) => (
                   <li
                     key={`${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
                     className={styles.finding}
-                    data-severity={severity}
+                    data-sev={severity}
                   >
+                    <ShieldAlert size={14} aria-hidden="true" />
                     <span>
-                      <span className={styles.mono}>{f.rule}</span>
+                      <FindingTitle rule={f.rule} />
                       <span className={styles.msg}>{f.message}</span>
                       <span className={`${styles.mono} ${styles.file}`}>
                         {f.line === null ? f.file : `${f.file}:${f.line}`}
@@ -226,6 +229,9 @@ function TrustSection({ audit }: { audit: Audit | null }) {
             </Row>
           ))}
         </dl>
+      )}
+      {reachRows.some(({ key }) => hasAny(audit.reach[key])) && (
+        <AnyNote className={styles.muted} />
       )}
     </section>
   );

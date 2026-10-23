@@ -26,6 +26,9 @@ colors:
   red: "#b91c1c"
   red-fill: "#dc2626"
   red-soft: "#fee2e2"
+  orange: "#c2410c"
+  orange-fill: "#ea580c"
+  orange-soft: "#ffedd5"
   chart: "#bfdbfe"
   chart-strong: "#2563eb"
   diff-add: "#e6f6ec"
@@ -87,6 +90,9 @@ colors:
   dark-red: "#f87171"
   dark-red-fill: "#ef4444"
   dark-red-soft: "#3a1416"
+  dark-orange: "#fdba74"
+  dark-orange-fill: "#f97316"
+  dark-orange-soft: "#431407"
   dark-chart: "#1e3a8a"
   dark-chart-strong: "#60a5fa"
   dark-diff-add: "#0f2a1b"
@@ -407,7 +413,7 @@ The system refuses the grey admin table (artifacts are cards with proof, not bar
 
 ## Colors
 
-A slate-neutral palette with one saturated blue, three reserved state hues, and soft tints that classify without signalling.
+A slate-neutral palette with one saturated blue, four reserved state hues, and soft tints that classify without signalling.
 
 ### Primary
 - **Signal Blue** (`blue`; dark `dark-blue`): primary actions (Import, Scaffold, Apply), the focus outline, checked boxes and radios, active tab underline, selected card border, the current-week bar and the active stepper node. Deepens to `blue-hover` on hover. Its wash (`blue-soft`) backs selected rows, active filter chips, the active palette item and info callouts; its ring (`blue-ring`) is the 3px halo around selected cards and focused inputs, and the text selection colour.
@@ -416,6 +422,12 @@ A slate-neutral palette with one saturated blue, three reserved state hues, and 
 - **Current Green** (`green` text, `green-fill` bars, `green-soft` wash): up to date, healthy trust, files a write will add.
 - **Outdated Amber** (`amber`, `amber-fill`, `amber-soft`): an update is available, middling trust, files a write will replace, medium findings.
 - **Loss Red** (`red`, `red-fill`, `red-soft`): security findings, low trust, destructive actions, and every line or file a write would lose.
+- **Risk Orange** (`orange`, `orange-fill`, `orange-soft`): the fourth state colour, used only for the Risky trust tier, between Outdated Amber and Loss Red. It is not the orange type/tag tint: tiers never use `tint-orange*`.
+
+#### Audit scales (one map in `src/ui/audit.ts`, colours in `src/ui/audit.css`)
+- **Tiers**, best first: Trusted (green, score 80-100), Needs review (amber, 60-79; the id stays `review`, the label avoids the import step called Review), Risky (orange, 40-59), Dangerous (red, 0-39). A tier is a wash (`*-soft`) with its ink (`green`, `amber`, `orange`, `red`). Meter bars, histogram bars and dots keep the `*-fill` colour (alone it is under 3:1 on the light track) and carry a 1px outline in the tier ink, which is 4:1 or better against the track and 5:1 against the page.
+- **Severities**, most serious first: Critical (solid badge: `red` fill, page background as the text), High (`red` on `red-soft`), Medium (`amber` on `amber-soft`), Low (`t2` on `sunk`). Sentence case, never uppercase, the same on every screen.
+- Contrast (WCAG): every tier and severity text pair is 4.5:1 or better in both themes (lowest: Needs review 4.51, Risky 4.52, Trusted 4.57 on their wash in light; every dark pair is above 5.8:1). Text on a wash stays `t2` or darker, never `t3`.
 
 ### Neutral
 - **Canvas White** (`bg`): the main working ground.

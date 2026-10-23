@@ -133,19 +133,8 @@
   height: 8px;
   border-radius: 50%;
   flex: none;
-  background: var(--t3);
-}
-.tierDot[data-tier="trusted"] {
-  background: var(--green-fill);
-}
-.tierDot[data-tier="review"] {
-  background: var(--amber-fill);
-}
-.tierDot[data-tier="risky"] {
-  background: var(--orange-fill);
-}
-.tierDot[data-tier="dangerous"] {
-  background: var(--red-fill);
+  background: var(--tier-fill);
+  box-shadow: 0 0 0 var(--hairline) var(--tier-edge);
 }
 .fclear {
   font: inherit;

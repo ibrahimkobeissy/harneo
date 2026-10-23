@@ -1,7 +1,8 @@
 import { ShieldAlert } from "lucide-react";
 import type { Candidate } from "../../bindings/Candidate";
+import { severityLabels, severityOrder, tierLabels, tierOrder } from "../../ui";
 import styles from "./Import.module.css";
-import { severityOrder, TierLabel, tierNames, tierOrder } from "./trust";
+import { TierLabel } from "./trust";
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -33,7 +34,7 @@ export function AuditSummary({ chosen }: { chosen: Candidate[] }) {
         <ul className={styles.stats} aria-label="Artifacts per tier">
           {tierOrder.map((t) => (
             <li key={t} className={styles.stat} data-tier={t}>
-              {`${tierCount(t)} ${tierNames[t]}`}
+              {`${tierCount(t)} ${tierLabels[t]}`}
             </li>
           ))}
         </ul>
@@ -43,7 +44,7 @@ export function AuditSummary({ chosen }: { chosen: Candidate[] }) {
             : `${plural(findings.length, "finding")}: ` +
               severityOrder
                 .filter((s) => sevCount(s) > 0)
-                .map((s) => `${sevCount(s)} ${s}`)
+                .map((s) => `${sevCount(s)} ${severityLabels[s].toLowerCase()}`)
                 .join(", ")}
         </p>
       </div>

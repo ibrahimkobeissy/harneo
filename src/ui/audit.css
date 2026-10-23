@@ -1,0 +1,82 @@
+/* Audit colours, one place. Tiers: green, amber, orange, red. Severities: critical (solid red),
+   high (red wash), medium (amber), low (neutral). Every ink here is 4.5:1 or better on its wash in
+   both themes (DESIGN.md). Non-text marks (meter bars, histogram bars, dots) keep the saturated
+   `-fill` colour, which alone is under 3:1 on the track in light, so each carries a 1px outline in the
+   tier ink (`--tier-edge`, 5:1 or better on the page). */
+[data-tier] {
+  --tier-ink: var(--t2);
+  --tier-soft: var(--sunk);
+  --tier-fill: var(--t2);
+  --tier-edge: var(--t2);
+}
+[data-tier="trusted"] {
+  --tier-ink: var(--green);
+  --tier-soft: var(--green-soft);
+  --tier-fill: var(--green-fill);
+  --tier-edge: var(--green);
+}
+[data-tier="review"] {
+  --tier-ink: var(--amber);
+  --tier-soft: var(--amber-soft);
+  --tier-fill: var(--amber-fill);
+  --tier-edge: var(--amber);
+}
+[data-tier="risky"] {
+  --tier-ink: var(--orange);
+  --tier-soft: var(--orange-soft);
+  --tier-fill: var(--orange-fill);
+  --tier-edge: var(--orange);
+}
+[data-tier="dangerous"] {
+  --tier-ink: var(--red);
+  --tier-soft: var(--red-soft);
+  --tier-fill: var(--red-fill);
+  --tier-edge: var(--red);
+}
+
+[data-sev] {
+  --sev-ink: var(--t2);
+  --sev-soft: var(--sunk);
+}
+[data-sev="critical"],
+[data-sev="high"] {
+  --sev-ink: var(--red);
+  --sev-soft: var(--red-soft);
+}
+[data-sev="medium"] {
+  --sev-ink: var(--amber);
+  --sev-soft: var(--amber-soft);
+}
+
+.audit-severity {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--hairline) var(--space-xs);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-label);
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--sev-soft);
+  color: var(--sev-ink);
+}
+/* Critical is the one solid badge: the page background is its ink, red is its fill. */
+.audit-severity[data-sev="critical"] {
+  background: var(--red);
+  color: var(--bg);
+}
+
+.audit-finding-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xxs) var(--space-sm);
+}
+.audit-finding-title b {
+  font-weight: 600;
+  color: var(--t1);
+}
+.audit-finding-title code {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--t2);
+}

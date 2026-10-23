@@ -9,4 +9,20 @@ export { Panel } from "./Panel";
 export { Screen } from "./Screen";
 export { Tag, type TagTint } from "./Tag";
 export { decodeBool, usePersisted } from "./usePersisted";
-export { TrustMeter, tierLabels } from "./TrustMeter";
+export { TrustMeter } from "./TrustMeter";
+export {
+  anyNote,
+  tierLabels,
+  hasAny,
+  ruleCatalogue,
+  ruleInfo,
+  severityLabels,
+  severityOrder,
+  severityRank,
+  severityTone,
+  tierOrder,
+  tiers,
+  type RuleInfo,
+  type TierInfo,
+} from "./audit";
+export { AnyNote, FindingTitle, SeverityBadge } from "./AuditParts";

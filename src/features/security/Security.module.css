@@ -1,16 +1,4 @@
-/* Tier colours come from the tokens: green, amber, orange, red. */
-[data-tier="trusted"] {
-  --tier: var(--green-fill);
-}
-[data-tier="review"] {
-  --tier: var(--amber-fill);
-}
-[data-tier="risky"] {
-  --tier: var(--tint-orange);
-}
-[data-tier="dangerous"] {
-  --tier: var(--red-fill);
-}
+/* Tier and severity colours come from src/ui/audit.css (data-tier, data-sev). */
 
 .lede {
   color: var(--t2);
@@ -56,7 +44,8 @@
 }
 .bars i {
   flex: 1;
-  background: var(--tier);
+  background: var(--tier-fill);
+  box-shadow: 0 0 0 var(--hairline) var(--tier-edge);
   border-radius: var(--radius-xs) var(--radius-xs) 0 0;
 }
 .bars i[data-empty] {
@@ -93,7 +82,8 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--tier);
+  background: var(--tier-fill);
+  box-shadow: 0 0 0 var(--hairline) var(--tier-edge);
   flex: none;
 }
 
@@ -114,18 +104,11 @@
   font-weight: 600;
   letter-spacing: var(--tracking-headline);
 }
-.sevRow [data-sev="critical"] b,
-.sevRow [data-sev="high"] b {
-  color: var(--red);
-}
-.sevRow [data-sev="medium"] b {
-  color: var(--amber);
-}
-.sevRow [data-sev="low"] b {
-  color: var(--t2);
+.sevRow b {
+  color: var(--sev-ink);
 }
 .sevRow span {
-  color: var(--t3);
+  color: var(--t2);
   font-size: var(--text-label);
   text-transform: capitalize;
 }
@@ -264,9 +247,9 @@
 }
 .where {
   display: block;
-  color: var(--t3);
+  color: var(--t2);
   font-family: var(--font-mono);
-  font-size: var(--text-label-quiet);
+  font-size: var(--text-label);
   overflow-wrap: anywhere;
 }
 .mono {
@@ -285,31 +268,6 @@
 }
 .hot {
   color: var(--red);
-}
-
-.meterWrap {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-}
-.meter {
-  width: 36px;
-  height: 5px;
-  border-radius: var(--radius-xs);
-  background: var(--line);
-  overflow: hidden;
-  display: inline-block;
-}
-.meter i {
-  display: block;
-  height: 100%;
-  background: var(--tier);
-}
-.score {
-  font-variant-numeric: tabular-nums;
-  font-size: var(--text-label);
-  color: var(--t2);
-  min-width: 2ch;
 }
 
 .srOnly {

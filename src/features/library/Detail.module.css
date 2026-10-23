@@ -234,31 +234,27 @@
   gap: var(--space-md);
 }
 .finding {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-xs) var(--space-sm);
   padding: var(--space-sm) var(--space-md);
   border-radius: var(--radius);
-  border-left: 3px solid var(--t3);
-  background: var(--sunk);
+  border: var(--hairline) solid var(--line);
+  background: var(--sev-soft);
   min-width: 0;
+}
+.finding > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--sev-ink);
 }
 .finding > span {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.finding[data-severity="critical"] {
-  border-left-color: var(--red-fill);
-  background: var(--red-soft);
-}
-.finding[data-severity="high"] {
-  border-left-color: var(--orange-fill);
-  background: var(--orange-soft);
-}
-.finding[data-severity="medium"] {
-  border-left-color: var(--amber-fill);
-  background: var(--amber-soft);
+.finding > code {
+  grid-column: 2;
 }
 .evidence {
   display: block;

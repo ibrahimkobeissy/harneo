@@ -1,37 +1,14 @@
-import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Candidate } from "../../bindings/Candidate";
-import type { Tier } from "../../bindings/Tier";
-import styles from "./Import.module.css";
+import { TrustMeter } from "../../ui";
 
-export const tierNames: Record<Tier, string> = {
-  trusted: "Trusted",
-  review: "Review",
-  risky: "Risky",
-  dangerous: "Dangerous",
-};
-
-export const tierOrder: Tier[] = ["trusted", "review", "risky", "dangerous"];
-
-/** Most serious first. */
-export const severityOrder: AuditSeverity[] = [
-  "critical",
-  "high",
-  "medium",
-  "low",
-];
-
-/** The tier as a small coloured label with the score. */
+/** The tier as the shared compact meter: name and score. */
 export function TierLabel({ candidate }: { candidate: Candidate }) {
-  const { tier, score } = candidate.audit;
   return (
-    <span
-      className={styles.tier}
-      data-tier={tier}
-      title={`Trust score ${score} of 100`}
-    >
-      {tierNames[tier]}
-      <span className={styles.tierScore}>{score}</span>
-    </span>
+    <TrustMeter
+      score={candidate.audit.score}
+      tier={candidate.audit.tier}
+      size="chip"
+    />
   );
 }
 

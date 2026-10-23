@@ -78,7 +78,7 @@ const preview = (extra: Candidate[] = []): Preview => ({
     ),
     cand("pipe", "dangerous", 5, [
       finding({
-        rule: "pipe-to-shell",
+        rule: "rce",
         severity: "critical",
         message: "Pipes a download into sh.",
       }),
@@ -137,9 +137,11 @@ describe("Import audit", () => {
     expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
     const gone = screen.getByRole("region", { name: "Excluded, 1" });
     expect(within(gone).getByText("pipe")).toBeInTheDocument();
+    expect(within(gone).getByText(/Critical finding:/)).toBeInTheDocument();
     expect(
-      within(gone).getByText("Critical finding: pipe-to-shell"),
+      within(gone).getByText("Downloads and runs code"),
     ).toBeInTheDocument();
+    expect(within(gone).getByText("rce")).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Restore pipe" }));
     expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
   });
@@ -155,7 +157,7 @@ describe("Import audit", () => {
     const list = screen.getByRole("list", {
       name: "Audit findings of fetcher",
     });
-    expect(within(list).getByText("high")).toBeInTheDocument();
+    expect(within(list).getByText("High")).toBeInTheDocument();
     expect(within(list).getByText("network-egress")).toBeInTheDocument();
     expect(
       within(list).getByText("skills/fetcher/SKILL.md:12"),
@@ -190,7 +192,7 @@ describe("Import audit", () => {
     } as Preview;
     const second = preview([
       cand("managed-bad", "dangerous", 0, [
-        finding({ rule: "pipe-to-shell", severity: "critical" }),
+        finding({ rule: "rce", severity: "critical" }),
       ]),
     ]);
     setup([first, second]);
@@ -215,7 +217,7 @@ describe("Import audit", () => {
       name: "Artifacts per tier",
     });
     expect(tiers.children[0]).toHaveTextContent("1 Trusted");
-    expect(tiers.children[1]).toHaveTextContent("0 Review");
+    expect(tiers.children[1]).toHaveTextContent("0 Needs review");
     expect(tiers.children[2]).toHaveTextContent("1 Risky");
     expect(tiers.children[3]).toHaveTextContent("0 Dangerous");
     expect(

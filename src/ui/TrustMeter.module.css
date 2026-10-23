@@ -5,29 +5,6 @@
   font-size: var(--text-label);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-  --tier-fill: var(--t3);
-  --tier-ink: var(--t3);
-  --tier-soft: var(--sunk);
-}
-.meter[data-tier="trusted"] {
-  --tier-fill: var(--green-fill);
-  --tier-ink: var(--green);
-  --tier-soft: var(--green-soft);
-}
-.meter[data-tier="review"] {
-  --tier-fill: var(--amber-fill);
-  --tier-ink: var(--amber);
-  --tier-soft: var(--amber-soft);
-}
-.meter[data-tier="risky"] {
-  --tier-fill: var(--orange-fill);
-  --tier-ink: var(--orange);
-  --tier-soft: var(--orange-soft);
-}
-.meter[data-tier="dangerous"] {
-  --tier-fill: var(--red-fill);
-  --tier-ink: var(--red);
-  --tier-soft: var(--red-soft);
 }
 .none {
   color: var(--t3);
@@ -40,6 +17,7 @@
   background: var(--line);
   overflow: hidden;
   flex: none;
+  outline: var(--hairline) solid var(--tier-edge);
 }
 .meter[data-size="md"] .bar {
   width: 64px;
@@ -68,4 +46,17 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+/* Compact form for the import lists: tier name and score on the tier's wash. */
+.chip {
+  gap: var(--space-xs);
+  padding: var(--hairline) var(--space-xs);
+  border-radius: var(--radius-sm);
+  background: var(--tier-soft);
+  color: var(--tier-ink);
+  font-weight: 600;
+}
+.chipScore {
+  font-family: var(--font-mono);
+  font-weight: 400;
 }
