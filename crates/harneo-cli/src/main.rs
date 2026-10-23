@@ -5,6 +5,7 @@ mod profiles;
 mod scaffold;
 mod scan;
 mod update;
+mod status;
 
 use std::io::{BufRead, IsTerminal};
 use std::path::PathBuf;
@@ -55,6 +56,17 @@ enum Command {
     Scaffold(scaffold::ScaffoldArgs),
     /// Check the library's sources and update outdated artifacts that have no local edits.
     Update(update::UpdateArgs),
+    /// Show every registered project with its drift, or one project's drifted files.
+    Status {
+        /// A registered project folder; every project when left out.
+        path: Option<PathBuf>,
+        /// Print the reports as JSON.
+        #[arg(long)]
+        json: bool,
+        /// Exit with 3 when a listed project has drifted.
+        #[arg(long)]
+        exit_code: bool,
+    },
 }
 
 fn main() -> ExitCode {
@@ -82,6 +94,11 @@ fn run() -> anyhow::Result<ExitCode> {
             });
         }
         Command::Update(args) => return update::run(&args, &mut std::io::stdout()),
+        Command::Status {
+            path,
+            json,
+            exit_code,
+        } => return status::run(path.as_deref(), json, exit_code, &mut std::io::stdout()),
         Command::Scan {
             path,
             json,
