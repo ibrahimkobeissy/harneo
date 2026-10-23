@@ -35,6 +35,11 @@ import type { ProfileSpec } from "../bindings/ProfileSpec";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { ProfileView } from "../bindings/ProfileView";
 import type { Resolved } from "../bindings/Resolved";
+import type { ApplyReport } from "../bindings/ApplyReport";
+import type { InstalledFile } from "../bindings/InstalledFile";
+import type { Plan } from "../bindings/Plan";
+import type { Project } from "../bindings/Project";
+import type { ProjectFile } from "../bindings/ProjectFile";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -508,4 +513,48 @@ export function artifactSetManualOnly(
   manualOnly: boolean,
 ): Promise<void> {
   return invoke<void>("artifact_set_manual_only", { id, manualOnly });
+}
+// --- Install engine: scaffold, apply, projects -----------------------------------------
+
+/** What scaffolding a profile (the current version when omitted) into a folder would write. */
+export function scaffoldPlan(
+  target: string,
+  profileId: bigint,
+  version?: number,
+): Promise<Plan> {
+  return invoke<Plan>("scaffold_plan", {
+    target,
+    profileId: Number(profileId),
+    version: version ?? null,
+  });
+}
+
+/** Writes a plan into its project, with backups first and a rollback on failure. */
+export function installApply(plan: Plan): Promise<ApplyReport> {
+  return invoke<ApplyReport>("install_apply", { plan });
+}
+
+/** Every project Harneo installed a profile into. */
+export function projectsList(): Promise<Project[]> {
+  return invoke<Project[]>("projects_list");
+}
+
+/** One project. */
+export function projectGet(id: bigint): Promise<Project> {
+  return invoke<Project>("project_get", { id: Number(id) });
+}
+
+/** The files Harneo wrote into a project. */
+export function projectFiles(id: bigint): Promise<InstalledFile[]> {
+  return invoke<InstalledFile[]>("project_files", { id: Number(id) });
+}
+
+/** The current content of one managed file of a project. */
+export function projectFileContent(
+  id: bigint,
+  path: string,
+): Promise<ProjectFile> {
+  return invoke<ProjectFile>("project_file_content", {
+    id: Number(id),
+  });
 }

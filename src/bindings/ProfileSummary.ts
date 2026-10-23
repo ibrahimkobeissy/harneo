@@ -18,7 +18,7 @@ counts: Array<KindCount>,
  */
 fileCount: number, 
 /**
- * Projects using the profile; 0 until the install engine records them.
+ * Projects the install registry has this profile in.
  */
 projectCount: number, 
 /**

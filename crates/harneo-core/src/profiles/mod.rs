@@ -78,7 +78,7 @@ pub struct ProfileSummary {
     pub counts: Vec<KindCount>,
     /// Files those artifacts bring.
     pub file_count: u32,
-    /// Projects using the profile; 0 until the install engine records them.
+    /// Projects the install registry has this profile in.
     pub project_count: u32,
     /// Unix seconds.
     pub updated_at: i64,
@@ -359,7 +359,7 @@ impl Library {
                     .map(|(kind, count)| KindCount { kind, count })
                     .collect(),
                 file_count: resolved.artifacts.iter().map(|i| i.file_count).sum(),
-                project_count: 0,
+                project_count: crate::install::project_count(conn, id)?,
                 updated_at: found.updated_at,
             });
         }
@@ -448,9 +448,15 @@ impl Library {
         }
     }
 
-    /// Deletes a profile and all its versions. (Refusing while a project uses it comes with the
-    /// install engine.)
+    /// Deletes a profile and all its versions; refused while a project uses it.
     pub fn delete_profile(&self, id: ProfileId) -> Result<()> {
+        let used = crate::install::project_names(&self.store.conn, id)?;
+        if !used.is_empty() {
+            return Err(Error::ProfileInUse {
+                name: row(&self.store.conn, id)?.name,
+                projects: used.join(", "),
+            });
+        }
         match self
             .store
             .conn

@@ -176,8 +176,42 @@ CREATE TABLE profile_versions (
 ALTER TABLE artifacts ADD COLUMN manual_only INTEGER NOT NULL DEFAULT 0;
 ";
 
+/// Version 6: the install registry. A project is a folder Harneo installed a profile version
+/// into (`path` is canonical and unique); `installed_files` is its manifest (`digest` is the
+/// SHA-256 of what Harneo wrote, `artifact_id` is NULL for generated files); `backups` is one row
+/// per backup set (`folder` is relative to the data folder). A profile in use cannot be deleted.
+const V6: &str = "
+CREATE TABLE projects (
+    id              INTEGER PRIMARY KEY,
+    path            TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    profile_id      INTEGER NOT NULL REFERENCES profiles(id) ON DELETE RESTRICT,
+    profile_version INTEGER NOT NULL,
+    applied_at      INTEGER NOT NULL
+) STRICT;
+CREATE INDEX projects_profile ON projects(profile_id);
+
+CREATE TABLE installed_files (
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    path        TEXT NOT NULL,
+    digest      TEXT NOT NULL,
+    artifact_id TEXT,
+    PRIMARY KEY (project_id, path)
+) STRICT;
+
+CREATE TABLE backups (
+    id         INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    reason     TEXT NOT NULL,
+    file_count INTEGER NOT NULL,
+    folder     TEXT NOT NULL
+) STRICT;
+CREATE INDEX backups_project ON backups(project_id, created_at);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -603,5 +637,48 @@ mod tests {
         assert_eq!(row, ("old".to_owned(), 0));
         assert_eq!(count(&store, "profiles"), 0);
         assert_eq!(count(&store, "profile_versions"), 0);
+    }
+
+    /// A version 5 database with a profile gains the install registry, keeping its data.
+    #[test]
+    fn a_v5_database_migrates_to_the_install_registry_keeping_its_data() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v5 db");
+            for sql in [V1, V2, V3, V4, V5] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO profiles (id, name, current_version, created_at, updated_at)
+                 VALUES (1, 'web', 1, 5, 5);
+                 INSERT INTO profile_versions (profile_id, version, spec, saved_at)
+                 VALUES (1, 1, '{}', 5);
+                 PRAGMA user_version = 5;",
+            )
+            .expect("v5 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        assert_eq!(count(&store, "profiles"), 1);
+        assert_eq!(count(&store, "projects"), 0);
+        assert_eq!(count(&store, "installed_files"), 0);
+        assert_eq!(count(&store, "backups"), 0);
+        store
+            .conn
+            .execute(
+                "INSERT INTO projects (path, name, profile_id, profile_version, applied_at)
+                 VALUES ('/p', 'p', 1, 1, 9)",
+                [],
+            )
+            .expect("a project can use the old profile");
+        assert!(
+            store
+                .conn
+                .execute("DELETE FROM profiles WHERE id = 1", [])
+                .is_err(),
+            "a profile in use is protected by the schema too"
+        );
     }
 }

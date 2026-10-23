@@ -207,6 +207,43 @@ pub enum Error {
         /// The id that was asked for.
         id: i64,
     },
+    /// The folder already has a harness (`.claude/`, `CLAUDE.md` or `.mcp.json`).
+    #[error("{path} already has a harness ({found}); refit it instead")]
+    HasHarness {
+        /// The project folder.
+        path: String,
+        /// What was found there.
+        found: String,
+    },
+    /// Another Harneo (the app or the CLI) is installing into a project.
+    #[error("Harneo is busy: another install is running; try again in a moment")]
+    Busy,
+    /// A plan or a path in it is refused before anything is written.
+    #[error("cannot install: {message}")]
+    Install {
+        /// Why, ready to show.
+        message: String,
+    },
+    /// An install failed part-way and was undone (or could not be fully undone).
+    #[error("{message}")]
+    InstallFailed {
+        /// What failed and whether the project was restored.
+        message: String,
+    },
+    /// No project has this id.
+    #[error("project {id} does not exist")]
+    ProjectNotFound {
+        /// The id that was asked for.
+        id: i64,
+    },
+    /// The profile is installed in projects, so it cannot be deleted.
+    #[error("profile {name} is used by {projects}; remove it from them first")]
+    ProfileInUse {
+        /// The profile.
+        name: String,
+        /// The project names, comma separated.
+        projects: String,
+    },
     /// An update cannot be made.
     #[error("cannot update: {message}")]
     Update {

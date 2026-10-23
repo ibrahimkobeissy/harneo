@@ -119,3 +119,32 @@ describe("update wrappers", () => {
     ]);
   });
 });
+
+describe("install wrappers", () => {
+  it("send the right command and argument keys", async () => {
+    const calls = record("r");
+    const plan = { target: "/p" } as never;
+    expect(await ipc.scaffoldPlan("/p", 3n)).toBe("r");
+    await ipc.scaffoldPlan("/p", 3n, 2);
+    expect(await ipc.installApply(plan)).toBe("r");
+    expect(await ipc.projectsList()).toBe("r");
+    expect(await ipc.projectGet(4n)).toBe("r");
+    expect(await ipc.projectFiles(4n)).toBe("r");
+    expect(await ipc.projectFileContent(4n, "a.md")).toBe("r");
+    expect(calls).toEqual([
+      {
+        cmd: "scaffold_plan",
+        args: { target: "/p", profileId: 3, version: null },
+      },
+      {
+        cmd: "scaffold_plan",
+        args: { target: "/p", profileId: 3, version: 2 },
+      },
+      { cmd: "install_apply", args: { plan } },
+      { cmd: "projects_list", args: {} },
+      { cmd: "project_get", args: { id: 4 } },
+      { cmd: "project_files", args: { id: 4 } },
+      { cmd: "project_file_content", args: { id: 4, path: "a.md" } },
+    ]);
+  });
+});

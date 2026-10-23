@@ -8,6 +8,7 @@ use harneo_core::artifact::{ArtifactKind, ScanOptions};
 use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
 };
+use harneo_core::install::{ApplyReport, InstalledFile, Plan, Project, ProjectFile};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -760,6 +761,61 @@ pub fn artifact_set_manual_only(
 ) -> Result<(), String> {
     state.with(|library| library.set_manual_only(&id, manual_only))
 }
+// --- Install engine: scaffold, apply, projects ------------------------------------------
+
+/// What scaffolding a profile into a folder would write. Writes nothing.
+#[tauri::command]
+pub fn scaffold_plan(
+    state: State<'_, LibraryState>,
+    target: String,
+    profile_id: i64,
+    version: Option<u32>,
+) -> Result<Plan, String> {
+    state.with(|library| library.plan_scaffold(std::path::Path::new(&target), profile_id, version))
+}
+
+/// Writes a plan into its project, backing up first and rolling back on a failure. Runs on the
+/// blocking pool: it may wait for the data-dir lock.
+#[tauri::command]
+pub async fn install_apply(app: AppHandle, plan: Plan) -> Result<ApplyReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.apply(&plan))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Every project Harneo installed a profile into.
+#[tauri::command]
+pub fn projects_list(state: State<'_, LibraryState>) -> Result<Vec<Project>, String> {
+    state.with(|library| library.projects())
+}
+
+/// One project.
+#[tauri::command]
+pub fn project_get(state: State<'_, LibraryState>, id: i64) -> Result<Project, String> {
+    state.with(|library| library.project(id))
+}
+
+/// The manifest of a project: the files Harneo wrote.
+#[tauri::command]
+pub fn project_files(
+    state: State<'_, LibraryState>,
+    id: i64,
+) -> Result<Vec<InstalledFile>, String> {
+    state.with(|library| library.installed_files(id))
+}
+
+/// The current content of one managed file of a project (cut at a size cap).
+#[tauri::command]
+pub fn project_file_content(
+    state: State<'_, LibraryState>,
+    id: i64,
+    path: String,
+) -> Result<ProjectFile, String> {
+    state.with(|library| library.project_file_content(id, &path))
+}
 
 #[cfg(test)]
 mod tests {
@@ -1040,6 +1096,22 @@ mod tests {
             source,
             Source::Git { branch: Some(ref b), subfolder: Some(ref s), .. } if b == "main" && s == "skills"
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn install_commands_run_through_managed_state() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        let target = tempfile::tempdir()?;
+        let target_text = target.path().to_string_lossy().into_owned();
+        assert!(scaffold_plan(state(), target_text, 1, None).is_err());
+        assert!(projects_list(state())?.is_empty());
+        assert!(project_get(state(), 1).is_err());
+        assert!(project_files(state(), 1).is_err());
+        assert!(project_file_content(state(), 1, "a".into()).is_err());
         Ok(())
     }
 }

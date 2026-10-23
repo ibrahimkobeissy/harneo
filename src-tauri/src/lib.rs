@@ -71,6 +71,12 @@ pub fn run() {
             commands::profile_import_preview,
             commands::profile_import_commit,
             commands::artifact_set_manual_only,
+            commands::scaffold_plan,
+            commands::install_apply,
+            commands::projects_list,
+            commands::project_get,
+            commands::project_files,
+            commands::project_file_content,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

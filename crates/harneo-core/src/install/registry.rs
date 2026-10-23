@@ -1,0 +1,271 @@
+//! The install registry: which projects Harneo installed profiles into, what it wrote there
+//! (the manifest) and the backup sets it made.
+
+use std::io::Read;
+
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+use super::backup::BackupSet;
+use super::plan::{digest, project_folder, resolve_inside, Plan, WriteAction};
+use crate::error::{Error, Result};
+use crate::library::{ArtifactId, Library};
+use crate::profiles::ProfileId;
+
+/// The most of a managed file `project_file_content` returns.
+pub const MAX_FILE_BYTES: u64 = 512 * 1024;
+
+/// A project Harneo installed a profile into.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct Project {
+    pub id: i64,
+    /// The project folder, canonical.
+    pub path: String,
+    pub name: String,
+    pub profile_id: ProfileId,
+    pub profile_name: String,
+    pub profile_version: u32,
+    /// Unix seconds of the last apply.
+    pub applied_at: i64,
+    /// Files in the manifest.
+    pub file_count: u32,
+}
+
+/// One file Harneo wrote into a project.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct InstalledFile {
+    /// Relative to the project root.
+    pub path: String,
+    /// SHA-256 of what Harneo wrote.
+    pub digest: String,
+    /// The library artifact it came from; `None` for generated files.
+    pub artifact_id: Option<ArtifactId>,
+}
+
+/// One backup set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct Backup {
+    pub id: i64,
+    pub project_id: i64,
+    /// Unix seconds.
+    pub created_at: i64,
+    pub reason: String,
+    pub file_count: u32,
+    /// Relative to Harneo's data folder.
+    pub folder: String,
+}
+
+/// A managed file read back from a project.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ProjectFile {
+    pub path: String,
+    /// The text (invalid UTF-8 replaced).
+    pub content: String,
+    /// The file is longer than [`MAX_FILE_BYTES`] and was cut.
+    pub truncated: bool,
+}
+
+/// How many projects use a profile.
+pub(crate) fn project_count(conn: &Connection, profile: ProfileId) -> Result<u32> {
+    Ok(conn.query_row(
+        "SELECT COUNT(*) FROM projects WHERE profile_id = ?1",
+        params![profile],
+        |r| r.get(0),
+    )?)
+}
+
+/// The names of the projects using a profile.
+pub(crate) fn project_names(conn: &Connection, profile: ProfileId) -> Result<Vec<String>> {
+    Ok(conn
+        .prepare("SELECT name FROM projects WHERE profile_id = ?1 ORDER BY name COLLATE NOCASE")?
+        .query_map(params![profile], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?)
+}
+
+/// Registers the plan's project (or updates the one at that path) and returns its id.
+pub(super) fn upsert_project(conn: &Connection, plan: &Plan, now: i64) -> Result<i64> {
+    let name = std::path::Path::new(&plan.target)
+        .file_name()
+        .map_or_else(|| plan.target.clone(), |n| n.to_string_lossy().into_owned());
+    Ok(conn.query_row(
+        "INSERT INTO projects (path, name, profile_id, profile_version, applied_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(path) DO UPDATE SET
+             name = excluded.name, profile_id = excluded.profile_id,
+             profile_version = excluded.profile_version, applied_at = excluded.applied_at
+         RETURNING id",
+        params![
+            plan.target,
+            name,
+            plan.profile_id,
+            plan.profile_version,
+            now
+        ],
+        |r| r.get(0),
+    )?)
+}
+
+/// Records the manifest and the backup row of a finished apply; returns the backup's id.
+pub(super) fn record(
+    conn: &Connection,
+    project_id: i64,
+    plan: &Plan,
+    set: Option<&BackupSet>,
+    now: i64,
+) -> Result<Option<i64>> {
+    for write in &plan.writes {
+        match (write.action, &write.bytes) {
+            (WriteAction::New | WriteAction::Replace, Some(bytes)) => {
+                conn.execute(
+                    "INSERT OR REPLACE INTO installed_files (project_id, path, digest, artifact_id)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    params![project_id, write.path, digest(bytes), write.artifact],
+                )?;
+            }
+            (WriteAction::Delete, _) => {
+                conn.execute(
+                    "DELETE FROM installed_files WHERE project_id = ?1 AND path = ?2",
+                    params![project_id, write.path],
+                )?;
+            }
+            _ => {}
+        }
+    }
+    let Some(set) = set else {
+        return Ok(None);
+    };
+    conn.execute(
+        "INSERT INTO backups (project_id, created_at, reason, file_count, folder)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![project_id, now, plan.reason, set.file_count, set.folder],
+    )?;
+    Ok(Some(conn.last_insert_rowid()))
+}
+
+const PROJECT_SELECT: &str = "SELECT p.id, p.path, p.name, p.profile_id, f.name, p.profile_version,
+        p.applied_at, (SELECT COUNT(*) FROM installed_files i WHERE i.project_id = p.id)
+     FROM projects p JOIN profiles f ON f.id = p.profile_id";
+
+fn project_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
+    Ok(Project {
+        id: r.get(0)?,
+        path: r.get(1)?,
+        name: r.get(2)?,
+        profile_id: r.get(3)?,
+        profile_name: r.get(4)?,
+        profile_version: r.get(5)?,
+        applied_at: r.get(6)?,
+        file_count: r.get(7)?,
+    })
+}
+
+impl Library {
+    /// Every project, by name.
+    pub fn projects(&self) -> Result<Vec<Project>> {
+        Ok(self
+            .store
+            .conn
+            .prepare(&format!(
+                "{PROJECT_SELECT} ORDER BY p.name COLLATE NOCASE, p.id"
+            ))?
+            .query_map([], project_row)?
+            .collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// One project.
+    pub fn project(&self, id: i64) -> Result<Project> {
+        self.store
+            .conn
+            .query_row(
+                &format!("{PROJECT_SELECT} WHERE p.id = ?1"),
+                params![id],
+                project_row,
+            )
+            .optional()?
+            .ok_or(Error::ProjectNotFound { id })
+    }
+
+    /// The manifest of a project: every file Harneo wrote, by path.
+    pub fn installed_files(&self, id: i64) -> Result<Vec<InstalledFile>> {
+        self.project(id)?;
+        Ok(self
+            .store
+            .conn
+            .prepare(
+                "SELECT path, digest, artifact_id FROM installed_files
+                 WHERE project_id = ?1 ORDER BY path",
+            )?
+            .query_map(params![id], |r| {
+                Ok(InstalledFile {
+                    path: r.get(0)?,
+                    digest: r.get(1)?,
+                    artifact_id: r.get(2)?,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// The backup sets of a project, newest first.
+    pub fn backups(&self, id: i64) -> Result<Vec<Backup>> {
+        self.project(id)?;
+        Ok(self
+            .store
+            .conn
+            .prepare(
+                "SELECT id, project_id, created_at, reason, file_count, folder FROM backups
+                 WHERE project_id = ?1 ORDER BY created_at DESC, id DESC",
+            )?
+            .query_map(params![id], |r| {
+                Ok(Backup {
+                    id: r.get(0)?,
+                    project_id: r.get(1)?,
+                    created_at: r.get(2)?,
+                    reason: r.get(3)?,
+                    file_count: r.get(4)?,
+                    folder: r.get(5)?,
+                })
+            })?
+            .collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// The current content of one managed file of a project, cut at [`MAX_FILE_BYTES`]. Only
+    /// files in the manifest can be read, and never through a symlink.
+    pub fn project_file_content(&self, id: i64, path: &str) -> Result<ProjectFile> {
+        let project = self.project(id)?;
+        if !self.installed_files(id)?.iter().any(|f| f.path == path) {
+            return Err(Error::Install {
+                message: format!("{path} is not a file Harneo installed in {}", project.name),
+            });
+        }
+        let target = project_folder(&project.path)?;
+        let file = resolve_inside(&target, path)?;
+        let io = |source| Error::Io {
+            path: file.display().to_string(),
+            source,
+        };
+        let mut bytes = Vec::new();
+        std::fs::File::open(&file)
+            .map_err(io)?
+            .take(MAX_FILE_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .map_err(io)?;
+        let truncated = bytes.len() as u64 > MAX_FILE_BYTES;
+        if truncated {
+            bytes.truncate(usize::try_from(MAX_FILE_BYTES).unwrap_or(usize::MAX));
+        }
+        Ok(ProjectFile {
+            path: path.to_owned(),
+            content: String::from_utf8_lossy(&bytes).into_owned(),
+            truncated,
+        })
+    }
+}
