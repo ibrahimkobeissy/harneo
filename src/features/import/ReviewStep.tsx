@@ -79,8 +79,12 @@ export function ReviewStep({
   onAddTag,
   onAddAll,
   onRemoveAll,
+  heldBack,
+  onReviewHeldBack,
 }: {
   chosen: Candidate[];
+  heldBack: number;
+  onReviewHeldBack: () => void;
   tags: Readonly<Record<string, string[]>>;
   /** Colors picked in Tag all for names that are new to the library (lowercased name). */
   colors: Readonly<Record<string, TagColor>>;
@@ -117,6 +121,11 @@ export function ReviewStep({
   const withSecrets = chosen.filter((c) => c.replacedSecretKeys.length > 0);
   return (
     <>
+      <AuditSummary
+        chosen={chosen}
+        heldBack={heldBack}
+        onReviewHeldBack={onReviewHeldBack}
+      />
       <h2 className={styles.h}>
         Suggested tags{" "}
         <span>
@@ -182,7 +191,6 @@ export function ReviewStep({
           );
         })}
       </div>
-      <AuditSummary chosen={chosen} />
       {withSecrets.length > 0 && (
         <>
           <h2 className={styles.h}>Secrets that will be replaced</h2>

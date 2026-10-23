@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
+import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Candidate } from "../../bindings/Candidate";
 import type { Preview } from "../../bindings/Preview";
 import {
@@ -62,13 +63,19 @@ function Findings({
   const audit = candidate.audit.findings;
   const worst = severityOrder.find((s) => audit.some((f) => f.severity === s));
   if (errors + warnings + audit.length === 0) return null;
+  const what =
+    audit.length > 0 && errors + warnings > 0
+      ? "findings and diagnostics"
+      : audit.length > 0
+        ? "findings"
+        : "diagnostics";
   return (
     <button
       type="button"
       className={styles.findings}
       aria-expanded={open}
-      aria-controls={`diag-${candidate.id}`}
-      aria-label={`${open ? "Hide" : "Show"} diagnostics of ${candidate.artifact.name}`}
+      aria-controls={`details-${candidate.id}`}
+      aria-label={`${open ? "Hide" : "Show"} ${what} of ${candidate.artifact.name}`}
       onClick={onToggle}
     >
       <span className={styles.badges}>
@@ -88,16 +95,27 @@ function Findings({
 }
 
 /** The audit's findings for one artifact: severity, rule, message, location and evidence. */
-function AuditList({ candidate }: { candidate: Candidate }) {
-  const sorted = [...candidate.audit.findings].sort(
-    (a, b) =>
-      severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity),
-  );
+function AuditList({
+  candidate,
+  only,
+  idPrefix = "audit",
+}: {
+  candidate: Candidate;
+  /** Lists just this severity (the restore confirm shows the critical findings). */
+  only?: AuditSeverity;
+  idPrefix?: string;
+}) {
+  const sorted = candidate.audit.findings
+    .filter((f) => only === undefined || f.severity === only)
+    .sort(
+      (a, b) =>
+        severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity),
+    );
   return (
     <ul
       className={styles.diags}
-      id={`audit-${candidate.id}`}
-      aria-label={`Audit findings of ${candidate.artifact.name}`}
+      id={`${idPrefix}-${candidate.id}`}
+      aria-label={`${only ? "Critical findings" : "Audit findings"} of ${candidate.artifact.name}`}
     >
       {sorted.map((f, i) => (
         <li
@@ -151,6 +169,65 @@ function DiagnosticList({ candidate }: { candidate: Candidate }) {
         );
       })}
     </ul>
+  );
+}
+
+/** What a row opens to: the scan's diagnostics, then the audit's findings. */
+function Details({ candidate }: { candidate: Candidate }) {
+  return (
+    <div id={`details-${candidate.id}`}>
+      {candidate.artifact.diagnostics.length > 0 && (
+        <>
+          <h4 className={styles.subhead}>Scan diagnostics</h4>
+          <DiagnosticList candidate={candidate} />
+        </>
+      )}
+      {candidate.audit.findings.length > 0 && (
+        <>
+          <h4 className={styles.subhead}>Security audit</h4>
+          <AuditList candidate={candidate} />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** The inline step before a Dangerous artifact comes back: its critical findings, restated. */
+function RestoreConfirm({
+  candidate,
+  onRestore,
+  onKeep,
+}: {
+  candidate: Candidate;
+  onRestore: () => void;
+  onKeep: () => void;
+}) {
+  return (
+    <div
+      className={styles.confirm}
+      role="group"
+      aria-label={`Restore ${candidate.artifact.name}?`}
+      onKeyDown={(ev) => {
+        if (ev.key === "Escape") {
+          ev.stopPropagation();
+          onKeep();
+        }
+      }}
+    >
+      <p>
+        <b>{candidate.artifact.name}</b> has a critical finding. Restoring it
+        puts it back in the import.
+      </p>
+      <AuditList candidate={candidate} only="critical" idPrefix="critical" />
+      <div className={styles.confirmActions}>
+        <Button small autoFocus onClick={onKeep}>
+          Keep excluded
+        </Button>
+        <Button small onClick={onRestore}>
+          Restore anyway
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -239,6 +316,16 @@ export function ChooseStep({
     new Map(),
   );
   const focusAfter = useRef<string | null>(null);
+  // The excluded row whose restore is waiting on the user to confirm.
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const refocusRestore = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = refocusRestore.current;
+    if (!id || confirming !== null) return;
+    refocusRestore.current = null;
+    document.querySelector<HTMLElement>(`[data-rid="${id}"]`)?.focus();
+  }, [confirming]);
 
   useEffect(() => {
     const id = focusAfter.current;
@@ -255,9 +342,13 @@ export function ChooseStep({
   const errorsOut =
     withErrors.length > 0 && withErrors.every((id) => excluded.has(id));
   const claude = claudeProvidedIds(all);
-  const riskyIds = free
-    .filter((c) => c.audit.tier === "risky" || c.audit.tier === "dangerous")
-    .map((c) => c.id);
+  const riskyIds = free.filter(
+    (c) => c.audit.tier === "risky" || c.audit.tier === "dangerous",
+  );
+  const riskyOut =
+    riskyIds.length > 0 && riskyIds.every((c) => excluded.has(c.id));
+  // Rows with a critical finding come back one by one, through their confirm.
+  const riskyBack = riskyIds.filter((c) => criticalRule(c) === null);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
   const gone = all.filter((c) => excluded.has(c.id));
   const note = managedNote(preview.diagnostics);
@@ -329,7 +420,16 @@ export function ChooseStep({
           </Button>
         )}
         {riskyIds.length > 0 && (
-          <Button small onClick={() => onExclude(riskyIds)}>
+          <Button
+            small
+            aria-pressed={riskyOut}
+            disabled={riskyOut && riskyBack.length === 0}
+            onClick={() =>
+              riskyOut
+                ? onRestore(riskyBack.map((c) => c.id))
+                : onExclude(riskyIds.map((c) => c.id))
+            }
+          >
             Exclude Risky and Dangerous
           </Button>
         )}
@@ -458,22 +558,7 @@ export function ChooseStep({
                         </button>
                       )}
                     </div>
-                    {open && (
-                      <>
-                        {c.artifact.diagnostics.length > 0 && (
-                          <>
-                            <h4 className={styles.subhead}>Scan diagnostics</h4>
-                            <DiagnosticList candidate={c} />
-                          </>
-                        )}
-                        {c.audit.findings.length > 0 && (
-                          <>
-                            <h4 className={styles.subhead}>Security audit</h4>
-                            <AuditList candidate={c} />
-                          </>
-                        )}
-                      </>
-                    )}
+                    {open && <Details candidate={c} />}
                   </div>
                 );
               })}
@@ -505,43 +590,71 @@ export function ChooseStep({
             </button>
           </header>
           {!isCollapsed(EXCLUDED, gone.length) &&
-            gone.map((c) => (
-              <div key={c.id} className={styles.item}>
-                <div className={styles.line1}>
-                  <div className={styles.pick} data-excluded="true">
-                    <span className={styles.grow}>
-                      <span className={styles.title}>
-                        <b>{c.artifact.name}</b>
-                        <span className={styles.origin}>
-                          {originLabel(c.artifact.origin)}
+            gone.map((c) => {
+              const open = opened.has(c.id);
+              return (
+                <div key={c.id} className={styles.item}>
+                  <div className={styles.line1}>
+                    <div className={styles.pick} data-excluded="true">
+                      <span className={styles.grow}>
+                        <span className={styles.title}>
+                          <b>{c.artifact.name}</b>
+                          <span className={styles.origin}>
+                            {originLabel(c.artifact.origin)}
+                          </span>
+                          <span className={styles.origin}>
+                            {kindPlurals[c.artifact.kind]}
+                          </span>
+                          <TierLabel candidate={c} />
                         </span>
-                        <span className={styles.origin}>
-                          {kindPlurals[c.artifact.kind]}
+                        {criticalRule(c) && (
+                          <span className={`${styles.reason} ${styles.block}`}>
+                            Critical finding:{" "}
+                            <FindingTitle rule={criticalRule(c) ?? ""} />
+                          </span>
+                        )}
+                        <span className={`${styles.line} ${styles.block}`}>
+                          <span className={styles.mono}>{c.artifact.path}</span>
                         </span>
-                        <TierLabel candidate={c} />
                       </span>
-                      {criticalRule(c) && (
-                        <span className={`${styles.reason} ${styles.block}`}>
-                          Critical finding:{" "}
-                          <FindingTitle rule={criticalRule(c) ?? ""} />
-                        </span>
-                      )}
-                      <span className={`${styles.line} ${styles.block}`}>
-                        <span className={styles.mono}>{c.artifact.path}</span>
-                      </span>
-                    </span>
+                    </div>
+                    <Findings
+                      candidate={c}
+                      open={open}
+                      onToggle={() => flip(c.id)}
+                    />
+                    <Button
+                      small
+                      variant="ghost"
+                      data-rid={c.id}
+                      aria-label={`Restore ${c.artifact.name}`}
+                      onClick={() => {
+                        if (criticalRule(c) === null) {
+                          onRestore([c.id]);
+                        } else {
+                          refocusRestore.current = c.id;
+                          setConfirming(c.id);
+                        }
+                      }}
+                    >
+                      Restore
+                    </Button>
                   </div>
-                  <Button
-                    small
-                    variant="ghost"
-                    aria-label={`Restore ${c.artifact.name}`}
-                    onClick={() => onRestore([c.id])}
-                  >
-                    Restore
-                  </Button>
+                  {confirming === c.id && (
+                    <RestoreConfirm
+                      candidate={c}
+                      onKeep={() => setConfirming(null)}
+                      onRestore={() => {
+                        refocusRestore.current = null;
+                        setConfirming(null);
+                        onRestore([c.id]);
+                      }}
+                    />
+                  )}
+                  {open && <Details candidate={c} />}
                 </div>
-              </div>
-            ))}
+              );
+            })}
         </section>
       )}
     </>

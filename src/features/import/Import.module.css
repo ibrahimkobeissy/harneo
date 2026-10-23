@@ -851,6 +851,53 @@ h3.subhead {
   background: var(--tier-soft);
   color: var(--tier-ink);
 }
+.stat[data-zero="true"] {
+  background: transparent;
+  color: var(--t3);
+  font-weight: 500;
+}
+.held {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-sm);
+  font-size: var(--text-label);
+  color: var(--t1);
+}
+.held svg {
+  flex: none;
+  color: var(--red);
+}
+.linkButton {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--blue);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.confirm {
+  margin: var(--space-sm) var(--space-md) var(--space-sm) 37px;
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--red);
+  border-radius: var(--radius);
+  background: var(--red-soft);
+  font-size: var(--text-label);
+}
+.confirm p {
+  margin: 0 0 var(--space-xs);
+}
+.confirmActions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.reachItem + .reachItem::before {
+  content: "\00b7";
+  margin-right: var(--space-sm);
+  color: var(--t3);
+}
 .reach {
   display: flex;
   flex-wrap: wrap;
@@ -877,4 +924,13 @@ h3.subhead {
 }
 .diag .msg {
   margin-left: var(--space-sm);
+}
+.diag :global(.audit-finding-title) {
+  margin-left: var(--space-sm);
+}
+.confirm .diags {
+  padding: 0;
+}
+.line1 > button[data-rid] {
+  margin-right: var(--space-md);
 }

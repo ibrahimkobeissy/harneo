@@ -143,7 +143,39 @@ describe("Import audit", () => {
     ).toBeInTheDocument();
     expect(within(gone).getByText("rce")).toBeInTheDocument();
     await u.click(screen.getByRole("button", { name: "Restore pipe" }));
+    // A critical finding is restated first; nothing is restored yet.
+    const confirm = screen.getByRole("group", { name: "Restore pipe?" });
+    expect(
+      within(confirm).getByRole("list", { name: "Critical findings of pipe" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Restore anyway" }));
     expect(screen.getByText("3 to import, 0 excluded")).toBeInTheDocument();
+  });
+
+  it("keeps a critical row excluded when the confirm is dismissed", async () => {
+    const u = userEvent.setup();
+    setup([preview()]);
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Restore pipe" }));
+    await u.keyboard("{Escape}");
+    expect(
+      screen.queryByRole("group", { name: "Restore pipe?" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore pipe" })).toHaveFocus();
+  });
+
+  it("shows an excluded row's findings through the same list", async () => {
+    const u = userEvent.setup();
+    setup([preview()]);
+    await toChoose(u);
+    await u.click(
+      screen.getByRole("button", { name: "Show findings of pipe" }),
+    );
+    expect(
+      screen.getByRole("list", { name: "Audit findings of pipe" }),
+    ).toBeInTheDocument();
   });
 
   it("lists audit findings apart from scan diagnostics when a row expands", async () => {
@@ -151,7 +183,7 @@ describe("Import audit", () => {
     setup([preview()]);
     await toChoose(u);
     await u.click(
-      screen.getByRole("button", { name: "Show diagnostics of fetcher" }),
+      screen.getByRole("button", { name: "Show findings of fetcher" }),
     );
     expect(screen.getByText("Security audit")).toBeInTheDocument();
     const list = screen.getByRole("list", {
@@ -175,6 +207,14 @@ describe("Import audit", () => {
       screen.getByRole("button", { name: "Exclude Risky and Dangerous" }),
     );
     expect(screen.getByText("1 to import, 2 excluded")).toBeInTheDocument();
+    const toggle = screen.getByRole("button", {
+      name: "Exclude Risky and Dangerous",
+    });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    // The critical row stays out; it comes back only through its own confirm.
+    await u.click(toggle);
+    expect(screen.getByText("2 to import, 1 excluded")).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 
   it("keeps the user's restores when Include them re-previews", async () => {
@@ -198,6 +238,7 @@ describe("Import audit", () => {
     setup([first, second]);
     await toChoose(u);
     await u.click(screen.getByRole("button", { name: "Restore pipe" }));
+    await u.click(screen.getByRole("button", { name: "Restore anyway" }));
     const include = screen.getByRole("button", { name: "Include them" });
     await u.click(include);
     await waitFor(() =>
@@ -224,8 +265,15 @@ describe("Import audit", () => {
       within(audit).getByLabelText("Findings per severity"),
     ).toHaveTextContent("1 finding: 1 high");
     const reach = within(audit).getByRole("list", { name: "Reach of fetcher" });
-    expect(reach).toHaveTextContent("evil.example");
-    expect(reach).toHaveTextContent("curl");
+    expect(reach).toHaveTextContent("network:evil.example");
+    expect(reach).toHaveTextContent("shell:curl");
+    expect(
+      screen.getByText(/1 artifact held back for critical findings/),
+    ).toBeInTheDocument();
+    expect(
+      audit.compareDocumentPosition(screen.getByText(/Suggested tags/)) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     const flagged = within(audit).getByText("Flagged").nextElementSibling;
     expect(flagged).toHaveTextContent("fetcher");
     expect(flagged).not.toHaveTextContent("calm");

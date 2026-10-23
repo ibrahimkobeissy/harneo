@@ -23,7 +23,7 @@ import {
   nothingFound,
 } from "./errors";
 import styles from "./Import.module.css";
-import { criticalIds } from "./trust";
+import { criticalIds, criticalRule } from "./trust";
 import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
@@ -134,6 +134,10 @@ export function ImportScreen() {
     }
   }
 
+  const heldBack = (preview?.candidates ?? []).filter(
+    (c) =>
+      !c.alreadyInLibrary && excluded.has(c.id) && criticalRule(c) !== null,
+  ).length;
   const chosen = (preview?.candidates ?? []).filter(
     (c) => !c.alreadyInLibrary && !excluded.has(c.id),
   );
@@ -295,6 +299,8 @@ export function ImportScreen() {
             chosen={chosen}
             tags={tags}
             colors={newColors}
+            heldBack={heldBack}
+            onReviewHeldBack={() => setStep(1)}
             onAddAll={(name, color) => {
               if (color) {
                 setNewColors((prev) => ({

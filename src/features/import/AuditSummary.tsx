@@ -9,8 +9,18 @@ function plural(n: number, word: string): string {
 }
 
 /** Review step: what the audit found in the artifacts that are about to be imported. */
-export function AuditSummary({ chosen }: { chosen: Candidate[] }) {
-  if (chosen.length === 0) return null;
+export function AuditSummary({
+  chosen,
+  heldBack,
+  onReviewHeldBack,
+}: {
+  chosen: Candidate[];
+  /** Artifacts left out because of a critical finding. */
+  heldBack: number;
+  /** Goes back to Choose, where the held-back rows can be restored. */
+  onReviewHeldBack: () => void;
+}) {
+  if (chosen.length === 0 && heldBack === 0) return null;
   const tierCount = (t: (typeof tierOrder)[number]) =>
     chosen.filter((c) => c.audit.tier === t).length;
   const findings = chosen.flatMap((c) => c.audit.findings);
@@ -30,10 +40,28 @@ export function AuditSummary({ chosen }: { chosen: Candidate[] }) {
           static checks on the files that will be copied; nothing was run
         </span>
       </h2>
+      {heldBack > 0 && (
+        <p className={styles.held}>
+          <ShieldAlert size={14} aria-hidden="true" />
+          {plural(heldBack, "artifact")} held back for critical findings.{" "}
+          <button
+            type="button"
+            className={styles.linkButton}
+            onClick={onReviewHeldBack}
+          >
+            Review them on Choose
+          </button>
+        </p>
+      )}
       <div className={styles.auditStats}>
         <ul className={styles.stats} aria-label="Artifacts per tier">
           {tierOrder.map((t) => (
-            <li key={t} className={styles.stat} data-tier={t}>
+            <li
+              key={t}
+              className={styles.stat}
+              data-tier={tierCount(t) > 0 ? t : undefined}
+              data-zero={tierCount(t) === 0 ? "true" : undefined}
+            >
               {`${tierCount(t)} ${tierLabels[t]}`}
             </li>
           ))}
@@ -61,18 +89,18 @@ export function AuditSummary({ chosen }: { chosen: Candidate[] }) {
                   className={styles.reach}
                   aria-label={`Reach of ${c.artifact.name}`}
                 >
-                  {c.audit.reach.network.map((h) => (
-                    <li key={`n:${h}`} className={styles.reachItem}>
-                      <span className={styles.reachKind}>network</span>
-                      {h}
+                  {c.audit.reach.network.length > 0 && (
+                    <li className={styles.reachItem}>
+                      <span className={styles.reachKind}>network:</span>
+                      {c.audit.reach.network.join(", ")}
                     </li>
-                  ))}
-                  {c.audit.reach.shell.map((cmd) => (
-                    <li key={`s:${cmd}`} className={styles.reachItem}>
-                      <span className={styles.reachKind}>shell</span>
-                      {cmd}
+                  )}
+                  {c.audit.reach.shell.length > 0 && (
+                    <li className={styles.reachItem}>
+                      <span className={styles.reachKind}>shell:</span>
+                      {c.audit.reach.shell.join(", ")}
                     </li>
-                  ))}
+                  )}
                 </ul>
               </div>
             ))}
