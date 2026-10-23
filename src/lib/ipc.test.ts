@@ -116,69 +116,6 @@ describe("update wrappers", () => {
       { cmd: "update_diff", args: { id: "a" } },
       { cmd: "update_apply", args: { id: "a", choice: "upstream" } },
       { cmd: "update_all", args: {} },
-}
-}
-import { mockIPC } from "@tauri-apps/api/mocks";
-import { describe, expect, it } from "vitest";
-import {
-  artifactSetManualOnly,
-  profileClone,
-  profileCreate,
-  profileDelete,
-  profileDescribe,
-  profileFromCollection,
-  profileGet,
-  profileImportCommit,
-  profileLayout,
-  profileRename,
-  profileResolve,
-  profileSave,
-} from "./ipc";
-
-const spec = { items: ["a"], settings: null, mcp: [], manualOnly: {} };
-
-describe("profile wrappers", () => {
-  it("send ids as numbers with the command's argument names", async () => {
-    const calls: [string, unknown][] = [];
-    mockIPC((cmd, args) => {
-      calls.push([cmd, args]);
-      return [
-        "profile_create",
-        "profile_clone",
-        "profile_from_collection",
-      ].includes(cmd)
-        ? 5
-        : null;
-    });
-    expect(await profileCreate("A", "d", spec)).toBe(5n);
-    expect(await profileClone(5n, "B")).toBe(5n);
-    await profileGet(5n);
-    await profileGet(5n, 2);
-    await profileSave(5n, spec);
-    await profileRename(5n, "C");
-    await profileDescribe(5n, "d2");
-    await profileDelete(5n);
-    await profileFromCollection(3n, "From");
-    await profileResolve(spec);
-    await profileLayout(spec);
-    await profileImportCommit("/p.json");
-    await profileImportCommit("/p.json", "N");
-    await artifactSetManualOnly("a", true);
-    expect(calls).toEqual([
-      ["profile_create", { name: "A", description: "d", spec }],
-      ["profile_clone", { id: 5, name: "B" }],
-      ["profile_get", { id: 5, version: null }],
-      ["profile_get", { id: 5, version: 2 }],
-      ["profile_save", { id: 5, spec }],
-      ["profile_rename", { id: 5, name: "C" }],
-      ["profile_describe", { id: 5, description: "d2" }],
-      ["profile_delete", { id: 5 }],
-      ["profile_from_collection", { collectionId: 3, name: "From" }],
-      ["profile_resolve", { spec }],
-      ["profile_layout", { spec }],
-      ["profile_import_commit", { path: "/p.json", name: null }],
-      ["profile_import_commit", { path: "/p.json", name: "N" }],
-      ["artifact_set_manual_only", { id: "a", manualOnly: true }],
     ]);
   });
 });
