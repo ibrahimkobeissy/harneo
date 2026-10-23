@@ -360,3 +360,100 @@ U1 engine ─┬─ U2 secrets ─┐
 | False positives flood the UI (e.g. docs that mention `rm -rf`) | High | Port HarnessKit's documentation-line handling where it is sound, test the false-positive cases from the research, and keep severities conservative outside hooks/Settings |
 | Secret-shaped fixtures trip gitleaks or the guard hook | Med | Build fixture secrets from fragments at test time |
 | Regex cost on large packs | Low | `regex` is linear-time; patterns compiled once; a 200-artifact performance test |
+
+---
+
+# Implementation Plan: bundles, updates, profiles, install-engine, drift, usage, cli
+
+Specs: `spec/bundles.md`, `spec/updates.md`, `spec/profiles.md`, `spec/install-engine.md`, `spec/drift.md`, `spec/usage.md`, `spec/cli.md`. Specs and plan **pre-approved by the user (2026-10-23)**: "create all the missing specs, consider that they are validated, create the tasks and implement; I will review everything at the end." Tasks are tracked as GitHub issues (#87–#120) on Project 5.
+
+## Architecture decisions
+
+- **One linear schema:** migrations land in a fixed order, v3 `bundles` (settings + links), v4 `updates`, v5 `profiles`, v6 `install-engine` registry; each schema ticket is blocked by the previous one. `usage` keeps its own `usage.db`.
+- **Process spawns in core:** `git.rs` and `bundles/claude_cli.rs` only, both with arguments, timeouts and output caps.
+- **New dependencies (pre-approved in the specs):** `base64` (profiles), `similar` (install-engine; whichever ticket needs it first adds it), `tauri-plugin-opener` (install-engine), `notify` (drift).
+- **One engine:** `install-engine`'s `Plan` + `apply` is used by scaffold, refit, switch, removal, drift re-apply, cleanup prune and the CLI.
+
+## Dependency graph
+
+```
+BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 ─┬─ US3 ─┐
+     ├─ BU3 ─┘       ├─ BU5                       │       └─ US4 ─┼─ US5 ─ US6
+     └─ UP1 ─ UP2 ─ UP3 ┘                          └─(UP1)        │
+         └─ PR1 ─ PR2 ─┬─ PR3 ─┬─ PR4 ─┬─ PR6
+                       │       └─ PR5 ─┘
+                       └─ IE1 ─ IE2 ─┬─ IE3 ─┐
+                                     ├─ IE4 ─┼─ IE7 ─┐   (IE5 → IE6, IE7)
+                                     ├─ IE5 ─┴─ IE6  ├─ DR3 ─ IE8
+                                     ├─ DR2 ─────────┤
+                                     └─ CL1 ─ CL2, CL3
+           IE4 + UP2 ─ DR1 ─ DR3, CL2;   US2 + IE4 ─ US3;   UP3 ─ BU5, US5
+```
+
+## Task list
+
+### bundles
+- [#87](https://github.com/ibrahimkobeissy/harneo/issues/87) BU1: Links between artifacts: schema v3, settings store, reference links, bundle_of
+- [#88](https://github.com/ibrahimkobeissy/harneo/issues/88) BU2: Claude CLI runner and bundle/tag detection
+- [#89](https://github.com/ibrahimkobeissy/harneo/issues/89) BU3: Bundles in the Library: badge, column, detail Bundle section
+- [#90](https://github.com/ibrahimkobeissy/harneo/issues/90) BU4: Bundle and tag proposals at import, Find bundles, Claude CLI settings
+- [#94](https://github.com/ibrahimkobeissy/harneo/issues/94) BU5: `/impeccable critique` of the bundle and update screens and fixes
+
+### updates
+- [#91](https://github.com/ibrahimkobeissy/harneo/issues/91) UP1: Update check: schema v4, copy digest, per-artifact outdated detection
+- [#92](https://github.com/ibrahimkobeissy/harneo/issues/92) UP2: Update the library copy, protect local edits, update all
+- [#93](https://github.com/ibrahimkobeissy/harneo/issues/93) UP3: Updates in the Library: badge, filter, callout, update and local-edit dialogs
+
+### profiles
+- [#95](https://github.com/ibrahimkobeissy/harneo/issues/95) PR1: Profiles core: schema v5, versions, CRUD, clone, from collection, resolve
+- [#96](https://github.com/ibrahimkobeissy/harneo/issues/96) PR2: Profile layout and .harneo-profile.json export/import
+- [#97](https://github.com/ibrahimkobeissy/harneo/issues/97) PR3: Profiles list screen, IPC, clone, export and import dialogs
+- [#98](https://github.com/ibrahimkobeissy/harneo/issues/98) PR4: Profile builder: picker, cart, Settings and MCP panels, live project tree
+- [#99](https://github.com/ibrahimkobeissy/harneo/issues/99) PR5: Profiles in the Library: Add to profile, Used in, Manual only, Create profile from a collection
+- [#100](https://github.com/ibrahimkobeissy/harneo/issues/100) PR6: `/impeccable critique` of the profile screens and fixes
+
+### install-engine
+- [#101](https://github.com/ibrahimkobeissy/harneo/issues/101) IE1: Render a profile into project files, HARNESS.md included
+- [#102](https://github.com/ibrahimkobeissy/harneo/issues/102) IE2: Apply with backups and rollback, registry schema v6, scaffold plan
+- [#103](https://github.com/ibrahimkobeissy/harneo/issues/103) IE3: Refit comparison with loss flags
+- [#104](https://github.com/ibrahimkobeissy/harneo/issues/104) IE4: Switch, upgrade, clean removal and backup restore
+- [#105](https://github.com/ibrahimkobeissy/harneo/issues/105) IE5: Scaffold flow
+- [#106](https://github.com/ibrahimkobeissy/harneo/issues/106) IE6: Refit flow
+- [#107](https://github.com/ibrahimkobeissy/harneo/issues/107) IE7: Projects list and project detail: files, backups, switch, remove, open
+- [#111](https://github.com/ibrahimkobeissy/harneo/issues/111) IE8: `/impeccable critique` of the scaffold, refit, projects and drift screens and fixes
+
+### drift
+- [#108](https://github.com/ibrahimkobeissy/harneo/issues/108) DR1: Drift check, diff, re-apply and promote
+- [#109](https://github.com/ibrahimkobeissy/harneo/issues/109) DR2: Live rescan watcher and change events
+- [#110](https://github.com/ibrahimkobeissy/harneo/issues/110) DR3: Drift in the app: pills, Drift tab, re-apply and promote
+
+### usage
+- [#112](https://github.com/ibrahimkobeissy/harneo/issues/112) US1: Session-log indexer: names only, incremental
+- [#113](https://github.com/ibrahimkobeissy/harneo/issues/113) US2: Usage and status in library queries
+- [#114](https://github.com/ibrahimkobeissy/harneo/issues/114) US3: Cleanup suggestions and prune through profiles and projects
+- [#115](https://github.com/ibrahimkobeissy/harneo/issues/115) US4: Usage in the Library: footers, columns, Most used, Status filter, insights, detail Usage
+- [#116](https://github.com/ibrahimkobeissy/harneo/issues/116) US5: Cleanup screen and Settings rows
+- [#117](https://github.com/ibrahimkobeissy/harneo/issues/117) US6: `/impeccable critique` of the usage, cleanup and settings screens and fixes
+
+### cli
+- [#118](https://github.com/ibrahimkobeissy/harneo/issues/118) CL1: `harneo profiles` and `harneo scaffold`
+- [#119](https://github.com/ibrahimkobeissy/harneo/issues/119) CL2: `harneo status`
+- [#120](https://github.com/ibrahimkobeissy/harneo/issues/120) CL3: `harneo update`
+
+## Checkpoints
+
+- **Bundles + updates** (after BU4, UP3): links and proposals at import, outdated flags, local edits protected.
+- **Profiles** (after PR5): profiles built, versioned, exported and imported.
+- **First usable version** (after IE7): import → library → profile → scaffold or refit, with backups and clean removal (`spec/capabilities.md`).
+- **Live** (after DR3, US5, CL3): drift, usage, cleanup and the CLI.
+- **User review** (after the critiques BU5, PR6, IE8, US6): the user reviews every module together.
+
+## Risks and mitigations
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Refit or removal loses a project file | High | Backups before every write, rollback on failure, a property test that removal restores every original byte for byte |
+| `claude` CLI flags or output change | Med | Runner isolated in one file, flags checked against `claude --help`, fixture-script tests, clear errors and manual linking as the fallback |
+| Claude's session-log format is not ours | Med | Tolerant parser, parse failures counted, untracked kinds say "Not tracked", synthetic fixtures only |
+| Parallel tickets collide on migrations and shared files | Med | Fixed migration order through `Blocked by`; additions to shared files in their own blocks |
+| App and CLI writing at once | Low | Data-dir lock plus SQLite busy timeout |
