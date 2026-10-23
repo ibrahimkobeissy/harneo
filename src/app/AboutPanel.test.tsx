@@ -17,6 +17,17 @@ describe("AboutPanel", () => {
     expect(screen.getByText(/\/data\/harneo/)).toBeInTheDocument();
   });
 
+  it("leaves the data folder out of the grouped variant", async () => {
+    mockIPC((cmd) =>
+      cmd === "app_info" ? { version: "1.2.3", dataDir: "/data/harneo" } : null,
+    );
+    render(<AboutPanel grouped dataFolder={false} />);
+    expect(await screen.findByText("1.2.3")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "About Harneo" })).toBeVisible();
+    expect(screen.queryByText("Data folder")).toBeNull();
+    expect(screen.queryByText(/\/data\/harneo/)).toBeNull();
+  });
+
   it("shows an error when app_info fails", async () => {
     mockIPC(() => {
       throw "no data dir";

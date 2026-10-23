@@ -1,8 +1,14 @@
 import { Bot } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { CliStatus } from "../../bindings/CliStatus";
-import { claudeCliStatus, settingsGet, settingsSet } from "../../lib/ipc";
+import {
+  claudeCliStatus,
+  openExternal,
+  settingsGet,
+  settingsSet,
+} from "../../lib/ipc";
 import { Button, announce } from "../../ui";
+import { CopyPath } from "./CopyPath";
 import { Group } from "./Group";
 import styles from "./Settings.module.css";
 import { Switch } from "./Switch";
@@ -10,6 +16,7 @@ import { Switch } from "./Switch";
 const MODEL_KEY = "bundles.model";
 const AT_IMPORT_KEY = "bundles.atImport";
 
+const INSTALL_URL = "https://code.claude.com";
 const missing: CliStatus = { found: false, path: null, version: null };
 
 const models = [
@@ -26,6 +33,8 @@ export function ClaudeSettings() {
   const [error, setError] = useState<string | null>(null);
   const modelId = useId();
   const toggleId = useId();
+  const modelHelpId = useId();
+  const toggleHelpId = useId();
 
   /** Asks the backend again; the status row reads "Looking…" meanwhile. */
   function check() {
@@ -75,22 +84,41 @@ export function ClaudeSettings() {
   return (
     <Group
       id="claude-settings"
-      title="Claude CLI"
+      title="Claude"
       icon={<Bot size={15} aria-hidden="true" />}
     >
       <div className={styles.row}>
         <div className={styles.grow}>
-          <b>
-            {cli === undefined ? "Looking…" : cli.found ? "Found" : "Not found"}
-          </b>
+          <b>Claude CLI</b>
           <div className={styles.sec}>
+            <span className={styles.status}>
+              {cli === undefined
+                ? "Looking…"
+                : cli.found
+                  ? "Found"
+                  : "Not found"}
+            </span>
             {notFound
-              ? "Bundles and tags won't be suggested at import; add them by hand."
-              : "Used for bundle detection and tag suggestions at import. Artifact text is sent to Claude through your own CLI; no API key."}
+              ? ". Bundles and tags won't be suggested at import; add them by hand."
+              : ". Used for bundle detection and tag suggestions at import, through your own CLI; no API key."}
           </div>
           {notFound && (
             <div className={styles.hint}>
-              Install Claude Code (https://code.claude.com), then Check again.
+              <span>
+                Install Claude Code from{" "}
+                <button
+                  type="button"
+                  className={styles.link}
+                  onClick={() => {
+                    openExternal(INSTALL_URL).catch((err: unknown) =>
+                      setError(`Could not open ${INSTALL_URL}: ${String(err)}`),
+                    );
+                  }}
+                >
+                  code.claude.com
+                </button>
+                , then Check again.
+              </span>
             </div>
           )}
         </div>
@@ -99,6 +127,9 @@ export function ClaudeSettings() {
             <span className={styles.mono}>{cli.path}</span>
             {cli.version && <span className={styles.mono}>{cli.version}</span>}
           </div>
+        )}
+        {cli?.found && cli.path && (
+          <CopyPath path={cli.path} label="Copy the Claude CLI path" />
         )}
         {notFound && (
           <Button small onClick={check}>
@@ -111,7 +142,7 @@ export function ClaudeSettings() {
           <label htmlFor={modelId}>
             <b>Model</b>
           </label>
-          <div className={styles.sec}>
+          <div id={modelHelpId} className={styles.sec}>
             Which model reads your artifacts. Haiku is fast and cheap; the
             larger ones find subtler links.
             {notFound && " Needs the Claude CLI."}
@@ -122,6 +153,7 @@ export function ClaudeSettings() {
           className={styles.select}
           value={model}
           disabled={notFound}
+          aria-describedby={modelHelpId}
           onChange={(e) => {
             const previous = model;
             setModel(e.target.value);
@@ -141,19 +173,29 @@ export function ClaudeSettings() {
           <label htmlFor={toggleId}>
             <b>Detect bundles and tags at import</b>
           </label>
-          <div className={styles.sec}>
-            Off by default. When on, each import sends the artifacts' main files
-            (up to 6,000 characters each) and the names and descriptions of your
-            library to Claude through your own claude CLI, using your Claude
-            plan. Artifacts flagged for secrets are sent by name and description
-            only. When off, the Review step offers Detect now for that import.
-            {notFound && " Needs the Claude CLI."}
+          <div id={toggleHelpId} className={`${styles.sec} ${styles.measure}`}>
+            <p className={styles.para}>
+              Off by default. When on, each import sends these to Claude through
+              your own claude CLI, using your Claude plan:
+            </p>
+            <ul className={styles.list}>
+              <li>
+                each artifact&apos;s main files (up to 6,000 characters each)
+              </li>
+              <li>the names and descriptions of your library</li>
+            </ul>
+            <p className={styles.para}>
+              Artifacts flagged for secrets are sent by name and description
+              only. When off, the Review step offers Detect now for that import.
+              {notFound && " Needs the Claude CLI."}
+            </p>
           </div>
         </div>
         <Switch
           id={toggleId}
           checked={atImport}
           disabled={notFound}
+          describedBy={toggleHelpId}
           onChange={(next) => {
             setAtImport(next);
             void save(AT_IMPORT_KEY, next, () => setAtImport(!next));

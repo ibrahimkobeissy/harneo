@@ -1,9 +1,10 @@
 import { HardDrive } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useUsageIndex } from "../../app/usageIndex";
 import { useAppInfo } from "../../app/useAppInfo";
 import { settingsGet, settingsSet } from "../../lib/ipc";
 import { Button, announce } from "../../ui";
+import { CopyPath } from "./CopyPath";
 import { Group } from "./Group";
 import styles from "./Settings.module.css";
 
@@ -23,20 +24,26 @@ function when(iso: string | null): string {
   return Number.isNaN(date.getTime()) ? "never" : date.toLocaleString();
 }
 
-/** Settings → Usage: the session logs Harneo reads, the data folder, and the unused window. */
+/** Settings → Data: the data folder, the session logs Harneo reads, and the unused window. */
 export function UsageSettings() {
   const app = useAppInfo();
   const { progress, runs, error: indexError, refresh } = useUsageIndex();
   const [last, setLast] = useState<string | null>(null);
   const [weeks, setWeeks] = useState(String(DEFAULT_WEEKS));
+  const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const storedWeeks = useRef<number | null>(null);
   const weeksId = useId();
+  const weeksHelpId = useId();
 
   useEffect(() => {
     let live = true;
     settingsGet(WEEKS_KEY).then(
       (v) => {
-        if (live && typeof v === "number") setWeeks(String(v));
+        if (live && typeof v === "number") {
+          storedWeeks.current = v;
+          setWeeks(String(v));
+        }
       },
       () => undefined,
     );
@@ -59,12 +66,15 @@ export function UsageSettings() {
     };
   }, [runs]);
 
-  async function saveWeeks(text: string) {
-    const n = validWeeks(text);
-    if (n === null) return;
+  /** Saves the window once per commit (blur or Enter), and only when it changed. */
+  async function commitWeeks() {
+    const n = validWeeks(weeks);
+    if (n === null || n === storedWeeks.current) return;
     setSaveError(null);
     try {
       await settingsSet(WEEKS_KEY, n);
+      storedWeeks.current = n;
+      setSaved(true);
       announce("Setting saved");
     } catch (err) {
       setSaveError(String(err));
@@ -73,6 +83,7 @@ export function UsageSettings() {
 
   const invalid = validWeeks(weeks) === null;
   const running = progress !== null;
+  const dataDir = app.status === "ready" ? app.info.dataDir : null;
   return (
     <Group
       id="usage-data"
@@ -86,19 +97,22 @@ export function UsageSettings() {
             Library, profiles, project registry and backups.
           </div>
         </div>
-        <span className={styles.mono}>
-          {app.status === "ready" ? app.info.dataDir : "…"}
-        </span>
+        <span className={styles.mono}>{dataDir ?? "…"}</span>
+        {dataDir && (
+          <CopyPath path={dataDir} label="Copy the data folder path" />
+        )}
       </div>
       <div className={styles.row}>
         <div className={styles.grow}>
           <b>Session logs (read only)</b>
           <div className={styles.sec}>
-            Used for usage counts; never written. Last indexed:{" "}
-            <span data-testid="last-indexed">{when(last)}</span>
+            Used for usage counts; never written.
+          </div>
+          <div className={styles.sec}>
+            Last read: <span data-testid="last-indexed">{when(last)}</span>
             {running && (
               <>
-                {" "}
+                {" · "}
                 <span role="status">
                   Reading logs
                   {progress.filesTotal > 0
@@ -108,6 +122,11 @@ export function UsageSettings() {
               </>
             )}
           </div>
+          <div className={styles.actions}>
+            <Button small disabled={running} onClick={refresh}>
+              {running ? "Indexing…" : "Re-index"}
+            </Button>
+          </div>
           {indexError && (
             <div className={styles.error} role="alert">
               Could not read the logs. {indexError}
@@ -115,17 +134,16 @@ export function UsageSettings() {
           )}
         </div>
         <span className={styles.mono}>{LOGS_PATH}</span>
-        <Button small disabled={running} onClick={refresh}>
-          {running ? "Indexing…" : "Re-index"}
-        </Button>
+        <CopyPath path={LOGS_PATH} label="Copy the session logs path" />
       </div>
       <div className={styles.row}>
         <div className={styles.grow}>
           <label htmlFor={weeksId}>
             <b>Unused after N weeks</b>
           </label>
-          <div className={styles.sec}>
+          <div id={weeksHelpId} className={styles.sec}>
             An artifact with no use for this long shows as unused (1 to 52).
+            Saved when you leave the field or press Enter.
           </div>
           {invalid && (
             <div className={styles.error} role="alert">
@@ -142,11 +160,17 @@ export function UsageSettings() {
           className={`${styles.select} ${styles.number}`}
           value={weeks}
           aria-invalid={invalid}
-          onChange={(e) => {
-            setWeeks(e.target.value);
-            void saveWeeks(e.target.value);
+          aria-describedby={weeksHelpId}
+          onChange={(event) => {
+            setWeeks(event.target.value);
+            setSaved(false);
+          }}
+          onBlur={() => void commitWeeks()}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") void commitWeeks();
           }}
         />
+        <span className={styles.savedNote}>{saved ? "Saved" : ""}</span>
       </div>
       {saveError && (
         <p role="alert" className={styles.error}>

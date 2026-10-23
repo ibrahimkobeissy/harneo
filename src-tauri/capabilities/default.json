@@ -10,6 +10,13 @@
     {
       "identifier": "opener:allow-open-path",
       "allow": [{ "path": "$HOME" }, { "path": "$HOME/**" }]
+    },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://code.claude.com" },
+        { "url": "https://code.claude.com/*" }
+      ]
     }
   ]
 }

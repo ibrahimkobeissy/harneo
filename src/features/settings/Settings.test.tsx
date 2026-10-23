@@ -35,7 +35,11 @@ describe("Settings: Claude CLI", () => {
       version: "2.1.0",
     });
     expect(await screen.findByText("Found")).toBeVisible();
+    expect(screen.getByText("Claude CLI")).toBeVisible();
     expect(screen.getByText("/home/me/.local/bin/claude")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Copy the Claude CLI path" }),
+    ).toBeVisible();
     expect(screen.getByText("2.1.0")).toBeVisible();
   });
 
@@ -62,9 +66,7 @@ describe("Settings: Claude CLI", () => {
     });
     render(<SettingsScreen />);
     expect(await screen.findByText("Not found")).toBeVisible();
-    expect(
-      screen.getByText(/Install Claude Code \(https:\/\/code.claude.com\)/),
-    ).toBeVisible();
+    expect(screen.getByText(/Install Claude Code from/)).toBeVisible();
     expect(screen.getByRole("combobox", { name: "Model" })).toBeDisabled();
     expect(
       screen.getByRole("switch", { name: "Detect bundles and tags at import" }),
@@ -110,6 +112,7 @@ describe("Settings: Claude CLI", () => {
     expect(
       screen.getByText(/Off by default\. When on, each import sends/),
     ).toBeVisible();
+    expect(screen.getByText(/up to 6,000 characters each/)).toBeVisible();
   });
 });
 
@@ -149,5 +152,79 @@ describe("update settings", () => {
       name: "Check for updates at start",
     });
     await waitFor(() => expect(box).toHaveAttribute("aria-checked", "false"));
+  });
+});
+
+describe("Settings: structure", () => {
+  it("links every description to its control and shows On or Off", async () => {
+    setup({ found: true, path: "/bin/claude", version: "2" });
+    await screen.findByText("Found");
+    const detect = screen.getByRole("switch", {
+      name: "Detect bundles and tags at import",
+    });
+    expect(detect).toHaveAccessibleDescription(
+      /Off by default.*6,000 characters/s,
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Model" }),
+    ).toHaveAccessibleDescription(/Which model reads your artifacts/);
+    expect(
+      screen.getByRole("switch", { name: "Pause live rescan" }),
+    ).toHaveAccessibleDescription(/it only reads/);
+    expect(
+      await screen.findByRole("switch", { name: "Check for updates at start" }),
+    ).toHaveAccessibleDescription(/At start, at most once a day/);
+    expect(screen.getAllByText("Off").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("On").length).toBeGreaterThan(0);
+  });
+
+  it("groups Updates and Live rescan under Background and shows the data folder once", async () => {
+    setup({ found: true, path: "/bin/claude", version: "2" });
+    await screen.findByText("Found");
+    expect(screen.getByRole("heading", { name: "Background" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "Updates" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Live rescan" })).toBeNull();
+    expect(await screen.findAllByText("/data")).toHaveLength(1);
+    expect(screen.getByText("0.1.0")).toBeVisible();
+  });
+
+  it("opens the install page through the opener when the CLI is missing", async () => {
+    const user = userEvent.setup();
+    const opened: unknown[] = [];
+    mockIPC((cmd, args) => {
+      if (cmd === "claude_cli_status")
+        return { found: false, path: null, version: null };
+      if (cmd === "plugin:opener|open_url") {
+        opened.push(args);
+        return undefined;
+      }
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return null;
+    });
+    render(<SettingsScreen />);
+    await user.click(
+      await screen.findByRole("button", { name: "code.claude.com" }),
+    );
+    await waitFor(() =>
+      expect(opened).toEqual([
+        { url: "https://code.claude.com", with: undefined },
+      ]),
+    );
+  });
+
+  it("says when the install page could not be opened", async () => {
+    const user = userEvent.setup();
+    mockIPC((cmd) => {
+      if (cmd === "claude_cli_status")
+        return { found: false, path: null, version: null };
+      if (cmd === "plugin:opener|open_url") throw "not allowed";
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return null;
+    });
+    render(<SettingsScreen />);
+    await user.click(
+      await screen.findByRole("button", { name: "code.claude.com" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("not allowed");
   });
 });

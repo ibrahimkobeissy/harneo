@@ -23,3 +23,37 @@
   gap: var(--space-sm);
   color: var(--red);
 }
+/* The grouped variant: the same chrome as a Settings group. */
+.group {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  overflow: hidden;
+  background: var(--raised);
+}
+.ghead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--side);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.ghead svg {
+  color: var(--t3);
+}
+.ghead h2 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+.body {
+  padding: var(--space-md);
+}
+.body .kv,
+.body .note {
+  margin: 0;
+}
+.body .note {
+  margin-top: var(--space-md);
+}

@@ -1,16 +1,15 @@
-import { Eye } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { WatchStatus } from "../../bindings/WatchStatus";
 import { watchPause, watchStatus } from "../../lib/ipc";
-import { Group } from "./Group";
 import styles from "./Settings.module.css";
 import { Switch } from "./Switch";
 
-/** Live rescan: how many projects are watched, and a switch to pause it (`watch.paused`). */
+/** Live rescan: how many projects are watched, and a switch to pause it (`watch.paused`); a row of Background. */
 export function LiveRescan() {
   const [status, setStatus] = useState<WatchStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const toggleId = useId();
+  const helpId = useId();
   useEffect(() => {
     let current = true;
     watchStatus().then(
@@ -41,17 +40,13 @@ export function LiveRescan() {
 
   const count = status?.watching ?? 0;
   return (
-    <Group
-      id="live-rescan"
-      title="Live rescan"
-      icon={<Eye size={15} aria-hidden="true" />}
-    >
+    <>
       <div className={styles.row}>
         <div className={styles.grow}>
           <label htmlFor={toggleId}>
             <b>Pause live rescan</b>
           </label>
-          <div className={styles.sec}>
+          <div id={helpId} className={styles.sec}>
             {status === null
               ? "Looking…"
               : `Watching ${count} ${count === 1 ? "project" : "projects"}`}
@@ -63,6 +58,7 @@ export function LiveRescan() {
           id={toggleId}
           checked={status?.paused ?? false}
           disabled={status === null}
+          describedBy={helpId}
           onChange={(next) => void change(next)}
         />
       </div>
@@ -71,6 +67,6 @@ export function LiveRescan() {
           {error}
         </p>
       )}
-    </Group>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
@@ -720,6 +720,11 @@ export function driftPromoteAdded(
 /** Opens a project folder in the system file manager. */
 export function openFolder(path: string): Promise<void> {
   return openPath(path);
+}
+
+/** Opens a web page in the system browser (the opener scope allows only code.claude.com). */
+export function openExternal(url: string): Promise<void> {
+  return openUrl(url);
 }
 // --- Cleanup and prune ---
 

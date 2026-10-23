@@ -120,41 +120,6 @@
 .page {
   max-width: 720px;
 }
-/* About keeps its own markup; the wrapper makes its panel look like a group. */
-.about {
-  position: relative;
-  margin-bottom: var(--space-lg);
-}
-.about > svg {
-  position: absolute;
-  top: var(--space-sm);
-  left: var(--space-md);
-  height: 1.5em;
-  color: var(--t3);
-}
-.about > section {
-  padding: 0;
-  overflow: hidden;
-}
-.about > section > div:first-child {
-  margin: 0;
-  padding: var(--space-sm) var(--space-md) var(--space-sm) 37px;
-  background: var(--side);
-  border-bottom: var(--hairline) solid var(--line);
-}
-.about > section > div:first-child h2 {
-  font-size: inherit;
-  font-weight: 600;
-  color: var(--t1);
-}
-.about > section > dl {
-  margin: 0;
-  padding: var(--space-md) var(--space-md) 0;
-}
-.about > section > p {
-  margin: 0;
-  padding: var(--space-sm) var(--space-md) var(--space-md);
-}
 .error {
   margin: 0;
   padding: var(--space-sm) var(--space-md);
@@ -172,4 +137,64 @@
 }
 .number {
   width: 72px;
+}
+.switchWrap {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.switchText {
+  min-width: 2ch;
+  text-align: right;
+  color: var(--t2);
+}
+.copy {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.copyNote,
+.copyFail,
+.savedNote {
+  min-width: 6ch;
+  color: var(--green);
+}
+.copyFail {
+  color: var(--red);
+}
+.savedNote {
+  min-width: 5ch;
+}
+.status {
+  color: var(--t1);
+  font-weight: 500;
+}
+.measure {
+  max-width: 65ch;
+}
+.para {
+  margin: 0;
+}
+.list {
+  margin: var(--space-xxs) 0;
+  padding-left: var(--space-lg);
+}
+.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.link:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+.actions {
+  margin-top: var(--space-xs);
 }
