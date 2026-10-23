@@ -272,7 +272,7 @@ describe("new collection", () => {
       await screen.findByRole("heading", { level: 1, name: /Daily/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Nothing in this collection yet"),
+      await screen.findByText("Nothing in this collection yet"),
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
