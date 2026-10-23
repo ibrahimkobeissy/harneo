@@ -3,6 +3,7 @@ import {
   ChevronRight,
   CircleAlert,
   Info,
+  ShieldAlert,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -13,6 +14,7 @@ import type { Preview } from "../../bindings/Preview";
 import { Badge, Button } from "../../ui";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
+import { criticalRule, severityOrder, TierLabel } from "./trust";
 import styles from "./Import.module.css";
 
 /** Candidates grouped by kind, in the order kinds first appear. */
@@ -50,7 +52,9 @@ function Findings({
   const all = candidate.artifact.diagnostics;
   const errors = all.filter((d) => d.severity === "error").length;
   const warnings = all.filter((d) => d.severity === "warning").length;
-  if (errors + warnings === 0) return null;
+  const audit = candidate.audit.findings;
+  const worst = severityOrder.find((s) => audit.some((f) => f.severity === s));
+  if (errors + warnings + audit.length === 0) return null;
   return (
     <button
       type="button"
@@ -65,9 +69,55 @@ function Findings({
         {warnings > 0 && (
           <Badge tone="warn">{plural(warnings, "warning")}</Badge>
         )}
+        {worst && (
+          <Badge tone={worst === "low" || worst === "medium" ? "warn" : "bad"}>
+            {plural(audit.length, "audit finding")}
+          </Badge>
+        )}
       </span>
       <ChevronDown size={14} aria-hidden="true" data-open={open} />
     </button>
+  );
+}
+
+/** The audit's findings for one artifact: severity, rule, message, location and evidence. */
+function AuditList({ candidate }: { candidate: Candidate }) {
+  const sorted = [...candidate.audit.findings].sort(
+    (a, b) =>
+      severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity),
+  );
+  return (
+    <ul
+      className={styles.diags}
+      id={`audit-${candidate.id}`}
+      aria-label={`Audit findings of ${candidate.artifact.name}`}
+    >
+      {sorted.map((f, i) => (
+        <li
+          key={`${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
+          className={styles.diag}
+          data-sev={f.severity}
+        >
+          <ShieldAlert size={14} aria-hidden="true" />
+          <span>
+            <span>
+              <span className={styles.sev} data-sev={f.severity}>
+                {f.severity}
+              </span>
+              <span className={styles.mono}>{f.rule}</span>
+              <span className={styles.msg}>{f.message}</span>
+            </span>
+            <span className={`${styles.mono} ${styles.file}`}>
+              {f.file}
+              {f.line !== null ? `:${f.line}` : ""}
+            </span>
+            {f.evidence && (
+              <code className={styles.evidence}>{f.evidence}</code>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -200,6 +250,9 @@ export function ChooseStep({
   const errorsOut =
     withErrors.length > 0 && withErrors.every((id) => excluded.has(id));
   const claude = claudeProvidedIds(all);
+  const riskyIds = free
+    .filter((c) => c.audit.tier === "risky" || c.audit.tier === "dangerous")
+    .map((c) => c.id);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
   const gone = all.filter((c) => excluded.has(c.id));
   const note = managedNote(preview.diagnostics);
@@ -268,6 +321,11 @@ export function ChooseStep({
         {claude.length > 0 && (
           <Button small onClick={() => onExclude(claude)}>
             Exclude Claude-provided
+          </Button>
+        )}
+        {riskyIds.length > 0 && (
+          <Button small onClick={() => onExclude(riskyIds)}>
+            Exclude Risky and Dangerous
           </Button>
         )}
         {withErrors.length > 0 && (
@@ -353,6 +411,7 @@ export function ChooseStep({
                             <span className={styles.origin}>
                               {originLabel(c.artifact.origin)}
                             </span>
+                            <TierLabel candidate={c} />
                             {c.alreadyInLibrary && (
                               <Badge>Already in library</Badge>
                             )}
@@ -394,7 +453,22 @@ export function ChooseStep({
                         </button>
                       )}
                     </div>
-                    {open && <DiagnosticList candidate={c} />}
+                    {open && (
+                      <>
+                        {c.artifact.diagnostics.length > 0 && (
+                          <>
+                            <h4 className={styles.subhead}>Scan diagnostics</h4>
+                            <DiagnosticList candidate={c} />
+                          </>
+                        )}
+                        {c.audit.findings.length > 0 && (
+                          <>
+                            <h4 className={styles.subhead}>Security audit</h4>
+                            <AuditList candidate={c} />
+                          </>
+                        )}
+                      </>
+                    )}
                   </div>
                 );
               })}
@@ -439,7 +513,13 @@ export function ChooseStep({
                         <span className={styles.origin}>
                           {kindPlurals[c.artifact.kind]}
                         </span>
+                        <TierLabel candidate={c} />
                       </span>
+                      {criticalRule(c) && (
+                        <span className={`${styles.reason} ${styles.block}`}>
+                          Critical finding: {criticalRule(c)}
+                        </span>
+                      )}
                       <span className={`${styles.line} ${styles.block}`}>
                         <span className={styles.mono}>{c.artifact.path}</span>
                       </span>

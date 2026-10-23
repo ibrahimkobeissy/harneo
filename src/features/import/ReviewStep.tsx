@@ -6,6 +6,7 @@ import type { TagWithCount } from "../../bindings/TagWithCount";
 import { tagsList } from "../../lib/ipc";
 import { Tag } from "../../ui";
 import styles from "./Import.module.css";
+import { AuditSummary } from "./AuditSummary";
 import { TagAll } from "./TagAll";
 import { defaultTagColor } from "./tagColor";
 
@@ -181,6 +182,7 @@ export function ReviewStep({
           );
         })}
       </div>
+      <AuditSummary chosen={chosen} />
       {withSecrets.length > 0 && (
         <>
           <h2 className={styles.h}>Secrets that will be replaced</h2>

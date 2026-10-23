@@ -23,6 +23,7 @@ import {
   nothingFound,
 } from "./errors";
 import styles from "./Import.module.css";
+import { criticalIds } from "./trust";
 import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
@@ -110,7 +111,7 @@ export function ImportScreen() {
       }
       setPreview(found);
       setScannedKey(key);
-      setExcluded(new Set());
+      setExcluded(new Set(criticalIds(found.candidates)));
       setTags(
         Object.fromEntries(
           found.candidates.map((c) => [c.id, c.suggestedTags]),
@@ -142,6 +143,12 @@ export function ImportScreen() {
     setRefreshing(true);
     try {
       const found = await libraryPreview(preview.source, true);
+      // Only candidates new to this preview start excluded; the user's choices on the rest stand.
+      const seen = new Set(preview.candidates.map((c) => c.id));
+      const fresh = criticalIds(
+        found.candidates.filter((c) => !seen.has(c.id)),
+      );
+      setExcluded((prev) => new Set([...prev, ...fresh]));
       setPreview(found);
       setTags((prev) => ({
         ...Object.fromEntries(
