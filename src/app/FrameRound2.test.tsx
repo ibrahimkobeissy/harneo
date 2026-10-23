@@ -1,5 +1,5 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -86,8 +86,12 @@ describe("palette", () => {
       screen.getByRole("button", { name: "Search the Library for it" }),
     ).toBeInTheDocument();
     await user.keyboard("{Enter}");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(await screen.findByRole("searchbox")).toHaveValue("zzz");
+    expect(
+      screen.queryByRole("dialog", { name: "Search and commands" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("searchbox")).toHaveValue("zzz"),
+    );
   });
 });
 
