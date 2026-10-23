@@ -568,6 +568,7 @@ export function LibraryScreen({
           }}
           onClose={closePanel}
           onTagsChanged={reload}
+          onLinksChanged={reload}
           collection={collection}
           onMembershipChanged={() => {
             reload();

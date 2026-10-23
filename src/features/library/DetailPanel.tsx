@@ -33,6 +33,7 @@ import {
   TrustMeter,
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
+import { BundleSection } from "./BundleSection";
 import styles from "./Detail.module.css";
 import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
@@ -340,6 +341,7 @@ export function DetailPanel({
   onClose,
   onRemoved,
   onTagsChanged,
+  onLinksChanged,
   collection = null,
   onMembershipChanged = () => {},
   onLeftCollection = () => {},
@@ -353,6 +355,8 @@ export function DetailPanel({
   onClose: () => void;
   onRemoved: () => void;
   onTagsChanged: () => void;
+  /** A link was added or removed in the Bundle section (the badges follow). */
+  onLinksChanged: () => void;
   /** The collection whose screen this is, when there is one. */
   collection?: Collection | null;
   /** The artifact was added to or taken out of a collection from the Add to… menu. */
@@ -525,6 +529,13 @@ export function DetailPanel({
               </section>
               <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
               <TrustSection audit={detail.audit} />
+              <BundleSection
+                key={id}
+                artifactId={id}
+                initial={detail.links}
+                onOpen={(next) => onOpen(next, detail.artifact.name)}
+                onChanged={onLinksChanged}
+              />
               <SourceSection detail={detail} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>

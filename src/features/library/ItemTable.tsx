@@ -2,6 +2,7 @@ import { ArrowDown, ArrowUp } from "lucide-react";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { SortKey } from "../../bindings/SortKey";
 import {
+  BundleBadge,
   Findings,
   importedDate,
   ItemTrust,
@@ -52,6 +53,7 @@ export function ItemTable({
               </th>
             );
           })}
+          <th scope="col">Bundle</th>
         </tr>
       </thead>
       <tbody>
@@ -99,6 +101,9 @@ export function ItemTable({
               <ItemTrust item={item} />
             </td>
             <td className={styles.date}>{importedDate(item)}</td>
+            <td>
+              <BundleBadge item={item} />
+            </td>
           </tr>
         ))}
       </tbody>

@@ -594,22 +594,25 @@
   white-space: nowrap;
 }
 .table th:nth-child(1) {
-  width: 25%;
+  width: 22%;
 }
 .table th:nth-child(2) {
-  width: 10%;
+  width: 9%;
 }
 .table th:nth-child(3) {
-  width: 15%;
+  width: 14%;
 }
 .table th:nth-child(4) {
-  width: 13%;
+  width: 12%;
 }
 .table th:nth-child(5) {
-  width: 26%;
+  width: 22%;
 }
 .table th:nth-child(6) {
-  width: 13%;
+  width: 11%;
+}
+.table th:nth-child(7) {
+  width: 10%;
 }
 .table td {
   padding: var(--space-sm);

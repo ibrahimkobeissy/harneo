@@ -233,6 +233,7 @@ describe("list view", () => {
       "Tags",
       "Trust",
       "Imported",
+      "Bundle",
     ]);
     expect(must(headers[0])).toHaveAttribute("aria-sort", "ascending");
     expect(must(headers[1])).toHaveAttribute("aria-sort", "none");

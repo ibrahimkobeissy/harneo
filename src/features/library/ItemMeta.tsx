@@ -109,3 +109,13 @@ export function formatDate(seconds: bigint | number): string {
 export function importedDate(item: LibraryItem): string {
   return formatDate(item.importedAt);
 }
+
+/** "Bundle of N": the artifact plus what it needs, transitively. Nothing when it needs nothing. */
+export function BundleBadge({ item }: { item: LibraryItem }) {
+  if (item.bundleSize === 0) return null;
+  return (
+    <Badge tone="info">
+      <span title="Installed together, always">{`Bundle of ${item.bundleSize}`}</span>
+    </Badge>
+  );
+}

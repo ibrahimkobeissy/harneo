@@ -1,5 +1,6 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import {
+  BundleBadge,
   CardCounts,
   Findings,
   ItemTrust,
@@ -52,6 +53,7 @@ export function ItemCard({
         <ItemTrust item={item} />
         <span className={styles.tileMeta}>
           <CardCounts item={item} />
+          <BundleBadge item={item} />
           <Findings item={item} />
         </span>
       </span>
