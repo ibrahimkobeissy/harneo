@@ -32,7 +32,7 @@ mod import_tests;
 mod query;
 #[cfg(test)]
 mod query_tests;
-mod records;
+pub(crate) mod records;
 #[cfg(test)]
 mod secrets_tests;
 mod source;
@@ -131,7 +131,7 @@ pub struct ImportReport {
 /// An open library. Opening creates the folders and the schema when they are missing.
 #[derive(Debug)]
 pub struct Library {
-    store: Store,
+    pub(crate) store: Store,
     git: GitConfig,
     /// The clone of the last git preview, kept until `import` copies from it. At most one: a
     /// newer git preview replaces (and deletes) it, `import` consumes it, and dropping the
@@ -403,6 +403,8 @@ impl Library {
                     tags::apply_names(&tx, &candidate.id, names)?;
                 }
             }
+            let fresh_ids: Vec<&str> = fresh.iter().map(|c| c.id.as_str()).collect();
+            crate::bundles::add_reference_links(&tx, &fresh_ids, now)?;
             for candidate in &fresh {
                 let target = artifacts_dir.join(&candidate.id);
                 // A folder with no row is left over from a crash; it is not a library entry.

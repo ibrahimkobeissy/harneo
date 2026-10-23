@@ -35,4 +35,8 @@ trustScore: number | null, tier: Tier | null,
 /**
  * Findings in the stored audit (0 when not audited).
  */
-findingCount: number, };
+findingCount: number, 
+/**
+ * Members of the artifact's bundle other than itself (see `bundles::bundle_of`).
+ */
+bundleSize: number, };

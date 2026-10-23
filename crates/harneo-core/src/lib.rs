@@ -3,6 +3,7 @@
 
 pub mod artifact;
 pub mod audit;
+pub mod bundles;
 pub mod error;
 pub mod library;
 pub mod paths;

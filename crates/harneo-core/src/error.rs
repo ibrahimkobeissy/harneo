@@ -60,6 +60,12 @@ pub enum Error {
         /// The file, relative to the source root.
         path: String,
     },
+    /// A link or setting the library refuses.
+    #[error("{message}")]
+    InvalidLink {
+        /// What is wrong.
+        message: String,
+    },
     /// The artifact is not in the library.
     #[error("artifact {id} is not in the library")]
     NotInLibrary {

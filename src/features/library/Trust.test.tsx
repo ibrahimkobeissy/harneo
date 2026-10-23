@@ -58,6 +58,7 @@ function detail(name: string, a: Audit | null): ArtifactDetail {
     },
     audit: a,
     auditedAt: a ? 1_700_000_000n : null,
+    links: { needs: [], neededBy: [] },
     provenance: {
       source: {
         id: "s1",

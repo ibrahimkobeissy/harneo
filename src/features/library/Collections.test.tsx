@@ -37,6 +37,7 @@ function detailOf(id: string): ArtifactDetail {
     },
     audit: null,
     auditedAt: null,
+    links: { needs: [], neededBy: [] },
     provenance: {
       source: {
         id: "s1",

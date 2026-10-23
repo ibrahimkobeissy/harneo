@@ -105,8 +105,31 @@ CREATE INDEX artifacts_trust_score ON artifacts(trust_score);
 CREATE INDEX artifacts_tier ON artifacts(tier);
 ";
 
+/// Version 3: the settings store and the links between artifacts. `settings.value` is JSON,
+/// keys are namespaced by module. A link is directed (`from_id` needs `to_id`); `status` keeps
+/// rejected proposals so a re-run does not propose them again. No self-links; links go with
+/// either artifact.
+const V3: &str = "
+CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+) STRICT;
+
+CREATE TABLE links (
+    from_id    TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+    to_id      TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+    origin     TEXT NOT NULL CHECK (origin IN ('reference', 'ai', 'manual')),
+    reason     TEXT NOT NULL DEFAULT '',
+    status     TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'rejected')),
+    created_at INTEGER NOT NULL,
+    PRIMARY KEY (from_id, to_id),
+    CHECK (from_id <> to_id)
+) STRICT;
+CREATE INDEX links_to ON links(to_id);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2];
+const MIGRATIONS: &[&str] = &[V1, V2, V3];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -320,7 +343,7 @@ mod tests {
             .expect("v1 rows");
         }
         let store = Store::open(dir.path()).expect("migrates");
-        assert_eq!(store.schema_version().expect("v"), 2);
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
         let row: (String, i64, Option<i64>, Option<String>, Option<String>) = store
             .conn
             .query_row(

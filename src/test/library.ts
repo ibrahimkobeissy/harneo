@@ -24,6 +24,7 @@ export function item(
     trustScore: null,
     tier: null,
     findingCount: 0,
+    bundleSize: 0,
     ...over,
   };
 }

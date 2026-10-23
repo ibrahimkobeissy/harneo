@@ -148,6 +148,8 @@ pub struct LibraryItem {
     pub tier: Option<Tier>,
     /// Findings in the stored audit (0 when not audited).
     pub finding_count: u32,
+    /// Members of the artifact's bundle other than itself (see `bundles::bundle_of`).
+    pub bundle_size: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -502,10 +504,16 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 .map(|t| serde_json::from_value(serde_json::Value::String(t)))
                 .transpose()?,
             finding_count: count(finding_count),
+            bundle_size: 0,
         });
     }
     drop(stmt);
     attach_tags(conn, &mut items)?;
+    let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
+    let sizes = crate::bundles::bundle_sizes(conn, &ids)?;
+    for item in &mut items {
+        item.bundle_size = sizes.get(&item.id).copied().unwrap_or(0);
+    }
     Ok(Page {
         items,
         total: count(total),

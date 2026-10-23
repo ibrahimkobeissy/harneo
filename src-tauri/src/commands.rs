@@ -5,6 +5,7 @@ use std::sync::Mutex;
 
 use harneo_core::artifact::{ArtifactKind, ScanOptions};
 
+use harneo_core::bundles::{LinkOrigin, Links};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -247,6 +248,63 @@ pub fn artifact_tag_remove(
     tag_id: i64,
 ) -> Result<(), String> {
     state.with(|library| library.untag_artifact(&id, tag_id))
+}
+
+// --- Links, bundles and settings ---------------------------------------------------------
+
+/// What an artifact needs and what needs it.
+#[tauri::command]
+pub fn links_of(state: State<'_, LibraryState>, id: String) -> Result<Links, String> {
+    state.with(|library| library.links_of(&id))
+}
+
+/// Confirms `from needs to` (origin `manual` or `ai`; reference links come from import).
+#[tauri::command]
+pub fn link_add(
+    state: State<'_, LibraryState>,
+    from: String,
+    to: String,
+    origin: LinkOrigin,
+    reason: String,
+) -> Result<(), String> {
+    state.with(|library| library.add_link(&from, &to, origin, &reason))
+}
+
+/// Deletes a link.
+#[tauri::command]
+pub fn link_remove(state: State<'_, LibraryState>, from: String, to: String) -> Result<(), String> {
+    state.with(|library| library.remove_link(&from, &to))
+}
+
+/// Remembers a refused proposal so it is not offered again.
+#[tauri::command]
+pub fn link_reject(state: State<'_, LibraryState>, from: String, to: String) -> Result<(), String> {
+    state.with(|library| library.reject_link(&from, &to))
+}
+
+/// The artifact's bundle (transitive, by depth then name), without itself.
+#[tauri::command]
+pub fn bundle_of(state: State<'_, LibraryState>, id: String) -> Result<Vec<String>, String> {
+    state.with(|library| library.bundle_of(&id))
+}
+
+/// One app setting, if set.
+#[tauri::command]
+pub fn settings_get(
+    state: State<'_, LibraryState>,
+    key: String,
+) -> Result<Option<serde_json::Value>, String> {
+    state.with(|library| library.settings_get(&key))
+}
+
+/// Stores one app setting.
+#[tauri::command]
+pub fn settings_set(
+    state: State<'_, LibraryState>,
+    key: String,
+    value: serde_json::Value,
+) -> Result<(), String> {
+    state.with(|library| library.settings_set(&key, &value))
 }
 
 // --- Collections -----------------------------------------------------------------------
@@ -527,6 +585,34 @@ mod tests {
         assert!(artifact_tag_remove(state(), "nope".into(), tag.id).is_ok());
         tag_delete(state(), tag.id)?;
         assert!(tags_list(state())?.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn link_and_settings_commands_run_through_managed_state(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        assert!(links_of(state(), "nope".into()).is_err());
+        assert!(link_add(
+            state(),
+            "a".into(),
+            "b".into(),
+            LinkOrigin::Manual,
+            String::new()
+        )
+        .is_err());
+        assert!(link_remove(state(), "a".into(), "b".into()).is_ok());
+        assert!(link_reject(state(), "a".into(), "b".into()).is_err());
+        assert!(bundle_of(state(), "nope".into()).is_err());
+        assert_eq!(settings_get(state(), "bundles.model".into())?, None);
+        settings_set(state(), "bundles.model".into(), serde_json::json!("haiku"))?;
+        assert_eq!(
+            settings_get(state(), "bundles.model".into())?,
+            Some(serde_json::json!("haiku"))
+        );
         Ok(())
     }
 

@@ -41,6 +41,13 @@ pub fn run() {
             commands::usage_index,
             commands::usage_of,
             commands::usage_summary
+            commands::links_of,
+            commands::link_add,
+            commands::link_remove,
+            commands::link_reject,
+            commands::bundle_of,
+            commands::settings_get,
+            commands::settings_set
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

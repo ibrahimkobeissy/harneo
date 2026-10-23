@@ -59,6 +59,8 @@ pub struct ArtifactDetail {
     pub audit: Option<Audit>,
     /// Unix seconds of that audit.
     pub audited_at: Option<i64>,
+    /// What the artifact needs and what needs it (confirmed links).
+    pub links: crate::bundles::Links,
 }
 
 pub(crate) fn now() -> i64 {
@@ -254,6 +256,7 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
         files: Vec::new(),
         audit: stored.as_ref().map(|(audit, _)| audit.clone()),
         audited_at: stored.map(|(_, at)| at),
+        links: crate::bundles::links_of(conn, id)?,
     }))
 }
 

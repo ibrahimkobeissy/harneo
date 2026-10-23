@@ -9,6 +9,8 @@ import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
 import type { Collection } from "../bindings/Collection";
+import type { LinkOrigin } from "../bindings/LinkOrigin";
+import type { Links } from "../bindings/Links";
 import type { Filter } from "../bindings/Filter";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
@@ -244,4 +246,44 @@ export function usageOf(kind: ArtifactKind, name: string): Promise<Usage> {
 /** Sessions per week over every tracked use. */
 export function usageSummary(): Promise<UsageSummary> {
   return invoke<UsageSummary>("usage_summary", {});
+// --- Links, bundles and settings ---
+
+/** What an artifact needs and what needs it (confirmed links). */
+export function linksOf(id: string): Promise<Links> {
+  return invoke<Links>("links_of", { id });
+}
+
+/** Confirms the link `from needs to`. */
+export function linkAdd(
+  from: string,
+  to: string,
+  origin: LinkOrigin,
+  reason: string,
+): Promise<void> {
+  return invoke<void>("link_add", { from, to, origin, reason });
+}
+
+/** Deletes a link. */
+export function linkRemove(from: string, to: string): Promise<void> {
+  return invoke<void>("link_remove", { from, to });
+}
+
+/** Remembers a refused proposal so a re-run does not offer it again. */
+export function linkReject(from: string, to: string): Promise<void> {
+  return invoke<void>("link_reject", { from, to });
+}
+
+/** The artifact's bundle: everything it needs, transitively, without itself. */
+export function bundleOf(id: string): Promise<string[]> {
+  return invoke<string[]>("bundle_of", { id });
+}
+
+/** One app setting (keys are namespaced by module); `null` when unset. */
+export function settingsGet(key: string): Promise<unknown> {
+  return invoke<unknown>("settings_get", { key });
+}
+
+/** Stores one app setting. */
+export function settingsSet(key: string, value: unknown): Promise<void> {
+  return invoke<void>("settings_set", { key, value });
 }
