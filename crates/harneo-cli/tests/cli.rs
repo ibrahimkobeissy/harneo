@@ -477,3 +477,214 @@ mod scaffold_cli {
         Ok(())
     }
 }
+
+mod update_cli {
+    use super::harneo;
+    use harneo_core::library::{Library, Source, TagChoices};
+    use predicates::prelude::*;
+    use std::path::Path;
+    use std::process::Command;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    fn git(dir: &Path, args: &[&str]) -> TestResult {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(dir)
+            .args([
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "-c",
+                "commit.gpgsign=false",
+            ])
+            .args(args)
+            .output()?;
+        if out.status.success() {
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&out.stderr).into_owned().into())
+        }
+    }
+
+    fn agent(name: &str, body: &str) -> String {
+        format!("---\nname: {name}\ndescription: {name} agent\n---\n{body}\n")
+    }
+
+    fn commit_agent(repo: &Path, name: &str, body: &str) -> TestResult {
+        std::fs::create_dir_all(repo.join("agents"))?;
+        std::fs::write(repo.join(format!("agents/{name}.md")), agent(name, body))?;
+        git(repo, &["add", "-A"])?;
+        git(repo, &["commit", "-q", "-m", "change"])
+    }
+
+    /// A git repo with agents `a` and `b`, imported into a fresh data folder.
+    fn seeded() -> Result<(tempfile::TempDir, tempfile::TempDir), Box<dyn std::error::Error>> {
+        let repo = tempfile::tempdir()?;
+        git(repo.path(), &["init", "-q", "-b", "main"])?;
+        commit_agent(repo.path(), "a", "one")?;
+        commit_agent(repo.path(), "b", "one")?;
+        let data = tempfile::tempdir()?;
+        let mut library = Library::open(data.path())?;
+        let url = format!("file://{}", repo.path().display());
+        let preview = library.preview(&Source::parse_git(&url, None, None)?)?;
+        let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+        library.import(&preview, &ids, &TagChoices::new())?;
+        Ok((repo, data))
+    }
+
+    fn with_data(data: &Path) -> assert_cmd::Command {
+        let mut cmd = harneo();
+        cmd.env("HARNEO_DATA_DIR", data);
+        cmd
+    }
+
+    fn stored(data: &Path, name: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        let library = Library::open(data)?;
+        let id = library
+            .find(harneo_core::artifact::ArtifactKind::Agent, name)?
+            .ok_or("not imported")?;
+        Ok(data.join("library/artifacts").join(id))
+    }
+
+    fn stored_text(data: &Path, name: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let dir = stored(data, name)?;
+        let mut text = String::new();
+        for entry in walk(&dir)? {
+            text.push_str(&std::fs::read_to_string(entry)?);
+        }
+        Ok(text)
+    }
+
+    fn walk(dir: &Path) -> Result<Vec<std::path::PathBuf>, Box<dyn std::error::Error>> {
+        let mut files = Vec::new();
+        for entry in std::fs::read_dir(dir)? {
+            let path = entry?.path();
+            if path.is_dir() {
+                files.extend(walk(&path)?);
+            } else {
+                files.push(path);
+            }
+        }
+        Ok(files)
+    }
+
+    #[test]
+    fn check_lists_the_outdated_artifact_human_and_json() -> TestResult {
+        let (repo, data) = seeded()?;
+        commit_agent(repo.path(), "b", "two")?;
+        with_data(data.path())
+            .args(["update", "--check"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("b (agent)  "))
+            .stdout(predicate::str::contains(" → "))
+            .stdout(predicate::str::contains(
+                "1 outdated, 0 removed upstream, 0 source errors",
+            ))
+            .stdout(predicate::str::contains("a (agent)").not());
+        let output = with_data(data.path())
+            .args(["update", "--check", "--json"])
+            .output()?;
+        assert!(output.status.success());
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        assert_eq!(json["outdated"].as_array().map(Vec::len), Some(1));
+        assert_eq!(json["outdated"][0]["name"], "b");
+        assert_eq!(json["outdated"][0]["localEdits"], false);
+        assert_eq!(json["errors"].as_array().map(Vec::len), Some(0));
+        Ok(())
+    }
+
+    #[test]
+    fn check_reports_a_source_that_cannot_be_read() -> TestResult {
+        let (repo, data) = seeded()?;
+        drop(repo);
+        with_data(data.path())
+            .args(["update", "--check"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("source "))
+            .stdout(predicate::str::contains("1 source error"));
+        Ok(())
+    }
+
+    #[test]
+    fn update_changes_unedited_artifacts_and_skips_edited_ones() -> TestResult {
+        let (repo, data) = seeded()?;
+        std::fs::write(
+            walk(&stored(data.path(), "a")?)?.first().ok_or("no file")?,
+            agent("a", "mine"),
+        )?;
+        commit_agent(repo.path(), "a", "two")?;
+        commit_agent(repo.path(), "b", "two")?;
+        with_data(data.path())
+            .args(["update", "--check"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("[local edits]"));
+        with_data(data.path())
+            .arg("update")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("updated b (agent)"))
+            .stdout(predicate::str::contains("skipped a (agent)"))
+            .stdout(predicate::str::contains("update it in the app to choose"))
+            .stdout(predicate::str::contains(
+                "Updated 1, skipped 1 (local edits), failed 0",
+            ));
+        assert!(stored_text(data.path(), "b")?.contains("two"));
+        assert!(stored_text(data.path(), "a")?.contains("mine"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_named_artifact_is_updated_alone_and_json_has_a_summary() -> TestResult {
+        let (repo, data) = seeded()?;
+        commit_agent(repo.path(), "a", "two")?;
+        commit_agent(repo.path(), "b", "two")?;
+        let output = with_data(data.path())
+            .args(["update", "B", "--json"])
+            .output()?;
+        assert!(output.status.success());
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        assert_eq!(json["results"].as_array().map(Vec::len), Some(1));
+        assert_eq!(json["results"][0]["outcome"], "updated");
+        assert_eq!(json["summary"]["updated"], 1);
+        assert!(stored_text(data.path(), "b")?.contains("two"));
+        assert!(stored_text(data.path(), "a")?.contains("one"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_named_edited_artifact_is_skipped() -> TestResult {
+        let (repo, data) = seeded()?;
+        std::fs::write(
+            walk(&stored(data.path(), "a")?)?.first().ok_or("no file")?,
+            agent("a", "mine"),
+        )?;
+        commit_agent(repo.path(), "a", "two")?;
+        with_data(data.path())
+            .args(["update", "a"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("update it in the app to choose"))
+            .stdout(predicate::str::contains(
+                "Updated 0, skipped 1 (local edits), failed 0",
+            ));
+        Ok(())
+    }
+
+    #[test]
+    fn an_unknown_name_exits_1() -> TestResult {
+        let (_repo, data) = seeded()?;
+        with_data(data.path())
+            .args(["update", "nope"])
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(
+                "no artifact named or with id \"nope\"",
+            ));
+        Ok(())
+    }
+}

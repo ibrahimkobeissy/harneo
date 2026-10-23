@@ -4,6 +4,7 @@ mod audit;
 mod profiles;
 mod scaffold;
 mod scan;
+mod update;
 
 use std::io::{BufRead, IsTerminal};
 use std::path::PathBuf;
@@ -52,6 +53,8 @@ enum Command {
     },
     /// Write a profile into a folder that has no harness yet, and register the project.
     Scaffold(scaffold::ScaffoldArgs),
+    /// Check the library's sources and update outdated artifacts that have no local edits.
+    Update(update::UpdateArgs),
 }
 
 fn main() -> ExitCode {
@@ -78,6 +81,7 @@ fn run() -> anyhow::Result<ExitCode> {
                 Ok(matches!(line.trim().to_lowercase().as_str(), "y" | "yes"))
             });
         }
+        Command::Update(args) => return update::run(&args, &mut std::io::stdout()),
         Command::Scan {
             path,
             json,
