@@ -60,7 +60,7 @@ pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
-    TagChip, TagCount, TierCount, MAX_LIMIT,
+    StatusCount, TagChip, TagCount, TierCount, MAX_LIMIT,
 };
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
 pub use source::Source;
@@ -158,8 +158,10 @@ impl Library {
     /// Opens (creating it if needed) the library under `data_dir` and migrates its schema
     /// forward to the current version.
     pub fn open(data_dir: &Path) -> Result<Self> {
+        let store = Store::open(data_dir)?;
+        crate::usage::attach(&store.conn, data_dir)?;
         Ok(Self {
-            store: Store::open(data_dir)?,
+            store,
             git: GitConfig::default(),
             claude: crate::bundles::ClaudeConfig::default(),
             pending: Mutex::new(None),

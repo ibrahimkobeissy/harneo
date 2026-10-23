@@ -17,6 +17,7 @@ export const emptyRule: Filter = {
   tiers: [],
   hasFindings: false,
   outdated: false,
+  statuses: [],
 };
 
 /** True when the rule has no condition at all (a smart collection needs one). */

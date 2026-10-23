@@ -25,6 +25,7 @@ use ts_rs::TS;
 use crate::artifact::ArtifactKind;
 use crate::audit::Tier;
 use crate::error::Result;
+use crate::usage::{self, Status, UsageBrief};
 
 /// Most rows one page may hold; a larger `limit` is clamped to this.
 pub const MAX_LIMIT: u32 = 1000;
@@ -34,10 +35,6 @@ pub const MAX_LIMIT: u32 = 1000;
 const LABEL_SQL: &str = "(CASE WHEN s.kind = 'local' \
     THEN replace(s.location, rtrim(s.location, replace(s.location, '/', '')), '') \
     ELSE s.location END)";
-
-/// The condition for an outdated artifact (alias `a` is the artifact row).
-const OUTDATED_SQL: &str =
-    "EXISTS (SELECT 1 FROM upstream u WHERE u.artifact_id = a.id AND u.state = 'outdated')";
 
 /// What to keep. Empty lists and empty text mean no restriction.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -58,6 +55,8 @@ pub struct Filter {
     pub has_findings: bool,
     /// Only artifacts whose source changed since they were imported.
     pub outdated: bool,
+    /// Statuses (see `usage::Status`).
+    pub statuses: Vec<Status>,
 }
 
 /// What to sort the list by.
@@ -78,6 +77,9 @@ pub enum SortKey {
     /// A manual collection's own order. Only meaningful in `Library::collection_page` of a
     /// manual collection; everywhere else it sorts like `Name`.
     Position,
+    /// By sessions in the last 8 weeks; kinds the logs do not track come last in both
+    /// directions.
+    Sessions,
 }
 
 /// One list request. The default is the first 50 artifacts by name.
@@ -158,6 +160,9 @@ pub struct LibraryItem {
     pub bundle_size: u32,
     /// Set when the artifact's own files changed at its source (see `updates`).
     pub update: Option<crate::updates::UpdateBadge>,
+    /// Sessions and last use; `None` for kinds the logs do not track.
+    pub usage: Option<UsageBrief>,
+    pub status: Status,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -212,6 +217,17 @@ pub struct Facets {
     /// Outdated artifacts among those the other filters keep (the count behind "Outdated",
     /// whether or not that filter is on).
     pub outdated: u32,
+    /// In `Status` order; only statuses present among the artifacts the other filters keep, plus
+    /// selected ones at 0.
+    pub statuses: Vec<StatusCount>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct StatusCount {
+    pub status: Status,
+    pub count: u32,
 }
 
 /// One page of the list.
@@ -243,6 +259,7 @@ enum Facet {
     Tags,
     Sources,
     Tiers,
+    Statuses,
 }
 
 fn placeholders(n: usize) -> String {
@@ -322,7 +339,20 @@ fn build(
         parts.push("COALESCE(json_array_length(a.findings), 0) > 0".to_owned());
     }
     if filter.outdated {
-        parts.push(OUTDATED_SQL.to_owned());
+        parts.push(usage::outdated_sql("a"));
+    }
+    if omit != Some(Facet::Statuses) && !filter.statuses.is_empty() {
+        parts.push(format!(
+            "{} IN ({})",
+            usage::status_sql("a"),
+            placeholders(filter.statuses.len())
+        ));
+        params.extend(
+            filter
+                .statuses
+                .iter()
+                .map(|s| Value::Text(s.as_str().to_owned())),
+        );
     }
     if let Some(text) = filter
         .text
@@ -420,6 +450,12 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
         SortKey::ImportedAt => "a.imported_at".to_owned(),
         // NULLs (not audited) sort last whichever way the scores go.
         SortKey::Trust => "(a.trust_score IS NULL) ASC, a.trust_score".to_owned(),
+        // Untracked kinds sort last whichever way the counts go.
+        SortKey::Sessions => format!(
+            "NOT {} ASC, {}",
+            usage::tracked_sql("a"),
+            usage::sessions_sql("a")
+        ),
         SortKey::Position => match scope.and_then(|s| s.manual_collection) {
             Some(id) => format!(
                 "(SELECT position FROM collection_items \
@@ -444,13 +480,17 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.files')),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
-                  WHERE json_extract(value, '$.resolved') = 1)
+                  WHERE json_extract(value, '$.resolved') = 1),
+                {sessions}, {last_used}, {status}
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
                       a.trust_score, a.tier, a.findings, s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
                WHERE {clause}
                ORDER BY {order} {direction}, a.id ASC
-               LIMIT ? OFFSET ?) p"
+               LIMIT ? OFFSET ?) p",
+        sessions = usage::sessions_sql("p"),
+        last_used = usage::last_used_sql("p"),
+        status = usage::status_sql("p"),
     );
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt.query_map(params_from_iter(params.iter()), |r| {
@@ -472,6 +512,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, i64>(14)?,
             r.get::<_, i64>(15)?,
             r.get::<_, i64>(16)?,
+            r.get::<_, i64>(17)?,
+            r.get::<_, Option<String>>(18)?,
+            r.get::<_, String>(19)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -494,10 +537,14 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             files,
             references,
             resolved,
+            sessions,
+            last_used,
+            status,
         ) = row?;
+        let kind = parse_kind(kind)?;
         items.push(LibraryItem {
             id,
-            kind: parse_kind(kind)?,
+            kind,
             name,
             description,
             source: SourceSummary {
@@ -520,6 +567,11 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             finding_count: count(finding_count),
             bundle_size: 0,
             update: None,
+            usage: usage::is_tracked(kind).then(|| UsageBrief {
+                sessions: count(sessions),
+                last_used,
+            }),
+            status: Status::parse(&status),
         });
     }
     drop(stmt);
@@ -692,12 +744,37 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
     let outdated: i64 = conn.query_row(
         &format!(
             "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
-             WHERE {clause} AND {OUTDATED_SQL}"
+             WHERE {clause} AND {}",
+            usage::outdated_sql("a")
         ),
         params_from_iter(params.iter()),
         |r| r.get(0),
     )?;
+    // Statuses: everything except the Status filter itself.
+    let (clause, params) = build(filter, Some(Facet::Statuses), scope)?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {status}, COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+         WHERE {clause} GROUP BY 1",
+        status = usage::status_sql("a")
+    ))?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut found: HashMap<Status, u32> = HashMap::new();
+    for row in rows {
+        let (name, n) = row?;
+        found.insert(Status::parse(&name), count(n));
+    }
+    let statuses = Status::ALL
+        .into_iter()
+        .filter(|s| found.contains_key(s) || filter.statuses.contains(s))
+        .map(|status| StatusCount {
+            status,
+            count: found.get(&status).copied().unwrap_or(0),
+        })
+        .collect();
     Ok(Facets {
+        statuses,
         kinds,
         tags,
         sources,

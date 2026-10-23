@@ -92,6 +92,7 @@ function setup(path = "/library") {
           facets: {
             withFindings: 1,
             outdated: 0,
+            statuses: [],
             kinds: [],
             tags: [],
             sources: [],

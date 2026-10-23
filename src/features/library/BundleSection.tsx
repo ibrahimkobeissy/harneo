@@ -34,6 +34,7 @@ function useCandidates(text: string, active: boolean): LibraryItem[] {
           tiers: [],
           hasFindings: false,
           outdated: false,
+          statuses: [],
         },
         sort: "name",
         descending: false,

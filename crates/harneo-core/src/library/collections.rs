@@ -75,6 +75,8 @@ fn is_empty_rule(rule: &Filter) -> bool {
         && rule.trust_min.is_none()
         && rule.tiers.is_empty()
         && !rule.has_findings
+        && !rule.outdated
+        && rule.statuses.is_empty()
         && rule.text.as_deref().is_none_or(|t| t.trim().is_empty())
 }
 

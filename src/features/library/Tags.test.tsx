@@ -66,6 +66,7 @@ function setup(existing: Row[], onArtifact: number[] = []) {
             tiers: [],
             withFindings: 0,
             outdated: 0,
+            statuses: [],
             kinds: [],
             sources: [],
             tags: tags

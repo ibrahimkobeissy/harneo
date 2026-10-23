@@ -19,6 +19,7 @@ const facets: Page["facets"] = {
   tiers: [],
   withFindings: 0,
   outdated: 0,
+  statuses: [],
   kinds: [
     { kind: "skill", count: 5 },
     { kind: "agent", count: 2 },
@@ -462,6 +463,7 @@ describe("filters and search", () => {
         tiers: [],
         hasFindings: false,
         outdated: false,
+        statuses: [],
       },
       sort: "importedAt",
       descending: true,

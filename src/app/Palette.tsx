@@ -39,6 +39,7 @@ function useArtifactEntries(text: string): Entry[] {
           tiers: [],
           hasFindings: false,
           outdated: false,
+          statuses: [],
         },
         sort: "name",
         descending: false,

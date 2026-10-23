@@ -26,6 +26,8 @@ export function item(
     findingCount: 0,
     bundleSize: 0,
     update: null,
+    usage: null,
+    status: "current",
     ...over,
   };
 }
@@ -42,6 +44,7 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
       tiers: [],
       withFindings: 0,
       outdated: 0,
+      statuses: [],
     },
     ...over,
     unfilteredTotal: over.unfilteredTotal ?? over.total ?? items.length,

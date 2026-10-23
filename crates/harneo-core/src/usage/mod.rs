@@ -14,6 +14,9 @@ mod parse;
 mod parse_tests;
 #[cfg(test)]
 mod queries_tests;
+mod status;
+#[cfg(test)]
+mod status_tests;
 
 use std::collections::HashSet;
 use std::fs;
@@ -25,6 +28,10 @@ use serde::Serialize;
 use ts_rs::TS;
 
 pub use index::{IndexProgress, IndexReport};
+pub(crate) use status::{
+    attach, last_used_sql, outdated_sql, sessions_sql, status_sql, tracked_sql,
+};
+pub use status::{is_tracked, Status, UsageBrief, DEFAULT_UNUSED_WEEKS, UNUSED_WEEKS_KEY};
 
 use crate::artifact::ArtifactKind;
 use crate::error::{Error, Result};

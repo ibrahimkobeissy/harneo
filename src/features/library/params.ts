@@ -52,6 +52,7 @@ export const sortLabels: Record<SortKey, string> = {
   tagCount: "Tags",
   importedAt: "Imported",
   trust: "Trust",
+  sessions: "Sessions",
   // A manual collection's own order (collection screens, L12); not offered on the library.
   position: "Manual order",
 };
@@ -134,6 +135,7 @@ export function toFilter(p: LibraryParams): Filter {
     tiers: p.tiers,
     hasFindings: p.hasFindings,
     outdated: false,
+    statuses: [],
   };
 }
 
