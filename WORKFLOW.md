@@ -36,3 +36,4 @@ How Harneo is built with Addy Osmani's agent-skills and Impeccable: one line per
 32. `/impeccable critique` of the bundle, update, usage and Settings screens (#94): 26/40 (single-context, degraded), fixes pre-approved by the user → `.impeccable/critique/2026-10-23T15-05-40Z__src-features-bundles-updates.md`, issues #122–#125
 33. `/impeccable critique` of the profile screens (#100): 26/40 (single-context, degraded), fixes pre-approved by the user → `.impeccable/critique/2026-10-23T17-17-51Z__src-features-profiles.md`, issues #127–#130
 34. User decision (2026-10-23): bundle and tag detection at import is opt-in, off by default → `spec/bundles.md` Decision 2, issue #132
+35. `ticket-flow` batch merge (user's request): #106, #110, #114, #119, #120, #121, #128, #129, #130, #132 stacked on a local copy of main and merged with one `check:full` (Rust 93.03%, TS 96.74%); #100 closed with its fixes
