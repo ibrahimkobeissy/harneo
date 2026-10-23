@@ -346,6 +346,18 @@ impl Library {
             (Source::Git { .. }, None) => return Err(Error::PreviewExpired),
         };
         let root = root.as_path();
+        // The stored audit is computed here, from the files about to be copied; the preview's
+        // `audit` came back over IPC and is never trusted.
+        let audit_options = ScanOptions::default();
+        let audits: HashMap<&str, Audit> = fresh
+            .iter()
+            .map(|c| {
+                (
+                    c.id.as_str(),
+                    audit::audit(&c.artifact, root, &audit_options),
+                )
+            })
+            .collect();
         let staging = tempfile::Builder::new()
             .prefix(".import-")
             .tempdir_in(self.store.root())
@@ -368,6 +380,12 @@ impl Library {
             let now = records::now();
             for candidate in &fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);
+                let audit =
+                    audits
+                        .get(candidate.id.as_str())
+                        .ok_or_else(|| Error::NotInPreview {
+                            id: candidate.id.clone(),
+                        })?;
                 records::insert_artifact(
                     &tx,
                     &candidate.id,
@@ -375,7 +393,7 @@ impl Library {
                     &candidate.artifact,
                     now,
                     keys,
-                    &candidate.audit,
+                    audit,
                 )?;
                 if let Some(names) = tag_choices.get(&candidate.id) {
                     tags::apply_names(&tx, &candidate.id, names)?;
