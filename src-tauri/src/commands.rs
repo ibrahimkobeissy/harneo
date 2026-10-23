@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use harneo_core::artifact::{ArtifactKind, ScanOptions};
+use harneo_core::usage;
 
 use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
@@ -613,6 +614,41 @@ pub fn usage_of(
 #[tauri::command]
 pub fn usage_summary(state: State<'_, UsageState>) -> Result<UsageSummary, String> {
     state.index()?.usage_summary().map_err(|e| e.to_string())
+}
+
+// --- Cleanup and prune -----------------------------------------------------------------
+
+/// What Cleanup suggests: findings, outdated, unused, repeated and duplicate names.
+#[tauri::command]
+pub async fn cleanup_list(app: AppHandle) -> Result<usage::Cleanup, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.cleanup())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// What removing an artifact from its profiles would do (nothing is saved).
+#[tauri::command]
+pub async fn prune_plan(app: AppHandle, artifact: String) -> Result<usage::PrunePlan, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.plan_prune(&artifact))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Removes an artifact from its profiles (new versions) and switches their projects.
+#[tauri::command]
+pub async fn prune_apply(app: AppHandle, artifact: String) -> Result<usage::PruneReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.apply_prune(&artifact))
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 // --- Profiles --------------------------------------------------------------------------

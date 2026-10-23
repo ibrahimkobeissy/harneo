@@ -9,7 +9,7 @@ use super::plan::{digest, project_folder, resolve_inside, Plan, PlanKind, Write,
 use super::registry::InstalledFile;
 use crate::error::{Error, Result};
 use crate::library::Library;
-use crate::profiles::{PathFrom, ProfileId};
+use crate::profiles::{PathFrom, ProfileId, ProfileView};
 
 /// The bytes of `rel` in the project, `None` when there is no such file.
 pub(super) fn current_bytes(target: &Path, rel: &str) -> Result<Option<Vec<u8>>> {
@@ -98,9 +98,16 @@ impl Library {
         profile_id: ProfileId,
         version: Option<u32>,
     ) -> Result<Plan> {
+        let view = self.profile(profile_id, version)?;
+        self.plan_switch_to(project_id, view)
+    }
+
+    /// Like [`Library::plan_switch`] for a profile view that need not be saved: the plan to move
+    /// the project to `view.spec`, named as `view.name` at `view.version`.
+    pub(crate) fn plan_switch_to(&self, project_id: i64, view: ProfileView) -> Result<Plan> {
         let project = self.project(project_id)?;
         let target = project_folder(&project.path)?;
-        let view = self.profile(profile_id, version)?;
+        let profile_id = view.id;
         let rendered = self.render(
             &view.spec,
             &view.name,

@@ -12,9 +12,9 @@ mod compare;
 #[cfg(test)]
 mod compare_tests;
 #[cfg(test)]
-mod fixture;
+pub(crate) mod fixture;
 #[cfg(test)]
-mod fixture_lifecycle;
+pub(crate) mod fixture_lifecycle;
 mod plan;
 #[cfg(test)]
 mod plan_tests;

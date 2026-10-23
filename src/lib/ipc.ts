@@ -25,6 +25,9 @@ import type { IndexProgress } from "../bindings/IndexProgress";
 import type { IndexReport } from "../bindings/IndexReport";
 import type { Usage } from "../bindings/Usage";
 import type { UsageSummary } from "../bindings/UsageSummary";
+import type { Cleanup } from "../bindings/Cleanup";
+import type { PrunePlan } from "../bindings/PrunePlan";
+import type { PruneReport } from "../bindings/PruneReport";
 import type { CheckReport } from "../bindings/CheckReport";
 import type { CheckScope } from "../bindings/CheckScope";
 import type { FileDiff } from "../bindings/FileDiff";
@@ -712,4 +715,20 @@ export function driftPromoteAdded(
 /** Opens a project folder in the system file manager. */
 export function openFolder(path: string): Promise<void> {
   return openPath(path);
+}
+// --- Cleanup and prune ---
+
+/** What Cleanup suggests: findings, outdated, unused, repeated and duplicate names. */
+export function cleanupList(): Promise<Cleanup> {
+  return invoke<Cleanup>("cleanup_list", {});
+}
+
+/** What removing an artifact from its profiles would do; nothing is saved. */
+export function prunePlan(artifact: string): Promise<PrunePlan> {
+  return invoke<PrunePlan>("prune_plan", { artifact });
+}
+
+/** Removes an artifact from its profiles (new versions) and switches their projects. */
+export function pruneApply(artifact: string): Promise<PruneReport> {
+  return invoke<PruneReport>("prune_apply", { artifact });
 }

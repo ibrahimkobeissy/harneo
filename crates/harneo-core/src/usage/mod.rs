@@ -6,6 +6,9 @@
 //! A `UsageIndex` is a cheap handle: each call opens its own connection, so a long index run
 //! never blocks a query (the database is in WAL mode).
 
+mod cleanup;
+#[cfg(test)]
+mod cleanup_tests;
 mod index;
 #[cfg(test)]
 mod index_tests;
@@ -27,6 +30,10 @@ use rusqlite::{params, Connection};
 use serde::Serialize;
 use ts_rs::TS;
 
+pub use cleanup::{
+    Cleanup, CleanupItem, Duplicate, NotSwitched, PruneFailure, PrunePlan, PruneProfile,
+    PruneProject, PruneReport, PruneSwitched, REPEATED_IN,
+};
 pub use index::{IndexProgress, IndexReport};
 pub(crate) use status::{
     attach, last_used_sql, outdated_sql, sessions_sql, status_sql, tracked_sql,

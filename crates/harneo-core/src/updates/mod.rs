@@ -336,7 +336,7 @@ impl Library {
 
     /// The stored copy no longer matches its recorded digest. A copy with no recorded digest
     /// (not checked yet) counts as unedited.
-    fn has_local_edits(&self, id: &str) -> Result<bool> {
+    pub(crate) fn has_local_edits(&self, id: &str) -> Result<bool> {
         let recorded: Option<String> = self
             .store
             .conn
