@@ -8,10 +8,14 @@ import { onChanged } from "./ipc";
  */
 /** Stops a listener; the event bridge may already be gone (the window closing, or a test's mocks). */
 function quietly(unlisten: () => void): void {
-  try {
-    unlisten();
-  } catch (err) {
+  const gone = (err: unknown) =>
     console.debug("harneo: listener already gone", err);
+  try {
+    // Tauri's unlisten is async underneath: a missing bridge shows up as a rejection.
+    const result: unknown = unlisten();
+    if (result instanceof Promise) result.catch(gone);
+  } catch (err) {
+    gone(err);
   }
 }
 
