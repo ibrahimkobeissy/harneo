@@ -6,11 +6,12 @@ use std::fs;
 use std::path::PathBuf;
 
 use rusqlite::params;
+use serde_json::Value;
 
 use super::copy::{safe_join, stored_view};
 use super::records::{self, Provenance};
 use super::{io_error, ArtifactId, Library};
-use crate::artifact::{Artifact, ScanOptions};
+use crate::artifact::{Artifact, ArtifactKind, ScanOptions};
 use crate::audit;
 use crate::error::{Error, Result};
 
@@ -23,6 +24,56 @@ pub(crate) struct Restored {
     pub files: Vec<(String, Vec<u8>)>,
     /// The stored files that keep their executable bit.
     pub executable: Vec<String>,
+}
+
+/// What a restored artifact's source location starts with: it has no real source, so nothing
+/// is ever cloned or scanned for it.
+pub(crate) const PROFILE_FILE_SOURCE: &str = "profile file ";
+
+fn refused(reason: &str) -> Error {
+    Error::InvalidProfile {
+        reason: reason.into(),
+    }
+}
+
+/// Rebuilds from the stored bytes what the audit and install read from the scan record, so a
+/// file cannot say one thing in its record and store another. An MCP artifact must store a
+/// `server.json` holding exactly its own server (install writes every key it finds into
+/// `.mcp.json`); its definition becomes the record's metadata. An agent's `tools` come from
+/// the stored file's frontmatter.
+fn rebuild(artifact: &Artifact, dir: &std::path::Path) -> Result<Artifact> {
+    let mut artifact = artifact.clone();
+    match artifact.kind {
+        ArtifactKind::Mcp => {
+            let bytes = fs::read(safe_join(dir, "server.json")?)
+                .map_err(|_| refused("an MCP server in the file has no server.json"))?;
+            let Ok(Value::Object(mut servers)) = serde_json::from_slice::<Value>(&bytes) else {
+                return Err(refused("an MCP server's server.json is not a JSON object"));
+            };
+            match (servers.len(), servers.remove(&artifact.name)) {
+                (1, Some(Value::Object(definition))) => artifact.metadata = definition,
+                _ => {
+                    return Err(refused(
+                        "an MCP server's server.json must hold exactly the server it names",
+                    ))
+                }
+            }
+        }
+        ArtifactKind::Agent => {
+            let (view, _) = stored_view(&artifact)?;
+            let text = safe_join(dir, &view.path)
+                .ok()
+                .and_then(|file| fs::read_to_string(file).ok())
+                .unwrap_or_default();
+            let data = crate::artifact::frontmatter::parse(&text).data();
+            match data.get("tools") {
+                Some(tools) => artifact.metadata.insert("tools".into(), tools.clone()),
+                None => artifact.metadata.remove("tools"),
+            };
+        }
+        _ => {}
+    }
+    Ok(artifact)
 }
 
 fn is_id(text: &str) -> bool {
@@ -50,16 +101,29 @@ impl Library {
             .map_err(|e| io_error(self.store.root(), e))?;
         let options = ScanOptions::default();
         let mut audits = Vec::new();
+        let mut rebuilt = Vec::new();
         for item in &fresh {
-            let bad_source = &item.provenance.source;
-            if !is_id(&item.id)
-                || !is_id(&bad_source.id)
-                || !matches!(bad_source.kind.as_str(), "local" | "git")
-            {
-                return Err(Error::InvalidProfile {
-                    reason: "the file holds an artifact with a malformed id or source".into(),
-                });
+            let source = &item.provenance.source;
+            let location_ok = match source.kind.as_str() {
+                "local" => {
+                    std::path::Path::new(&source.location).is_absolute()
+                        || source.location.starts_with(PROFILE_FILE_SOURCE)
+                }
+                "git" => crate::library::Source::parse_git(
+                    &source.location,
+                    source.branch.as_deref(),
+                    source.subfolder.as_deref(),
+                )
+                .is_ok(),
+                _ => false,
+            };
+            if !is_id(&item.id) || !is_id(&source.id) || !location_ok {
+                return Err(refused(
+                    "the file holds an artifact with a malformed id or source",
+                ));
             }
+            // Companion files must land inside the harness (this refuses the artifact if not).
+            crate::profiles::layout::placed(&item.artifact)?;
             let dir = staging.path().join(&item.id);
             fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
             for (rel, bytes) in &item.files {
@@ -72,21 +136,23 @@ impl Library {
                     super::make_executable(&target).map_err(|e| io_error(&target, e))?;
                 }
             }
-            let (view, to_source) = stored_view(&item.artifact)?;
-            let mut result = audit::audit(&view, &dir, &options);
+            let artifact = rebuild(&item.artifact, &dir)?;
+            let (view, to_source) = stored_view(&artifact)?;
+            let mut result = audit::audit_stored(&view, &dir, &options);
             for finding in &mut result.findings {
                 if let Some(source) = to_source.get(&finding.file) {
                     finding.file.clone_from(source);
                 }
             }
             audits.push(result);
+            rebuilt.push(artifact);
         }
         let artifacts_dir = self.store.artifacts_dir();
         let mut placed: Vec<PathBuf> = Vec::new();
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
             let now = records::now();
-            for (item, audit) in fresh.iter().zip(&audits) {
+            for ((item, audit), artifact) in fresh.iter().zip(&audits).zip(&rebuilt) {
                 let source = &item.provenance.source;
                 tx.execute(
                     "INSERT OR IGNORE INTO sources (id, kind, location, branch, subfolder, commit_sha)
@@ -104,7 +170,7 @@ impl Library {
                     &tx,
                     &item.id,
                     &source.id,
-                    &item.artifact,
+                    artifact,
                     item.provenance.imported_at,
                     &item.provenance.replaced_secret_keys,
                     audit,

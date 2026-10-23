@@ -140,7 +140,7 @@ impl Library {
         write(&bytes)?;
         let recorded = (|| -> Result<()> {
             let (view, to_source) = stored_view(&artifact)?;
-            let mut fresh = audit::audit(&view, &folder, &ScanOptions::default());
+            let mut fresh = audit::audit_stored(&view, &folder, &ScanOptions::default());
             for finding in &mut fresh.findings {
                 if let Some(source) = to_source.get(&finding.file) {
                     finding.file.clone_from(source);

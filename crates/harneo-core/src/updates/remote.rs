@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, ScanOptions};
 use crate::error::Error;
 use crate::library::git::{self, Checkout, GitConfig};
-use crate::library::{git_subfolder, SourceRecord};
+use crate::library::{git_subfolder, Source, SourceRecord};
 
 /// Clones the update check made, kept for the session by source id so *Update* can copy from
 /// them. A newer clone of the same source replaces (and deletes) the old one, and dropping the
@@ -59,6 +59,7 @@ pub(crate) fn locate(
     library_root: &Path,
     source: &SourceRecord,
 ) -> Result<Located, Failure> {
+    check_source(source)?;
     if source.kind == "local" {
         let root = PathBuf::from(&source.location);
         if !root.is_dir() {
@@ -120,6 +121,7 @@ pub(crate) fn fetch(
     source: &SourceRecord,
     known: Option<&str>,
 ) -> Result<Upstream, Failure> {
+    check_source(source)?;
     if source.kind == "local" {
         let root = Path::new(&source.location);
         if !root.is_dir() {
@@ -145,6 +147,34 @@ pub(crate) fn fetch(
         commit: Some(commit),
         artifacts,
     })
+}
+
+/// Refuses a stored source that git or a scan should never see: a local one that is not an
+/// absolute path (an artifact that came in a profile file has no source linked), a git one whose
+/// URL or branch does not parse as the user could have typed it. Rows can come from a file
+/// someone else wrote, so this runs before any git call or scan.
+fn check_source(source: &SourceRecord) -> Result<(), Failure> {
+    let refuse = |why: &str| Err(Failure::Unreachable(why.to_owned()));
+    match source.kind.as_str() {
+        "local" if Path::new(&source.location).is_absolute() => Ok(()),
+        "local" => refuse("it came in a profile file and has no source linked; link one to update"),
+        "git" => {
+            let branch = source.branch.as_deref();
+            let plain = |b: &str| {
+                !b.is_empty()
+                    && !b.starts_with('-')
+                    && !b.contains("..")
+                    && !b.chars().any(|c| c.is_whitespace() || c.is_control())
+            };
+            let parsed = Source::parse_git(&source.location, branch, source.subfolder.as_deref());
+            if parsed.is_ok() && branch.is_none_or(plain) {
+                Ok(())
+            } else {
+                refuse("its recorded source is not a valid git address")
+            }
+        }
+        _ => refuse("its recorded source is not one Harneo can read"),
+    }
 }
 
 /// The source's folder inside its clone, which must stay inside it.

@@ -136,6 +136,21 @@ impl InputFile {
     }
 }
 
+/// The stored file an MCP server's definition lives in.
+const STORED_SERVER_FILE: &str = "server.json";
+
+/// What the rules read of a stored `server.json`: the server's own definition when the file is
+/// the usual `{"<name>": {...}}`, otherwise the whole text, so extra servers are audited too.
+fn definition_text(name: &str, text: String) -> String {
+    match serde_json::from_str::<Value>(&text) {
+        Ok(Value::Object(mut servers)) if servers.len() == 1 => match servers.remove(name) {
+            Some(def @ Value::Object(_)) => serde_json::to_string_pretty(&def).unwrap_or(text),
+            _ => text,
+        },
+        _ => text,
+    }
+}
+
 /// An artifact as the rules see it.
 #[derive(Debug, Clone)]
 pub struct AuditInput {
@@ -161,13 +176,33 @@ impl AuditInput {
 
     /// Reads `artifact`'s files below `root` within `options`' limits.
     pub fn read(artifact: &Artifact, root: &Path, options: &ScanOptions) -> Self {
+        Self::read_inner(artifact, root, options, false)
+    }
+
+    /// Like [`Self::read`] for an artifact's library copy in `root`: an MCP server's definition
+    /// is read from the stored `server.json`, the file install writes `.mcp.json` from, never
+    /// from the scan record, which a profile file could make say something else.
+    pub fn read_stored(artifact: &Artifact, root: &Path, options: &ScanOptions) -> Self {
+        Self::read_inner(artifact, root, options, true)
+    }
+
+    fn read_inner(artifact: &Artifact, root: &Path, options: &ScanOptions, stored: bool) -> Self {
         let mut walker = Walker::new(root, options);
         let mut unread = Vec::new();
         let mut files = Vec::new();
         let definition_file = artifact.path.split('#').next().unwrap_or_default();
         if artifact.kind == ArtifactKind::Mcp {
-            let text = serde_json::to_string_pretty(&Value::Object(artifact.metadata.clone()))
-                .unwrap_or_default();
+            let from_file = if stored {
+                walker
+                    .read_text(Path::new(STORED_SERVER_FILE), &mut unread)
+                    .map(|text| definition_text(&artifact.name, text))
+            } else {
+                None
+            };
+            let text = from_file.unwrap_or_else(|| {
+                serde_json::to_string_pretty(&Value::Object(artifact.metadata.clone()))
+                    .unwrap_or_default()
+            });
             files.push(InputFile::new(
                 &artifact.path,
                 FileRole::McpDefinition,

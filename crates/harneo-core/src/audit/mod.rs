@@ -208,6 +208,13 @@ pub fn audit(artifact: &Artifact, root: &Path, options: &ScanOptions) -> Audit {
     audit_input(&AuditInput::read(artifact, root, options))
 }
 
+/// Audits an artifact's library copy in `root` (see [`AuditInput::read_stored`]): the same as
+/// [`audit`], except an MCP server is judged by the stored `server.json` install builds
+/// `.mcp.json` from.
+pub fn audit_stored(artifact: &Artifact, root: &Path, options: &ScanOptions) -> Audit {
+    audit_input(&AuditInput::read_stored(artifact, root, options))
+}
+
 /// A short, printable excerpt for `Finding::evidence`: secrets replaced by `<redacted>`,
 /// invisible and control characters shown as `<U+XXXX>`, cut to `max` characters.
 pub fn excerpt(text: &str, max: usize) -> String {

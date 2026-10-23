@@ -262,3 +262,52 @@ fn two_artifacts_claiming_one_path_are_a_conflict() -> TestResult {
     assert_eq!(paths(&layout), [".claude/skills/x/SKILL.md", "HARNESS.md"]);
     Ok(())
 }
+
+#[test]
+fn only_harness_paths_are_placed() {
+    for ok in [
+        "CLAUDE.md",
+        ".mcp.json",
+        ".claude/settings.json",
+        ".claude/hooks/a.sh",
+        "scripts/hook.sh",
+    ] {
+        assert!(super::layout::in_harness(ok), "{ok}");
+    }
+    for bad in [
+        ".envrc",
+        "package.json",
+        "Makefile",
+        ".husky/pre-commit",
+        ".github/workflows/x.yml",
+        ".vscode/tasks.json",
+        ".claude/../package.json",
+        "scripts//x",
+        "",
+    ] {
+        assert!(!super::layout::in_harness(bad), "{bad}");
+    }
+}
+
+#[test]
+fn an_artifact_with_a_file_outside_the_harness_is_refused() {
+    let artifact = crate::artifact::Artifact {
+        kind: ArtifactKind::Settings,
+        name: "settings".to_owned(),
+        description: None,
+        path: ".claude/settings.json".to_owned(),
+        files: vec![
+            ".claude/settings.json".to_owned(),
+            ".github/workflows/x.yml".to_owned(),
+        ],
+        metadata: serde_json::Map::new(),
+        references: Vec::new(),
+        diagnostics: Vec::new(),
+        digest: None,
+        origin: crate::artifact::Origin::default(),
+    };
+    assert!(matches!(
+        super::layout::placed(&artifact),
+        Err(crate::Error::UnsafePath { .. })
+    ));
+}

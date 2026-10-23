@@ -99,7 +99,24 @@ fn remap(rel: &str, source_dir: &str, install_dir: &Path) -> String {
     }
 }
 
-/// Every file of one artifact as `(path in its library copy, project path)`.
+/// True when `path` (relative to the project, forward slashes) is somewhere a harness may
+/// write: under `.claude/`, the `scripts/` folder, or one of the files Harneo knows by name.
+/// Everything else (`.envrc`, `package.json`, `.husky/`, `.github/workflows/`, `.vscode/`,
+/// `Makefile`...) runs or configures tooling outside Claude Code, so an artifact never gets
+/// to write it.
+pub(crate) fn in_harness(path: &str) -> bool {
+    let normal = |p: &str| {
+        !p.split('/')
+            .any(|c| c.is_empty() || c == "." || c == ".." || c.contains('\\'))
+    };
+    normal(path)
+        && (matches!(path, "CLAUDE.md" | ".mcp.json" | "HARNESS.md")
+            || path.starts_with(".claude/")
+            || path.starts_with("scripts/"))
+}
+
+/// Every file of one artifact as `(path in its library copy, project path)`. A file that would
+/// land outside the harness (see [`in_harness`]) refuses the whole artifact.
 pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     let install = ClaudeAdapter.install_path(artifact);
     let (view, back) = stored_view(artifact)?;
@@ -121,6 +138,9 @@ pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
             ArtifactKind::Settings | ArtifactKind::Mcp => source.to_owned(),
             _ => remap(source, own_dir, install_dir),
         };
+        if !in_harness(&project) {
+            return Err(crate::error::Error::UnsafePath { path: project });
+        }
         out.push((stored.clone(), project));
     }
     Ok(out)

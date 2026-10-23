@@ -508,7 +508,7 @@ impl Library {
             let artifact = &detail.artifact;
             let audit = match detail.audit {
                 Some(audit) => audit,
-                None => audit::audit(&readout::stored_view_of(artifact)?, &folder, &options),
+                None => audit::audit_stored(&readout::stored_view_of(artifact)?, &folder, &options),
             };
             let text = if is_flagged(&audit) {
                 None

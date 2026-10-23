@@ -221,13 +221,65 @@ struct Parsed {
     file: ProfileFile,
     /// Each file artifact's local id when the library has it by id or digest.
     local: HashMap<ArtifactId, ArtifactId>,
+    /// The id each file artifact gets here (see [`own_id`]), by the id the file gives it.
+    own: HashMap<ArtifactId, ArtifactId>,
 }
 
-fn match_local(conn: &Connection, item: &FileArtifact) -> Result<Option<ArtifactId>> {
+/// The id an artifact from a profile file gets: derived from what it stores, in a namespace no
+/// real source can produce, so a file can neither claim the id of an artifact imported from a
+/// real source nor make a later genuine import look "already in library". The same content
+/// always gets the same id, so importing a file twice stores it once.
+fn own_id(item: &FileArtifact, files: &[(String, Vec<u8>)]) -> ArtifactId {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    let kind = serde_json::to_string(&item.artifact.kind).unwrap_or_default();
+    for part in [
+        kind.as_str(),
+        item.artifact.name.as_str(),
+        item.artifact.path.as_str(),
+    ] {
+        hasher.update(part.as_bytes());
+        hasher.update([0]);
+    }
+    let mut sorted: Vec<&(String, Vec<u8>)> = files.iter().collect();
+    sorted.sort();
+    for (path, bytes) in sorted {
+        hasher.update(path.as_bytes());
+        hasher.update([0]);
+        hasher.update((bytes.len() as u64).to_le_bytes());
+        hasher.update(bytes);
+    }
+    let hash: String = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    crate::library::ids::artifact_id("profile-file", &hash)
+}
+
+/// The source row an artifact from a profile file gets: no folder and no address, only the
+/// file's profile name, so no update check ever reaches git or a local scan for it.
+fn file_source(profile_name: &str) -> crate::library::SourceRecord {
+    let name: String = profile_name
+        .chars()
+        .filter(|c| !c.is_control() && *c != '/' && *c != '\\')
+        .take(MAX_NAME_CHARS)
+        .collect();
+    crate::library::SourceRecord {
+        id: crate::library::ids::source_id(&format!("profile-file:{name}")),
+        kind: "local".to_owned(),
+        location: format!("{}{}", crate::library::PROFILE_FILE_SOURCE, name.trim()),
+        branch: None,
+        subfolder: None,
+        commit_sha: None,
+    }
+}
+
+fn match_local(conn: &Connection, item: &FileArtifact, own: &str) -> Result<Option<ArtifactId>> {
     let by_id = conn
         .query_row(
             "SELECT id FROM artifacts WHERE id = ?1",
-            params![item.id],
+            params![own],
             |r| r.get::<_, String>(0),
         )
         .optional()?;
@@ -325,17 +377,22 @@ fn parse(conn: &Connection, bytes: &[u8]) -> Result<Parsed> {
         .map_err(|e| invalid(format!("the profile file is damaged: {e}")))?;
     check_spec(&file)?;
     let mut local = HashMap::new();
+    let mut own = HashMap::new();
     for item in &file.artifacts {
         let files = decode_files(&item.files)?;
         let keys = literal_secrets(item, &files);
         if !keys.is_empty() {
             return Err(secret_refusal(&item.artifact.name, &keys));
         }
-        if let Some(found) = match_local(conn, item)? {
+        let id = own_id(item, &files);
+        if own.insert(item.id.clone(), id.clone()).is_some() {
+            return Err(invalid("the profile file lists an artifact id twice"));
+        }
+        if let Some(found) = match_local(conn, item, &id)? {
             local.insert(item.id.clone(), found);
         }
     }
-    Ok(Parsed { file, local })
+    Ok(Parsed { file, local, own })
 }
 
 /// `name` made unique among profiles by " (imported)", then a number.
@@ -437,7 +494,7 @@ impl Library {
     /// Reads a profile file and says what importing it would do. Changes nothing.
     pub fn import_profile_file(&self, bytes: &[u8]) -> Result<ProfileImportPreview> {
         let conn = &self.store.conn;
-        let Parsed { file, local } = parse(conn, bytes)?;
+        let Parsed { file, local, .. } = parse(conn, bytes)?;
         Ok(ProfileImportPreview {
             name_clash: name_taken(conn, &file.profile.name)?,
             artifacts: file
@@ -448,9 +505,10 @@ impl Library {
                     kind: a.artifact.kind,
                     name: a.artifact.name.clone(),
                     in_library: local.contains_key(&a.id),
+                    // The file's own claim about its origin is not shown: it cannot be checked.
                     source: crate::library::source_label(
-                        &a.provenance.source.kind,
-                        &a.provenance.source.location,
+                        "local",
+                        &file_source(&file.profile.name).location,
                     ),
                     file_count: u32::try_from(a.files.len()).unwrap_or(u32::MAX),
                 })
@@ -474,7 +532,7 @@ impl Library {
         bytes: &[u8],
         name: Option<&str>,
     ) -> Result<ProfileImportReport> {
-        let Parsed { file, local } = parse(&self.store.conn, bytes)?;
+        let Parsed { file, local, own } = parse(&self.store.conn, bytes)?;
         let final_name = match name {
             Some(given) => given.trim().to_owned(),
             None if name_taken(&self.store.conn, &file.profile.name)? => {
@@ -486,15 +544,26 @@ impl Library {
         if name_taken(&self.store.conn, &final_name)? {
             return Err(crate::Error::ProfileExists { name: final_name });
         }
-        let mut restore = Vec::new();
+        let mut restore: Vec<Restored> = Vec::new();
+        let source = file_source(&file.profile.name);
+        let now = crate::library::records::now();
         for item in &file.artifacts {
-            if local.contains_key(&item.id) {
+            let Some(id) = own.get(&item.id) else {
+                continue;
+            };
+            if local.contains_key(&item.id) || restore.iter().any(|r| &r.id == id) {
                 continue;
             }
             restore.push(Restored {
-                id: item.id.clone(),
+                id: id.clone(),
                 artifact: item.artifact.clone(),
-                provenance: item.provenance.clone(),
+                provenance: Provenance {
+                    source: source.clone(),
+                    source_path: item.artifact.path.clone(),
+                    digest: item.artifact.digest.clone(),
+                    imported_at: now,
+                    replaced_secret_keys: item.provenance.replaced_secret_keys.clone(),
+                },
                 files: decode_files(&item.files)?,
                 executable: item
                     .files
@@ -505,7 +574,9 @@ impl Library {
             });
         }
         let imported = self.restore_artifacts(restore)?;
-        let spec = remap(&file.profile.spec, &local);
+        let mut ids = own;
+        ids.extend(local);
+        let spec = remap(&file.profile.spec, &ids);
         let profile_id = self.create_profile(&final_name, &file.profile.description, &spec)?;
         Ok(ProfileImportReport {
             profile_id,

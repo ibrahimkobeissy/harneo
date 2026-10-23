@@ -66,7 +66,7 @@ pub use query::{
     StatusCount, TagChip, TagCount, TierCount, MAX_LIMIT,
 };
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
-pub(crate) use restore::Restored;
+pub(crate) use restore::{Restored, PROFILE_FILE_SOURCE};
 pub use source::Source;
 use store::Store;
 pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
@@ -534,7 +534,7 @@ impl Library {
             }
             let artifact: Artifact = serde_json::from_str(&json)?;
             let (view, to_source) = copy::stored_view(&artifact)?;
-            let mut fresh = audit::audit(&view, &folder, &options);
+            let mut fresh = audit::audit_stored(&view, &folder, &options);
             for finding in &mut fresh.findings {
                 if let Some(source) = to_source.get(&finding.file) {
                     finding.file.clone_from(source);

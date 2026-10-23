@@ -20,6 +20,8 @@ pub(crate) mod diff;
 mod diff_tests;
 pub(crate) mod remote;
 #[cfg(test)]
+mod remote_tests;
+#[cfg(test)]
 mod status_tests;
 #[cfg(test)]
 mod tests;
