@@ -310,4 +310,12 @@ describe("trust filter group", () => {
       expect(queries.at(-1)?.descending).toBe(false);
     });
   });
+
+  it("puts Worst first in the Sort row, after the other chips", async () => {
+    setup();
+    await screen.findByText("alpha");
+    const group = screen.getByRole("group", { name: "Sort by" });
+    const chips = within(group).getAllByRole("button");
+    expect(chips.at(-1)).toHaveAccessibleName("Worst first");
+  });
 });

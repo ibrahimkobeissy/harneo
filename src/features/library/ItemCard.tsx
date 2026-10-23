@@ -1,13 +1,9 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import {
-  BundleBadge,
+  CardBadge,
   CardCounts,
-  Findings,
   ItemTrust,
-  sourceLine,
   sourceText,
-  StatusBadge,
-  UpdateTag,
   TagChips,
   UsageFoot,
 } from "./ItemMeta";
@@ -57,25 +53,14 @@ export function ItemCard({
         <TagChips tags={item.tags} />
       </span>
       <span className={styles.tileFoot}>
-        <span className={styles.srcline} title={sourceLine(item)}>
+        <span className={styles.srcline} title={sourceText(item)}>
           <span className={styles.srcText}>{sourceText(item)}</span>
-          {item.update && (
-            <span className={styles.srcStep}>
-              {item.update.toVersion ? `→ ${item.update.toVersion}` : "changed"}
-            </span>
-          )}
         </span>
-        <ItemTrust item={item} />
+        <ItemTrust item={item} badge={false} />
         <span className={styles.tileMeta}>
           <CardCounts item={item} />
           <UsageFoot item={item} status={status} indexed={indexed} />
-          <UpdateTag item={item} />
-          <BundleBadge item={item} />
-          <Findings item={item} />
-          {status === "findings" && <StatusBadge status={status} />}
-          {status === "outdated" && !item.update && (
-            <StatusBadge status={status} />
-          )}
+          <CardBadge item={item} status={status} />
         </span>
       </span>
     </button>

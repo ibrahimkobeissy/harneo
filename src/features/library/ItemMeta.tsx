@@ -12,15 +12,6 @@ export function sourceText(item: LibraryItem): string {
   return branch ? `${label} @ ${branch}` : label;
 }
 
-/** The card's source line: "label · → 3.4.1" while the artifact is outdated. */
-export function sourceLine(item: LibraryItem): string {
-  const { update } = item;
-  if (update === null) return sourceText(item);
-  return update.toVersion
-    ? `${sourceText(item)} · → ${update.toVersion}`
-    : `${sourceText(item)} · changed`;
-}
-
 /** "Update 3.4.1" (warn); just "Update" when upstream has no version to name. */
 export function UpdateTag({ item }: { item: LibraryItem }) {
   const { update } = item;
@@ -61,25 +52,45 @@ export function TagChips({
 }
 
 /**
- * Scan error and warning counts (lint, not security): "scan" in the label keeps them apart from
- * audit findings. Renders nothing when both are zero.
+ * Scan errors and warnings (lint, not security) as one badge: red while there is an error, amber
+ * otherwise. "scan" in the label keeps it apart from audit findings. `short` (the list's trailing
+ * slot) shows a bare count and keeps the breakdown in the tooltip and for screen readers.
  */
-export function Findings({ item }: { item: LibraryItem }) {
-  if (item.errorCount === 0 && item.warningCount === 0) return null;
+export function ScanBadge({
+  item,
+  short = false,
+}: {
+  item: LibraryItem;
+  short?: boolean;
+}) {
+  const { errorCount: e, warningCount: w } = item;
+  if (e === 0 && w === 0) return null;
+  const parts = [
+    e > 0 && `${e} scan ${e === 1 ? "error" : "errors"}`,
+    w > 0 && `${w} ${e > 0 ? "" : "scan "}${w === 1 ? "warning" : "warnings"}`,
+  ].filter(Boolean);
+  const full = parts.join(" · ");
   return (
-    <span className={styles.findings}>
-      {item.errorCount > 0 && (
-        <Badge tone="bad">
-          {item.errorCount} scan {item.errorCount === 1 ? "error" : "errors"}
-        </Badge>
+    <Badge tone={e > 0 ? "bad" : "warn"}>
+      {short ? (
+        <>
+          <span title={full} aria-hidden="true">
+            {e + w} scan
+          </span>
+          <span className={styles.sr}>{full}</span>
+        </>
+      ) : (
+        full
       )}
-      {item.warningCount > 0 && (
-        <Badge tone="warn">
-          {item.warningCount} scan{" "}
-          {item.warningCount === 1 ? "warning" : "warnings"}
-        </Badge>
-      )}
-    </span>
+    </Badge>
+  );
+}
+
+function FindingsBadge({ item }: { item: LibraryItem }) {
+  return (
+    <Badge tone={item.tier === "dangerous" ? "bad" : "warn"}>
+      {item.findingCount} {item.findingCount === 1 ? "finding" : "findings"}
+    </Badge>
   );
 }
 
@@ -87,7 +98,14 @@ export function Findings({ item }: { item: LibraryItem }) {
  * The trust meter of a library item. Risky and Dangerous items get the tier word (`md`) and an
  * "N findings" badge so they cannot be missed; everything else keeps the small bar.
  */
-export function ItemTrust({ item }: { item: LibraryItem }) {
+export function ItemTrust({
+  item,
+  badge = true,
+}: {
+  item: LibraryItem;
+  /** False where the foot shows one badge of its own (the card). */
+  badge?: boolean;
+}) {
   const loud = item.tier === "risky" || item.tier === "dangerous";
   return (
     <span className={styles.trustCell}>
@@ -96,11 +114,7 @@ export function ItemTrust({ item }: { item: LibraryItem }) {
         tier={item.tier}
         size={loud ? "md" : "sm"}
       />
-      {loud && item.findingCount > 0 && (
-        <Badge tone={item.tier === "dangerous" ? "bad" : "warn"}>
-          {item.findingCount} {item.findingCount === 1 ? "finding" : "findings"}
-        </Badge>
-      )}
+      {badge && loud && item.findingCount > 0 && <FindingsBadge item={item} />}
     </span>
   );
 }
@@ -142,11 +156,23 @@ export function importedDate(item: LibraryItem): string {
   return formatDate(item.importedAt);
 }
 
+/** "today", "2d ago", "3w ago", "4mo ago", "1y ago": short enough for a narrow list column. */
+export function importedAge(item: LibraryItem, now: Date = new Date()): string {
+  const days = Math.floor(
+    (now.getTime() / 1000 - Number(item.importedAt)) / 86_400,
+  );
+  if (days < 1) return "today";
+  if (days < 14) return `${days}d ago`;
+  if (days < 60) return `${Math.floor(days / 7)}w ago`;
+  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+  return `${Math.floor(days / 365)}y ago`;
+}
+
 /** "Bundle of N": the artifact plus what it needs, transitively. Nothing when it needs nothing. */
 export function BundleBadge({ item }: { item: LibraryItem }) {
   if (item.bundleSize === 0) return null;
   return (
-    <Badge tone="info">
+    <Badge tone="neutral">
       <span title="Installed together, always">{`Bundle of ${item.bundleSize}`}</span>
     </Badge>
   );
@@ -208,4 +234,28 @@ export function UsageFoot({
       {text}
     </span>
   );
+}
+
+/**
+ * The one badge of a card foot, most urgent first: an update, the audit's findings, scan
+ * errors and warnings, outdated, then the bundle size. The rest lives in the drawer.
+ */
+export function CardBadge({
+  item,
+  status,
+}: {
+  item: LibraryItem;
+  status: Status;
+}) {
+  if (item.update) return <UpdateTag item={item} />;
+  if (
+    (item.tier === "risky" || item.tier === "dangerous") &&
+    item.findingCount > 0
+  )
+    return <FindingsBadge item={item} />;
+  if (status === "findings") return <StatusBadge status={status} />;
+  if (item.errorCount > 0 || item.warningCount > 0)
+    return <ScanBadge item={item} />;
+  if (status === "outdated") return <StatusBadge status={status} />;
+  return <BundleBadge item={item} />;
 }

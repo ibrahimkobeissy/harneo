@@ -482,21 +482,12 @@
   white-space: nowrap;
   min-width: 0;
 }
-/* "→ 3.4.1" stays whole while the source's name gives way. */
-.srcStep {
-  flex: none;
-  color: var(--amber);
-}
 .date {
   color: var(--t3);
   font-family: var(--font-mono);
   font-size: var(--text-mono);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-.findings {
-  display: inline-flex;
-  gap: var(--space-xxs);
 }
 /* Meter, tier word and finding count of one artifact. */
 .trustCell {
@@ -597,8 +588,13 @@
 }
 
 /* List. */
+/* Below this width the table scrolls sideways instead of clipping its cells. */
+.tableWrap {
+  overflow-x: auto;
+}
 .table {
   width: 100%;
+  min-width: 56rem;
   border-collapse: collapse;
   table-layout: fixed;
 }
@@ -612,31 +608,28 @@
   white-space: nowrap;
 }
 .table th:nth-child(1) {
-  width: 21%;
+  width: 19%;
 }
 .table th:nth-child(2) {
-  width: 8%;
+  width: 52px;
 }
 .table th:nth-child(3) {
-  width: 10%;
-}
-.table th:nth-child(4) {
-  width: 10%;
-}
-.table th:nth-child(5) {
   width: 12%;
 }
+.table th:nth-child(4) {
+  width: 13%;
+}
+.table th:nth-child(5) {
+  width: 19%;
+}
 .table th:nth-child(6) {
-  width: 10%;
+  width: 9%;
 }
 .table th:nth-child(7) {
   width: 8%;
 }
 .table th:nth-child(8) {
-  width: 12%;
-}
-.table th:nth-child(9) {
-  width: 9%;
+  width: 16%;
 }
 .table td {
   padding: var(--space-sm);
@@ -645,8 +638,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.table td:nth-child(1),
-.table td:nth-child(5) {
+.table td:nth-child(5),
+.table td:nth-child(8) {
   white-space: normal;
 }
 .sortBtn {
@@ -680,8 +673,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 12ch;
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 6ch;
 }
 .row:hover td {
   background: var(--side);
@@ -692,12 +685,32 @@
   gap: var(--space-sm);
   font-weight: 500;
   min-width: 0;
-  flex-wrap: wrap;
+}
+/* The scan badge keeps its width at the end of the name; the name gives way first. */
+.nameCell > :not(.rowName) {
+  flex: none;
 }
 .rowTags {
   display: flex;
   gap: var(--space-xs);
+  min-width: 0;
+}
+/* The first chip gives way with an ellipsis (a flex chip cannot), the "+n" stays whole. */
+.rowTags > span:first-child {
+  display: block;
+  min-width: 6ch;
   overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rowTags > span:first-child > i {
+  display: inline-block;
+  margin-right: var(--space-xxs);
+  vertical-align: middle;
+}
+.statusCell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
 }
 .ell {
   overflow: hidden;

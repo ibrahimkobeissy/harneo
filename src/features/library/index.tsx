@@ -329,6 +329,22 @@ export function LibraryScreen({
     (params.trustMin !== null ? 1 : 0) +
     (params.hasFindings ? 1 : 0);
 
+  const worst = (
+    <button
+      type="button"
+      className={
+        params.sort === "trust" && !params.descending
+          ? `${styles.sortChip} ${styles.sortChipOn}`
+          : styles.sortChip
+      }
+      aria-pressed={params.sort === "trust" && !params.descending}
+      title="Lowest trust first; artifacts not audited yet come last"
+      onClick={() => update({ sort: "trust", descending: false })}
+    >
+      Worst first
+    </button>
+  );
+
   const toolbar = (
     <>
       {collection && (
@@ -388,19 +404,7 @@ export function LibraryScreen({
               onUpdateAll={() => setUpdatingAll(true)}
             />
           )}
-          <button
-            type="button"
-            className={
-              params.sort === "trust" && !params.descending
-                ? `${styles.sortChip} ${styles.sortChipOn}`
-                : styles.sortChip
-            }
-            aria-pressed={params.sort === "trust" && !params.descending}
-            title="Lowest trust first; artifacts not audited yet come last"
-            onClick={() => update({ sort: "trust", descending: false })}
-          >
-            Worst first
-          </button>
+          {params.view === "list" && worst}
           {params.view === "cards" && (
             <div className={styles.sorts} role="group" aria-label="Sort by">
               <span>Sort</span>
@@ -431,6 +435,7 @@ export function LibraryScreen({
                   </button>
                 );
               })}
+              {worst}
             </div>
           )}
         </div>

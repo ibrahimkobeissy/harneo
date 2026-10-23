@@ -202,11 +202,11 @@ function setup(path: string, localEdits = false) {
 }
 
 describe("updates in the library", () => {
-  it("shows the badge and the source line, with and without a version", async () => {
+  it("shows the badge, with and without a version, and says the version only once", async () => {
     setup("/library");
     expect(await screen.findByText("Update 3.4.1")).toBeInTheDocument();
-    expect(screen.getByText("→ 3.4.1")).toBeInTheDocument();
-    expect(screen.getByText("changed")).toBeInTheDocument();
+    expect(screen.queryByText("→ 3.4.1")).not.toBeInTheDocument();
+    expect(screen.queryByText("changed")).not.toBeInTheDocument();
     expect(screen.getByText("Update")).toBeInTheDocument();
   });
 
@@ -327,6 +327,14 @@ describe("updates in the library", () => {
       "Kept your version",
     );
     expect(calls).toEqual(["apply:keepMine"]);
+  });
+
+  it("keeps Update all secondary so Import stays the one primary button", async () => {
+    setup("/library");
+    const button = await screen.findByRole("button", {
+      name: /Update all \(2\)/,
+    });
+    expect(button.className).not.toMatch(/primary/);
   });
 
   it("confirms Update all and lists the artifacts skipped for local edits", async () => {

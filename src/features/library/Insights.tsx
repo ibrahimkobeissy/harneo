@@ -72,6 +72,7 @@ function Health({
             s.n > 0 && (
               <i
                 key={s.status}
+                data-status={s.status}
                 style={{ flex: s.n, background: colors[s.status] }}
               />
             ),

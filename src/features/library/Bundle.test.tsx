@@ -129,12 +129,12 @@ describe("bundles in the library", () => {
     expect(screen.getAllByText(/Bundle of/)).toHaveLength(1);
   });
 
-  it("has a Bundle column in the list view", async () => {
+  it("shows Bundle of N beside the status in the list view, with no column of its own", async () => {
     setup("/library?view=list");
+    expect(await screen.findByText("Bundle of 3")).toBeInTheDocument();
     expect(
-      await screen.findByRole("columnheader", { name: "Bundle" }),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Bundle of 3")).toBeInTheDocument();
+      screen.queryByRole("columnheader", { name: "Bundle" }),
+    ).not.toBeInTheDocument();
   });
 
   it("lists needs with origin chips and explains reference links", async () => {

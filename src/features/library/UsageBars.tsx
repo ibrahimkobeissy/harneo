@@ -28,6 +28,16 @@ export function SessionBars({
           />
         ))}
       </div>
+      <ul className={styles.weeks}>
+        {weekly.map((n, i) => (
+          <li key={i}>
+            {i === weekly.length - 1
+              ? "This week"
+              : `${weekly.length - 1 - i} ${weekly.length - 1 - i === 1 ? "week" : "weeks"} ago`}
+            : {n} {n === 1 ? "session" : "sessions"}
+          </li>
+        ))}
+      </ul>
       <div className={styles.axis} aria-hidden="true">
         <span>8 weeks ago</span>
         <span>this week</span>

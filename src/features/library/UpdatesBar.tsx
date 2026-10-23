@@ -46,7 +46,7 @@ export function UpdatesControls({
         Check for updates
       </Button>
       {outdated > 0 && (
-        <Button small variant="primary" onClick={onUpdateAll}>
+        <Button small onClick={onUpdateAll}>
           <CircleArrowUp size={14} aria-hidden="true" />
           Update all ({outdated})
         </Button>

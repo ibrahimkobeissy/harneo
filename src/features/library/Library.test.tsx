@@ -172,8 +172,8 @@ describe("cards view", () => {
     expect(card).toHaveTextContent("acme/kit @ main");
     expect(card).toHaveTextContent("review");
     expect(card).toHaveTextContent("+1");
-    expect(card).toHaveTextContent("2 scan errors");
-    expect(card).toHaveTextContent("1 scan warning");
+    // One badge: the scan counts share it.
+    expect(card).toHaveTextContent("2 scan errors · 1 warning");
     expect(card).toHaveTextContent("4 files · 2/3 refs");
     const second = screen.getByRole("button", { name: /beta/ });
     expect(second).toHaveTextContent("Subagent");
@@ -237,7 +237,6 @@ describe("list view", () => {
       "Imported",
       "Sessions",
       "Status",
-      "Bundle",
     ]);
     expect(must(headers[0])).toHaveAttribute("aria-sort", "ascending");
     expect(must(headers[1])).toHaveAttribute("aria-sort", "none");
@@ -254,10 +253,13 @@ describe("list view", () => {
     expect(rows.every((r) => r.querySelector("[tabindex]") === null)).toBe(
       true,
     );
-    // Dates read "21 Oct 2025", never 10/21/25.
-    expect(must(rows[1])).toHaveTextContent(
-      /\d{1,2}\s\w{3}\s\d{4}|\w{3}\s\d{1,2},\s\d{4}/,
-    );
+    // The Imported cell is relative ("2d ago"); the tooltip holds "21 Oct 2025", never 10/21/25.
+    expect(must(rows[1])).toHaveTextContent(/today|\d+(d|w|mo|y) ago/);
+    expect(
+      within(must(rows[1])).getByTitle(
+        /\d{1,2}\s\w{3}\s\d{4}|\w{3}\s\d{1,2},\s\d{4}/,
+      ),
+    ).toBeInTheDocument();
   });
 
   it.each([
