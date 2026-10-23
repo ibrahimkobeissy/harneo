@@ -28,11 +28,14 @@ export function CodeView({
   path,
   bytes,
   hunks,
+  hideHead = false,
 }: {
   path: string;
   /** Base64 content, as a plan carries it. */
   bytes: string | null;
   hunks?: readonly Hunk[] | null;
+  /** Leave out the path bar when the caller already shows the path. */
+  hideHead?: boolean;
 }) {
   const diff = hunks && hunks.length > 0 ? hunks : null;
   const text = !diff && bytes !== null ? decodeText(bytes) : null;
@@ -103,10 +106,12 @@ export function CodeView({
       role="region"
       aria-label={`Content of ${path}`}
     >
-      <div className={styles.head}>
-        <span>{path}</span>
-        {meta && <span className={styles.meta}>{meta}</span>}
-      </div>
+      {!hideHead && (
+        <div className={styles.head}>
+          <span>{path}</span>
+          {meta && <span className={styles.meta}>{meta}</span>}
+        </div>
+      )}
       {body}
     </div>
   );

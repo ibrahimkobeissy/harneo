@@ -47,6 +47,10 @@
   color: var(--t3);
   user-select: none;
 }
+.ln[data-kind="added"] .no,
+.ln[data-kind="removed"] .no {
+  color: var(--t2);
+}
 .mk {
   width: 14px;
   flex: none;

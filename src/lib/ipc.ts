@@ -531,6 +531,11 @@ export function artifactSetManualOnly(
 }
 // --- Install engine: scaffold, apply, projects -----------------------------------------
 
+/** Checks a folder for scaffolding; rejects when it has a harness, is not a folder or is not writable. */
+export function scaffoldCheck(target: string): Promise<void> {
+  return invoke<void>("scaffold_check", { target });
+}
+
 /** What scaffolding a profile (the current version when omitted) into a folder would write. */
 export function scaffoldPlan(
   target: string,

@@ -107,8 +107,16 @@
   color: var(--tint-blue);
 }
 .count {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
   color: var(--t3);
   font-size: var(--text-label);
+}
+.kindCount {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
 .split {
   display: grid;

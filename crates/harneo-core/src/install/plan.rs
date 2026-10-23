@@ -261,7 +261,36 @@ fn probe_writable(dir: &Path) -> Result<()> {
         .map_err(|_| install(format!("{} is not writable", dir.display())))
 }
 
+/// The canonical folder a scaffold may write into: it is a folder, holds no harness and accepts files.
+fn scaffold_folder(target: &Path) -> Result<PathBuf> {
+    let shown = target.display().to_string();
+    if !target.is_dir() {
+        return Err(install(format!("{shown} is not a folder")));
+    }
+    let canonical = target
+        .canonicalize()
+        .map_err(|_| install(format!("{shown} is not a folder")))?;
+    let found: Vec<&str> = HARNESS_MARKERS
+        .into_iter()
+        .filter(|m| fs::symlink_metadata(canonical.join(m)).is_ok())
+        .collect();
+    if !found.is_empty() {
+        return Err(Error::HasHarness {
+            path: shown,
+            found: found.join(", "),
+        });
+    }
+    probe_writable(&canonical)?;
+    Ok(canonical)
+}
+
 impl Library {
+    /// Checks a folder for scaffolding without a profile: refused when it has `.claude/`,
+    /// `CLAUDE.md` or `.mcp.json`, is not a folder, or is not writable. Writes nothing.
+    pub fn check_scaffold_target(&self, target: &Path) -> Result<()> {
+        scaffold_folder(target).map(|_| ())
+    }
+
     /// The plan to write profile `profile_id` (at `version`, the current one when `None`) into a
     /// folder with no harness. Writes nothing. Refused when the folder has `.claude/`,
     /// `CLAUDE.md` or `.mcp.json`, is not a folder, or is not writable.
@@ -271,24 +300,7 @@ impl Library {
         profile_id: ProfileId,
         version: Option<u32>,
     ) -> Result<Plan> {
-        let shown = target.display().to_string();
-        if !target.is_dir() {
-            return Err(install(format!("{shown} is not a folder")));
-        }
-        let canonical = target
-            .canonicalize()
-            .map_err(|_| install(format!("{shown} is not a folder")))?;
-        let found: Vec<&str> = HARNESS_MARKERS
-            .into_iter()
-            .filter(|m| fs::symlink_metadata(canonical.join(m)).is_ok())
-            .collect();
-        if !found.is_empty() {
-            return Err(Error::HasHarness {
-                path: shown,
-                found: found.join(", "),
-            });
-        }
-        probe_writable(&canonical)?;
+        let canonical = scaffold_folder(target)?;
         let view = self.profile(profile_id, version)?;
         let rendered = self.render(
             &view.spec,

@@ -9,6 +9,7 @@ import {
   installApply,
   pickFolder,
   profilesList,
+  scaffoldCheck,
   scaffoldPlan,
 } from "../../lib/ipc";
 import { Button, Callout, Screen, Stepper } from "../../ui";
@@ -51,6 +52,7 @@ export function ScaffoldScreen() {
     message: string;
     hasHarness: boolean;
   } | null>(null);
+  const [checking, setChecking] = useState(false);
   const [profiles, setProfiles] = useState<ProfileSummary[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [profileId, setProfileId] = useState<bigint | null>(null);
@@ -83,6 +85,21 @@ export function ScaffoldScreen() {
     if (chosen) {
       setPath(chosen);
       setFolderError(null);
+    }
+  }
+
+  /** Step 1 Continue: a folder that cannot be scaffolded is refused here, before a profile is picked. */
+  async function checkFolder() {
+    setChecking(true);
+    try {
+      await scaffoldCheck(await expand(path));
+      setFolderError(null);
+      setStep(1);
+    } catch (error) {
+      const message = messageOf(error);
+      setFolderError({ message, hasHarness: /has a harness/.test(message) });
+    } finally {
+      setChecking(false);
     }
   }
 
@@ -226,10 +243,10 @@ export function ScaffoldScreen() {
           {step === 0 && (
             <Button
               variant="primary"
-              disabled={path.trim() === ""}
-              onClick={() => setStep(1)}
+              disabled={path.trim() === "" || checking}
+              onClick={() => void checkFolder()}
             >
-              Continue
+              {checking ? "Checking…" : "Continue"}
             </Button>
           )}
           {step === 1 && (

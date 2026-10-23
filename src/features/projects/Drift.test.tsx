@@ -314,7 +314,7 @@ describe("Drift tab", () => {
       "aria-selected",
       "true",
     );
-    const tree = screen.getByRole("navigation", { name: "Drifted files" });
+    const tree = screen.getByRole("tree", { name: "Drifted files" });
     expect(within(tree).getByText("+6 −2")).toBeVisible();
     expect(within(tree).getByText("deleted")).toBeVisible();
     expect(await screen.findByText("tools: Read, Bash")).toBeVisible();
@@ -522,7 +522,7 @@ describe("Drift tab", () => {
   it("disables promote, with the reason, for deleted and generated files", async () => {
     const u = userEvent.setup();
     setup("/projects/1");
-    const tree = await screen.findByRole("navigation", {
+    const tree = await screen.findByRole("tree", {
       name: "Drifted files",
     });
     await u.click(within(tree).getByTitle(deleted.path));

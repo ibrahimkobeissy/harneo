@@ -113,3 +113,31 @@ fn unsafe_paths_are_refused() {
     assert!(safe_parts("CLAUDE.md").is_ok());
     assert!(safe_parts(".gitignore").is_ok());
 }
+
+#[test]
+fn check_scaffold_target_applies_the_same_folder_rules() -> TestResult {
+    let f = fx()?;
+    let ok = tempfile::tempdir()?;
+    put(ok.path(), "src/main.rs", "fn main() {}\n")?;
+    f.library.check_scaffold_target(ok.path())?;
+    assert_eq!(fs::read_dir(ok.path())?.count(), 1);
+
+    let harness = tempfile::tempdir()?;
+    put(harness.path(), "CLAUDE.md", "x")?;
+    assert!(matches!(
+        f.library.check_scaffold_target(harness.path()),
+        Err(Error::HasHarness { .. })
+    ));
+
+    assert!(matches!(
+        f.library.check_scaffold_target(&ok.path().join("nope")),
+        Err(Error::Install { .. })
+    ));
+
+    let ro = tempfile::tempdir()?;
+    fs::set_permissions(ro.path(), fs::Permissions::from_mode(0o555))?;
+    let result = f.library.check_scaffold_target(ro.path());
+    fs::set_permissions(ro.path(), fs::Permissions::from_mode(0o755))?;
+    assert!(matches!(result, Err(Error::Install { .. })), "{result:?}");
+    Ok(())
+}

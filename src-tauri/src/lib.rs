@@ -82,6 +82,7 @@ pub fn run() {
             commands::profile_import_commit,
             commands::artifact_set_manual_only,
             commands::scaffold_plan,
+            commands::scaffold_check,
             commands::install_apply,
             commands::refit_compare,
             commands::refit_plan,

@@ -355,7 +355,7 @@ describe("Project detail", () => {
       name: "Content of HARNESS.md",
     });
     expect(view).toHaveTextContent("# HARNESS.md");
-    await userEvent.click(screen.getByRole("button", { name: "CLAUDE.md" }));
+    await userEvent.click(screen.getByRole("treeitem", { name: "CLAUDE.md" }));
     expect(
       await screen.findByRole("region", { name: "Content of CLAUDE.md" }),
     ).toHaveTextContent("line two ✓");

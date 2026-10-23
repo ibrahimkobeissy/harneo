@@ -14,7 +14,10 @@ function summary(id: number, name: string): ProfileSummary {
     name,
     description: `About ${name}`,
     version: 2,
-    counts: [],
+    counts: [
+      { kind: "skill", count: 2 },
+      { kind: "agent", count: 1 },
+    ],
     fileCount: 3,
     projectCount: 0,
     updatedAt: 1n,
@@ -57,6 +60,7 @@ interface Opts {
   profiles?: ProfileSummary[];
   listError?: string;
   planError?: string;
+  checkError?: string;
   applyError?: string;
   picked?: string | null;
   pickFails?: boolean;
@@ -80,6 +84,9 @@ function setup(opts: Opts = {}) {
         return opts.picked === undefined ? "/work/app" : opts.picked;
       case "home_claude_dir":
         return "/home/me/.claude";
+      case "scaffold_check":
+        if (opts.checkError) throw new Error(opts.checkError);
+        return null;
       case "scaffold_plan":
         if (opts.planError) throw new Error(opts.planError);
         return plan;
@@ -153,7 +160,7 @@ describe("Scaffold flow", () => {
     expect(screen.getAllByText("new")).toHaveLength(3);
     const code = screen.getByRole("region", { name: "Content of HARNESS.md" });
     expect(within(code).getByText("line two")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /CLAUDE\.md/ }));
+    await userEvent.click(screen.getByRole("treeitem", { name: /CLAUDE\.md/ }));
     expect(
       screen.getByRole("region", { name: "Content of CLAUDE.md" }),
     ).toBeInTheDocument();
@@ -273,5 +280,53 @@ describe("Scaffold flow", () => {
     expect(screen.getByLabelText("New project folder")).toHaveValue(
       "/work/app",
     );
+  });
+
+  it("checks the folder on step 1 and keeps the user there with focus on the field", async () => {
+    const calls = setup({
+      checkError: "/work/app has a harness (.claude). Refit it instead.",
+    });
+    await toProfile();
+    expect(await screen.findByRole("alert")).toHaveTextContent("has a harness");
+    expect(screen.getByLabelText("New project folder")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: /Web/ })).toBeNull();
+    expect(calls.some((c) => c.cmd === "profiles_list")).toBe(true);
+    expect(calls.find((c) => c.cmd === "scaffold_check")?.args).toEqual({
+      target: "/work/app",
+    });
+    expect(calls.some((c) => c.cmd === "scaffold_plan")).toBe(false);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Refit it instead" }),
+    );
+    expect(screen.getByTestId("where")).toHaveTextContent(
+      "/refit?path=%2Fwork%2Fapp",
+    );
+  });
+
+  it("refuses a folder that is not writable on step 1 and lets you retry", async () => {
+    setup({ checkError: "/work/app is not writable" });
+    await toProfile();
+    expect(await screen.findByRole("alert")).toHaveTextContent("not writable");
+    expect(
+      screen.queryByRole("button", { name: "Refit it instead" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("shows profile cards with counts by kind", async () => {
+    setup();
+    await toProfile();
+    const card = await screen.findByRole("button", { name: /Web/ });
+    expect(card).toHaveTextContent("2 skills");
+    expect(card).toHaveTextContent("1 subagent");
+    expect(card).toHaveTextContent("3 files");
+  });
+
+  it("says no harness files exist, not that nothing exists", async () => {
+    setup();
+    await toPreview();
+    expect(
+      await screen.findByText(/No harness files exist there yet/),
+    ).toBeInTheDocument();
   });
 });

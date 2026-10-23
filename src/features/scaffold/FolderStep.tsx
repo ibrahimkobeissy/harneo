@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { CircleAlert, FolderSearch, RefreshCw } from "lucide-react";
 import { Button } from "../../ui";
 import styles from "./Scaffold.module.css";
@@ -16,12 +17,18 @@ export function FolderStep({
   onBrowse: () => void;
   onRefit: () => void;
 }) {
+  const input = useRef<HTMLInputElement>(null);
+  // A refused folder pulls focus back to the field that owns the error.
+  useEffect(() => {
+    if (error) input.current?.focus();
+  }, [error]);
   return (
     <div className={styles.field}>
       <label htmlFor="scaffold-path">New project folder</label>
       <div className={styles.inputRow}>
         <input
           id="scaffold-path"
+          ref={input}
           className={styles.input}
           value={path}
           placeholder="~/work/new-app"

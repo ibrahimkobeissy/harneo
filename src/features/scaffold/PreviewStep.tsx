@@ -35,9 +35,9 @@ export function PreviewStep({
         <Callout icon={Eye}>
           <p>
             <b>Dry run.</b> These {count} {count === 1 ? "file" : "files"} will
-            be written to <span className={styles.mono}>{displayPath}</span>.
-            Nothing exists there yet, so nothing is replaced. Click any file to
-            read its full content.
+            be written to <span className={styles.mono}>{displayPath}</span>. No
+            harness files exist there yet, so nothing is replaced. Click any
+            file to read its full content.
           </p>
         </Callout>
       )}

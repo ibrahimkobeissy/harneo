@@ -27,13 +27,17 @@
   flex: none;
   color: var(--t3);
 }
-button.node {
+.node {
   cursor: pointer;
 }
-button.node:hover {
+.node:hover {
   background: var(--sunk);
 }
-button.node[aria-current="true"] {
+.node:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: -2px;
+}
+.file[aria-current="true"] {
   background: var(--blue-soft);
   color: var(--blue);
 }

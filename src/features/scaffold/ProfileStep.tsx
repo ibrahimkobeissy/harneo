@@ -1,6 +1,6 @@
 import { Layers } from "lucide-react";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
-import { Button, EmptyState } from "../../ui";
+import { Button, EmptyState, kinds } from "../../ui";
 import styles from "./Scaffold.module.css";
 
 /** Step 2: which profile to install, one card each with its file count. */
@@ -46,7 +46,20 @@ export function ProfileStep({
           </b>
           {p.description && <span className={styles.sec}>{p.description}</span>}
           <span className={styles.count}>
-            {p.fileCount} {p.fileCount === 1 ? "file" : "files"}
+            {p.counts.map(({ kind, count }) => {
+              const meta = kinds[kind];
+              const Icon = meta.icon;
+              return (
+                <span key={kind} className={styles.kindCount}>
+                  <Icon size={12} aria-hidden="true" />
+                  {count}{" "}
+                  {(count === 1 ? meta.label : meta.plural).toLowerCase()}
+                </span>
+              );
+            })}
+            <span>
+              {p.fileCount} {p.fileCount === 1 ? "file" : "files"}
+            </span>
           </span>
         </button>
       ))}

@@ -805,6 +805,12 @@ pub fn artifact_set_manual_only(
 }
 // --- Install engine: scaffold, apply, projects ------------------------------------------
 
+/// Checks a folder for scaffolding (no harness, a folder, writable). Writes nothing.
+#[tauri::command]
+pub fn scaffold_check(state: State<'_, LibraryState>, target: String) -> Result<(), String> {
+    state.with(|library| library.check_scaffold_target(std::path::Path::new(&target)))
+}
+
 /// What scaffolding a profile into a folder would write. Writes nothing.
 #[tauri::command]
 pub fn scaffold_plan(
@@ -1330,7 +1336,8 @@ mod tests {
         let state = || app.state::<LibraryState>();
         let target = tempfile::tempdir()?;
         let target_text = target.path().to_string_lossy().into_owned();
-        assert!(scaffold_plan(state(), target_text, 1, None).is_err());
+        assert!(scaffold_plan(state(), target_text.clone(), 1, None).is_err());
+        assert!(scaffold_check(state(), target_text).is_ok());
         assert!(projects_list(state())?.is_empty());
         assert!(project_get(state(), 1).is_err());
         assert!(project_files(state(), 1).is_err());

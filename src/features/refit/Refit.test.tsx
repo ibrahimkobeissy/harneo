@@ -339,7 +339,7 @@ describe("Refit flow", () => {
     expect(screen.getByText("new")).toBeInTheDocument();
     expect(screen.queryByText("reviewer.md")).toBeNull();
     expect(screen.getByText("@HARNESS.md")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /deploy\.md/ }));
+    await userEvent.click(screen.getByRole("treeitem", { name: /deploy\.md/ }));
     expect(screen.getByText(/removed from the project/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Apply refit/ }));
     expect(
