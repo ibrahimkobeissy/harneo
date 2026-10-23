@@ -171,8 +171,12 @@ export function LibraryScreen({
       ?.focus();
   });
 
+  // The filter sheet and the detail drawer never share the screen: opening the drawer (a card,
+  // or a link to `?open=`) closes the sheet.
+  if (params.open !== null && sheetOpen) setSheetOpen(false);
+
   function openPanel(id: string | null) {
-    update({ open: id, page: params.page });
+    update({ open: id, focus: null, page: params.page });
   }
 
   function openItem(item: LibraryItem) {
@@ -324,9 +328,11 @@ export function LibraryScreen({
               className={styles.filtersBtn}
               aria-haspopup={narrow ? "dialog" : undefined}
               aria-expanded={narrow ? sheetOpen : false}
-              onClick={() =>
-                narrow ? setSheetOpen(true) : setCollapsed(false)
-              }
+              onClick={() => {
+                if (!narrow) return setCollapsed(false);
+                if (params.open !== null) update({ open: null, focus: null });
+                setSheetOpen(true);
+              }}
             >
               <SlidersHorizontal size={14} aria-hidden="true" />
               Filters
@@ -351,6 +357,19 @@ export function LibraryScreen({
             }
           />
           <span className={styles.grow} />
+          <button
+            type="button"
+            className={
+              params.sort === "trust" && !params.descending
+                ? `${styles.sortChip} ${styles.sortChipOn}`
+                : styles.sortChip
+            }
+            aria-pressed={params.sort === "trust" && !params.descending}
+            title="Lowest trust first; artifacts not audited yet come last"
+            onClick={() => update({ sort: "trust", descending: false })}
+          >
+            Worst first
+          </button>
           {params.view === "cards" && (
             <div className={styles.sorts} role="group" aria-label="Sort by">
               <span>Sort</span>
@@ -431,7 +450,7 @@ export function LibraryScreen({
       style={{ "--filters-w": `${width}px` } as CSSProperties}
     >
       {!narrow && filterColumn(true)}
-      {narrow && sheetOpen && page && (
+      {narrow && sheetOpen && params.open === null && page && (
         <FilterSheet
           onClose={() => setSheetOpen(false)}
           returnFocus={filtersButton}
@@ -535,6 +554,7 @@ export function LibraryScreen({
       {params.open && (
         <DetailPanel
           id={params.open}
+          focusTrust={params.focus === "trust"}
           previousName={trail.at(-1)?.name ?? null}
           onOpen={(id, fromName) => {
             setTrail((t) => [...t, { id: params.open ?? "", name: fromName }]);

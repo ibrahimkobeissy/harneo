@@ -1,5 +1,5 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
-import { Badge, Tag } from "../../ui";
+import { Badge, Tag, TrustMeter } from "../../ui";
 import { tagTint } from "./kinds";
 import styles from "./Library.module.css";
 
@@ -28,19 +28,45 @@ export function TagChips({
   );
 }
 
-/** Error and warning counts; renders nothing when both are zero. */
+/**
+ * Scan error and warning counts (lint, not security): "scan" in the label keeps them apart from
+ * audit findings. Renders nothing when both are zero.
+ */
 export function Findings({ item }: { item: LibraryItem }) {
   if (item.errorCount === 0 && item.warningCount === 0) return null;
   return (
     <span className={styles.findings}>
       {item.errorCount > 0 && (
         <Badge tone="bad">
-          {item.errorCount} {item.errorCount === 1 ? "error" : "errors"}
+          {item.errorCount} scan {item.errorCount === 1 ? "error" : "errors"}
         </Badge>
       )}
       {item.warningCount > 0 && (
         <Badge tone="warn">
-          {item.warningCount} {item.warningCount === 1 ? "warning" : "warnings"}
+          {item.warningCount} scan{" "}
+          {item.warningCount === 1 ? "warning" : "warnings"}
+        </Badge>
+      )}
+    </span>
+  );
+}
+
+/**
+ * The trust meter of a library item. Risky and Dangerous items get the tier word (`md`) and an
+ * "N findings" badge so they cannot be missed; everything else keeps the small bar.
+ */
+export function ItemTrust({ item }: { item: LibraryItem }) {
+  const loud = item.tier === "risky" || item.tier === "dangerous";
+  return (
+    <span className={styles.trustCell}>
+      <TrustMeter
+        score={item.trustScore}
+        tier={item.tier}
+        size={loud ? "md" : "sm"}
+      />
+      {loud && item.findingCount > 0 && (
+        <Badge tone={item.tier === "dangerous" ? "bad" : "warn"}>
+          {item.findingCount} {item.findingCount === 1 ? "finding" : "findings"}
         </Badge>
       )}
     </span>

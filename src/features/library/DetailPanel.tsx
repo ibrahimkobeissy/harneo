@@ -9,6 +9,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
 import type { Collection } from "../../bindings/Collection";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { Audit } from "../../bindings/Audit";
@@ -162,9 +163,12 @@ function TrustSection({ audit }: { audit: Audit | null }) {
   if (audit === null) {
     return (
       <section className={styles.sec} aria-labelledby="d-trust">
-        <h3 id="d-trust">Trust</h3>
+        <h3 id="d-trust" tabIndex={-1}>
+          Trust
+        </h3>
         <p className={styles.muted}>
-          Not audited yet. Run Re-run audit on the Security page.
+          Not audited yet — <Link to="/security">open Security</Link> to run the
+          audit.
         </p>
       </section>
     );
@@ -172,7 +176,7 @@ function TrustSection({ audit }: { audit: Audit | null }) {
   const none = reachRows.every(({ key }) => audit.reach[key].length === 0);
   return (
     <section className={styles.sec} aria-labelledby="d-trust">
-      <h3 id="d-trust" className={styles.trustHead}>
+      <h3 id="d-trust" tabIndex={-1} className={styles.trustHead}>
         Trust
         <TrustMeter score={audit.score} tier={audit.tier} size="md" />
       </h3>
@@ -329,6 +333,7 @@ function References({
  */
 export function DetailPanel({
   id,
+  focusTrust = false,
   previousName,
   onOpen,
   onBack,
@@ -340,6 +345,8 @@ export function DetailPanel({
   onLeftCollection = () => {},
 }: {
   id: string;
+  /** Scroll to the Trust section and move focus to its heading (`?focus=trust`). */
+  focusTrust?: boolean;
   previousName: string | null;
   onOpen: (id: string, fromName: string) => void;
   onBack: () => void;
@@ -375,6 +382,18 @@ export function DetailPanel({
     const body = node.querySelector("[data-body]");
     if (body) body.scrollTop = 0;
   }, [id, hasBack]);
+
+  // `?focus=trust`: once the detail has loaded, bring the Trust section into view. Done once per
+  // artifact so a reload after a tag change does not pull the panel back.
+  const focusedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!focusTrust || detail === null || focusedFor.current === id) return;
+    const heading = ref.current?.querySelector<HTMLElement>("#d-trust");
+    if (!heading) return;
+    focusedFor.current = id;
+    heading.scrollIntoView?.({ block: "start" });
+    heading.focus({ preventScroll: true });
+  }, [focusTrust, detail, id]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

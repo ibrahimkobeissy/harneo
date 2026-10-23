@@ -7,6 +7,7 @@ import { ResultsToolbar } from "./ResultsToolbar";
 
 const facets: Facets = {
   tiers: [],
+  withFindings: 0,
   kinds: [],
   tags: [],
   sources: [

@@ -65,6 +65,7 @@ interface Stored {
 
 const facets = {
   tiers: [],
+  withFindings: 0,
   kinds: [
     { kind: "skill" as const, count: 2 },
     { kind: "agent" as const, count: 1 },

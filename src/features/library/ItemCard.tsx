@@ -1,6 +1,11 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
-import { TrustMeter } from "../../ui";
-import { CardCounts, Findings, sourceText, TagChips } from "./ItemMeta";
+import {
+  CardCounts,
+  Findings,
+  ItemTrust,
+  sourceText,
+  TagChips,
+} from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
@@ -22,6 +27,7 @@ export function ItemCard({
       type="button"
       className={styles.tile}
       data-item-id={item.id}
+      data-tier={item.tier ?? undefined}
       onClick={() => onOpen(item)}
     >
       <span className={styles.tileHead}>
@@ -43,7 +49,7 @@ export function ItemCard({
         <span className={styles.srcline} title={sourceText(item)}>
           {sourceText(item)}
         </span>
-        <TrustMeter score={item.trustScore} tier={item.tier} />
+        <ItemTrust item={item} />
         <span className={styles.tileMeta}>
           <CardCounts item={item} />
           <Findings item={item} />

@@ -17,6 +17,7 @@ import { LibraryScreen } from ".";
 
 const facets: Page["facets"] = {
   tiers: [],
+  withFindings: 0,
   kinds: [
     { kind: "skill", count: 5 },
     { kind: "agent", count: 2 },
@@ -169,8 +170,8 @@ describe("cards view", () => {
     expect(card).toHaveTextContent("acme/kit @ main");
     expect(card).toHaveTextContent("review");
     expect(card).toHaveTextContent("+1");
-    expect(card).toHaveTextContent("2 errors");
-    expect(card).toHaveTextContent("1 warning");
+    expect(card).toHaveTextContent("2 scan errors");
+    expect(card).toHaveTextContent("1 scan warning");
     expect(card).toHaveTextContent("4 files · 2/3 refs");
     const second = screen.getByRole("button", { name: /beta/ });
     expect(second).toHaveTextContent("Subagent");

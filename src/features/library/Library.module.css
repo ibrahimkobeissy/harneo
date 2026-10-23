@@ -488,6 +488,46 @@
   display: inline-flex;
   gap: var(--space-xxs);
 }
+/* Meter, tier word and finding count of one artifact. */
+.trustCell {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+}
+/* Dangerous stands out: a red hairline all round and a red wash, never a side stripe. */
+.tile[data-tier="dangerous"] {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+.tile[data-tier="dangerous"]:hover {
+  border-color: var(--red);
+}
+.tile[data-tier="dangerous"] .tileFoot {
+  border-top-color: var(--red);
+}
+.row[data-tier="dangerous"] td {
+  background: var(--red-soft);
+}
+.row[data-tier="dangerous"]:hover td {
+  background: var(--red-soft);
+  filter: brightness(0.97);
+}
+/* Slider and tier boxes disagree: say so. */
+.trustNote {
+  margin: var(--space-xs) 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: var(--text-label);
+}
+.trustRange[data-conflict] {
+  opacity: 0.5;
+}
+.worst {
+  margin-left: var(--space-sm);
+}
 
 /* Kind icon square. */
 .chip {
@@ -554,22 +594,22 @@
   white-space: nowrap;
 }
 .table th:nth-child(1) {
-  width: 28%;
+  width: 25%;
 }
 .table th:nth-child(2) {
   width: 10%;
 }
 .table th:nth-child(3) {
-  width: 20%;
+  width: 15%;
 }
 .table th:nth-child(4) {
-  width: 16%;
+  width: 13%;
 }
 .table th:nth-child(5) {
-  width: 14%;
+  width: 26%;
 }
 .table th:nth-child(6) {
-  width: 12%;
+  width: 13%;
 }
 .table td {
   padding: var(--space-sm);
@@ -577,6 +617,10 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.table td:nth-child(1),
+.table td:nth-child(5) {
+  white-space: normal;
 }
 .sortBtn {
   display: inline-flex;
@@ -609,7 +653,8 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
+  min-width: 12ch;
+  max-width: 100%;
 }
 .row:hover td {
   background: var(--side);
@@ -620,6 +665,7 @@
   gap: var(--space-sm);
   font-weight: 500;
   min-width: 0;
+  flex-wrap: wrap;
 }
 .rowTags {
   display: flex;
@@ -800,4 +846,10 @@
 }
 .sheetClose:hover {
   background: var(--sunk);
+}
+
+/* On the red wash a red badge would vanish: lift badges onto the card colour. */
+.tile[data-tier="dangerous"] [data-tone],
+.row[data-tier="dangerous"] [data-tone] {
+  background: var(--raised);
 }

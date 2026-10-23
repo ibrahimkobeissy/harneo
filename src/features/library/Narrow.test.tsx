@@ -1,13 +1,14 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { item, page } from "../../test/library";
 import { LibraryScreen } from ".";
 
 const facets = {
   tiers: [],
+  withFindings: 0,
   kinds: [{ kind: "skill" as const, count: 2 }],
   tags: [{ name: "review", color: "violet" as const, count: 1 }],
   sources: [],
@@ -25,6 +26,18 @@ function narrow(matches: boolean) {
   );
 }
 
+function GoOpen() {
+  const navigate = useNavigate();
+  return (
+    <button
+      type="button"
+      onClick={() => void navigate("/library?open=id-alpha")}
+    >
+      go
+    </button>
+  );
+}
+
 function setup(path = "/library") {
   mockIPC((cmd) =>
     cmd === "library_list"
@@ -33,6 +46,7 @@ function setup(path = "/library") {
   );
   render(
     <MemoryRouter initialEntries={[path]}>
+      <GoOpen />
       <Routes>
         <Route path="/library" element={<LibraryScreen />} />
       </Routes>
@@ -70,6 +84,20 @@ describe("half-width library", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(button).toHaveFocus();
+  });
+
+  it("closes the sheet when a link opens the detail drawer", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(await screen.findByRole("button", { name: /Filters/ }));
+    expect(screen.getByRole("dialog", { name: "Filters" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "go" }));
+    expect(
+      await screen.findByRole("dialog", { name: /details/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: "Filters" }),
+    ).not.toBeInTheDocument();
   });
 
   it("closes from the scrim and the close button", async () => {

@@ -23,4 +23,9 @@ sources: Array<SourceCount>,
 /**
  * In `Tier` order (best first); only tiers present in that set, plus selected ones at 0.
  */
-tiers: Array<TierCount>, };
+tiers: Array<TierCount>, 
+/**
+ * Artifacts with at least one audit finding among those the other filters keep (the count
+ * behind "Has findings", whether or not that filter is on).
+ */
+withFindings: number, };

@@ -196,6 +196,9 @@ pub struct Facets {
     pub sources: Vec<SourceCount>,
     /// In `Tier` order (best first); only tiers present in that set, plus selected ones at 0.
     pub tiers: Vec<TierCount>,
+    /// Artifacts with at least one audit finding among those the other filters keep (the count
+    /// behind "Has findings", whether or not that filter is on).
+    pub with_findings: u32,
 }
 
 /// One page of the list.
@@ -642,10 +645,26 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
         }
     }
     tiers.sort_by_key(|t| t.tier);
+
+    // Has findings: everything except the Has findings filter itself.
+    let others = Filter {
+        has_findings: false,
+        ..filter.clone()
+    };
+    let (clause, params) = build(&others, None, scope)?;
+    let with_findings: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+             WHERE {clause} AND COALESCE(json_array_length(a.findings), 0) > 0"
+        ),
+        params_from_iter(params.iter()),
+        |r| r.get(0),
+    )?;
     Ok(Facets {
         kinds,
         tags,
         sources,
         tiers,
+        with_findings: count(with_findings),
     })
 }

@@ -63,6 +63,7 @@ function setup(existing: Row[], onArtifact: number[] = []) {
         return page([item("alpha", { tags: chips })], {
           facets: {
             tiers: [],
+            withFindings: 0,
             kinds: [],
             sources: [],
             tags: tags

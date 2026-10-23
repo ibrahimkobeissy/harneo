@@ -1,7 +1,7 @@
 import { Check, PanelLeftClose } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Facets } from "../../bindings/Facets";
-import { tierLabels } from "../../ui";
+import { tierLabels, tiers } from "../../ui";
 import { FilterResizer } from "./FilterResizer";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
@@ -93,6 +93,15 @@ export function FilterColumn({
     onDragging: (dragging: boolean) => void;
   };
 }) {
+  // Both filters apply, so a selected tier whose best score is under the slider matches nothing.
+  const conflict = tiers
+    .filter(
+      (t) =>
+        params.trustMin !== null &&
+        params.tiers.includes(t.tier) &&
+        t.hi < params.trustMin,
+    )
+    .map((t) => t.tier);
   return (
     <aside
       className={styles.filters}
@@ -129,6 +138,62 @@ export function FilterColumn({
             onToggle={() => onToggle("types", kind)}
           />
         ))}
+        <GroupHead
+          title="Trust"
+          active={
+            params.trustMin !== null ||
+            params.tiers.length > 0 ||
+            params.hasFindings
+          }
+          onClear={onClearTrust}
+        />
+        <label className={styles.trustLabel} htmlFor="trust-min">
+          Trust ≥
+          <span className={styles.trustValue}>{params.trustMin ?? 0}</span>
+        </label>
+        <input
+          id="trust-min"
+          type="range"
+          className={styles.trustRange}
+          min={0}
+          max={100}
+          step={5}
+          value={params.trustMin ?? 0}
+          aria-label="Minimum trust score"
+          data-conflict={conflict.length > 0 || undefined}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onTrustMin(n > 0 ? n : null);
+          }}
+        />
+        {conflict.length > 0 && (
+          <p className={styles.trustNote} role="status">
+            Trust ≥ {params.trustMin} rules out{" "}
+            {conflict.map((t) => tierLabels[t]).join(" and ")}, so{" "}
+            {conflict.length === params.tiers.length
+              ? "nothing can match."
+              : "those boxes add nothing."}
+          </p>
+        )}
+        {facets.tiers.length === 0 && (
+          <span className={styles.muted}>Nothing audited yet</span>
+        )}
+        {facets.tiers.map(({ tier, count }) => (
+          <Option
+            key={tier}
+            on={params.tiers.includes(tier)}
+            label={tierLabels[tier]}
+            count={count}
+            lead={<i className={styles.tierDot} data-tier={tier} />}
+            onToggle={() => onToggle("tiers", tier)}
+          />
+        ))}
+        <Option
+          on={params.hasFindings}
+          label="Has findings"
+          count={facets.withFindings}
+          onToggle={() => onHasFindings(!params.hasFindings)}
+        />
         <GroupHead
           title="Tag"
           active={params.tags.length > 0}
@@ -167,51 +232,6 @@ export function FilterColumn({
             onToggle={() => onToggle("sources", source.id)}
           />
         ))}
-        <GroupHead
-          title="Trust"
-          active={
-            params.trustMin !== null ||
-            params.tiers.length > 0 ||
-            params.hasFindings
-          }
-          onClear={onClearTrust}
-        />
-        <label className={styles.trustLabel} htmlFor="trust-min">
-          Trust ≥
-          <span className={styles.trustValue}>{params.trustMin ?? 0}</span>
-        </label>
-        <input
-          id="trust-min"
-          type="range"
-          className={styles.trustRange}
-          min={0}
-          max={100}
-          step={5}
-          value={params.trustMin ?? 0}
-          aria-label="Minimum trust score"
-          onChange={(e) => {
-            const n = Number(e.target.value);
-            onTrustMin(n > 0 ? n : null);
-          }}
-        />
-        {facets.tiers.length === 0 && (
-          <span className={styles.muted}>Nothing audited yet</span>
-        )}
-        {facets.tiers.map(({ tier, count }) => (
-          <Option
-            key={tier}
-            on={params.tiers.includes(tier)}
-            label={tierLabels[tier]}
-            count={count}
-            lead={<i className={styles.tierDot} data-tier={tier} />}
-            onToggle={() => onToggle("tiers", tier)}
-          />
-        ))}
-        <Option
-          on={params.hasFindings}
-          label="Has findings"
-          onToggle={() => onHasFindings(!params.hasFindings)}
-        />
       </div>
       {dock && (
         <FilterResizer

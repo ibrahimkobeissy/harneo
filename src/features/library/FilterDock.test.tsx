@@ -8,6 +8,7 @@ import { LibraryScreen } from ".";
 
 const facets = {
   tiers: [],
+  withFindings: 0,
   kinds: [{ kind: "skill" as const, count: 2 }],
   tags: [],
   sources: [],

@@ -23,6 +23,8 @@ export interface LibraryParams {
   hasFindings: boolean;
   /** The artifact open in the detail panel. */
   open: string | null;
+  /** `trust`: the panel scrolls to its Trust section (Security links finding rows here). */
+  focus: "trust" | null;
 }
 
 export const PER_PAGE: Record<View, number> = { cards: 24, list: 25 };
@@ -92,6 +94,7 @@ export function parseParams(
       .filter((t): t is Tier => tiers.includes(t as Tier)),
     hasFindings: sp.get("findings") === "1",
     open: sp.get("open") || null,
+    focus: sp.get("open") && sp.get("focus") === "trust" ? "trust" : null,
   };
 }
 
@@ -116,6 +119,7 @@ export function toSearchParams(
   p.tiers.forEach((t) => sp.append("tier", t));
   if (p.hasFindings) sp.set("findings", "1");
   if (p.open) sp.set("open", p.open);
+  if (p.open && p.focus) sp.set("focus", p.focus);
   return sp;
 }
 

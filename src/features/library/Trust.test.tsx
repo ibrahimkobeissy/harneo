@@ -89,6 +89,7 @@ function setup(path = "/library") {
         queries.push(a.query as Query);
         return page(items, {
           facets: {
+            withFindings: 1,
             kinds: [],
             tags: [],
             sources: [],
@@ -219,5 +220,91 @@ describe("trust in the detail panel", () => {
     expect(
       await within(panel).findByText(/Not audited yet/),
     ).toBeInTheDocument();
+  });
+
+  it("moves focus to the Trust heading for focus=trust", async () => {
+    setup("/library?open=id-beta&focus=trust");
+    const panel = await screen.findByRole("dialog", { name: "beta details" });
+    await within(panel).findByText("Critical (1)");
+    await waitFor(() =>
+      expect(
+        within(panel).getByRole("heading", { name: /^Trust/ }),
+      ).toHaveFocus(),
+    );
+  });
+
+  it("links the not-audited copy to Security", async () => {
+    setup("/library?open=id-gamma");
+    const panel = await screen.findByRole("dialog", { name: "gamma details" });
+    expect(
+      await within(panel).findByRole("link", { name: "open Security" }),
+    ).toHaveAttribute("href", "/security");
+  });
+});
+
+describe("dangerous artifacts stand out", () => {
+  it("shows the tier word and the finding count on a risky card, only the bar on trusted", async () => {
+    setup();
+    const beta = (await screen.findByText("beta")).closest("button");
+    const inBeta = within(beta as HTMLElement);
+    expect(inBeta.getByText("2 findings")).toBeInTheDocument();
+    expect(inBeta.getByText("Risky")).toBeInTheDocument();
+    const alpha = screen.getByText("alpha").closest("button");
+    expect(within(alpha as HTMLElement).queryByText(/finding/)).toBeNull();
+  });
+
+  it("marks a dangerous card with its tier for the red treatment", async () => {
+    mockIPC((cmd) =>
+      cmd === "library_list"
+        ? page([
+            item("bad", { trustScore: 10, tier: "dangerous", findingCount: 1 }),
+          ])
+        : undefined,
+    );
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route path="/library" element={<LibraryScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const card = (await screen.findByText("bad")).closest("button");
+    expect(card).toHaveAttribute("data-tier", "dangerous");
+    expect(
+      within(card as HTMLElement).getByText("1 finding"),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("trust filter group", () => {
+  it("sits right after Type, and Has findings shows its count", async () => {
+    setup();
+    await screen.findByText("alpha");
+    const filters = screen.getByRole("complementary", { name: "Filters" });
+    const heads = within(filters)
+      .getAllByRole("heading", { level: 3 })
+      .map((h) => h.textContent);
+    expect(heads.slice(0, 2)).toEqual(["Type", "Trust"]);
+    expect(
+      within(filters).getByRole("button", { name: /Has findings/ }),
+    ).toHaveTextContent("1");
+  });
+
+  it("says so when the slider rules out a ticked tier", async () => {
+    setup("/library?trust=80&tier=risky");
+    expect(
+      await screen.findByText(/Trust ≥ 80 rules out Risky/),
+    ).toBeInTheDocument();
+  });
+
+  it("offers Worst first: trust ascending", async () => {
+    const user = userEvent.setup();
+    const queries = setup();
+    await screen.findByText("alpha");
+    await user.click(screen.getByRole("button", { name: "Worst first" }));
+    await waitFor(() => {
+      expect(queries.at(-1)?.sort).toBe("trust");
+      expect(queries.at(-1)?.descending).toBe(false);
+    });
   });
 });

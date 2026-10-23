@@ -33,7 +33,7 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
   return {
     items,
     total: items.length,
-    facets: { kinds: [], tags: [], sources: [], tiers: [] },
+    facets: { kinds: [], tags: [], sources: [], tiers: [], withFindings: 0 },
     ...over,
     unfilteredTotal: over.unfilteredTotal ?? over.total ?? items.length,
   };

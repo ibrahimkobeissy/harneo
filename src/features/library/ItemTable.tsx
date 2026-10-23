@@ -1,8 +1,13 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { SortKey } from "../../bindings/SortKey";
-import { TrustMeter } from "../../ui";
-import { Findings, importedDate, sourceText, TagChips } from "./ItemMeta";
+import {
+  Findings,
+  importedDate,
+  ItemTrust,
+  sourceText,
+  TagChips,
+} from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
@@ -54,6 +59,7 @@ export function ItemTable({
           <tr
             key={item.id}
             className={styles.row}
+            data-tier={item.tier ?? undefined}
             onClick={(event) => {
               // The name button handles its own click; the rest of the row delegates to it.
               if (!(
@@ -90,7 +96,7 @@ export function ItemTable({
               </span>
             </td>
             <td>
-              <TrustMeter score={item.trustScore} tier={item.tier} />
+              <ItemTrust item={item} />
             </td>
             <td className={styles.date}>{importedDate(item)}</td>
           </tr>
