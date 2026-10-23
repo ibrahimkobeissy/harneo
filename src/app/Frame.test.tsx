@@ -18,6 +18,14 @@ beforeEach(() => {
   mockIPC((cmd) => {
     if (cmd === "library_list") return page([item("one")]);
     if (cmd === "library_audits" || cmd === "profiles_list") return [];
+    if (cmd === "cleanup_list")
+      return {
+        findings: [],
+        outdated: [],
+        unused: [],
+        repeated: [],
+        duplicates: [],
+      };
     return cmd === "app_info" ? { version: "1.2.3", dataDir: "/d" } : undefined;
   });
 });

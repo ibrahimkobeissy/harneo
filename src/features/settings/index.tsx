@@ -5,11 +5,13 @@ import { ClaudeSettings } from "./ClaudeSettings";
 import styles from "./Settings.module.css";
 import { LiveRescan } from "./LiveRescan";
 import { UpdatesPanel } from "./UpdatesPanel";
+import { UsageSettings } from "./UsageSettings";
 
 export function SettingsScreen() {
   return (
     <Screen title="Settings" narrow>
       <div className={styles.page}>
+        <UsageSettings />
         <ClaudeSettings />
         <UpdatesPanel />
         <LiveRescan />

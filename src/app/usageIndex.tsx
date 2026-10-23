@@ -120,3 +120,4 @@ export function UsageIndexProvider({ children }: { children: ReactNode }) {
   );
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
+export { Context as UsageIndexContext };

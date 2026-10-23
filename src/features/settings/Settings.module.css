@@ -170,3 +170,6 @@
     flex-wrap: wrap;
   }
 }
+.number {
+  width: 72px;
+}
