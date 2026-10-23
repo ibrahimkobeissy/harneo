@@ -88,6 +88,7 @@ pub fn run() {
             commands::refit_plan,
             commands::projects_list,
             commands::project_get,
+            commands::projects_removed,
             commands::project_files,
             commands::project_file_content,
             commands::artifact_profiles,

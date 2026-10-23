@@ -27,6 +27,7 @@ function project(id: number, name: string): Project {
     profileVersion: 4,
     appliedAt: BigInt(NOW - 3600),
     fileCount: 5,
+    removedAt: null,
   };
 }
 

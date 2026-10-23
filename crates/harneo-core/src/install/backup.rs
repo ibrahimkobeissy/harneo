@@ -98,6 +98,12 @@ pub(crate) fn create(
             WriteAction::Replace => ("replaced", true),
             WriteAction::Delete => ("deleted", true),
             WriteAction::New => ("created", false),
+            // A file of the project that is already what the profile has: nothing is written,
+            // but the manifest will track it, so removal must still find it among the
+            // originals. Files the manifest already tracks are Harneo's own, not originals.
+            WriteAction::Keep if write.bytes.is_some() && !managed.contains(&write.path) => {
+                ("kept", true)
+            }
             WriteAction::Keep | WriteAction::Skip => continue,
         };
         let path = resolve_inside(target, &write.path)?;
@@ -225,6 +231,8 @@ struct StoredEntry {
     existed_before: bool,
     #[serde(default)]
     managed: bool,
+    #[serde(default)]
+    reason: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -303,8 +311,9 @@ pub(crate) fn read_set(data_dir: &Path, folder: &str) -> Result<Vec<StoredFile>>
 }
 
 /// The project's originals among `wanted`: for each path, the bytes in the first set (`folders`,
-/// oldest first) that holds the file as the project had it, not as Harneo wrote it. Sets that
-/// are gone from disk are skipped.
+/// newest first) that holds the file as the project had it, not as Harneo wrote it, so the
+/// version the project had when Harneo last took the file over comes back. Sets that are gone
+/// from disk are skipped.
 pub(crate) fn find_originals(
     data_dir: &Path,
     folders: &[String],
@@ -320,6 +329,30 @@ pub(crate) fn find_originals(
             .iter()
             .filter(|e| e.existed_before && !e.managed && wanted.contains(e.path.as_str()))
         {
+            if !found.contains_key(&entry.path) {
+                found.insert(entry.path.clone(), read_file(&dir, entry)?);
+            }
+        }
+    }
+    Ok(found)
+}
+
+/// The project's own files a refit deleted: for each path with an unmanaged `deleted` entry
+/// (newest set first wins) that `wanted` accepts, the bytes it held.
+pub(crate) fn find_deleted_originals(
+    data_dir: &Path,
+    folders: &[String],
+    wanted: impl Fn(&str) -> bool,
+) -> Result<HashMap<String, Vec<u8>>> {
+    let mut found = HashMap::new();
+    for folder in folders {
+        let dir = set_dir(data_dir, folder)?;
+        let Some(entries) = read_manifest(&dir)? else {
+            continue;
+        };
+        for entry in entries.iter().filter(|e| {
+            e.existed_before && !e.managed && e.reason == "deleted" && wanted(e.path.as_str())
+        }) {
             if !found.contains_key(&entry.path) {
                 found.insert(entry.path.clone(), read_file(&dir, entry)?);
             }
@@ -391,7 +424,7 @@ impl Library {
             edited_in_project: Vec::new(),
             restored,
         };
-        self.apply_with(&plan, &NoHooks)
+        self.apply_to(&plan, &NoHooks, Some(project.id))
     }
 
     /// Deletes backup set `backup_id`: its folder and its row. Nothing else changes.

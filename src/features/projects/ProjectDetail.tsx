@@ -72,26 +72,38 @@ export function ProjectScreen() {
   useEffect(() => {
     if (id === null) return;
     let live = true;
-    Promise.all([
-      projectGet(id),
-      projectFiles(id),
-      projectBackups(id),
-      profilesList().catch(() => [] as ProfileSummary[]),
-      driftCheck(id).catch(() => null),
-    ]).then(
-      ([p, f, b, list, drift]) => {
-        if (!live) return;
-        setProject(p);
-        setFiles(f);
-        setBackups(b);
-        setProfiles(list);
-        setReport(drift ?? null);
-        setLoadError(null);
-      },
-      (err: unknown) => {
-        if (live) setLoadError(messageOf(err));
-      },
-    );
+    projectGet(id)
+      .then((p) =>
+        // A removed project has no files, drift or profile: only its backups.
+        p.removedAt === null
+          ? Promise.all([
+              projectFiles(id),
+              projectBackups(id),
+              profilesList().catch(() => [] as ProfileSummary[]),
+              driftCheck(id).catch(() => null),
+            ]).then(([f, b, list, drift]) => ({ p, f, b, list, drift }))
+          : projectBackups(id).then((b) => ({
+              p,
+              f: [] as InstalledFile[],
+              b,
+              list: [] as ProfileSummary[],
+              drift: null,
+            })),
+      )
+      .then(
+        ({ p, f, b, list, drift }) => {
+          if (!live) return;
+          setProject(p);
+          setFiles(f);
+          setBackups(b);
+          setProfiles(list);
+          setReport(drift ?? null);
+          setLoadError(null);
+        },
+        (err: unknown) => {
+          if (live) setLoadError(messageOf(err));
+        },
+      );
     return () => {
       live = false;
     };
@@ -118,6 +130,48 @@ export function ProjectScreen() {
         <p className={styles.muted} role="status">
           Loading the project…
         </p>
+      </Screen>
+    );
+  }
+
+  if (project.removedAt !== null) {
+    return (
+      <Screen
+        title={project.name}
+        crumb={
+          <div className={styles.crumb}>
+            <Link to="/projects">
+              <ArrowLeft size={14} aria-hidden="true" />
+              Projects
+            </Link>
+          </div>
+        }
+        toolbar={
+          <div className={styles.pathLine} title={project.path}>
+            {project.path}
+          </div>
+        }
+      >
+        <Callout icon={Archive}>
+          <p>
+            The harness was removed from this project. Its backups are kept:
+            restore a file to put it back in the folder. The current version is
+            backed up first.
+          </p>
+        </Callout>
+        <BackupsTab
+          backups={backups}
+          dataDir={app.status === "ready" ? app.info.dataDir : null}
+          onChanged={reload}
+          onNotice={say}
+        />
+        {notice && (
+          <Toast
+            notice={notice}
+            onDismiss={dismiss}
+            onOpenFolder={(f) => void openFolder(f)}
+          />
+        )}
       </Screen>
     );
   }

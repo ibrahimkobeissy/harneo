@@ -4,7 +4,12 @@ import { Link, useLocation, useNavigate } from "react-router";
 import type { Project } from "../../bindings/Project";
 import { useChanged } from "../../lib/useChanged";
 import { useDriftSummaries } from "../../lib/useDriftSummaries";
-import { openFolder, profilesList, projectsList } from "../../lib/ipc";
+import {
+  openFolder,
+  profilesList,
+  projectsList,
+  projectsRemoved,
+} from "../../lib/ipc";
 import { Button, Callout, EmptyState, Screen } from "../../ui";
 import { ago, messageOf, plural, statusOf, type Status } from "./format";
 import styles from "./Projects.module.css";
@@ -47,6 +52,7 @@ export function ProjectsScreen() {
   const versions = useProfileVersions();
   const drift = useDriftSummaries();
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const [removed, setRemoved] = useState<Project[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(() => {
     const state = location.state as {
@@ -63,6 +69,12 @@ export function ProjectsScreen() {
 
   useEffect(() => {
     let live = true;
+    projectsRemoved().then(
+      (list) => {
+        if (live) setRemoved(Array.isArray(list) ? list : []);
+      },
+      () => undefined,
+    );
     projectsList().then(
       (list) => {
         if (live) setProjects(list);
@@ -166,6 +178,24 @@ export function ProjectsScreen() {
             ))}
           </ul>
         </>
+      )}
+      {removed.length > 0 && (
+        <section className={styles.removed} aria-labelledby="removed-heading">
+          <h2 id="removed-heading">Removed projects</h2>
+          <p className={styles.muted}>
+            Their backups are kept, so you can still restore a file.
+          </p>
+          <ul aria-label="Removed projects">
+            {removed.map((p) => (
+              <li key={String(p.id)}>
+                <Link to={`/projects/${p.id}`}>{p.name}</Link>{" "}
+                <span className={styles.path} title={p.path}>
+                  {p.path}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {notice && (
         <Toast

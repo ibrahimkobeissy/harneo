@@ -879,6 +879,12 @@ pub fn projects_list(state: State<'_, LibraryState>) -> Result<Vec<Project>, Str
     state.with(|library| library.projects())
 }
 
+/// Projects whose profile was removed; their backups stay restorable.
+#[tauri::command]
+pub fn projects_removed(state: State<'_, LibraryState>) -> Result<Vec<Project>, String> {
+    state.with(|library| library.removed_projects())
+}
+
 /// One project.
 #[tauri::command]
 pub fn project_get(state: State<'_, LibraryState>, id: i64) -> Result<Project, String> {

@@ -587,6 +587,11 @@ export function projectsList(): Promise<Project[]> {
   return invoke<Project[]>("projects_list");
 }
 
+/** Projects whose profile was removed; their backups stay restorable. */
+export function projectsRemoved(): Promise<Project[]> {
+  return invoke<Project[]>("projects_removed");
+}
+
 /** One project. */
 export function projectGet(id: bigint): Promise<Project> {
   return invoke<Project>("project_get", { id: Number(id) });

@@ -15,4 +15,9 @@ appliedAt: bigint,
 /**
  * Files in the manifest.
  */
-fileCount: number, };
+fileCount: number, 
+/**
+ * Unix seconds when the profile was removed; `None` for a live project. A removed project
+ * has no manifest and `profile_id` 0; its backup sets stay listed and restorable.
+ */
+removedAt: bigint | null, };

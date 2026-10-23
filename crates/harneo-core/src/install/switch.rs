@@ -106,7 +106,7 @@ impl Library {
     /// Like [`Library::plan_switch`] for a profile view that need not be saved: the plan to move
     /// the project to `view.spec`, named as `view.name` at `view.version`.
     pub(crate) fn plan_switch_to(&self, project_id: i64, view: ProfileView) -> Result<Plan> {
-        let project = self.project(project_id)?;
+        let project = self.live_project(project_id)?;
         let target = project_folder(&project.path)?;
         let profile_id = view.id;
         let rendered = self.render(

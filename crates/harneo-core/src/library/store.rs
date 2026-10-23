@@ -210,8 +210,62 @@ CREATE TABLE backups (
 CREATE INDEX backups_project ON backups(project_id, created_at);
 ";
 
+/// Version 7: a removed project stays in the registry so its backup sets stay listed and
+/// restorable. `removed_at` is set when the profile is removed; the project then has no
+/// manifest and no profile link (`profile_id` NULL, `profile_name` keeps the name), and its
+/// path may be installed into again as a new project. `path` is unique among live projects only.
+/// The tables are rebuilt (children first, so nothing cascades) to change the constraints.
+const V7: &str = "
+CREATE TABLE installed_files_old AS SELECT * FROM installed_files;
+CREATE TABLE backups_old AS SELECT * FROM backups;
+CREATE TABLE projects_old AS SELECT * FROM projects;
+DROP TABLE installed_files;
+DROP TABLE backups;
+DROP TABLE projects;
+
+CREATE TABLE projects (
+    id              INTEGER PRIMARY KEY,
+    path            TEXT NOT NULL,
+    name            TEXT NOT NULL,
+    profile_id      INTEGER REFERENCES profiles(id) ON DELETE RESTRICT,
+    profile_version INTEGER NOT NULL,
+    applied_at      INTEGER NOT NULL,
+    profile_name    TEXT,
+    removed_at      INTEGER,
+    CHECK ((removed_at IS NULL) = (profile_id IS NOT NULL))
+) STRICT;
+CREATE UNIQUE INDEX projects_live_path ON projects(path) WHERE removed_at IS NULL;
+CREATE INDEX projects_profile ON projects(profile_id);
+
+CREATE TABLE installed_files (
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    path        TEXT NOT NULL,
+    digest      TEXT NOT NULL,
+    artifact_id TEXT,
+    PRIMARY KEY (project_id, path)
+) STRICT;
+
+CREATE TABLE backups (
+    id         INTEGER PRIMARY KEY,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    created_at INTEGER NOT NULL,
+    reason     TEXT NOT NULL,
+    file_count INTEGER NOT NULL,
+    folder     TEXT NOT NULL
+) STRICT;
+CREATE INDEX backups_project ON backups(project_id, created_at);
+
+INSERT INTO projects (id, path, name, profile_id, profile_version, applied_at)
+    SELECT id, path, name, profile_id, profile_version, applied_at FROM projects_old;
+INSERT INTO installed_files SELECT * FROM installed_files_old;
+INSERT INTO backups SELECT * FROM backups_old;
+DROP TABLE installed_files_old;
+DROP TABLE backups_old;
+DROP TABLE projects_old;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -679,6 +733,71 @@ mod tests {
                 .execute("DELETE FROM profiles WHERE id = 1", [])
                 .is_err(),
             "a profile in use is protected by the schema too"
+        );
+    }
+    /// A version 6 database with a project, its manifest and a backup migrates to version 7
+    /// keeping all three, and a removed project can then keep its backups.
+    #[test]
+    fn a_v6_database_migrates_to_removed_projects_keeping_its_data() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v6 db");
+            for sql in [V1, V2, V3, V4, V5, V6] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO profiles (id, name, current_version, created_at, updated_at)
+                 VALUES (1, 'web', 1, 5, 5);
+                 INSERT INTO profile_versions (profile_id, version, spec, saved_at)
+                 VALUES (1, 1, '{}', 5);
+                 INSERT INTO projects (id, path, name, profile_id, profile_version, applied_at)
+                 VALUES (7, '/p', 'p', 1, 1, 9);
+                 INSERT INTO installed_files (project_id, path, digest) VALUES (7, 'a.md', 'd');
+                 INSERT INTO backups (project_id, created_at, reason, file_count, folder)
+                 VALUES (7, 9, 'r', 1, 'backups/7/x');
+                 PRAGMA user_version = 6;",
+            )
+            .expect("v6 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        assert_eq!(count(&store, "projects"), 1);
+        assert_eq!(count(&store, "installed_files"), 1);
+        assert_eq!(count(&store, "backups"), 1);
+        // A removal keeps the row without a profile link; the path is free again.
+        store
+            .conn
+            .execute(
+                "UPDATE projects SET removed_at = 10, profile_id = NULL, profile_name = 'web'
+                 WHERE id = 7",
+                [],
+            )
+            .expect("remove");
+        store
+            .conn
+            .execute(
+                "INSERT INTO projects (path, name, profile_id, profile_version, applied_at)
+                 VALUES ('/p', 'p', 1, 1, 11)",
+                [],
+            )
+            .expect("the path can be installed into again");
+        assert!(
+            store
+                .conn
+                .execute(
+                    "INSERT INTO projects (path, name, profile_id, profile_version, applied_at)
+                     VALUES ('/p', 'p', 1, 1, 12)",
+                    [],
+                )
+                .is_err(),
+            "a live path stays unique"
+        );
+        assert_eq!(
+            count(&store, "backups"),
+            1,
+            "the removed project keeps its backups"
         );
     }
 }

@@ -23,6 +23,7 @@ function project(over: Partial<Project> = {}): Project {
     profileVersion: 1,
     appliedAt: BigInt(NOW - 3 * 3600),
     fileCount: 3,
+    removedAt: null,
     ...over,
   };
 }

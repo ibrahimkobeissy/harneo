@@ -33,8 +33,7 @@ pub struct ApplyReport {
     pub backed_up: u32,
     /// The backup set, when one was made.
     pub backup_id: Option<i64>,
-    /// The backup set's folder, relative to the data folder. A removal unregisters its project,
-    /// so its set has no row: the folder is where the files are.
+    /// The backup set's folder, relative to the data folder.
     pub backup_folder: Option<String>,
 }
 
@@ -133,6 +132,14 @@ fn check_state(plan: &Plan, target: &Path) -> Result<()> {
             (WriteAction::New, Some(_)) => {
                 return Err(Error::Install {
                     message: format!("{} appeared after the preview; preview again", write.path),
+                })
+            }
+            (WriteAction::Replace, None) => {
+                return Err(Error::Install {
+                    message: format!(
+                        "{} disappeared after the preview; preview again",
+                        write.path
+                    ),
                 })
             }
             (WriteAction::Replace | WriteAction::Delete, Some(m)) if !m.is_file() => {
@@ -256,13 +263,23 @@ impl Library {
     }
 
     pub(crate) fn apply_with(&self, plan: &Plan, hooks: &dyn ApplyHooks) -> Result<ApplyReport> {
+        self.apply_to(plan, hooks, None)
+    }
+
+    /// [`Library::apply_with`] for the project `only` (a restore into a removed project).
+    pub(super) fn apply_to(
+        &self,
+        plan: &Plan,
+        hooks: &dyn ApplyHooks,
+        only: Option<i64>,
+    ) -> Result<ApplyReport> {
         let data_dir = self.data_dir()?;
         let target = check_plan(plan)?;
         let _lock = DataLock::acquire(&data_dir, hooks.lock_wait())?;
         check_state(plan, &target)?;
         let now = crate::library::records::now();
         let tx = self.store.conn.unchecked_transaction()?;
-        let project_id = registry::project_for(&tx, plan, now)?;
+        let project_id = registry::project_for(&tx, plan, now, only)?;
         let managed = registry::manifest_paths(&tx, project_id)?;
         let set = backup::create(&data_dir, project_id, plan, &target, now, &managed)?;
         let mut journal = Journal::default();

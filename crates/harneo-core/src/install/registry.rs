@@ -33,6 +33,9 @@ pub struct Project {
     pub applied_at: i64,
     /// Files in the manifest.
     pub file_count: u32,
+    /// Unix seconds when the profile was removed; `None` for a live project. A removed project
+    /// has no manifest and `profile_id` 0; its backup sets stay listed and restorable.
+    pub removed_at: Option<i64>,
 }
 
 /// One file Harneo wrote into a project.
@@ -78,7 +81,7 @@ pub struct ProjectFile {
 /// How many projects use a profile.
 pub(crate) fn project_count(conn: &Connection, profile: ProfileId) -> Result<u32> {
     Ok(conn.query_row(
-        "SELECT COUNT(*) FROM projects WHERE profile_id = ?1",
+        "SELECT COUNT(*) FROM projects WHERE profile_id = ?1 AND removed_at IS NULL",
         params![profile],
         |r| r.get(0),
     )?)
@@ -87,7 +90,10 @@ pub(crate) fn project_count(conn: &Connection, profile: ProfileId) -> Result<u32
 /// The names of the projects using a profile.
 pub(crate) fn project_names(conn: &Connection, profile: ProfileId) -> Result<Vec<String>> {
     Ok(conn
-        .prepare("SELECT name FROM projects WHERE profile_id = ?1 ORDER BY name COLLATE NOCASE")?
+        .prepare(
+            "SELECT name FROM projects WHERE profile_id = ?1 AND removed_at IS NULL
+             ORDER BY name COLLATE NOCASE",
+        )?
         .query_map(params![profile], |r| r.get(0))?
         .collect::<std::result::Result<_, _>>()?)
 }
@@ -100,7 +106,7 @@ pub(super) fn upsert_project(conn: &Connection, plan: &Plan, now: i64) -> Result
     Ok(conn.query_row(
         "INSERT INTO projects (path, name, profile_id, profile_version, applied_at)
          VALUES (?1, ?2, ?3, ?4, ?5)
-         ON CONFLICT(path) DO UPDATE SET
+         ON CONFLICT(path) WHERE removed_at IS NULL DO UPDATE SET
              name = excluded.name, profile_id = excluded.profile_id,
              profile_version = excluded.profile_version, applied_at = excluded.applied_at
          RETURNING id",
@@ -148,9 +154,17 @@ pub(super) fn record(
         }
     }
     if plan.kind == PlanKind::Removal {
-        // The project leaves the registry, and its backup rows with it; the set stays on disk.
-        conn.execute("DELETE FROM projects WHERE id = ?1", params![project_id])?;
-        return Ok(None);
+        // The project leaves the live list but stays registered as removed, so its backup
+        // sets (the removal's own included) stay listed and restorable.
+        conn.execute(
+            "DELETE FROM installed_files WHERE project_id = ?1",
+            params![project_id],
+        )?;
+        conn.execute(
+            "UPDATE projects SET removed_at = ?2, profile_name = (SELECT name FROM profiles
+                 WHERE id = projects.profile_id), profile_id = NULL WHERE id = ?1",
+            params![project_id, now],
+        )?;
     }
     let Some(set) = set else {
         return Ok(None);
@@ -163,9 +177,11 @@ pub(super) fn record(
     Ok(Some(conn.last_insert_rowid()))
 }
 
-const PROJECT_SELECT: &str = "SELECT p.id, p.path, p.name, p.profile_id, f.name, p.profile_version,
-        p.applied_at, (SELECT COUNT(*) FROM installed_files i WHERE i.project_id = p.id)
-     FROM projects p JOIN profiles f ON f.id = p.profile_id";
+const PROJECT_SELECT: &str = "SELECT p.id, p.path, p.name, COALESCE(p.profile_id, 0),
+        COALESCE(f.name, p.profile_name, ''), p.profile_version,
+        p.applied_at, (SELECT COUNT(*) FROM installed_files i WHERE i.project_id = p.id),
+        p.removed_at
+     FROM projects p LEFT JOIN profiles f ON f.id = p.profile_id";
 
 fn project_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
     Ok(Project {
@@ -177,23 +193,48 @@ fn project_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
         profile_version: r.get(5)?,
         applied_at: r.get(6)?,
         file_count: r.get(7)?,
+        removed_at: r.get(8)?,
     })
 }
 
 impl Library {
-    /// Every project, by name.
+    /// Every live project, by name.
     pub fn projects(&self) -> Result<Vec<Project>> {
         Ok(self
             .store
             .conn
             .prepare(&format!(
-                "{PROJECT_SELECT} ORDER BY p.name COLLATE NOCASE, p.id"
+                "{PROJECT_SELECT} WHERE p.removed_at IS NULL ORDER BY p.name COLLATE NOCASE, p.id"
             ))?
             .query_map([], project_row)?
             .collect::<std::result::Result<_, _>>()?)
     }
 
-    /// One project.
+    /// Projects whose profile was removed, newest removal first. Their backup sets stay.
+    pub fn removed_projects(&self) -> Result<Vec<Project>> {
+        Ok(self
+            .store
+            .conn
+            .prepare(&format!(
+                "{PROJECT_SELECT} WHERE p.removed_at IS NOT NULL
+                 ORDER BY p.removed_at DESC, p.id DESC"
+            ))?
+            .query_map([], project_row)?
+            .collect::<std::result::Result<_, _>>()?)
+    }
+
+    /// A project that is not removed; the one to install into, switch or remove.
+    pub(super) fn live_project(&self, id: i64) -> Result<Project> {
+        let project = self.project(id)?;
+        if project.removed_at.is_some() {
+            return Err(Error::Install {
+                message: format!("{} was removed from Harneo", project.name),
+            });
+        }
+        Ok(project)
+    }
+
+    /// One project, live or removed.
     pub fn project(&self, id: i64) -> Result<Project> {
         self.store
             .conn
@@ -286,12 +327,26 @@ impl Library {
 
 /// The project row an apply works on: registered or updated for an install or a switch, looked
 /// up (and required) for a removal or a restore.
-pub(super) fn project_for(conn: &Connection, plan: &Plan, now: i64) -> Result<i64> {
+pub(super) fn project_for(
+    conn: &Connection,
+    plan: &Plan,
+    now: i64,
+    only: Option<i64>,
+) -> Result<i64> {
+    if let Some(id) = only {
+        // A restore names its project: it may be a removed one.
+        return conn
+            .query_row("SELECT id FROM projects WHERE id = ?1", params![id], |r| {
+                r.get(0)
+            })
+            .optional()?
+            .ok_or(Error::ProjectNotFound { id });
+    }
     match plan.kind {
         PlanKind::Scaffold | PlanKind::Refit | PlanKind::Switch => upsert_project(conn, plan, now),
         PlanKind::Removal | PlanKind::Restore => conn
             .query_row(
-                "SELECT id FROM projects WHERE path = ?1",
+                "SELECT id FROM projects WHERE path = ?1 AND removed_at IS NULL",
                 params![plan.target],
                 |r| r.get(0),
             )
@@ -339,14 +394,14 @@ impl Library {
             .ok_or(Error::BackupNotFound { id: backup_id })
     }
 
-    /// The folders of a project's backup sets, oldest first.
-    pub(super) fn backup_folders_oldest_first(&self, project_id: i64) -> Result<Vec<String>> {
+    /// The folders of a project's backup sets, newest first.
+    pub(super) fn backup_folders_newest_first(&self, project_id: i64) -> Result<Vec<String>> {
         Ok(self
             .store
             .conn
             .prepare(
                 "SELECT folder FROM backups WHERE project_id = ?1
-                 ORDER BY created_at ASC, id ASC",
+                 ORDER BY created_at DESC, id DESC",
             )?
             .query_map(params![project_id], |r| r.get(0))?
             .collect::<std::result::Result<_, _>>()?)

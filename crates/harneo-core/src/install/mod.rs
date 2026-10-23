@@ -25,6 +25,8 @@ mod registry;
 mod registry_tests;
 mod removal;
 #[cfg(test)]
+mod removal_restore_tests;
+#[cfg(test)]
 mod removal_tests;
 mod render;
 #[cfg(test)]

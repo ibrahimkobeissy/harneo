@@ -28,17 +28,16 @@ fn removing_a_scaffold_deletes_every_file_and_unregisters_the_project() -> TestR
     assert!(removal.edited_in_project.is_empty());
     let done = f.library.apply(&removal)?;
     assert_eq!(done.deleted as usize, plan.writes.len());
-    assert_eq!(done.backup_id, None);
+    assert!(done.backup_id.is_some(), "the removal's own set is listed");
     assert_eq!(files_under(dir.path()), ["CLAUDE.local.md", "src/main.rs"]);
     assert!(
         !dir.path().join(".claude").exists(),
         "emptied folders go too"
     );
     assert!(f.library.projects()?.is_empty());
-    assert!(matches!(
-        f.library.project(report.project_id),
-        Err(Error::ProjectNotFound { .. })
-    ));
+    let removed = f.library.project(report.project_id)?;
+    assert!(removed.removed_at.is_some());
+    assert_eq!(removed.file_count, 0);
     // The files that were taken out are still on disk, in the backup folder of the removal.
     let folder = done.backup_folder.ok_or("backup folder")?;
     assert_eq!(
