@@ -10,6 +10,8 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import type { Collection } from "../../bindings/Collection";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
+import type { Audit } from "../../bindings/Audit";
+import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
 import { Modal } from "../../app/Modal";
@@ -19,7 +21,7 @@ import {
   libraryFind,
   libraryRemove,
 } from "../../lib/ipc";
-import { Button, announce } from "../../ui";
+import { Button, announce, TrustMeter } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
 import styles from "./Detail.module.css";
 import { formatDate } from "./ItemMeta";
@@ -135,6 +137,96 @@ function SourceSection({ detail }: { detail: ArtifactDetail }) {
           <span className={styles.mono}>{imported}</span>
         </Row>
       </dl>
+    </section>
+  );
+}
+
+const severities: { severity: AuditSeverity; title: string }[] = [
+  { severity: "critical", title: "Critical" },
+  { severity: "high", title: "High" },
+  { severity: "medium", title: "Medium" },
+  { severity: "low", title: "Low" },
+];
+
+const reachRows = [
+  { key: "files", label: "Files" },
+  { key: "network", label: "Network" },
+  { key: "shell", label: "Shell" },
+  { key: "env", label: "Env vars" },
+] as const;
+
+/** Score, tier, findings by severity and what the artifact can reach, from its stored audit. */
+function TrustSection({ audit }: { audit: Audit | null }) {
+  if (audit === null) {
+    return (
+      <section className={styles.sec} aria-labelledby="d-trust">
+        <h3 id="d-trust">Trust</h3>
+        <p className={styles.muted}>
+          Not audited yet. Run Re-run audit on the Security page.
+        </p>
+      </section>
+    );
+  }
+  const none = reachRows.every(({ key }) => audit.reach[key].length === 0);
+  return (
+    <section className={styles.sec} aria-labelledby="d-trust">
+      <h3 id="d-trust" className={styles.trustHead}>
+        Trust
+        <TrustMeter score={audit.score} tier={audit.tier} size="md" />
+      </h3>
+      {audit.findings.length === 0 ? (
+        <p className={styles.muted}>No findings.</p>
+      ) : (
+        severities.map(({ severity, title }) => {
+          const items = audit.findings.filter((f) => f.severity === severity);
+          if (items.length === 0) return null;
+          return (
+            <div key={severity}>
+              <h4 className={styles.sub}>
+                {title} ({items.length})
+              </h4>
+              <ul className={styles.diags}>
+                {items.map((f, i) => (
+                  <li
+                    key={`${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
+                    className={styles.finding}
+                    data-severity={severity}
+                  >
+                    <span>
+                      <span className={styles.mono}>{f.rule}</span>
+                      <span className={styles.msg}>{f.message}</span>
+                      <span className={`${styles.mono} ${styles.file}`}>
+                        {f.line === null ? f.file : `${f.file}:${f.line}`}
+                      </span>
+                    </span>
+                    {f.evidence && (
+                      <code className={styles.evidence}>{f.evidence}</code>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })
+      )}
+      <h4 className={styles.sub}>Reach</h4>
+      {none ? (
+        <p className={styles.muted}>Nothing beyond its own files.</p>
+      ) : (
+        <dl className={styles.kv}>
+          {reachRows.map(({ key, label }) => (
+            <Row key={key} label={label}>
+              {audit.reach[key].length === 0 ? (
+                <span className={styles.muted}>None</span>
+              ) : (
+                <span className={styles.mono}>
+                  {audit.reach[key].join(", ")}
+                </span>
+              )}
+            </Row>
+          ))}
+        </dl>
+      )}
     </section>
   );
 }
@@ -407,6 +499,7 @@ export function DetailPanel({
                 </p>
               </section>
               <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
+              <TrustSection audit={detail.audit} />
               <SourceSection detail={detail} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>

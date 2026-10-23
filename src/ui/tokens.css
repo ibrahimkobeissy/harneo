@@ -27,6 +27,11 @@
   --red: #b91c1c;
   --red-fill: #dc2626;
   --red-soft: #fee2e2;
+  /* tier colours (audit): orange sits between amber and red */
+  --orange: #c2410c;
+  --orange-fill: #ea580c;
+  --orange-soft: #ffedd5;
+  /* end tier colours */
   --chart: #bfdbfe;
   --chart-strong: #2563eb;
   --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
@@ -164,6 +169,11 @@
     --red: #f87171;
     --red-fill: #ef4444;
     --red-soft: #3a1416;
+    /* tier colours (audit): orange sits between amber and red */
+    --orange: #fdba74;
+    --orange-fill: #f97316;
+    --orange-soft: #431407;
+    /* end tier colours */
     --chart: #1e3a8a;
     --chart-strong: #60a5fa;
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -235,6 +245,11 @@
   --red: #f87171;
   --red-fill: #ef4444;
   --red-soft: #3a1416;
+  /* tier colours (audit): orange sits between amber and red */
+  --orange: #fdba74;
+  --orange-fill: #f97316;
+  --orange-soft: #431407;
+  /* end tier colours */
   --chart: #1e3a8a;
   --chart-strong: #60a5fa;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);

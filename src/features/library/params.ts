@@ -2,6 +2,7 @@ import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Filter } from "../../bindings/Filter";
 import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
+import type { Tier } from "../../bindings/Tier";
 import { kinds } from "./kinds";
 
 export type View = "cards" | "list";
@@ -16,6 +17,10 @@ export interface LibraryParams {
   types: ArtifactKind[];
   tags: string[];
   sources: string[];
+  /** Keep artifacts scored at least this; null is no limit. */
+  trustMin: number | null;
+  tiers: Tier[];
+  hasFindings: boolean;
   /** The artifact open in the detail panel. */
   open: string | null;
 }
@@ -27,7 +32,15 @@ export const sortKeys: readonly SortKey[] = [
   "kind",
   "source",
   "tagCount",
+  "trust",
   "importedAt",
+];
+
+export const tiers: readonly Tier[] = [
+  "trusted",
+  "review",
+  "risky",
+  "dangerous",
 ];
 
 export const sortLabels: Record<SortKey, string> = {
@@ -36,14 +49,15 @@ export const sortLabels: Record<SortKey, string> = {
   source: "Source",
   tagCount: "Tags",
   importedAt: "Imported",
-  // A manual collection's own order (collection screens, L12); not offered on the library.
   trust: "Trust",
+  // A manual collection's own order (collection screens, L12); not offered on the library.
   position: "Manual order",
 };
 
 /** The first click on a column sorts newest first for dates and A to Z otherwise. */
 export function defaultDescending(key: SortKey): boolean {
-  return key === "importedAt";
+  // Highest trust first, like the dates' newest first.
+  return key === "importedAt" || key === "trust";
 }
 
 /**
@@ -61,6 +75,7 @@ export function parseParams(
     fallback === "position" ? ["position", ...sortKeys] : sortKeys;
   const sort = accepted.find((k) => k === sortParam) ?? fallback;
   const dir = sp.get("dir");
+  const trust = Number.parseInt(sp.get("trust") ?? "", 10);
   const page = Number.parseInt(sp.get("page") ?? "1", 10);
   return {
     view: sp.get("view") === "list" ? "list" : "cards",
@@ -71,6 +86,11 @@ export function parseParams(
     types: sp.getAll("type").filter((t): t is ArtifactKind => t in kinds),
     tags: sp.getAll("tag"),
     sources: sp.getAll("source"),
+    trustMin: Number.isFinite(trust) && trust > 0 ? Math.min(100, trust) : null,
+    tiers: sp
+      .getAll("tier")
+      .filter((t): t is Tier => tiers.includes(t as Tier)),
+    hasFindings: sp.get("findings") === "1",
     open: sp.get("open") || null,
   };
 }
@@ -91,6 +111,10 @@ export function toSearchParams(
   p.types.forEach((t) => sp.append("type", t));
   p.tags.forEach((t) => sp.append("tag", t));
   p.sources.forEach((s) => sp.append("source", s));
+  if (p.trustMin !== null && p.trustMin > 0)
+    sp.set("trust", String(p.trustMin));
+  p.tiers.forEach((t) => sp.append("tier", t));
+  if (p.hasFindings) sp.set("findings", "1");
   if (p.open) sp.set("open", p.open);
   return sp;
 }
@@ -102,9 +126,9 @@ export function toFilter(p: LibraryParams): Filter {
     tags: p.tags,
     sources: p.sources,
     text: p.text.trim() === "" ? null : p.text,
-    trustMin: null,
-    tiers: [],
-    hasFindings: false,
+    trustMin: p.trustMin !== null && p.trustMin > 0 ? p.trustMin : null,
+    tiers: p.tiers,
+    hasFindings: p.hasFindings,
   };
 }
 
@@ -121,7 +145,9 @@ export function toQuery(p: LibraryParams): Query {
 
 export function hasFilters(p: LibraryParams): boolean {
   return (
-    p.types.length + p.tags.length + p.sources.length > 0 ||
+    p.types.length + p.tags.length + p.sources.length + p.tiers.length > 0 ||
+    p.trustMin !== null ||
+    p.hasFindings ||
     p.text.trim() !== ""
   );
 }

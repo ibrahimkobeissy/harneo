@@ -226,3 +226,49 @@
   justify-content: flex-end;
   gap: var(--space-sm);
 }
+
+.trustHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius);
+  border-left: 3px solid var(--t3);
+  background: var(--sunk);
+  min-width: 0;
+}
+.finding > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.finding[data-severity="critical"] {
+  border-left-color: var(--red-fill);
+  background: var(--red-soft);
+}
+.finding[data-severity="high"] {
+  border-left-color: var(--orange-fill);
+  background: var(--orange-soft);
+}
+.finding[data-severity="medium"] {
+  border-left-color: var(--amber-fill);
+  background: var(--amber-soft);
+}
+.evidence {
+  display: block;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--t1);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+  border: var(--hairline) solid var(--line);
+}

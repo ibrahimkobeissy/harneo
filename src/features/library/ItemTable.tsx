@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp } from "lucide-react";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { SortKey } from "../../bindings/SortKey";
+import { TrustMeter } from "../../ui";
 import { Findings, importedDate, sourceText, TagChips } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
@@ -87,6 +88,9 @@ export function ItemTable({
               <span className={styles.rowTags}>
                 <TagChips tags={item.tags} />
               </span>
+            </td>
+            <td>
+              <TrustMeter score={item.trustScore} tier={item.tier} />
             </td>
             <td className={styles.date}>{importedDate(item)}</td>
           </tr>

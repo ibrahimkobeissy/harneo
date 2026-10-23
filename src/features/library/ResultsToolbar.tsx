@@ -1,6 +1,6 @@
 import { ListFilter, X } from "lucide-react";
 import type { Facets } from "../../bindings/Facets";
-import { Button } from "../../ui";
+import { Button, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import type { FilterGroup } from "./FilterColumn";
@@ -19,6 +19,8 @@ export function ResultsToolbar({
   onRemove,
   onClearText,
   onClearAll,
+  onClearTrustMin,
+  onClearHasFindings,
   onSaveCollection,
 }: {
   params: LibraryParams;
@@ -29,6 +31,8 @@ export function ResultsToolbar({
   onRemove: (group: FilterGroup, value: string) => void;
   onClearText: () => void;
   onClearAll: () => void;
+  onClearTrustMin: () => void;
+  onClearHasFindings: () => void;
   onSaveCollection?: () => void;
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = [
@@ -54,6 +58,29 @@ export function ResultsToolbar({
         remove: () => onRemove("sources", id),
       };
     }),
+    ...(params.trustMin === null
+      ? []
+      : [
+          {
+            key: "trust",
+            label: `Trust ≥ ${params.trustMin}`,
+            remove: onClearTrustMin,
+          },
+        ]),
+    ...params.tiers.map((t) => ({
+      key: `tier:${t}`,
+      label: tierLabels[t],
+      remove: () => onRemove("tiers", t),
+    })),
+    ...(params.hasFindings
+      ? [
+          {
+            key: "findings",
+            label: "Has findings",
+            remove: onClearHasFindings,
+          },
+        ]
+      : []),
     ...(params.text.trim() === ""
       ? []
       : [

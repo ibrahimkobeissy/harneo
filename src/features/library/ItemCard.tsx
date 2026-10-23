@@ -1,4 +1,5 @@
 import type { LibraryItem } from "../../bindings/LibraryItem";
+import { TrustMeter } from "../../ui";
 import { CardCounts, Findings, sourceText, TagChips } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
@@ -42,8 +43,11 @@ export function ItemCard({
         <span className={styles.srcline} title={sourceText(item)}>
           {sourceText(item)}
         </span>
-        <CardCounts item={item} />
-        <Findings item={item} />
+        <TrustMeter score={item.trustScore} tier={item.tier} />
+        <span className={styles.tileMeta}>
+          <CardCounts item={item} />
+          <Findings item={item} />
+        </span>
       </span>
     </button>
   );

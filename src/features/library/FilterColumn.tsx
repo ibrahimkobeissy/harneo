@@ -1,13 +1,14 @@
 import { Check, PanelLeftClose } from "lucide-react";
 import type { ReactNode } from "react";
 import type { Facets } from "../../bindings/Facets";
+import { tierLabels } from "../../ui";
 import { FilterResizer } from "./FilterResizer";
 import { KindChip } from "./KindChip";
 import { kinds, tagTint } from "./kinds";
 import styles from "./Library.module.css";
 import type { LibraryParams } from "./params";
 
-export type FilterGroup = "types" | "tags" | "sources";
+export type FilterGroup = "types" | "tags" | "sources" | "tiers";
 
 function Option({
   on,
@@ -18,7 +19,7 @@ function Option({
 }: {
   on: boolean;
   label: string;
-  count: number;
+  count?: number;
   lead?: ReactNode;
   onToggle: () => void;
 }) {
@@ -34,7 +35,7 @@ function Option({
       </i>
       {lead}
       <span className={styles.flabel}>{label}</span>
-      <span className={styles.fcount}>{count}</span>
+      {count !== undefined && <span className={styles.fcount}>{count}</span>}
     </button>
   );
 }
@@ -70,12 +71,19 @@ export function FilterColumn({
   params,
   onToggle,
   onClearGroup,
+  onTrustMin,
+  onHasFindings,
+  onClearTrust,
   dock,
 }: {
   facets: Facets;
   params: LibraryParams;
   onToggle: (group: FilterGroup, value: string) => void;
   onClearGroup: (group: FilterGroup) => void;
+  onTrustMin: (value: number | null) => void;
+  onHasFindings: (on: boolean) => void;
+  /** Resets the minimum score, the tiers and Has findings together. */
+  onClearTrust: () => void;
   /** Set when the column sits inline beside the screen: it can then collapse and resize. */
   dock?: {
     collapsed: boolean;
@@ -159,6 +167,51 @@ export function FilterColumn({
             onToggle={() => onToggle("sources", source.id)}
           />
         ))}
+        <GroupHead
+          title="Trust"
+          active={
+            params.trustMin !== null ||
+            params.tiers.length > 0 ||
+            params.hasFindings
+          }
+          onClear={onClearTrust}
+        />
+        <label className={styles.trustLabel} htmlFor="trust-min">
+          Trust ≥
+          <span className={styles.trustValue}>{params.trustMin ?? 0}</span>
+        </label>
+        <input
+          id="trust-min"
+          type="range"
+          className={styles.trustRange}
+          min={0}
+          max={100}
+          step={5}
+          value={params.trustMin ?? 0}
+          aria-label="Minimum trust score"
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            onTrustMin(n > 0 ? n : null);
+          }}
+        />
+        {facets.tiers.length === 0 && (
+          <span className={styles.muted}>Nothing audited yet</span>
+        )}
+        {facets.tiers.map(({ tier, count }) => (
+          <Option
+            key={tier}
+            on={params.tiers.includes(tier)}
+            label={tierLabels[tier]}
+            count={count}
+            lead={<i className={styles.tierDot} data-tier={tier} />}
+            onToggle={() => onToggle("tiers", tier)}
+          />
+        ))}
+        <Option
+          on={params.hasFindings}
+          label="Has findings"
+          onToggle={() => onHasFindings(!params.hasFindings)}
+        />
       </div>
       {dock && (
         <FilterResizer

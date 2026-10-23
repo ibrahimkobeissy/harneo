@@ -33,6 +33,8 @@ function setup(query: string) {
       onRemove={onRemove}
       onClearText={vi.fn()}
       onClearAll={vi.fn()}
+      onClearTrustMin={vi.fn()}
+      onClearHasFindings={vi.fn()}
     />,
   );
   return onRemove;

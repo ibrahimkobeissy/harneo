@@ -246,7 +246,15 @@ export function LibraryScreen({
   }
 
   function clearAll() {
-    update({ types: [], tags: [], sources: [], text: "" });
+    update({
+      types: [],
+      tags: [],
+      sources: [],
+      text: "",
+      trustMin: null,
+      tiers: [],
+      hasFindings: false,
+    });
   }
 
   function sortBy(key: SortKey) {
@@ -270,6 +278,11 @@ export function LibraryScreen({
         onClearGroup={(group) =>
           update({ [group]: [] } as Partial<LibraryParams>)
         }
+        onTrustMin={(trustMin) => update({ trustMin }, { replace: true })}
+        onHasFindings={(hasFindings) => update({ hasFindings })}
+        onClearTrust={() =>
+          update({ trustMin: null, tiers: [], hasFindings: false })
+        }
         dock={
           docked
             ? {
@@ -284,7 +297,12 @@ export function LibraryScreen({
       />
     );
   const activeFilters =
-    params.types.length + params.tags.length + params.sources.length;
+    params.types.length +
+    params.tags.length +
+    params.sources.length +
+    params.tiers.length +
+    (params.trustMin !== null ? 1 : 0) +
+    (params.hasFindings ? 1 : 0);
 
   const toolbar = (
     <>
@@ -326,6 +344,8 @@ export function LibraryScreen({
             onRemove={toggle}
             onClearText={() => update({ text: "" })}
             onClearAll={clearAll}
+            onClearTrustMin={() => update({ trustMin: null })}
+            onClearHasFindings={() => update({ hasFindings: false })}
             onSaveCollection={
               collection ? undefined : () => openNew({ rule: toFilter(params) })
             }

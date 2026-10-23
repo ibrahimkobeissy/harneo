@@ -9,3 +9,4 @@ export { Panel } from "./Panel";
 export { Screen } from "./Screen";
 export { Tag, type TagTint } from "./Tag";
 export { decodeBool, usePersisted } from "./usePersisted";
+export { TrustMeter, tierLabels } from "./TrustMeter";
