@@ -34,7 +34,6 @@ mod switch_tests;
 pub use apply::ApplyReport;
 pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub use plan::{Plan, PlanKind, Write, WriteAction};
-pub use plan::{Plan, Write, WriteAction};
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
 pub use render::{Rendered, RenderedFile};

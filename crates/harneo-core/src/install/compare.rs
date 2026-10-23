@@ -13,7 +13,7 @@ use serde_json::Value;
 use ts_rs::TS;
 
 use super::plan::{check_plan, digest, resolve_inside, safe_parts, utc_date};
-use super::{Plan, Write, WriteAction};
+use super::{Plan, PlanKind, Write, WriteAction};
 use crate::artifact::{AgentAdapter, ArtifactKind, ClaudeAdapter, Origin, ScanOptions};
 use crate::error::{Error, Result};
 use crate::library::{ArtifactId, Library};
@@ -384,6 +384,9 @@ impl Library {
             profile_version: comparison.profile_version,
             writes,
             backup_count: u32::try_from(backup_count).unwrap_or(u32::MAX),
+            kind: PlanKind::Refit,
+            edited_in_project: Vec::new(),
+            restored: Vec::new(),
         };
         check_plan(&plan)?;
         Ok(plan)

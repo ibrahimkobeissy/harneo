@@ -8,9 +8,8 @@ use harneo_core::artifact::{ArtifactKind, ScanOptions};
 use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
 };
-use harneo_core::install::{ApplyReport, Backup, InstalledFile, Plan, Project, ProjectFile};
 use harneo_core::install::{
-    ApplyReport, Comparison, InstalledFile, Plan, Project, ProjectFile, RefitAction,
+    ApplyReport, Backup, Comparison, InstalledFile, Plan, Project, ProjectFile, RefitAction,
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
