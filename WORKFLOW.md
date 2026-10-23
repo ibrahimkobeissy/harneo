@@ -39,3 +39,4 @@ How Harneo is built with Addy Osmani's agent-skills and Impeccable: one line per
 35. `ticket-flow` batch merge (user's request): #106, #110, #114, #119, #120, #121, #128, #129, #130, #132 stacked on a local copy of main and merged with one `check:full` (Rust 93.03%, TS 96.74%); #100 closed with its fixes
 36. `/impeccable critique` of the scaffold, refit, projects and drift screens (#111): 27/40, fixes #133–#135 merged in one batch
 37. `/impeccable critique` of the usage, cleanup and Settings screens (#117): 27/40 (single-context, degraded), fixes pre-approved by the user → `.impeccable/critique/2026-10-23T20-23-26Z__src-features-usage-cleanup-settings.md`, issues #136–#138
+38. `ticket-flow` final batches (#133–#138): the critique fixes for install/drift and usage/cleanup/Settings merged → bundles, updates, profiles, install-engine, drift, usage and cli built, awaiting the user's review with artifact-model, library and audit

@@ -8,13 +8,13 @@ Approved 2026-10-18. This is the index of Harneo's modules and their specs. The 
 | `artifact-model` | The 10 artifact types (`CONTEXT.md` §2): find them in a folder, parse them, check them; a Claude adapter behind an agent-neutral interface | — | [`artifact-model.md`](artifact-model.md) (approved 2026-10-21; built, user checkpoint joined with `library`) |
 | `library` | Harneo's own store; import from a local folder or git URL with provenance (URL, branch, subfolder, commit); browse by type and source; tags and collections; promote to library | `app-shell`, `artifact-model` | [`library.md`](library.md) (approved 2026-10-22) |
 | `audit` | Trust score, security findings, permission transparency | `artifact-model` | [`audit.md`](audit.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
-| `bundles` | AI dependency detection through the `claude` CLI, plus tag suggestions in the same pass; user confirms or edits | `library` | [`bundles.md`](bundles.md) (pre-approved 2026-10-23) |
-| `profiles` | Create and clone profiles, Settings template, MCP servers (as `${VAR}`), invocation mode, export/import | `library`, `bundles` | [`profiles.md`](profiles.md) (pre-approved 2026-10-23) |
-| `install-engine` | Scaffold and refit: dry-run preview/diff, keep/replace/delete, backups, whole-file writes, `HARNESS.md`, project registry, switch profile, clean removal | `profiles` | [`install-engine.md`](install-engine.md) (pre-approved 2026-10-23) |
-| `updates` | Outdated flag, update the library copy while protecting local edits | `library` | [`updates.md`](updates.md) (pre-approved 2026-10-23) |
-| `drift` | Live rescan, drift check, re-apply or promote | `install-engine` | [`drift.md`](drift.md) (pre-approved 2026-10-23) |
-| `usage` | Usage stats from Claude's session logs, activity graph, cleanup suggestions | `library`, `install-engine` | [`usage.md`](usage.md) (pre-approved 2026-10-23) |
-| `cli` | `harneo scaffold`, `harneo status`, `harneo update` | `install-engine`, `updates` | [`cli.md`](cli.md) (pre-approved 2026-10-23) |
+| `bundles` | AI dependency detection through the `claude` CLI, plus tag suggestions in the same pass; user confirms or edits | `library` | [`bundles.md`](bundles.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `profiles` | Create and clone profiles, Settings template, MCP servers (as `${VAR}`), invocation mode, export/import | `library`, `bundles` | [`profiles.md`](profiles.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `install-engine` | Scaffold and refit: dry-run preview/diff, keep/replace/delete, backups, whole-file writes, `HARNESS.md`, project registry, switch profile, clean removal | `profiles` | [`install-engine.md`](install-engine.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `updates` | Outdated flag, update the library copy while protecting local edits | `library` | [`updates.md`](updates.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `drift` | Live rescan, drift check, re-apply or promote | `install-engine` | [`drift.md`](drift.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `usage` | Usage stats from Claude's session logs, activity graph, cleanup suggestions | `library`, `install-engine` | [`usage.md`](usage.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `cli` | `harneo scaffold`, `harneo status`, `harneo update` | `install-engine`, `updates` | [`cli.md`](cli.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
 
 **Build order:** `app-shell`, `artifact-model` → `library` → `audit`, `bundles` → `profiles` → `install-engine` → `updates`, `drift`, `usage` → `cli`
 
