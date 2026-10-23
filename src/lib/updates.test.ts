@@ -1,14 +1,21 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { describe, expect, it } from "vitest";
-import { autoCheckIfDue } from "./updates";
+import {
+  CHECKED_EVENT,
+  autoCheckIfDue,
+  readAutoCheck,
+  readLastCheck,
+  runCheck,
+} from "./updates";
 
-function setup(settings: Record<string, unknown>) {
+function mock(settings: Record<string, unknown>) {
   const calls: string[] = [];
   mockIPC((cmd, args) => {
-    const { key, value } = (args ?? {}) as { key?: string; value?: unknown };
-    if (cmd === "settings_get") return settings[String(key)] ?? null;
+    const a = (args ?? {}) as { value?: unknown } & Record<string, unknown>;
+    const name = String(a["key"]);
+    if (cmd === "settings_get") return settings[name] ?? null;
     if (cmd === "settings_set") {
-      settings[String(key)] = value;
+      settings[name] = a.value;
       return undefined;
     }
     if (cmd === "updates_check") {
@@ -20,32 +27,48 @@ function setup(settings: Record<string, unknown>) {
   return calls;
 }
 
-const now = new Date("2026-10-23T12:00:00Z");
+describe("update checks", () => {
+  it("reads the last check, ignoring values that are not dates", async () => {
+    mock({ "updates.lastCheck": "garbage" });
+    expect(await readLastCheck()).toBeNull();
+    mock({ "updates.lastCheck": "2026-10-01T00:00:00.000Z" });
+    expect((await readLastCheck())?.toISOString()).toBe(
+      "2026-10-01T00:00:00.000Z",
+    );
+    mock({});
+    expect(await readLastCheck()).toBeNull();
+  });
 
-describe("automatic update check", () => {
-  it("runs when there was no check yet, and records the time", async () => {
+  it("is on unless the setting is false", async () => {
+    mock({});
+    expect(await readAutoCheck()).toBe(true);
+    mock({ "updates.autoCheck": false });
+    expect(await readAutoCheck()).toBe(false);
+  });
+
+  it("runs a check, stores the time and fires the event", async () => {
     const settings: Record<string, unknown> = {};
-    const calls = setup(settings);
-    expect(await autoCheckIfDue(now)).toBe(true);
-    expect(calls).toEqual(["check"]);
+    mock(settings);
+    let seen = 0;
+    const on = () => seen++;
+    window.addEventListener(CHECKED_EVENT, on);
+    await runCheck();
+    window.removeEventListener(CHECKED_EVENT, on);
+    expect(seen).toBe(1);
     expect(typeof settings["updates.lastCheck"]).toBe("string");
   });
 
-  it("runs when the last check is older than 24 hours", async () => {
-    const calls = setup({ "updates.lastCheck": "2026-10-22T11:00:00Z" });
+  it("skips when switched off or checked within a day, and runs otherwise", async () => {
+    const now = new Date("2026-10-23T12:00:00.000Z");
+    mock({ "updates.autoCheck": false });
+    expect(await autoCheckIfDue(now)).toBe(false);
+    let calls = mock({ "updates.lastCheck": "2026-10-23T00:00:00.000Z" });
+    expect(await autoCheckIfDue(now)).toBe(false);
+    expect(calls).toEqual([]);
+    calls = mock({ "updates.lastCheck": "2026-10-20T00:00:00.000Z" });
     expect(await autoCheckIfDue(now)).toBe(true);
     expect(calls).toEqual(["check"]);
-  });
-
-  it("waits when the last check is recent", async () => {
-    const calls = setup({ "updates.lastCheck": "2026-10-23T01:00:00Z" });
-    expect(await autoCheckIfDue(now)).toBe(false);
-    expect(calls).toEqual([]);
-  });
-
-  it("does nothing when the setting is off", async () => {
-    const calls = setup({ "updates.autoCheck": false });
-    expect(await autoCheckIfDue(now)).toBe(false);
-    expect(calls).toEqual([]);
+    mock({});
+    expect(await autoCheckIfDue(now)).toBe(true);
   });
 });
