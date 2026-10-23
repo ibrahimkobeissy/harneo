@@ -6,9 +6,16 @@ interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   children?: ReactNode;
+  /** A button under the text: the way out of the state. */
+  action?: ReactNode;
 }
 
-export function EmptyState({ icon: Icon, title, children }: EmptyStateProps) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  children,
+  action,
+}: EmptyStateProps) {
   return (
     <div className={styles.empty}>
       <span className={styles.ico}>
@@ -16,6 +23,7 @@ export function EmptyState({ icon: Icon, title, children }: EmptyStateProps) {
       </span>
       <h2 className={styles.title}>{title}</h2>
       {children && <p className={styles.text}>{children}</p>}
+      {action}
     </div>
   );
 }

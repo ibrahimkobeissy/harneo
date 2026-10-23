@@ -60,6 +60,7 @@ pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
 pub(crate) use copy::{rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
+pub(crate) use query::source_label;
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
     StatusCount, TagChip, TagCount, TierCount, MAX_LIMIT,

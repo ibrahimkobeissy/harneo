@@ -10,6 +10,8 @@ export function Dialog({
   submit,
   busy,
   canSubmit = true,
+  danger = false,
+  cancel = "Cancel",
   onSubmit,
   onClose,
   children,
@@ -19,9 +21,13 @@ export function Dialog({
   submit: string;
   busy: boolean;
   canSubmit?: boolean;
+  /** A destructive confirm: the submit button is red. */
+  danger?: boolean;
+  /** The dismiss button's label ("Stay" for the leave guard). */
+  cancel?: string;
   onSubmit: () => void;
   onClose: () => void;
-  children: ReactNode;
+  children?: ReactNode;
 }) {
   // The Modal leaves Esc to its owner.
   useEffect(() => {
@@ -43,10 +49,14 @@ export function Dialog({
           <h2>{title}</h2>
           {sub && <p>{sub}</p>}
         </div>
-        <div className={styles.dbody}>{children}</div>
+        {children && <div className={styles.dbody}>{children}</div>}
         <div className={styles.dfoot}>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" disabled={busy || !canSubmit}>
+          <Button onClick={onClose}>{cancel}</Button>
+          <Button
+            variant={danger ? "danger-solid" : "primary"}
+            type="submit"
+            disabled={busy || !canSubmit}
+          >
             {submit}
           </Button>
         </div>

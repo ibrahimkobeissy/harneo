@@ -26,7 +26,8 @@ export function RemoveDialog({
     return (
       <Dialog
         title={`${name} is part of a bundle`}
-        submit={`Remove ${name} and ${parents.join(", ")}`}
+        submit={`Remove bundle (${parents.length + 1})`}
+        danger
         busy={false}
         onSubmit={() => onConfirm([ask.id, ...ask.parents])}
         onClose={onClose}
@@ -34,7 +35,7 @@ export function RemoveDialog({
         <p className={styles.dialogText}>
           <b>{parents.join(", ")}</b> {parents.length === 1 ? "needs" : "need"}{" "}
           it. Removing only {name} would ship a half-wired profile, so the whole
-          bundle goes.
+          bundle goes: {name}, {parents.join(", ")}.
         </p>
       </Dialog>
     );
@@ -43,7 +44,10 @@ export function RemoveDialog({
   return (
     <Dialog
       title={`Remove ${name}`}
-      submit={`Remove ${alsoMembers ? `${name} and its members` : name}`}
+      submit={
+        alsoMembers ? `Remove bundle (${members.length + 1})` : `Remove ${name}`
+      }
+      danger
       busy={false}
       onSubmit={() =>
         onConfirm(alsoMembers ? [ask.id, ...ask.members] : [ask.id])

@@ -395,7 +395,7 @@ describe("Builder: picker and cart", () => {
       screen.getByRole("button", { name: "Remove reviewer from the profile" }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "Remove reviewer and review" }),
+      await screen.findByRole("button", { name: "Remove bundle (2)" }),
     );
     await waitFor(() =>
       expect(within(cart()).queryByText("pulled in by review")).toBeNull(),
@@ -433,7 +433,7 @@ describe("Builder: picker and cart", () => {
     );
     await user.click(
       await screen.findByRole("button", {
-        name: "Remove review and its members",
+        name: "Remove bundle (2)",
       }),
     );
     await within(cart()).findByText(/Nothing yet/);
@@ -783,9 +783,9 @@ describe("Builder: leaving with unsaved changes", () => {
     await user.click(await screen.findByRole("button", { name: "Add tdd" }));
     await user.click(screen.getByRole("link", { name: "Go elsewhere" }));
     const dialog = await screen.findByRole("dialog", {
-      name: "Leave without saving?",
+      name: "Leave this profile?",
     });
-    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await user.click(within(dialog).getByRole("button", { name: "Stay" }));
     expect(screen.getByTestId("where")).toHaveTextContent("/profiles/4");
     await user.click(screen.getByRole("link", { name: "Go elsewhere" }));
     await user.click(await screen.findByRole("button", { name: "Leave" }));

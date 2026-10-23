@@ -34,14 +34,13 @@ function Blocking({
   if (blocker.state !== "blocked") return null;
   return (
     <Dialog
-      title="Leave without saving?"
-      sub="Your changes stay as a draft in this profile until you save or discard them."
+      title="Leave this profile?"
+      sub="Your edits stay as an unsaved draft. Open the profile again to keep going."
       submit="Leave"
+      cancel="Stay"
       busy={false}
       onSubmit={() => blocker.proceed()}
       onClose={() => blocker.reset()}
-    >
-      <p>Stay to save them first.</p>
-    </Dialog>
+    />
   );
 }

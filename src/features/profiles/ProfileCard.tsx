@@ -1,17 +1,106 @@
-import { Copy, FileDown, FolderGit2, Layers } from "lucide-react";
+import {
+  Copy,
+  FileDown,
+  FolderGit2,
+  Layers,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import { Button, kinds } from "../../ui";
 import styles from "./Profiles.module.css";
 
+/** The card's "…" menu: Rename and Delete. Esc and a click outside close it. */
+function CardMenu({
+  profile,
+  onRename,
+  onDelete,
+}: {
+  profile: ProfileSummary;
+  onRename: (profile: ProfileSummary) => void;
+  onDelete: (profile: ProfileSummary) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrap = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function onDown(ev: MouseEvent) {
+      if (wrap.current && !wrap.current.contains(ev.target as Node))
+        setOpen(false);
+    }
+    function onKeyDown(ev: KeyboardEvent) {
+      if (ev.key !== "Escape") return;
+      // Captured so a dialog or screen behind does not also close on this Esc.
+      ev.preventDefault();
+      ev.stopPropagation();
+      setOpen(false);
+      wrap.current?.querySelector<HTMLElement>("button")?.focus();
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [open]);
+  function pick(action: (profile: ProfileSummary) => void) {
+    setOpen(false);
+    action(profile);
+  }
+  return (
+    <div className={styles.menuAnchor} ref={wrap}>
+      <Button
+        variant="ghost"
+        small
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`More actions for ${profile.name}`}
+        title="More"
+        onClick={() => setOpen(!open)}
+      >
+        <MoreHorizontal size={14} aria-hidden="true" />
+      </Button>
+      {open && (
+        <div className={styles.menu} role="menu" aria-label={profile.name}>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.menuItem}
+            onClick={() => pick(onRename)}
+          >
+            <Pencil size={14} aria-hidden="true" />
+            Rename
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={`${styles.menuItem} ${styles.menuDanger}`}
+            onClick={() => pick(onDelete)}
+          >
+            <Trash2 size={14} aria-hidden="true" />
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProfileCard({
   profile,
   onClone,
   onExport,
+  onRename,
+  onDelete,
 }: {
   profile: ProfileSummary;
   onClone: (profile: ProfileSummary) => void;
   onExport: (profile: ProfileSummary) => void;
+  onRename: (profile: ProfileSummary) => void;
+  onDelete: (profile: ProfileSummary) => void;
 }) {
   const used = profile.projectCount;
   return (
@@ -45,11 +134,13 @@ export function ProfileCard({
       </ul>
       <div className={styles.foot}>
         <FolderGit2 size={14} aria-hidden="true" />
-        <span>
-          {used > 0
-            ? `Used in ${used} ${used === 1 ? "project" : "projects"}`
-            : "Not used yet"}
-        </span>
+        {used > 0 ? (
+          <Link to="/projects" className={styles.used}>
+            Used in {used} {used === 1 ? "project" : "projects"}
+          </Link>
+        ) : (
+          <span>Not used yet</span>
+        )}
         <Button
           variant="ghost"
           small
@@ -70,6 +161,7 @@ export function ProfileCard({
           <FileDown size={13} aria-hidden="true" />
           Export
         </Button>
+        <CardMenu profile={profile} onRename={onRename} onDelete={onDelete} />
       </div>
     </li>
   );

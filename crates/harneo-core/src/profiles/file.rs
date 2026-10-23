@@ -120,6 +120,10 @@ pub struct ImportArtifact {
     pub name: String,
     /// Already here, by id or by content digest; importing leaves it alone.
     pub in_library: bool,
+    /// Where the file says it came from: `owner/repo` or a folder name.
+    pub source: String,
+    /// How many files the artifact carries.
+    pub file_count: u32,
 }
 
 /// What importing a file would do.
@@ -436,6 +440,11 @@ impl Library {
                     kind: a.artifact.kind,
                     name: a.artifact.name.clone(),
                     in_library: local.contains_key(&a.id),
+                    source: crate::library::source_label(
+                        &a.provenance.source.kind,
+                        &a.provenance.source.location,
+                    ),
+                    file_count: u32::try_from(a.files.len()).unwrap_or(u32::MAX),
                 })
                 .collect(),
             profile: ImportedProfile {

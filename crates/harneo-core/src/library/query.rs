@@ -412,7 +412,7 @@ fn count(n: i64) -> u32 {
 }
 
 /// `owner/repo` for a git URL, the basename for a local folder.
-fn source_label(kind: &str, location: &str) -> String {
+pub(crate) fn source_label(kind: &str, location: &str) -> String {
     if kind == "local" {
         return location
             .trim_end_matches('/')

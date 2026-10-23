@@ -3,13 +3,21 @@
   margin: 0 0 var(--space-lg);
   color: var(--t2);
 }
+/* A toast: it floats, so an export result never shifts the grid. */
 .notice {
+  position: fixed;
+  inset-block-end: var(--space-xl);
+  inset-inline: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 2 * var(--space-xl)));
+  margin-inline: auto;
+  box-shadow: var(--shadow-md);
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  margin: 0 0 var(--space-lg);
   padding: var(--space-sm) var(--space-md);
-  border: var(--hairline) solid var(--line);
+  border: var(--hairline) solid var(--line2);
   border-radius: var(--radius);
   background: var(--green-soft);
   color: var(--green);
@@ -28,6 +36,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-md);
+  align-items: start;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -132,8 +141,84 @@
   color: var(--t3);
   font-size: var(--text-label);
 }
-.foot span {
+.foot > span,
+.foot > .used {
   flex: 1;
+}
+.used {
+  color: var(--t2);
+  text-decoration: none;
+}
+.used:hover {
+  color: var(--blue);
+  text-decoration: underline;
+}
+.used:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--blue-ring);
+  border-radius: var(--radius-xs);
+}
+.menuAnchor {
+  position: relative;
+}
+.menu {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-xs));
+  inset-inline-end: 0;
+  z-index: 30;
+  min-width: 150px;
+  padding: var(--space-xs);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  box-shadow: var(--shadow-md);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover {
+  background: var(--sunk);
+}
+.menuItem:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: calc(-1 * var(--hairline-strong));
+}
+.menuDanger {
+  color: var(--red);
+}
+.skel {
+  height: 148px;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    90deg,
+    var(--sunk) 0%,
+    var(--raised) 50%,
+    var(--sunk) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel {
+    animation: none;
+  }
 }
 .dlg {
   display: flex;
@@ -238,4 +323,23 @@
   border: var(--hairline) dashed var(--line2);
   border-radius: var(--radius);
   color: var(--t2);
+}
+.fname {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.files .prov {
+  margin-left: auto;
+  color: var(--t3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label-quiet);
+  white-space: nowrap;
+}
+.files li:has(.prov) .kind {
+  margin-left: 0;
+}
+.calloutWrap > div {
+  margin-bottom: 0;
 }

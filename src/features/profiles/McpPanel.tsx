@@ -1,5 +1,6 @@
 import { ShieldAlert, X } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import { Link } from "react-router";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import { libraryDetail, libraryList } from "../../lib/ipc";
 import { Button, kinds, Panel } from "../../ui";
@@ -93,7 +94,14 @@ export function McpPanel({
           {failed}
         </p>
       )}
-      {spec.mcp.length === 0 && <p className={styles.quiet}>No servers.</p>}
+      {spec.mcp.length === 0 && (
+        <p className={styles.quiet}>
+          No servers.{" "}
+          <Link to="/library?type=mcp" className={styles.link}>
+            Find one in the Library
+          </Link>
+        </p>
+      )}
       {spec.mcp.map((m) => (
         <div key={m.artifact} className={styles.server}>
           <div className={styles.serverHead}>

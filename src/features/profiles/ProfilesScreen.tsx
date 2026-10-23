@@ -1,4 +1,4 @@
-import { FileUp, Layers, Plus, TriangleAlert } from "lucide-react";
+import { FileUp, Layers, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
@@ -13,6 +13,7 @@ import {
 import { Button, EmptyState, Kbd, Screen } from "../../ui";
 import { CloneDialog } from "./CloneDialog";
 import { ImportDialog } from "./ImportDialog";
+import { DeleteDialog, RenameDialog } from "./ProfileDialogs";
 import { ProfileCard } from "./ProfileCard";
 import styles from "./Profiles.module.css";
 
@@ -20,6 +21,8 @@ type Load =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; profiles: ProfileSummary[] };
+
+const NOTICE_MS = 6000;
 
 interface Notice {
   text: string;
@@ -40,6 +43,8 @@ export function ProfilesScreen() {
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [cloning, setCloning] = useState<ProfileSummary | null>(null);
+  const [renaming, setRenaming] = useState<ProfileSummary | null>(null);
+  const [deleting, setDeleting] = useState<ProfileSummary | null>(null);
   const [importing, setImporting] = useState<{
     path: string;
     preview: ProfileImportPreview;
@@ -70,13 +75,20 @@ export function ProfilesScreen() {
       ) {
         return;
       }
-      if (cloning || importing) return;
+      if (cloning || importing || renaming || deleting) return;
       event.preventDefault();
       newProfile();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [cloning, importing, newProfile]);
+  }, [cloning, importing, renaming, deleting, newProfile]);
+
+  // A good result is a toast: it goes by itself. A failure stays until dismissed.
+  useEffect(() => {
+    if (!notice || notice.bad) return;
+    const timer = setTimeout(() => setNotice(null), NOTICE_MS);
+    return () => clearTimeout(timer);
+  }, [notice]);
 
   function say(text: string, bad = false) {
     setNotice({ text, bad });
@@ -137,13 +149,47 @@ export function ProfilesScreen() {
           </Button>
         </div>
       )}
+      {load.status === "loading" && (
+        <ul
+          className={styles.grid}
+          aria-busy="true"
+          aria-label="Loading profiles"
+        >
+          {[0, 1, 2].map((n) => (
+            <li key={n} className={styles.skel} />
+          ))}
+        </ul>
+      )}
       {load.status === "error" && (
-        <EmptyState icon={TriangleAlert} title="Profiles did not load">
+        <EmptyState
+          icon={TriangleAlert}
+          title="Profiles did not load"
+          action={
+            <Button
+              onClick={() => {
+                setLoad({ status: "loading" });
+                reload();
+              }}
+            >
+              <RefreshCw size={14} aria-hidden="true" />
+              Retry
+            </Button>
+          }
+        >
           {load.message}
         </EmptyState>
       )}
       {load.status === "ready" && profiles.length === 0 && (
-        <EmptyState icon={Layers} title="No profiles yet">
+        <EmptyState
+          icon={Layers}
+          title="No profiles yet"
+          action={
+            <Button variant="primary" onClick={newProfile}>
+              <Plus size={14} aria-hidden="true" />
+              New profile
+            </Button>
+          }
+        >
           Pick artifacts from your library into a profile, then scaffold or
           refit projects with it.
         </EmptyState>
@@ -156,12 +202,36 @@ export function ProfilesScreen() {
               profile={p}
               onClone={setCloning}
               onExport={(profile) => void exportProfile(profile)}
+              onRename={setRenaming}
+              onDelete={setDeleting}
             />
           ))}
         </ul>
       )}
       {cloning && (
         <CloneDialog profile={cloning} onClose={() => setCloning(null)} />
+      )}
+      {renaming && (
+        <RenameDialog
+          profile={renaming}
+          onClose={() => setRenaming(null)}
+          onDone={(name) => {
+            setRenaming(null);
+            say(`Renamed ${renaming.name} to ${name}.`);
+            reload();
+          }}
+        />
+      )}
+      {deleting && (
+        <DeleteDialog
+          profile={deleting}
+          onClose={() => setDeleting(null)}
+          onDone={() => {
+            setDeleting(null);
+            say(`Deleted ${deleting.name}.`);
+            reload();
+          }}
+        />
       )}
       {importing && (
         <ImportDialog

@@ -33,8 +33,22 @@ const preview: ProfileImportPreview = {
     spec: { items: [], settings: null, mcp: [], manualOnly: {} },
   },
   artifacts: [
-    { id: "a", kind: "skill", name: "tdd", inLibrary: true },
-    { id: "b", kind: "agent", name: "code-reviewer", inLibrary: false },
+    {
+      id: "a",
+      kind: "skill",
+      name: "tdd",
+      inLibrary: true,
+      source: "addyosmani/agent-skills",
+      fileCount: 2,
+    },
+    {
+      id: "b",
+      kind: "agent",
+      name: "code-reviewer",
+      inLibrary: false,
+      source: "team/harness",
+      fileCount: 1,
+    },
   ],
   nameClash: false,
 };
@@ -155,7 +169,7 @@ describe("Profiles list", () => {
     const user = userEvent.setup();
     setup();
     await screen.findByText("No profiles yet");
-    await user.click(screen.getByRole("button", { name: /New profile/ }));
+    await user.click(screen.getByRole("button", { name: "New profile N" }));
     expect(screen.getByTestId("where")).toHaveTextContent("/profiles/new");
   });
 
@@ -261,7 +275,9 @@ describe("Profiles list", () => {
     expect(within(dialog).getByText("tdd")).toBeVisible();
     expect(within(dialog).getByText("code-reviewer")).toBeVisible();
     await user.click(
-      within(dialog).getByRole("button", { name: "Import profile" }),
+      within(dialog).getByRole("button", {
+        name: "Import profile and 1 artifact",
+      }),
     );
     expect(await screen.findByText(/Imported Team default/)).toBeVisible();
     expect(calls.find((c) => c.cmd === "profile_import_commit")?.args).toEqual({
@@ -285,7 +301,9 @@ describe("Profiles list", () => {
       "Team default (imported)",
     );
     await user.click(
-      within(dialog).getByRole("button", { name: "Import profile" }),
+      within(dialog).getByRole("button", {
+        name: "Import profile and 1 artifact",
+      }),
     );
     await screen.findByText(/Imported Team default/);
     expect(calls.find((c) => c.cmd === "profile_import_commit")?.args).toEqual({

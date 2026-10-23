@@ -116,7 +116,10 @@ export function SettingsPanel({
       </div>
       {templates && templates.length === 0 && (
         <p className={styles.quiet}>
-          No Settings templates in the library yet.
+          No Settings templates in the library yet.{" "}
+          <Link to="/import" className={styles.link}>
+            Import one
+          </Link>
         </p>
       )}
       {viewing?.detail && (

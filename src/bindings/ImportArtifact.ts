@@ -8,4 +8,12 @@ export type ImportArtifact = { id: string, kind: ArtifactKind, name: string,
 /**
  * Already here, by id or by content digest; importing leaves it alone.
  */
-inLibrary: boolean, };
+inLibrary: boolean, 
+/**
+ * Where the file says it came from: `owner/repo` or a folder name.
+ */
+source: string, 
+/**
+ * How many files the artifact carries.
+ */
+fileCount: number, };

@@ -128,6 +128,10 @@ fn a_profile_survives_the_trip_to_a_fresh_data_dir() -> TestResult {
     assert_eq!(preview.profile.name, "Heavy");
     assert_eq!(preview.artifacts.len(), 4);
     assert!(preview.artifacts.iter().all(|a| !a.in_library));
+    assert!(preview
+        .artifacts
+        .iter()
+        .all(|a| !a.source.is_empty() && a.file_count >= 1));
     assert!(!preview.name_clash);
     assert!(
         two.library

@@ -1,8 +1,9 @@
+import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
 import type { ProfileImportReport } from "../../bindings/ProfileImportReport";
 import { profileImportCommit } from "../../lib/ipc";
-import { kinds } from "../../ui";
+import { Callout, kinds } from "../../ui";
 import { Dialog, NameField } from "./Dialog";
 import styles from "./Profiles.module.css";
 
@@ -20,7 +21,13 @@ function ArtifactList({
       <ul className={styles.files}>
         {items.map((a) => (
           <li key={a.id}>
-            {a.name}
+            <span className={styles.fname}>{a.name}</span>
+            {!a.inLibrary && (
+              <span className={styles.prov}>
+                {a.source} · {a.fileCount}{" "}
+                {a.fileCount === 1 ? "file" : "files"}
+              </span>
+            )}
             <span className={styles.kind}>{kinds[a.kind].label}</span>
           </li>
         ))}
@@ -47,6 +54,7 @@ export function ImportDialog({
   const [busy, setBusy] = useState(false);
   const matched = artifacts.filter((a) => a.inLibrary);
   const added = artifacts.filter((a) => !a.inLibrary);
+  const count = `${added.length} ${added.length === 1 ? "artifact" : "artifacts"}`;
 
   async function commit() {
     setBusy(true);
@@ -65,7 +73,9 @@ export function ImportDialog({
     <Dialog
       title="Import profile file"
       sub={`${profile.name} v${profile.version}: ${matched.length} of ${artifacts.length} artifacts are already in your library.`}
-      submit="Import profile"
+      submit={
+        added.length > 0 ? `Import profile and ${count}` : "Import profile"
+      }
       busy={busy}
       canSubmit={!nameClash || name.trim() !== ""}
       onSubmit={() => void commit()}
@@ -81,6 +91,14 @@ export function ImportDialog({
         </>
       )}
       <ArtifactList title="Already in your library" items={matched} />
+      {added.length > 0 && (
+        <div className={styles.calloutWrap}>
+          <Callout tone="info" icon={ShieldCheck}>
+            These {added.length} come from the file, not from a source you
+            imported. Harneo audits them as it adds them.
+          </Callout>
+        </div>
+      )}
       <ArtifactList title="New: added to your library" items={added} />
       {error && (
         <p role="alert" className={styles.error}>
