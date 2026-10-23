@@ -1,0 +1,34 @@
+.callout {
+  display: flex;
+  gap: var(--space-md);
+  padding: var(--space-md) 14px;
+  border-radius: var(--radius);
+  background: var(--sunk);
+  color: var(--t2);
+  margin-bottom: var(--space-lg);
+}
+.callout[data-tone="info"] {
+  background: var(--blue-soft);
+  color: var(--t1);
+}
+.callout[data-tone="info"] svg {
+  color: var(--blue);
+}
+.callout[data-tone="warn"] {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.callout[data-tone="bad"] {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.callout svg {
+  flex: none;
+  margin-top: 2px;
+}
+.body {
+  min-width: 0;
+}
+.body p {
+  margin: 0;
+}

@@ -1,0 +1,45 @@
+.steps {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: var(--space-xxs) 0 22px;
+  flex-wrap: wrap;
+  list-style: none;
+  padding: 0;
+}
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--t3);
+}
+.num {
+  width: var(--size-icon-chip-sm);
+  height: var(--size-icon-chip-sm);
+  border-radius: 50%;
+  border: var(--hairline) solid var(--line2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-label);
+  font-weight: 600;
+  background: var(--raised);
+}
+.on {
+  color: var(--t1);
+  font-weight: 500;
+}
+.on .num {
+  border-color: var(--blue);
+  background: var(--blue);
+  color: var(--on-blue);
+}
+.passed .num {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.stepline {
+  width: 28px;
+  height: var(--hairline);
+  background: var(--line2);
+}

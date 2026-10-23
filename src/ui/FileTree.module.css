@@ -1,0 +1,64 @@
+.tree {
+  background: var(--side);
+  padding: var(--space-sm) 0;
+  overflow-y: auto;
+  min-height: 0;
+}
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 12px 4px calc(12px + var(--depth, 0) * 14px);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--t1);
+  white-space: nowrap;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+.node svg {
+  flex: none;
+  color: var(--t3);
+}
+button.node {
+  cursor: pointer;
+}
+button.node:hover {
+  background: var(--sunk);
+}
+button.node[aria-current="true"] {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.dir {
+  color: var(--t2);
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mark {
+  margin-left: auto;
+  padding-left: var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-label-quiet);
+}
+.mark[data-mark="new"] {
+  color: var(--green);
+}
+.mark[data-mark="replace"] {
+  color: var(--amber);
+}
+.mark[data-mark="delete"] {
+  color: var(--red);
+}
+.mark[data-mark="kept"] {
+  color: var(--t3);
+}
