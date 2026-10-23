@@ -161,3 +161,54 @@ fn a_library_lists_its_store_as_a_watch_path() {
     assert!(paths[0].path.is_dir());
     assert!(paths[0].path.starts_with(dir.path()));
 }
+
+#[test]
+fn deleting_a_watched_project_root_fires_an_event() {
+    let parent = tempfile::tempdir().expect("dir");
+    let root = parent.path().join("proj");
+    fs::create_dir(&root).expect("mkdir");
+    let (_watcher, rx) = start(vec![project(9, &root)]);
+    fs::remove_dir_all(&root).expect("remove");
+    assert_eq!(
+        rx.recv_timeout(WITHIN).expect("event"),
+        ChangeScope::Project { id: 9 }
+    );
+}
+
+#[test]
+fn a_re_added_claude_watch_is_dropped_by_set_paths() {
+    use super::watch::State;
+    let dir = tempfile::tempdir().expect("dir");
+    let mut watcher = notify::recommended_watcher(|_| {}).expect("watcher");
+    let mut state = State::default();
+    state.apply(&mut watcher, vec![project(1, dir.path())]);
+    let claude = dir.path().join(".claude");
+    fs::create_dir(&claude).expect("mkdir");
+    assert!(state.scope_of(&claude, &mut watcher).is_some());
+    assert!(state.scope_of(&claude, &mut watcher).is_some());
+    assert_eq!(
+        state.registered.iter().filter(|p| **p == claude).count(),
+        1,
+        "registered once"
+    );
+    state.apply(&mut watcher, Vec::new());
+    assert!(state.registered.is_empty(), "nothing leaks past set_paths");
+}
+
+#[test]
+fn a_library_folder_created_later_is_watched_and_reported() {
+    let dir = tempfile::tempdir().expect("dir");
+    let store = dir.path().join("artifacts");
+    let (_watcher, rx) = start(vec![library(&store)]);
+    fs::create_dir_all(&store).expect("mkdir");
+    assert_eq!(
+        rx.recv_timeout(super::watch::RETRY * 3).expect("retried"),
+        ChangeScope::Library
+    );
+    std::thread::sleep(Duration::from_millis(200));
+    fs::write(store.join("f"), "x").expect("write");
+    assert_eq!(
+        rx.recv_timeout(WITHIN).expect("now watched"),
+        ChangeScope::Library
+    );
+}

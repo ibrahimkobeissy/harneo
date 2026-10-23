@@ -309,3 +309,38 @@ fn usage_page_with_usage_stays_under_100_ms_at_2000_artifacts() {
         "status filter took {took:?}"
     );
 }
+
+#[test]
+fn library_opens_twice_with_an_unopenable_usage_dir() {
+    let dir = tempfile::tempdir().expect("dir");
+    std::fs::write(dir.path().join("usage"), "not a folder").expect("file");
+    for _ in 0..2 {
+        let lib = Library::open(dir.path()).expect("opens with the in-memory stand-in");
+        let page = lib.list(&Query::default()).expect("lists");
+        assert_eq!(page.total, 0);
+        // The stand-in tables live in the attached database, never in library.db.
+        let in_main: i64 = lib
+            .store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM main.sqlite_master WHERE name IN ('uses', 'log_files')",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(in_main, 0);
+    }
+}
+
+#[test]
+fn library_opens_with_a_newer_usage_schema() {
+    let dir = tempfile::tempdir().expect("dir");
+    std::fs::create_dir_all(dir.path().join("usage")).expect("mkdir");
+    let db = rusqlite::Connection::open(dir.path().join("usage/usage.db")).expect("db");
+    db.pragma_update(None, "user_version", 99).expect("version");
+    drop(db);
+    for _ in 0..2 {
+        let lib = Library::open(dir.path()).expect("opens");
+        lib.list(&Query::default()).expect("lists");
+    }
+}

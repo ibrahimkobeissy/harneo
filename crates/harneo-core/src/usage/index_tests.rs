@@ -283,3 +283,121 @@ fn one_hundred_megabytes_index_in_under_ten_seconds() {
         "took {elapsed:?}"
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn an_unreadable_folder_and_file_are_skipped_and_counted() {
+    use std::os::unix::fs::PermissionsExt;
+    let (dir, index) = setup();
+    let root = logs(&dir);
+    fs::create_dir_all(root.join("-aa-locked")).expect("mkdir");
+    fs::create_dir_all(root.join("-zz-later")).expect("mkdir");
+    write(&root.join("-aa-locked/x.jsonl"), &[skill_line("s0", "x")]);
+    write(
+        &root.join("-work-app/a.jsonl"),
+        &[skill_line("s1", "alpha")],
+    );
+    write(&root.join("-work-app/b.jsonl"), &[skill_line("s2", "beta")]);
+    write(
+        &root.join("-zz-later/c.jsonl"),
+        &[skill_line("s3", "gamma")],
+    );
+    let file = root.join("-work-app/a.jsonl");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o000)).expect("chmod file");
+    fs::set_permissions(root.join("-aa-locked"), fs::Permissions::from_mode(0o000))
+        .expect("chmod dir");
+    let readable = fs::File::open(&file).is_ok();
+    let report = index
+        .index(&root, |_| {})
+        .expect("indexes despite I/O errors");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).expect("restore");
+    fs::set_permissions(root.join("-aa-locked"), fs::Permissions::from_mode(0o755))
+        .expect("restore");
+    if readable {
+        return; // running as root: permissions do not apply
+    }
+    assert_eq!(count(&index), 2, "later files are still indexed");
+    assert_eq!(report.skipped_files, 2);
+}
+
+#[test]
+fn a_same_size_rewrite_is_read_again() {
+    let (dir, index) = setup();
+    let root = logs(&dir);
+    let file = root.join("-work-app/a.jsonl");
+    write(&file, &[skill_line("s1", "alpha")]);
+    index.index(&root, |_| {}).expect("first");
+    write(&file, &[skill_line("s1", "bravo")]);
+    index.index(&root, |_| {}).expect("second");
+    assert_eq!(count(&index), 2);
+}
+
+#[test]
+fn a_final_line_without_a_newline_is_counted() {
+    let (dir, index) = setup();
+    let root = logs(&dir);
+    let file = root.join("-work-app/a.jsonl");
+    fs::write(&file, skill_line("s1", "alpha")).expect("no newline");
+    let report = index.index(&root, |_| {}).expect("index");
+    assert_eq!(report.unfinished_lines, 1);
+    assert_eq!(count(&index), 0);
+    append(&file, "\n");
+    let report = index.index(&root, |_| {}).expect("again");
+    assert_eq!(report.unfinished_lines, 0);
+    assert_eq!(count(&index), 1);
+}
+
+#[test]
+fn concurrent_index_runs_are_serialized() {
+    use std::sync::mpsc;
+    use std::sync::{Arc, Mutex};
+    let (dir, index) = setup();
+    let root = logs(&dir);
+    write(
+        &root.join("-work-app/a.jsonl"),
+        &[skill_line("s1", "alpha")],
+    );
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let (started_tx, started_rx) = mpsc::channel::<()>();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let first = {
+        let (index, root, events) = (index.clone(), root.clone(), events.clone());
+        std::thread::spawn(move || {
+            let mut blocked = false;
+            index
+                .index(&root, |_| {
+                    if !blocked {
+                        blocked = true;
+                        let _ = started_tx.send(());
+                        let _ = release_rx.recv();
+                    }
+                    if let Ok(mut e) = events.lock() {
+                        e.push("first");
+                    }
+                })
+                .expect("first run")
+        })
+    };
+    started_rx.recv().expect("first run started");
+    let second = {
+        let (index, root, events) = (index.clone(), root.clone(), events.clone());
+        std::thread::spawn(move || {
+            index
+                .index(&root, |_| {
+                    if let Ok(mut e) = events.lock() {
+                        e.push("second");
+                    }
+                })
+                .expect("second run")
+        })
+    };
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    assert!(
+        events.lock().map(|e| e.is_empty()).unwrap_or(false),
+        "the second run waits for the first"
+    );
+    release_tx.send(()).expect("release");
+    first.join().expect("first joined");
+    second.join().expect("second joined");
+    assert_eq!(count(&index), 1);
+}

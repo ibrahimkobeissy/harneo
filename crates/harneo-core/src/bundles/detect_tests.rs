@@ -447,3 +447,35 @@ fn a_git_preview_is_read_from_its_clone_and_the_clone_stays_for_import() -> Test
     ));
     Ok(())
 }
+
+#[test]
+fn a_library_copy_edited_to_hold_a_token_after_import_is_withheld() -> TestResult {
+    let mut s = setup()?;
+    let src = tempfile::tempdir()?;
+    write(
+        src.path(),
+        "skills/plain/SKILL.md",
+        "---\nname: plain\ndescription: A plain skill\n---\nPlain body text.\n",
+    )?;
+    let preview = s.library.preview(&local(src.path()))?;
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    s.library.import(&preview, &ids, &TagChoices::new())?;
+    let token = ["gh", "p_", &"d".repeat(36)].concat();
+    let folder = s.library.store.artifacts_dir().join(&ids[0]);
+    let skill = fs::read_dir(&folder)?
+        .filter_map(std::result::Result::ok)
+        .map(|e| e.path())
+        .find(|p| p.file_name().is_some_and(|n| n == "SKILL.md"))
+        .ok_or("stored SKILL.md")?;
+    fs::write(
+        &skill,
+        format!("---\nname: plain\ndescription: A plain skill\n---\nNow use {token}.\n"),
+    )?;
+    s.claude(&json!({"links": [], "tags": []}))?;
+    s.library.detect_in_library(None)?;
+    let sent = s.stdin(0)?;
+    assert!(!sent.contains(&token), "the edited text is never sent");
+    assert!(!sent.contains("Plain body text."));
+    assert!(sent.contains("plain") && sent.contains("A plain skill"));
+    Ok(())
+}

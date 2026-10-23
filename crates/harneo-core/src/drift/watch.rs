@@ -17,6 +17,8 @@ use crate::error::{Error, Result};
 pub const DEBOUNCE: Duration = Duration::from_millis(500);
 /// A steady stream of changes still fires this long after the first one.
 const MAX_WAIT: Duration = Duration::from_secs(2);
+/// How often a watched folder that did not exist is tried again.
+pub(super) const RETRY: Duration = Duration::from_secs(2);
 /// What of a project the watcher looks at, relative to its root.
 const CLAUDE_DIR: &str = ".claude";
 const HARNESS_FILES: [&str; 3] = ["CLAUDE.md", ".mcp.json", "HARNESS.md"];
@@ -108,43 +110,82 @@ impl Drop for Watcher {
 
 /// The targets in force and the folders registered with the OS for them.
 #[derive(Default)]
-struct State {
-    targets: Vec<WatchPath>,
-    registered: Vec<PathBuf>,
+pub(super) struct State {
+    pub(super) targets: Vec<WatchPath>,
+    pub(super) registered: Vec<PathBuf>,
 }
 
 impl State {
-    fn apply(&mut self, watcher: &mut RecommendedWatcher, paths: Vec<WatchPath>) {
+    pub(super) fn apply(&mut self, watcher: &mut RecommendedWatcher, paths: Vec<WatchPath>) {
         for path in self.registered.drain(..) {
             let _ = watcher.unwatch(&path);
         }
         for target in &paths {
-            match target.scope {
-                ChangeScope::Library => {
-                    self.register(watcher, &target.path, RecursiveMode::Recursive);
-                }
-                ChangeScope::Project { .. } => {
-                    self.register(watcher, &target.path, RecursiveMode::NonRecursive);
-                    self.register(
-                        watcher,
-                        &target.path.join(CLAUDE_DIR),
-                        RecursiveMode::Recursive,
-                    );
-                }
-            }
+            self.watch_target(watcher, target);
         }
         self.targets = paths;
     }
 
-    /// A folder that is missing is skipped: a project that vanished shows as Missing elsewhere.
+    fn watch_target(&mut self, watcher: &mut RecommendedWatcher, target: &WatchPath) {
+        match target.scope {
+            ChangeScope::Library => {
+                self.register(watcher, &target.path, RecursiveMode::Recursive);
+            }
+            ChangeScope::Project { .. } => {
+                self.register(watcher, &target.path, RecursiveMode::NonRecursive);
+                self.register(
+                    watcher,
+                    &target.path.join(CLAUDE_DIR),
+                    RecursiveMode::Recursive,
+                );
+            }
+        }
+    }
+
+    /// A folder that is missing is skipped for now and retried by `retry`.
     fn register(&mut self, watcher: &mut RecommendedWatcher, path: &Path, mode: RecursiveMode) {
+        if self.registered.iter().any(|p| p == path) {
+            return;
+        }
         if watcher.watch(path, mode).is_ok() {
             self.registered.push(path.to_path_buf());
         }
     }
 
+    /// Whether a target's folder is not registered with the OS (it did not exist yet).
+    pub(super) fn has_missing(&self) -> bool {
+        self.targets
+            .iter()
+            .any(|t| !self.registered.contains(&t.path))
+    }
+
+    /// Tries the folders that were missing again; the scopes that came into being, whose
+    /// contents are new to the caller.
+    pub(super) fn retry(&mut self, watcher: &mut RecommendedWatcher) -> Vec<ChangeScope> {
+        let missing: Vec<WatchPath> = self
+            .targets
+            .iter()
+            .filter(|t| !self.registered.contains(&t.path))
+            .cloned()
+            .collect();
+        let mut found = Vec::new();
+        for target in missing {
+            self.watch_target(watcher, &target);
+            if self.registered.contains(&target.path) {
+                found.push(target.scope);
+            }
+        }
+        found
+    }
+
     /// The scope an event on `path` belongs to, if it is one the watcher cares about.
-    fn scope_of(&self, path: &Path, watcher: &mut RecommendedWatcher) -> Option<ChangeScope> {
+    pub(super) fn scope_of(
+        &mut self,
+        path: &Path,
+        watcher: &mut RecommendedWatcher,
+    ) -> Option<ChangeScope> {
+        let mut found = None;
+        let mut appeared = false;
         for target in &self.targets {
             let Ok(rest) = path.strip_prefix(&target.path) else {
                 continue;
@@ -152,19 +193,27 @@ impl State {
             if matches!(target.scope, ChangeScope::Library) {
                 return Some(target.scope);
             }
-            let first = rest.components().next()?.as_os_str();
+            let Some(first) = rest.components().next().map(|c| c.as_os_str()) else {
+                // The project root itself changed (deleted, renamed, moved back).
+                found = Some(target.scope);
+                break;
+            };
             if first == CLAUDE_DIR {
-                if rest.as_os_str() == CLAUDE_DIR {
-                    // `.claude/` appeared (or came back): watch inside it too.
-                    let _ = watcher.watch(path, RecursiveMode::Recursive);
-                }
-                return Some(target.scope);
+                appeared = rest.as_os_str() == CLAUDE_DIR;
+                found = Some(target.scope);
+                break;
             }
             if HARNESS_FILES.iter().any(|name| first == *name) {
-                return Some(target.scope);
+                found = Some(target.scope);
+                break;
             }
         }
-        None
+        if appeared {
+            // `.claude/` appeared (or came back, its old watch gone): watch inside it again.
+            self.registered.retain(|p| p != path);
+            self.register(watcher, path, RecursiveMode::Recursive);
+        }
+        found
     }
 }
 
@@ -179,7 +228,11 @@ fn run(
     let mut last_at = first_at;
     loop {
         let message = if pending.is_empty() {
-            rx.recv().map_err(|_| RecvTimeoutError::Disconnected)
+            if state.has_missing() {
+                rx.recv_timeout(RETRY)
+            } else {
+                rx.recv().map_err(|_| RecvTimeoutError::Disconnected)
+            }
         } else {
             let due = (last_at + DEBOUNCE).min(first_at + MAX_WAIT);
             rx.recv_timeout(due.saturating_duration_since(Instant::now()))
@@ -204,6 +257,11 @@ fn run(
             }
             // An error from the OS watcher carries no path; the next change still arrives.
             Ok(Msg::Event(Err(_))) => {}
+            Err(RecvTimeoutError::Timeout) if pending.is_empty() => {
+                for scope in state.retry(&mut watcher) {
+                    on_change(scope);
+                }
+            }
             Err(RecvTimeoutError::Timeout) => {
                 for scope in std::mem::take(&mut pending) {
                     on_change(scope);

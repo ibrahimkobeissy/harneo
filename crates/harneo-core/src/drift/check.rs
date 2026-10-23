@@ -178,7 +178,16 @@ impl Library {
         let mut files = Vec::new();
         let mut library_newer = Vec::new();
         for file in &installed {
-            let disk = disk_bytes(root, &file.path)?;
+            // A managed path that is not a regular file (a symlink, a folder) or cannot be read
+            // was changed in the project; it must not stop the check.
+            let Ok(disk) = disk_bytes(root, &file.path) else {
+                files.push(DriftFile {
+                    path: file.path.clone(),
+                    change: DriftChange::Edited { plus: 0, minus: 0 },
+                    artifact: file.artifact_id.clone(),
+                });
+                continue;
+            };
             let change = match &disk {
                 None => Some(DriftChange::Deleted),
                 Some(bytes) if crate::install::digest(bytes) != file.digest => {
@@ -251,23 +260,33 @@ impl Library {
         Ok(out)
     }
 
-    /// The status of every project, by name.
+    /// The status of every project, by name. A project whose check fails is listed as drifted
+    /// (with nothing to show) instead of hiding the others.
     pub fn check_all(&self) -> Result<Vec<ProjectDrift>> {
-        self.projects()?
+        Ok(self
+            .projects()?
             .into_iter()
             .map(|project| {
-                let report = self.check_project(project.id)?;
-                Ok(ProjectDrift {
-                    project_id: project.id,
-                    summary: DriftSummary {
+                let summary = match self.check_project(project.id) {
+                    Ok(report) => DriftSummary {
                         status: report.status,
                         drifted: count(report.files.len()),
                         library_newer: count(report.library_newer.len()),
                         profile_newer: report.profile_newer,
                     },
-                })
+                    Err(_) => DriftSummary {
+                        status: DriftStatus::Drift,
+                        drifted: 0,
+                        library_newer: 0,
+                        profile_newer: None,
+                    },
+                };
+                ProjectDrift {
+                    project_id: project.id,
+                    summary,
+                }
             })
-            .collect()
+            .collect())
     }
 
     /// The line changes from what the project's profile version renders to the project's file
@@ -290,8 +309,7 @@ impl Library {
     /// The plan to put the profile's version back: edited and deleted files and library-newer
     /// files (`paths` narrows it, `None` takes all) are written from what the pinned version
     /// renders now. Added files are never touched. Edited files are listed in
-    /// `edited_in_project` and backed up by `apply` like every replaced file. When a subset is
-    /// asked for, `HARNESS.md` is refreshed too if it is untouched and out of date, since an
+    /// `edited_in_project` and backed up by `apply` like every replaced file. `HARNESS.md` is refreshed too if it is untouched and out of date, since an
     /// apply stamps the project with today's date.
     pub fn plan_reapply(&self, id: i64, paths: Option<Vec<String>>) -> Result<Plan> {
         let project = self.project(id)?;
@@ -327,11 +345,16 @@ impl Library {
             .into_iter()
             .map(|f| (f.path.clone(), f))
             .collect();
-        if paths.is_some() && !wanted.iter().any(|p| p == "HARNESS.md") {
-            let untouched = manifest.get("HARNESS.md").is_some_and(|m| {
-                matches!(disk_bytes(&root, "HARNESS.md"), Ok(Some(b)) if crate::install::digest(&b) == m.digest)
+        if !wanted.iter().any(|p| p == "HARNESS.md") {
+            let fresh = rendered.files.iter().find(|f| f.path == "HARNESS.md");
+            let stale = manifest.get("HARNESS.md").is_some_and(|m| {
+                matches!(
+                    (disk_bytes(&root, "HARNESS.md"), fresh),
+                    (Ok(Some(b)), Some(fresh))
+                        if crate::install::digest(&b) == m.digest && b != fresh.bytes
+                )
             });
-            if untouched {
+            if stale {
                 wanted.push("HARNESS.md".to_owned());
             }
         }

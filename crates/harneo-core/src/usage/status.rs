@@ -107,7 +107,14 @@ pub(crate) fn attach(conn: &Connection, data_dir: &Path) -> Result<()> {
         }
         _ => {
             conn.execute_batch("ATTACH DATABASE ':memory:' AS usage")?;
-            conn.execute_batch(MIGRATIONS[0])?;
+            for sql in MIGRATIONS {
+                // Qualified, or the tables would land in the library's own database.
+                conn.execute_batch(
+                    &sql.replace("CREATE TABLE ", "CREATE TABLE usage.")
+                        .replace("CREATE INDEX ", "CREATE INDEX usage.")
+                        .replace("ALTER TABLE ", "ALTER TABLE usage."),
+                )?;
+            }
             Ok(())
         }
     }

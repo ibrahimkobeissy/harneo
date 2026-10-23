@@ -510,6 +510,8 @@ impl Library {
                 Some(audit) => audit,
                 None => audit::audit_stored(&readout::stored_view_of(artifact)?, &folder, &options),
             };
+            // The stored audit is not trusted: the copy may have been edited since import.
+            let audit = audit::audit(&readout::stored_view_of(artifact)?, &folder, &options);
             let text = if is_flagged(&audit) {
                 None
             } else {

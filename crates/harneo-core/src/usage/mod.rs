@@ -24,6 +24,7 @@ mod status_tests;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, Connection};
@@ -50,13 +51,17 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// Weeks the usage window covers.
 pub const WEEKS: usize = 8;
 
+/// Version 2 adds `log_files.head_hash`: a hash of the first bytes read, to notice a file
+/// rewritten to the same size.
+///
 /// Version 1: the log files already read and the uses found in them.
 ///
 /// - `log_files`: per file, the size and mtime (ns) last seen, the byte `offset` read up to
 ///   (always just after a newline), and the lines parsed and failed so far.
 /// - `uses`: one row per session, kind, name and day; `project_path` is the session's `cwd`
 ///   (empty when unknown). Kind is the artifact kind in camelCase.
-const MIGRATIONS: &[&str] = &["
+const MIGRATIONS: &[&str] = &[
+    "
 CREATE TABLE log_files (
     path         TEXT PRIMARY KEY,
     size         INTEGER NOT NULL,
@@ -75,7 +80,11 @@ CREATE TABLE uses (
 ) STRICT;
 CREATE INDEX uses_kind_name ON uses(kind, name, day);
 CREATE INDEX uses_day ON uses(day);
-"];
+",
+    "
+ALTER TABLE log_files ADD COLUMN head_hash INTEGER NOT NULL DEFAULT 0;
+",
+];
 
 /// Usage of one artifact (matched by kind and name) over the last 8 weeks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
@@ -108,6 +117,8 @@ pub struct UsageSummary {
 #[derive(Debug, Clone)]
 pub struct UsageIndex {
     db: PathBuf,
+    /// Held for the length of an index run, so two runs never overlap.
+    running: Arc<Mutex<()>>,
 }
 
 impl UsageIndex {
@@ -120,6 +131,7 @@ impl UsageIndex {
         })?;
         let this = Self {
             db: dir.join(DB_FILE),
+            running: Arc::new(Mutex::new(())),
         };
         let mut conn = this.connect()?;
         migrate(&mut conn)?;
@@ -140,6 +152,8 @@ impl UsageIndex {
         logs_root: &Path,
         mut progress: impl FnMut(IndexProgress),
     ) -> Result<IndexReport> {
+        // A run that finds another one going waits, then finds little new to read.
+        let _guard = self.running.lock().unwrap_or_else(|e| e.into_inner());
         let mut conn = self.connect()?;
         index::run(&mut conn, logs_root, &mut progress)
     }

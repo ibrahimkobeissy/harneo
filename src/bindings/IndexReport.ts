@@ -19,4 +19,13 @@ newUses: number,
 /**
  * Lines that were not JSON objects or were too long, in the files read.
  */
-failedLines: number, };
+failedLines: number, 
+/**
+ * Log files or folders that could not be read (permissions, vanished mid-run) and were
+ * skipped; the rest was indexed.
+ */
+skippedFiles: number, 
+/**
+ * Files whose last line had no newline yet, left for the next run.
+ */
+unfinishedLines: number, };

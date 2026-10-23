@@ -211,3 +211,89 @@ fn reapply_can_take_a_subset_and_refuses_anything_else() -> TestResult {
         .is_err());
     Ok(())
 }
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_managed_file_is_a_change_and_never_stops_the_other_projects() -> TestResult {
+    let f = fx()?;
+    let (a, a_id) = project(&f)?;
+    let (_b, b_id) = project(&f)?;
+    let target = a.path().join("elsewhere.md");
+    fs::write(&target, "x\n")?;
+    fs::remove_file(a.path().join(AGENT))?;
+    std::os::unix::fs::symlink(&target, a.path().join(AGENT))?;
+
+    let report = f.library.check_project(a_id)?;
+    assert_eq!(report.status, DriftStatus::Drift);
+    assert!(change(&report.files, AGENT).is_some(), "{:?}", report.files);
+    let all = f.library.check_all()?;
+    assert_eq!(all.len(), 2);
+    let of = |id| {
+        all.iter()
+            .find(|p| p.project_id == id)
+            .map(|p| p.summary.status)
+    };
+    assert_eq!(of(a_id), Some(DriftStatus::Drift));
+    assert_eq!(of(b_id), Some(DriftStatus::InSync));
+    Ok(())
+}
+
+#[test]
+fn check_all_isolates_a_project_whose_check_fails() -> TestResult {
+    let f = fx()?;
+    let (_a, a_id) = project(&f)?;
+    let (_b, b_id) = project(&f)?;
+    // A manifest path that escapes the project makes that project's check fail outright.
+    f.library.store.conn.execute(
+        "UPDATE installed_files SET path = '../escape.md' WHERE project_id = ?1 AND path = ?2",
+        rusqlite::params![a_id, AGENT],
+    )?;
+    let all = f.library.check_all()?;
+    let of = |id| {
+        all.iter()
+            .find(|p| p.project_id == id)
+            .map(|p| p.summary.status)
+    };
+    assert_eq!(of(a_id), Some(DriftStatus::Drift));
+    assert_eq!(of(b_id), Some(DriftStatus::InSync));
+    Ok(())
+}
+
+#[test]
+fn reapply_all_refreshes_a_stale_harness_md_applied_on_an_earlier_day() -> TestResult {
+    let f = fx()?;
+    let (dir, id) = project(&f)?;
+    // Make the project look applied on an earlier day: HARNESS.md carries that day's date.
+    let old = 1_767_225_600_i64; // 2026-01-01
+    let project_row = f.library.project(id)?;
+    let rendered = f
+        .library
+        .render_pinned(&project_row, &crate::install::utc_date(old))?;
+    let harness = rendered
+        .files
+        .iter()
+        .find(|x| x.path == "HARNESS.md")
+        .ok_or("no HARNESS.md")?;
+    fs::write(dir.path().join("HARNESS.md"), &harness.bytes)?;
+    f.library.store.conn.execute(
+        "UPDATE installed_files SET digest = ?1 WHERE project_id = ?2 AND path = 'HARNESS.md'",
+        rusqlite::params![crate::install::digest(&harness.bytes), id],
+    )?;
+    f.library.store.conn.execute(
+        "UPDATE projects SET applied_at = ?1 WHERE id = ?2",
+        rusqlite::params![old, id],
+    )?;
+    assert_eq!(f.library.check_project(id)?.status, DriftStatus::InSync);
+
+    put(dir.path(), AGENT, "mine\n")?;
+    let plan = f.library.plan_reapply(id, None)?;
+    f.library.apply(&plan)?;
+    let report = f.library.check_project(id)?;
+    assert!(
+        report.library_newer.is_empty(),
+        "{:?}",
+        report.library_newer
+    );
+    assert_eq!(report.status, DriftStatus::InSync, "{:?}", report.files);
+    Ok(())
+}
