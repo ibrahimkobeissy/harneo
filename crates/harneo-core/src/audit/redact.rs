@@ -8,12 +8,14 @@ use regex::Regex;
 use crate::artifact::literal_secret::REDACTED;
 
 /// Known token shapes: a prefix and a body of at least 8 token characters.
-const PATTERNS: [&str; 5] = [
+const PATTERNS: [&str; 6] = [
     r"(?:gh[pousr]_|github_pat_|xox[abposr]-|sk-ant-|sk_live_|sk-|AKIA|AIza)[A-Za-z0-9_\-]{8,}",
     r"(?i)\bbearer\s+[A-Za-z0-9._~+/=\-]{8,}",
     r"eyJ[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}\.[A-Za-z0-9_\-]{5,}",
     r"://[^\s/@:]+:[^\s/@]+@",
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    // Added with rules/leaks.rs: AWS temporary key ids, Stripe restricted and test keys.
+    r"(?:ASIA[A-Z0-9]{16}|[rs]k_(?:live|test)_[A-Za-z0-9]{8,})",
 ];
 
 static COMPILED: LazyLock<Vec<Regex>> =

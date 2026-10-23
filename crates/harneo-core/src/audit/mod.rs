@@ -149,6 +149,9 @@ pub fn rules() -> Vec<Box<dyn AuditRule>> {
         // rules/injection.rs
         Box::new(rules::injection::PromptInjection),
         Box::new(rules::injection::HiddenUnicode),
+        // rules/leaks.rs
+        Box::new(rules::leaks::PlaintextSecrets),
+        Box::new(rules::leaks::CredentialTheft),
     ]
 }
 
