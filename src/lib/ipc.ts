@@ -246,6 +246,8 @@ export function usageOf(kind: ArtifactKind, name: string): Promise<Usage> {
 /** Sessions per week over every tracked use. */
 export function usageSummary(): Promise<UsageSummary> {
   return invoke<UsageSummary>("usage_summary", {});
+}
+
 // --- Links, bundles and settings ---
 
 /** What an artifact needs and what needs it (confirmed links). */
