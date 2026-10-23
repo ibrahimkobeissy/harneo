@@ -188,7 +188,7 @@ pub enum Error {
     ClaudeBadOutput {
         /// What is wrong with it.
         message: String,
-}
+    },
     /// A profile name or spec is not acceptable.
     #[error("invalid profile: {reason}")]
     InvalidProfile {
