@@ -10,6 +10,8 @@ repository = "https://github.com/ibrahimkobeissy/harneo"
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
+# cargo-llvm-cov builds with `--cfg coverage` (test performance budgets read it).
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(coverage)"] }
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

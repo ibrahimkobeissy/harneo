@@ -599,7 +599,7 @@ fn a_2000_artifact_library_answers_a_filtered_sorted_page_under_100_ms() {
     );
     assert_eq!(page.items.len(), 25);
     assert!(
-        elapsed.as_millis() < 100,
+        elapsed < crate::test_support::budget(std::time::Duration::from_millis(100)),
         "list took {elapsed:?} on 2,000 artifacts"
     );
 }

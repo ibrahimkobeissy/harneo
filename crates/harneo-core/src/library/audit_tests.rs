@@ -388,7 +388,10 @@ fn listing_2000_audited_artifacts_by_trust_stays_fast() -> TestResult {
     }
     assert_eq!(page.items.len(), 25);
     assert!(page.items.iter().all(|i| i.kind == ArtifactKind::Agent));
-    assert!(elapsed.as_millis() < 100, "list took {elapsed:?}");
+    assert!(
+        elapsed < crate::test_support::budget(std::time::Duration::from_millis(100)),
+        "list took {elapsed:?}"
+    );
     Ok(())
 }
 

@@ -293,7 +293,10 @@ fn usage_page_with_usage_stays_under_100_ms_at_2000_artifacts() {
         };
         let (took, total) = best(&q);
         assert_eq!(total, 2000);
-        assert!(took.as_millis() < 100, "{sort:?} took {took:?}");
+        assert!(
+            took < crate::test_support::budget(std::time::Duration::from_millis(100)),
+            "{sort:?} took {took:?}"
+        );
     }
     let filtered = Query {
         filter: Filter {
@@ -303,5 +306,8 @@ fn usage_page_with_usage_stays_under_100_ms_at_2000_artifacts() {
         ..Query::default()
     };
     let (took, _) = best(&filtered);
-    assert!(took.as_millis() < 100, "status filter took {took:?}");
+    assert!(
+        took < crate::test_support::budget(std::time::Duration::from_millis(100)),
+        "status filter took {took:?}"
+    );
 }

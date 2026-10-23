@@ -279,5 +279,8 @@ fn one_hundred_megabytes_index_in_under_ten_seconds() {
     let report = index.index(&root, |_| {}).expect("index");
     let elapsed = start.elapsed();
     assert!(report.files >= 4);
-    assert!(elapsed.as_secs() < 10, "took {elapsed:?}");
+    assert!(
+        elapsed < crate::test_support::budget(std::time::Duration::from_secs(10)),
+        "took {elapsed:?}"
+    );
 }

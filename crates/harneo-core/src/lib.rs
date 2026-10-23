@@ -12,6 +12,9 @@ pub mod profiles;
 pub mod updates;
 pub mod usage;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub use error::{Error, Result};
 
 /// The Harneo version, so the app's About panel and `harneo --version` agree.
