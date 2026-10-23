@@ -8,7 +8,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import { libraryAudits, libraryReaudit } from "../../lib/ipc";
 import {
@@ -18,18 +18,27 @@ import {
   Screen,
   severityLabels,
   severityOrder,
+  tierLabels,
   tiers,
+  TrustMeter,
 } from "../../ui";
 import {
+  barShare,
+  groupFindings,
   histogram,
   isAudited,
+  kindLabel,
+  reachDetail,
   reaches,
   reachesAnything,
   reachTiles,
+  scoreChanges,
   tierOfBucket,
+  type Audited,
   type ReachKey,
+  type ScoreChange,
 } from "./model";
-import { FindingsTable, ReachTable } from "./Tables";
+import { ArtifactLink, FindingsTable, ReachTable } from "./Tables";
 import styles from "./Security.module.css";
 
 const tileIcons: Record<ReachKey, LucideIcon> = {
@@ -43,14 +52,109 @@ function plural(n: number, one: string, many = `${one}s`) {
   return `${n} ${n === 1 ? one : many}`;
 }
 
+/** What a re-audit did: the counts from the core and the artifacts whose score moved. */
+interface Rerun {
+  audited: number;
+  changed: number;
+  moved: ScoreChange[];
+}
+
+function kindLabelOf(a: Audited): string {
+  return kindLabel[a.kind];
+}
+
+const shownMoves = 8;
+const shownAttention = 8;
+
+function Moves({ rerun, onClose }: { rerun: Rerun; onClose: () => void }) {
+  const { moved } = rerun;
+  const hidden = Math.max(0, moved.length - shownMoves);
+  const silent = rerun.changed - moved.length;
+  return (
+    <div className={styles.rerun} role="status">
+      <div className={styles.rerunHead}>
+        <b>
+          Re-audited {plural(rerun.audited, "artifact")}: {rerun.changed}{" "}
+          changed
+        </b>
+        <Button variant="ghost" small onClick={onClose}>
+          <X size={13} aria-hidden="true" />
+          Dismiss
+        </Button>
+      </div>
+      {moved.length > 0 && (
+        <ul className={styles.moves}>
+          {moved.slice(0, shownMoves).map((m) => (
+            <li key={m.id} data-tier={m.tier}>
+              <span className={styles.moveName}>{m.name}:</span>{" "}
+              <span className={styles.mono}>
+                {m.before === null ? "not audited" : m.before} → {m.after}
+              </span>{" "}
+              <span className={styles.moveTier}>({tierLabels[m.tier]})</span>
+            </li>
+          ))}
+          {hidden > 0 && <li className={styles.muted}>and {hidden} more</li>}
+        </ul>
+      )}
+      {silent > 0 && (
+        <p className={styles.muted}>
+          {silent === 1
+            ? "1 more changed its findings but kept its score."
+            : `${silent} more changed their findings but kept their scores.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Dangerous and Risky artifacts, worst first: what to look at before anything else. */
+function Attention({ list }: { list: readonly Audited[] }) {
+  const rows = list
+    .filter((a) => a.audit.tier === "dangerous" || a.audit.tier === "risky")
+    .sort((a, b) => a.audit.score - b.audit.score);
+  if (rows.length === 0) return null;
+  const hidden = rows.length - shownAttention;
+  return (
+    <section className={styles.attention} aria-labelledby="sec-attention">
+      <h2 className={styles.h} id="sec-attention">
+        Needs attention
+        <span className={styles.hint}>
+          {plural(rows.length, "artifact")} scored Risky or Dangerous
+        </span>
+      </h2>
+      <ul className={styles.attList}>
+        {rows.slice(0, shownAttention).map((a) => {
+          const top = groupFindings([a])[0];
+          return (
+            <li key={a.id} data-tier={a.audit.tier}>
+              <ArtifactLink a={a} />
+              <span className={styles.kind}>{kindLabelOf(a)}</span>
+              <span className={styles.attNote}>
+                {top
+                  ? `${plural(top.findings.length, "finding")}, worst ${severityLabels[top.worst].toLowerCase()}`
+                  : "no findings"}
+              </span>
+              <TrustMeter score={a.audit.score} tier={a.audit.tier} size="md" />
+            </li>
+          );
+        })}
+      </ul>
+      {hidden > 0 && (
+        <p className={styles.muted}>
+          and {hidden} more in the tables below, lowest trust first
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function SecurityScreen() {
   const [all, setAll] = useState<ArtifactAudit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [rerunResult, setRerunResult] = useState<Rerun | null>(null);
   const [filter, setFilter] = useState<ReachKey | null>(null);
-
-  const [attempt, setAttempt] = useState(0);
+  const reachRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,21 +171,40 @@ export function SecurityScreen() {
     return () => {
       active = false;
     };
-  }, [attempt]);
+  }, []);
 
   async function rerun() {
     setRunning(true);
-    setResult(null);
+    setRerunResult(null);
     try {
+      const before = all ?? [];
       const report = await libraryReaudit();
-      setResult(
-        `Re-audited ${plural(report.audited, "artifact")}: ${report.changed} changed`,
-      );
-      setAttempt((n) => n + 1);
+      const after = await libraryAudits();
+      setAll(after);
+      setRerunResult({
+        audited: report.audited,
+        changed: report.changed,
+        moved: scoreChanges(before, after),
+      });
     } catch (e) {
       setError(String(e));
     } finally {
       setRunning(false);
+    }
+  }
+
+  function pick(key: ReachKey) {
+    const next = filter === key ? null : key;
+    setFilter(next);
+    const heading = reachRef.current;
+    const body = heading?.closest("[data-screen-body]");
+    if (next !== null && heading && body instanceof HTMLElement) {
+      // Scroll the screen body itself: scrollIntoView would also move ancestors.
+      const top =
+        heading.getBoundingClientRect().top -
+        body.getBoundingClientRect().top +
+        body.scrollTop;
+      body.scrollTo?.({ top: Math.max(0, top - 8), behavior: "smooth" });
     }
   }
 
@@ -98,11 +221,6 @@ export function SecurityScreen() {
         findings, and exactly what it can reach.
       </span>
       <span className={styles.grow} />
-      {result && (
-        <span className={styles.result} role="status">
-          {result}
-        </span>
-      )}
       {rerunButton}
     </>
   );
@@ -137,6 +255,9 @@ export function SecurityScreen() {
   if (audited.length === 0) {
     return (
       <Screen title="Security" actions={header}>
+        {rerunResult && (
+          <Moves rerun={rerunResult} onClose={() => setRerunResult(null)} />
+        )}
         <EmptyState icon={ShieldCheck} title="Nothing audited yet">
           {plural(all.length, "artifact")} in the library predate the audit.
           Choose Re-run audit to score them.
@@ -167,6 +288,9 @@ export function SecurityScreen() {
 
   return (
     <Screen title="Security" actions={header}>
+      {rerunResult && (
+        <Moves rerun={rerunResult} onClose={() => setRerunResult(null)} />
+      )}
       <div className={styles.panels}>
         <Panel title="Trust scores" titleId="sec-trust">
           <p className={styles.sub}>
@@ -181,15 +305,18 @@ export function SecurityScreen() {
               .join(", ")}`}
           >
             {hist.map((n, i) => (
-              <i
+              <div
                 key={i}
+                className={styles.bucket}
                 data-tier={tierOfBucket(i)}
                 data-empty={n === 0 ? "" : undefined}
-                style={{
-                  height: `${Math.max(4, Math.round((n / hmax) * 100))}%`,
-                }}
                 title={`${i * 10}–${i * 10 + 9}: ${n}`}
-              />
+              >
+                <span className={styles.count}>{n > 0 ? n : ""}</span>
+                <i
+                  style={{ height: `${Math.round(barShare(n, hmax) * 100)}%` }}
+                />
+              </div>
             ))}
           </div>
           <div className={styles.axis} aria-hidden="true">
@@ -197,6 +324,9 @@ export function SecurityScreen() {
             <span>50</span>
             <span>100</span>
           </div>
+          <p className={styles.scaleNote}>
+            Bar heights are square-root scaled so small groups stay visible.
+          </p>
           <ul className={styles.legend}>
             {tiers.map((t, i) => (
               <li key={t.tier} data-tier={t.tier}>
@@ -210,7 +340,7 @@ export function SecurityScreen() {
           </ul>
         </Panel>
 
-        <Panel title="Findings" titleId="sec-findings">
+        <Panel title="By severity" titleId="sec-findings">
           <p className={styles.sub}>
             {findingTotal} in {plural(withFindings.length, "artifact")}
           </p>
@@ -229,7 +359,23 @@ export function SecurityScreen() {
         </Panel>
 
         <Panel title="What artifacts can reach" titleId="sec-reach">
-          <p className={styles.sub}>Select one to filter the table below.</p>
+          <p className={styles.sub}>
+            {tile ? (
+              <>
+                Showing {plural(reachList.length, "artifact")} that{" "}
+                {reachList.length === 1 ? tile.singular : tile.label}.{" "}
+                <button
+                  type="button"
+                  className={styles.inline}
+                  onClick={() => setFilter(null)}
+                >
+                  Show all
+                </button>
+              </>
+            ) : (
+              "Select one to filter the Reach table."
+            )}
+          </p>
           <div className={styles.tiles}>
             {reachTiles.map((t) => {
               const Icon = tileIcons[t.key];
@@ -240,11 +386,15 @@ export function SecurityScreen() {
                   type="button"
                   className={styles.tile}
                   aria-pressed={filter === t.key}
-                  onClick={() => setFilter(filter === t.key ? null : t.key)}
+                  onClick={() => pick(t.key)}
                 >
-                  <Icon size={16} aria-hidden="true" />
+                  <Icon size={16} aria-hidden="true" className={styles.icon} />
                   <span>
-                    <b>{n.length}</b> {t.label}
+                    <b>{n.length}</b>{" "}
+                    {n.length === 1
+                      ? `artifact ${t.singular}`
+                      : `artifacts ${t.label}`}
+                    <span className={styles.detail}>{reachDetail(n, t)}</span>
                   </span>
                 </button>
               );
@@ -253,23 +403,10 @@ export function SecurityScreen() {
         </Panel>
       </div>
 
-      <h2 className={styles.h}>Findings</h2>
-      {findingTotal > 0 ? (
-        <FindingsTable list={audited} />
-      ) : (
-        <EmptyState icon={ShieldCheck} title="No findings">
-          Nothing in the library triggered an audit rule.
-        </EmptyState>
-      )}
+      <Attention list={audited} />
 
-      <h2 className={styles.h}>
+      <h2 className={styles.h} ref={reachRef}>
         Reach
-        {filter !== null && (
-          <Button variant="ghost" small onClick={() => setFilter(null)}>
-            <X size={13} aria-hidden="true" />
-            Show all
-          </Button>
-        )}
         <span className={styles.hint}>
           {tile
             ? `filtered: ${tile.label}`
@@ -277,6 +414,15 @@ export function SecurityScreen() {
         </span>
       </h2>
       <ReachTable list={reachList} />
+
+      <h2 className={styles.h}>Findings by artifact</h2>
+      {findingTotal > 0 ? (
+        <FindingsTable list={audited} />
+      ) : (
+        <EmptyState icon={ShieldCheck} title="No findings">
+          Nothing in the library triggered an audit rule.
+        </EmptyState>
+      )}
     </Screen>
   );
 }

@@ -114,13 +114,15 @@ describe("Security page", () => {
       "Trust score distribution: 2 Trusted, 0 Needs review, 1 Risky, 1 Dangerous",
     );
     expect(within(trust).getByText("80–100")).toBeInTheDocument();
-    const findings = screen.getByRole("region", { name: "Findings" });
+    const findings = screen.getByRole("region", { name: "By severity" });
     expect(within(findings).getByText("3 in 3 artifacts")).toBeInTheDocument();
     const reach = screen.getByRole("region", {
       name: "What artifacts can reach",
     });
     expect(
-      within(reach).getByRole("button", { name: /2\s+network hosts/ }),
+      within(reach).getByRole("button", {
+        name: /2\s+artifacts reach the network.*2 hosts/,
+      }),
     ).toBeInTheDocument();
   });
 
@@ -172,7 +174,7 @@ describe("Security page", () => {
   it("filters the reach table by a tile and clears on a second click", async () => {
     setup(sample);
     const table = await screen.findByRole("table", { name: "Reach" });
-    const tile = screen.getByRole("button", { name: /shell/ });
+    const tile = screen.getByRole("button", { name: /shell commands/ });
     await userEvent.click(tile);
     expect(tile).toHaveAttribute("aria-pressed", "true");
     expect(names(table)).toEqual(["charlie"]);
@@ -193,21 +195,85 @@ describe("Security page", () => {
     const table = await screen.findByRole("table", { name: "Findings" });
     await userEvent.click(within(table).getByRole("link", { name: "charlie" }));
     expect(await screen.findByTestId("where")).toHaveTextContent(
-      "/library?open=id-charlie",
+      "/library?open=id-charlie&focus=trust",
     );
   });
 
   it("re-runs the audit, shows the result and reloads", async () => {
-    const calls = setup(sample, { audited: 4, changed: 2 });
+    let reaudited = false;
+    const calls: string[] = [];
+    mockIPC((cmd) => {
+      calls.push(cmd);
+      if (cmd === "library_reaudit") {
+        reaudited = true;
+        return { audited: 4, changed: 2 };
+      }
+      if (cmd !== "library_audits") return null;
+      return reaudited
+        ? [
+            entry("alpha", 100),
+            sample[1],
+            entry("charlie", 31, {
+              findings: [["rce", "critical", "curl | sh"]],
+            }),
+            sample[3],
+          ]
+        : sample;
+    });
+    render(
+      <MemoryRouter initialEntries={["/security"]}>
+        <SecurityScreen />
+      </MemoryRouter>,
+    );
     await screen.findByRole("table", { name: "Findings" });
     await userEvent.click(screen.getByRole("button", { name: "Re-run audit" }));
-    expect(
-      await screen.findByText("Re-audited 4 artifacts: 2 changed"),
-    ).toBeInTheDocument();
+    const status = await screen.findByRole("status");
+    expect(status).toHaveTextContent("Re-audited 4 artifacts: 2 changed");
+    expect(status).toHaveTextContent("charlie: 55 → 31 (Dangerous)");
+    expect(status).toHaveTextContent("1 more changed its findings");
     await waitFor(() =>
       expect(calls.filter((c) => c === "library_audits")).toHaveLength(2),
     );
-    expect(calls).toContain("library_reaudit");
+  });
+
+  it("groups findings per artifact and expands to each one", async () => {
+    setup([
+      entry("multi", 20, {
+        findings: [
+          ["broad-permissions", "high", "Bash(*)"],
+          ["rce", "critical", "curl | sh"],
+        ],
+      }),
+    ]);
+    const table = await screen.findByRole("table", { name: "Findings" });
+    expect(within(table).getAllByRole("row")).toHaveLength(2);
+    const toggle = within(table).getByRole("button", {
+      name: /2.*Show findings of multi/,
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(within(table).getAllByRole("row")).toHaveLength(4);
+    expect(within(table).getByText("curl | sh")).toBeInTheDocument();
+    expect(
+      within(table).getAllByRole("link", {
+        name: "View multi trust in the library",
+      })[0],
+    ).toHaveAttribute("href", "/library?open=id-multi&focus=trust");
+  });
+
+  it("washes only critical groups and lists Dangerous and Risky first", async () => {
+    setup(sample);
+    const table = await screen.findByRole("table", { name: "Findings" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows[0]?.className).toMatch(/flag/);
+    expect(rows[1]?.className).not.toMatch(/flag/);
+    const att = screen.getByRole("region", { name: /Needs attention/ });
+    expect(
+      within(att)
+        .getAllByRole("link")
+        .map((a) => a.textContent),
+    ).toEqual(["delta", "charlie"]);
   });
 
   it("says so when the library is empty", async () => {

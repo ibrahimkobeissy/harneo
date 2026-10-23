@@ -38,18 +38,42 @@
 
 .bars {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   gap: var(--space-xs);
-  height: 56px;
+  height: 88px;
 }
-.bars i {
+.bucket {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: stretch;
+}
+.bucket i {
+  display: block;
   background: var(--tier-fill);
   box-shadow: 0 0 0 var(--hairline) var(--tier-edge);
   border-radius: var(--radius-xs) var(--radius-xs) 0 0;
 }
-.bars i[data-empty] {
-  opacity: 0.25;
+/* An empty bucket is a hairline on the axis, not a bar. */
+.bucket[data-empty] i {
+  height: 0 !important;
+  box-shadow: none;
+  border-bottom: var(--hairline) solid var(--line2);
+}
+.count {
+  text-align: center;
+  min-height: 1.2em;
+  color: var(--t1);
+  font-family: var(--font-mono);
+  font-size: var(--text-label-quiet);
+  font-variant-numeric: tabular-nums;
+}
+.scaleNote {
+  margin-top: var(--space-xs);
+  color: var(--t3);
+  font-size: var(--text-label-quiet);
 }
 .axis {
   display: flex;
@@ -107,6 +131,14 @@
 .sevRow b {
   color: var(--sev-ink);
 }
+/* Critical is solid, High a wash, so the two counts read apart. */
+.sevRow div[data-sev="critical"] {
+  background: var(--red);
+}
+.sevRow div[data-sev="critical"] b,
+.sevRow div[data-sev="critical"] span {
+  color: var(--bg);
+}
 .sevRow span {
   color: var(--t2);
   font-size: var(--text-label);
@@ -129,6 +161,24 @@
   font: inherit;
   text-align: left;
   color: var(--t2);
+  cursor: pointer;
+}
+.icon {
+  flex: none;
+}
+.detail {
+  display: block;
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+.inline {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--blue);
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 .tile b {
@@ -185,8 +235,111 @@
 .table tbody tr:last-child td {
   border-bottom: 0;
 }
+/* Only a critical group is washed; a high one keeps the plain row and its red-soft badge. */
 .table tr.flag td {
   background: var(--red-soft);
+}
+.table tr.sub td {
+  background: var(--sunk);
+  border-bottom-style: dashed;
+}
+.expand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--t2);
+  cursor: pointer;
+}
+.expand b {
+  color: var(--t1);
+}
+.expand svg {
+  flex: none;
+  transition: transform 0.15s;
+}
+.expand[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.expand:focus-visible,
+.inline:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.counts {
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.evidence {
+  display: block;
+  margin-top: var(--space-xxs);
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+.rerun {
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.rerunHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--t1);
+}
+.moves {
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-xxs);
+}
+.moveName {
+  color: var(--t1);
+  font-weight: 600;
+}
+.moveTier {
+  color: var(--tier-ink);
+}
+.attention {
+  margin-top: var(--space-xl);
+}
+.attention .h {
+  margin-top: 0;
+}
+.attList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+}
+.attList li {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.attList li:last-child {
+  border-bottom: 0;
+}
+.attNote {
+  flex: 1;
+  color: var(--t2);
+  font-size: var(--text-label);
 }
 .findings {
   min-width: 44rem;

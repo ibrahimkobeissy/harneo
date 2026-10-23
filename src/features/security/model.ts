@@ -3,6 +3,8 @@ import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import type { Audit } from "../../bindings/Audit";
 import type { Finding } from "../../bindings/Finding";
 import type { Reach } from "../../bindings/Reach";
+import type { AuditSeverity } from "../../bindings/AuditSeverity";
+import { severityRank } from "../../ui/audit";
 import type { Tier } from "../../bindings/Tier";
 
 /** An artifact that has a stored audit. */
@@ -32,15 +34,60 @@ export function tierOfBucket(i: number): Tier {
   return "dangerous";
 }
 
-export interface FindingRow {
-  artifact: Audited;
-  finding: Finding;
+/** Bar height as a share of the tallest bucket: square-root scaled, so a bucket of 3 stays visible next to one of 26. Empty is 0. */
+export function barShare(n: number, max: number): number {
+  if (n <= 0 || max <= 0) return 0;
+  return Math.max(0.18, Math.sqrt(n / max));
 }
 
-export function findingRows(list: readonly Audited[]): FindingRow[] {
-  return list.flatMap((artifact) =>
-    artifact.audit.findings.map((finding) => ({ artifact, finding })),
-  );
+/** One artifact with all its findings, most serious first. */
+export interface FindingGroup {
+  artifact: Audited;
+  findings: Finding[];
+  worst: AuditSeverity;
+}
+
+/** The artifacts that have findings, each with its findings sorted most serious first. */
+export function groupFindings(list: readonly Audited[]): FindingGroup[] {
+  return list.flatMap((artifact) => {
+    const findings = [...artifact.audit.findings].sort(
+      (a, b) => severityRank[b.severity] - severityRank[a.severity],
+    );
+    const first = findings[0];
+    return first ? [{ artifact, findings, worst: first.severity }] : [];
+  });
+}
+
+/** Where a re-audit moved an artifact's score. `before` is null for a never-audited artifact. */
+export interface ScoreChange {
+  id: string;
+  name: string;
+  before: number | null;
+  after: number;
+  tier: Tier;
+}
+
+/** The artifacts whose score differs between two reads of the audits (compared by id). */
+export function scoreChanges(
+  before: readonly ArtifactAudit[],
+  after: readonly ArtifactAudit[],
+): ScoreChange[] {
+  const old = new Map(before.map((a) => [a.id, a.audit?.score ?? null]));
+  return after.flatMap((a) => {
+    if (a.audit === null) return [];
+    const was = old.get(a.id) ?? null;
+    return was === a.audit.score
+      ? []
+      : [
+          {
+            id: a.id,
+            name: a.name,
+            before: was,
+            after: a.audit.score,
+            tier: a.audit.tier,
+          },
+        ];
+  });
 }
 
 export type ReachKey = "files" | "shell" | "network" | "env";
@@ -52,12 +99,51 @@ export const reachKeys: readonly ReachKey[] = [
   "env",
 ];
 
-export const reachTiles: readonly { key: ReachKey; label: string }[] = [
-  { key: "network", label: "network hosts" },
-  { key: "shell", label: "run shell commands" },
-  { key: "env", label: "read env vars" },
-  { key: "files", label: "touch absolute or sensitive files" },
+export interface ReachTile {
+  key: ReachKey;
+  /** The phrase after "N artifacts" (plural verb), then the form after "1 artifact". */
+  label: string;
+  singular: string;
+  /** What the distinct entries are called, for the secondary line. */
+  unit: [one: string, many: string];
+}
+
+export const reachTiles: readonly ReachTile[] = [
+  {
+    key: "network",
+    label: "reach the network",
+    singular: "reaches the network",
+    unit: ["host", "hosts"],
+  },
+  {
+    key: "shell",
+    label: "run shell commands",
+    singular: "runs shell commands",
+    unit: ["command", "commands"],
+  },
+  {
+    key: "env",
+    label: "read env vars",
+    singular: "reads env vars",
+    unit: ["variable", "variables"],
+  },
+  {
+    key: "files",
+    label: "touch absolute or sensitive files",
+    singular: "touches absolute or sensitive files",
+    unit: ["path", "paths"],
+  },
 ];
+
+/** The secondary line of a reach tile: distinct entries across the artifacts, and whether any is `*`. */
+export function reachDetail(list: readonly Audited[], tile: ReachTile): string {
+  const all = list.flatMap((a) => a.audit.reach[tile.key]);
+  const named = new Set(all.filter((x) => x !== "*")).size;
+  const any = all.includes("*");
+  if (named === 0) return any ? "any" : "none";
+  const text = `${named} ${named === 1 ? tile.unit[0] : tile.unit[1]}`;
+  return any ? `${text}, and any` : text;
+}
 
 export function reaches(reach: Reach, key: ReachKey): boolean {
   return reach[key].length > 0;

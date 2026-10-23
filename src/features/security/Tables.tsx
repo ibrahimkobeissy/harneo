@@ -1,3 +1,5 @@
+import { ChevronRight } from "lucide-react";
+import { Fragment, useState } from "react";
 import { Link } from "react-router";
 import type { Reach } from "../../bindings/Reach";
 import {
@@ -5,52 +7,78 @@ import {
   FindingTitle,
   hasAny,
   SeverityBadge,
+  severityLabels,
   severityRank,
   TrustMeter,
 } from "../../ui";
 import {
-  findingRows,
+  groupFindings,
   kindLabel,
   reachKeys,
   reaches,
   sortRows,
   type Audited,
+  type FindingGroup,
   type ReachKey,
 } from "./model";
 import { SortHeader, useSort } from "./SortHeader";
 import styles from "./Security.module.css";
 
-function ArtifactLink({ a }: { a: Audited }) {
+/** The library detail panel for an artifact; `trust` scrolls it to the trust section. */
+export function libraryPath(id: string, trust = true): string {
+  return `/library?open=${encodeURIComponent(id)}${trust ? "&focus=trust" : ""}`;
+}
+
+export function ArtifactLink({
+  a,
+  trust = true,
+}: {
+  a: Audited;
+  trust?: boolean;
+}) {
   return (
-    <Link className={styles.link} to={`/library?open=${a.id}`}>
+    <Link className={styles.link} to={libraryPath(a.id, trust)}>
       {a.name}
     </Link>
   );
 }
 
-type FindingCol =
-  "severity" | "artifact" | "type" | "finding" | "evidence" | "trust";
+type FindingCol = "severity" | "artifact" | "type" | "findings" | "trust";
+
+/** "2 critical, 1 high" for the worst severities of a group, plain text for screen readers too. */
+function countsLabel(g: FindingGroup): string {
+  const n = (s: string) => g.findings.filter((f) => f.severity === s).length;
+  return (["critical", "high", "medium", "low"] as const)
+    .filter((s) => n(s) > 0)
+    .map((s) => `${n(s)} ${severityLabels[s].toLowerCase()}`)
+    .join(", ");
+}
 
 export function FindingsTable({ list }: { list: readonly Audited[] }) {
   const [sort, onSort] = useSort<FindingCol>(
     { key: "severity", dir: "desc" },
     (c) => (c === "severity" ? "desc" : "asc"),
   );
-  const rows = sortRows(findingRows(list), sort.dir, (r) => {
+  const [open, setOpen] = useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) =>
+    setOpen((cur) => {
+      const next = new Set(cur);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  const rows = sortRows(groupFindings(list), sort.dir, (g) => {
     switch (sort.key) {
       case "severity":
         // Within a severity the least trusted artifact comes first in descending order.
-        return severityRank[r.finding.severity] * 1000 - r.artifact.audit.score;
+        return severityRank[g.worst] * 1000 - g.artifact.audit.score;
       case "artifact":
-        return r.artifact.name;
+        return g.artifact.name;
       case "type":
-        return kindLabel[r.artifact.kind];
-      case "finding":
-        return r.finding.rule;
-      case "evidence":
-        return r.finding.evidence;
+        return kindLabel[g.artifact.kind];
+      case "findings":
+        return g.findings.length;
       case "trust":
-        return r.artifact.audit.score;
+        return g.artifact.audit.score;
     }
   });
   return (
@@ -73,14 +101,8 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
             />
             <SortHeader col="type" label="Type" sort={sort} onSort={onSort} />
             <SortHeader
-              col="finding"
-              label="Finding"
-              sort={sort}
-              onSort={onSort}
-            />
-            <SortHeader
-              col="evidence"
-              label="Evidence"
+              col="findings"
+              label="Findings"
               sort={sort}
               onSort={onSort}
             />
@@ -88,42 +110,76 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map(({ artifact: a, finding: f }, i) => (
-            <tr
-              key={`${a.id}:${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
-              className={
-                f.severity === "critical" || f.severity === "high"
-                  ? styles.flag
-                  : undefined
-              }
-            >
-              <td>
-                <SeverityBadge severity={f.severity} />
-              </td>
-              <td>
-                <ArtifactLink a={a} />
-              </td>
-              <td>{kindLabel[a.kind]}</td>
-              <td>
-                <span className={styles.rule}>
-                  <FindingTitle rule={f.rule} />
-                </span>
-                <span className={styles.msg}>{f.message}</span>
-                <span className={styles.where}>
-                  {f.file}
-                  {f.line !== null ? `:${f.line}` : ""}
-                </span>
-              </td>
-              <td className={styles.mono}>
-                <span className={styles.ell} title={f.evidence}>
-                  {f.evidence}
-                </span>
-              </td>
-              <td>
-                <TrustMeter score={a.audit.score} tier={a.audit.tier} />
-              </td>
-            </tr>
-          ))}
+          {rows.map((g) => {
+            const a = g.artifact;
+            const expanded = open.has(a.id);
+            return (
+              <Fragment key={a.id}>
+                <tr
+                  className={g.worst === "critical" ? styles.flag : undefined}
+                >
+                  <td>
+                    <SeverityBadge severity={g.worst} />
+                  </td>
+                  <td>
+                    <ArtifactLink a={a} />
+                  </td>
+                  <td>{kindLabel[a.kind]}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className={styles.expand}
+                      aria-expanded={expanded}
+                      onClick={() => toggle(a.id)}
+                    >
+                      <ChevronRight size={14} aria-hidden="true" />
+                      <b>{g.findings.length}</b>
+                      <span className={styles.counts}>{countsLabel(g)}</span>
+                      <span className={styles.srOnly}>
+                        {expanded ? "Hide" : "Show"} findings of {a.name}
+                      </span>
+                    </button>
+                  </td>
+                  <td>
+                    <TrustMeter score={a.audit.score} tier={a.audit.tier} />
+                  </td>
+                </tr>
+                {expanded &&
+                  g.findings.map((f, i) => (
+                    <tr
+                      key={`${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
+                      className={styles.sub}
+                    >
+                      <td>
+                        <SeverityBadge severity={f.severity} />
+                      </td>
+                      <td colSpan={3}>
+                        <span className={styles.rule}>
+                          <FindingTitle rule={f.rule} />
+                        </span>
+                        <span className={styles.msg}>{f.message}</span>
+                        <span className={styles.where}>
+                          {f.file}
+                          {f.line !== null ? `:${f.line}` : ""}
+                        </span>
+                        <code className={styles.evidence} title={f.evidence}>
+                          {f.evidence}
+                        </code>
+                      </td>
+                      <td>
+                        <Link
+                          className={styles.link}
+                          to={libraryPath(a.id)}
+                          aria-label={`View ${a.name} trust in the library`}
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+              </Fragment>
+            );
+          })}
         </tbody>
       </table>
     </div>
