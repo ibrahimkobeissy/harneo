@@ -61,12 +61,12 @@ impl LibraryState {
     }
 
     #[cfg(test)]
-    fn from_result(opened: Result<Library, String>) -> Self {
+    pub(crate) fn from_result(opened: Result<Library, String>) -> Self {
         Self(Mutex::new(opened))
     }
 
     /// Like `with`, for the calls that change the library.
-    fn with_mut<T>(
+    pub(crate) fn with_mut<T>(
         &self,
         f: impl FnOnce(&mut Library) -> harneo_core::Result<T>,
     ) -> Result<T, String> {
@@ -77,7 +77,10 @@ impl LibraryState {
         }
     }
 
-    fn with<T>(&self, f: impl FnOnce(&Library) -> harneo_core::Result<T>) -> Result<T, String> {
+    pub(crate) fn with<T>(
+        &self,
+        f: impl FnOnce(&Library) -> harneo_core::Result<T>,
+    ) -> Result<T, String> {
         let guard = self.0.lock().map_err(|e| e.to_string())?;
         match &*guard {
             Ok(library) => f(library).map_err(|e| e.to_string()),
@@ -816,8 +819,12 @@ pub async fn refit_plan(
 #[tauri::command]
 pub async fn install_apply(app: AppHandle, plan: Plan) -> Result<ApplyReport, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        app.state::<LibraryState>()
-            .with(|library| library.apply(&plan))
+        let report = app
+            .state::<LibraryState>()
+            .with(|library| library.apply(&plan));
+        // The registry may have changed: watch the new project's harness paths.
+        crate::watch::refresh_watch(&app);
+        report
     })
     .await
     .map_err(|e| e.to_string())?

@@ -28,6 +28,7 @@ import {
   linksOf,
   updateStatus,
 } from "../../lib/ipc";
+import { useChanged } from "../../lib/useChanged";
 import {
   AnyNote,
   Badge,
@@ -454,6 +455,9 @@ export function DetailPanel({
   onUpdated?: () => void;
 }) {
   const [tick, setTick] = useState(0);
+  useChanged((change) => {
+    if (change.scope === "library") setTick((n) => n + 1);
+  });
   // The status the dialog opened with: it must outlive the refresh that follows an update.
   const [updating, setUpdating] = useState<UpdateStatus | null>(null);
   const load = useDetail(id, tick);

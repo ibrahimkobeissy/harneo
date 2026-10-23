@@ -20,6 +20,7 @@ import type { SortKey } from "../../bindings/SortKey";
 import { useCollections } from "../../app/collections";
 import { useUsageIndex } from "../../app/usageIndex";
 import { collectionPage, libraryList } from "../../lib/ipc";
+import { useChanged } from "../../lib/useChanged";
 import {
   Badge,
   Button,
@@ -168,6 +169,9 @@ export function LibraryScreen({
   const filtersButton = useRef<HTMLButtonElement>(null);
   const [updatingAll, setUpdatingAll] = useState(false);
   const check = useUpdateCheck(reload);
+  useChanged((change) => {
+    if (change.scope === "library") reload();
+  });
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   // The card to give focus back to once the panel has closed.
   const returnTo = useRef<string | null>(null);

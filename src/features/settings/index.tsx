@@ -3,6 +3,7 @@ import { AboutPanel } from "../../app/AboutPanel";
 import { Screen } from "../../ui";
 import { ClaudeSettings } from "./ClaudeSettings";
 import styles from "./Settings.module.css";
+import { LiveRescan } from "./LiveRescan";
 import { UpdatesPanel } from "./UpdatesPanel";
 
 export function SettingsScreen() {
@@ -11,6 +12,7 @@ export function SettingsScreen() {
       <div className={styles.page}>
         <ClaudeSettings />
         <UpdatesPanel />
+        <LiveRescan />
         {/* About keeps its own content; this wrapper gives it the group look. */}
         <div className={styles.about}>
           <Info size={15} aria-hidden="true" />

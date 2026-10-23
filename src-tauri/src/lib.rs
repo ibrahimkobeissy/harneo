@@ -1,6 +1,7 @@
 //! Harneo's desktop shell: window setup and thin IPC commands. Logic lives in `harneo-core`.
 
 mod commands;
+mod watch;
 
 /// Starts the app. A failure to start is reported and exits non-zero rather than panicking,
 /// since `unwrap`/`expect` are denied outside tests.
@@ -9,6 +10,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::LibraryState::open())
         .manage(commands::UsageState::open())
+        .manage(watch::WatchState::default())
+        .setup(|app| {
+            watch::start(app.handle());
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::library_list,
@@ -85,6 +91,8 @@ pub fn run() {
             commands::project_backups,
             commands::backup_restore,
             commands::backup_delete,
+            watch::watch_status,
+            watch::watch_pause,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

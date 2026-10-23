@@ -4,6 +4,8 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
+import type { ChangeScope } from "../bindings/ChangeScope";
+import type { WatchStatus } from "../bindings/WatchStatus";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
@@ -629,4 +631,24 @@ export function backupRestore(backupId: bigint): Promise<ApplyReport> {
 /** Deletes a backup set from disk and from the list. */
 export function backupDelete(backupId: bigint): Promise<void> {
   return invoke<void>("backup_delete", { backupId: Number(backupId) });
+}
+// --- Live rescan ---
+
+/** Calls `handler` when the library or a registered project changed on disk (debounced). */
+export function onChanged(
+  handler: (scope: ChangeScope) => void,
+): Promise<UnlistenFn> {
+  return listen<ChangeScope>("harneo://changed", (event) =>
+    handler(event.payload),
+  );
+}
+
+/** How many projects the live rescan watches, and whether it is paused. */
+export function watchStatus(): Promise<WatchStatus> {
+  return invoke<WatchStatus>("watch_status");
+}
+
+/** Pauses or resumes the live rescan (remembered). */
+export function watchPause(paused: boolean): Promise<void> {
+  return invoke<void>("watch_pause", { paused });
 }
