@@ -8,6 +8,7 @@ pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .manage(commands::LibraryState::open())
+        .manage(commands::UsageState::open())
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
             commands::library_list,
@@ -36,7 +37,10 @@ pub fn run() {
             commands::collection_add,
             commands::collection_remove,
             commands::collection_page,
-            commands::artifact_collections
+            commands::artifact_collections,
+            commands::usage_index,
+            commands::usage_of,
+            commands::usage_summary
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

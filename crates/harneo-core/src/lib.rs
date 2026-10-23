@@ -6,6 +6,7 @@ pub mod audit;
 pub mod error;
 pub mod library;
 pub mod paths;
+pub mod usage;
 
 pub use error::{Error, Result};
 

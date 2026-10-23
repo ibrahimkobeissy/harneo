@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
@@ -12,6 +13,10 @@ import type { Filter } from "../bindings/Filter";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
 import type { ReauditReport } from "../bindings/ReauditReport";
+import type { IndexProgress } from "../bindings/IndexProgress";
+import type { IndexReport } from "../bindings/IndexReport";
+import type { Usage } from "../bindings/Usage";
+import type { UsageSummary } from "../bindings/UsageSummary";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -213,4 +218,30 @@ export function collectionPage(
 /** The ids of the manual collections an artifact is in. */
 export function artifactCollections(id: string): Promise<number[]> {
   return invoke<number[]>("artifact_collections", { id });
+}
+
+// --- Usage (session logs, names only) --------------------------------------------------
+
+/** Reads new lines of Claude's session logs; resolves when done. */
+export function usageIndex(): Promise<IndexReport> {
+  return invoke<IndexReport>("usage_index", {});
+}
+
+/** Calls `handler` as an index run progresses; resolves with the function that stops listening. */
+export function onUsageIndexProgress(
+  handler: (progress: IndexProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<IndexProgress>("usage-index-progress", (event) =>
+    handler(event.payload),
+  );
+}
+
+/** Sessions in the last 8 weeks, weekly graph, last use and projects of one artifact. */
+export function usageOf(kind: ArtifactKind, name: string): Promise<Usage> {
+  return invoke<Usage>("usage_of", { kind, name });
+}
+
+/** Sessions per week over every tracked use. */
+export function usageSummary(): Promise<UsageSummary> {
+  return invoke<UsageSummary>("usage_summary", {});
 }

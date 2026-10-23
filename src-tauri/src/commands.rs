@@ -9,8 +9,9 @@ use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
 };
+use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use ts_rs::TS;
 
 /// What the About panel shows. `data_dir` crosses IPC as a string, since a path is not JSON.
@@ -338,6 +339,70 @@ pub fn artifact_collections(
     id: String,
 ) -> Result<Vec<i64>, String> {
     state.with(|library| library.artifact_collections(&id))
+}
+
+// --- Usage (Claude's session logs, names only) ------------------------------------------
+
+/// Event name for index progress; the payload is `IndexProgress`.
+const USAGE_PROGRESS_EVENT: &str = "usage-index-progress";
+
+/// The usage index, opened once at startup. Kept apart from the library: its own database, and
+/// an open failure is handed to the UI by each usage command.
+pub struct UsageState(Result<UsageIndex, String>);
+
+impl UsageState {
+    /// Opens the usage index at the app's data dir.
+    pub fn open() -> Self {
+        Self(
+            harneo_core::paths::data_dir()
+                .and_then(|dir| UsageIndex::open(&dir))
+                .map_err(|e| e.to_string()),
+        )
+    }
+
+    fn index(&self) -> Result<&UsageIndex, String> {
+        self.0.as_ref().map_err(Clone::clone)
+    }
+}
+
+/// Reads new lines of the session logs under `~/.claude/projects`, emitting
+/// `usage-index-progress` after each file.
+#[tauri::command]
+pub async fn usage_index(app: AppHandle) -> Result<IndexReport, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let logs = harneo_core::paths::claude_home()
+            .map_err(|e| e.to_string())?
+            .join("projects");
+        let state = app.state::<UsageState>();
+        let events = app.clone();
+        state
+            .index()?
+            .index(&logs, move |progress| {
+                let _ = events.emit(USAGE_PROGRESS_EVENT, progress);
+            })
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Sessions, weekly graph, last use and projects of one artifact (matched by kind and name).
+#[tauri::command]
+pub fn usage_of(
+    state: State<'_, UsageState>,
+    kind: ArtifactKind,
+    name: String,
+) -> Result<Usage, String> {
+    state
+        .index()?
+        .usage_of(kind, &name)
+        .map_err(|e| e.to_string())
+}
+
+/// Sessions per week over all tracked uses.
+#[tauri::command]
+pub fn usage_summary(state: State<'_, UsageState>) -> Result<UsageSummary, String> {
+    state.index()?.usage_summary().map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
