@@ -371,6 +371,7 @@ describe("Project detail", () => {
     mockIPC((cmd) => {
       if (cmd === "project_get") return project();
       if (cmd === "project_files" || cmd === "project_backups") return [];
+      if (cmd === "drift_check") return null;
       return [];
     });
     render(
@@ -595,6 +596,7 @@ describe("Switch / Upgrade modal", () => {
       if (cmd === "profiles_list") return [profile(10, "Web", 2)];
       if (cmd === "switch_plan")
         return plan({ writes: [], editedInProject: [] });
+      if (cmd === "drift_check") return null;
       return [];
     });
     render(

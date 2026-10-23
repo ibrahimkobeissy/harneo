@@ -1,3 +1,4 @@
+import type { DriftStatus } from "../../bindings/DriftStatus";
 import type { Project } from "../../bindings/Project";
 
 export function plural(n: number, one: string, many = `${one}s`): string {
@@ -38,17 +39,36 @@ export function dateTimeOf(seconds: bigint): string {
   });
 }
 
-export type Status = { kind: "sync" } | { kind: "available"; version: number };
-// The Drift ticket (DR3) adds `{ kind: "drift"; files: number }` here and its pill in `StatusPill`.
+export type Status =
+  | { kind: "sync" }
+  | { kind: "available"; version: number }
+  | { kind: "drift"; files: number }
+  | { kind: "library" }
+  | { kind: "missing" };
 
-/** In sync, unless the profile has moved on since the project last applied it. */
+/** The counts of a drift check that decide a project's state. */
+export interface DriftCounts {
+  status: DriftStatus;
+  drifted: number;
+  libraryNewer: number;
+}
+
+/**
+ * Missing, drifted, a newer profile version, newer library copies, else in sync, in that order
+ * of weight.
+ */
 export function statusOf(
   project: Project,
   currentVersion: number | undefined,
+  drift?: DriftCounts | null,
 ): Status {
+  if (drift?.status === "missing") return { kind: "missing" };
+  if (drift && drift.drifted > 0)
+    return { kind: "drift", files: drift.drifted };
   if (currentVersion !== undefined && currentVersion > project.profileVersion) {
     return { kind: "available", version: currentVersion };
   }
+  if (drift && drift.libraryNewer > 0) return { kind: "library" };
   return { kind: "sync" };
 }
 

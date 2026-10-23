@@ -27,6 +27,10 @@
   color: var(--t3);
   font-size: var(--text-label);
 }
+.count[data-warn="true"] {
+  color: var(--amber);
+  font-weight: 600;
+}
 .on {
   background: var(--raised);
   box-shadow:

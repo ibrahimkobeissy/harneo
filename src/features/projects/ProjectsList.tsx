@@ -2,6 +2,8 @@ import { FolderGit2, FolderPlus, Layers, Clock, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { Project } from "../../bindings/Project";
+import { useChanged } from "../../lib/useChanged";
+import { useDriftSummaries } from "../../lib/useDriftSummaries";
 import { profilesList, projectsList } from "../../lib/ipc";
 import { Button, Callout, EmptyState, Screen } from "../../ui";
 import { ago, messageOf, plural, statusOf } from "./format";
@@ -34,6 +36,7 @@ export function ProjectsScreen() {
   const navigate = useNavigate();
   const location = useLocation();
   const versions = useProfileVersions();
+  const drift = useDriftSummaries();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<Notice | null>(() => {
@@ -41,6 +44,8 @@ export function ProjectsScreen() {
     return text ? { text, tone: "ok" } : null;
   });
   const dismiss = useCallback(() => setNotice(null), []);
+  const [attempt, setAttempt] = useState(0);
+  useChanged(useCallback(() => setAttempt((n) => n + 1), []));
 
   useEffect(() => {
     let live = true;
@@ -55,7 +60,7 @@ export function ProjectsScreen() {
     return () => {
       live = false;
     };
-  }, []);
+  }, [attempt]);
 
   const actions = (
     <>
@@ -106,7 +111,13 @@ export function ProjectsScreen() {
                     <span className={styles.mono}>v{p.profileVersion}</span>
                   </span>
                   <span className={styles.grow} />
-                  <StatusPill status={statusOf(p, versions.get(p.profileId))} />
+                  <StatusPill
+                    status={statusOf(
+                      p,
+                      versions.get(p.profileId),
+                      drift.get(p.id),
+                    )}
+                  />
                 </span>
                 <span className={styles.foot}>
                   <Clock size={14} aria-hidden="true" />

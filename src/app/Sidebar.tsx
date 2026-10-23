@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router";
 import { projectsList } from "../lib/ipc";
+import { useDriftSummaries } from "../lib/useDriftSummaries";
 import { Kbd, Logo, NavItem } from "../ui";
 import { initialsOf } from "../ui/initials";
 import { useCollections } from "./collections";
@@ -45,6 +46,8 @@ export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
   const search = searchShortcut();
   const { collections, openNew } = useCollections();
   const projectCount = useProjectCount();
+  const summaries = useDriftSummaries();
+  const drifted = [...summaries.values()].filter((d) => d.drifted > 0).length;
   return (
     <nav className={styles.side} aria-label="Main">
       <div className={styles.top}>
@@ -73,7 +76,19 @@ export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
           to={d.path}
           label={d.label}
           icon={d.icon}
-          count={d.path === "/projects" ? projectCount : undefined}
+          count={
+            d.path !== "/projects"
+              ? undefined
+              : drifted > 0
+                ? drifted
+                : projectCount
+          }
+          warn={d.path === "/projects" && drifted > 0}
+          countLabel={
+            d.path === "/projects" && drifted > 0
+              ? `${drifted} ${drifted === 1 ? "project has" : "projects have"} drifted files`
+              : undefined
+          }
         />
       ))}
       <div className={styles.headingRow}>

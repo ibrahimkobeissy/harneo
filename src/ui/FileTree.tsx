@@ -8,6 +8,8 @@ export interface TreeFile {
   /** Relative path with forward slashes. */
   path: string;
   mark?: FileMark;
+  /** Text shown in place of the mark's word, such as "+6 −2". */
+  markText?: string;
 }
 
 /** The mark a plan action shows; a skipped path is not listed. */
@@ -103,7 +105,7 @@ function Level({
             <span className={styles.name}>{name}</span>
             {file.mark && (
               <span className={styles.mark} data-mark={file.mark}>
-                {file.mark}
+                {file.markText ?? file.mark}
               </span>
             )}
           </button>

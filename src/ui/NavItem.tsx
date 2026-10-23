@@ -9,6 +9,9 @@ interface NavItemProps {
   end?: boolean;
   /** A quiet number at the right, such as how many artifacts a collection holds. */
   count?: number;
+  /** Draws the count as a warning (amber), with `countLabel` as its tooltip. */
+  warn?: boolean;
+  countLabel?: string;
   /** Shown instead of the icon in the 60px rail, in a small tinted square. */
   initials?: string;
 }
@@ -39,6 +42,8 @@ export function NavItem({
   icon: Icon,
   end,
   count,
+  warn,
+  countLabel,
   initials,
 }: NavItemProps) {
   return (
@@ -68,7 +73,15 @@ export function NavItem({
         </span>
       )}
       <span className={styles.lbl}>{label}</span>
-      {count !== undefined && <span className={styles.count}>{count}</span>}
+      {count !== undefined && (
+        <span
+          className={styles.count}
+          data-warn={warn ? "true" : undefined}
+          title={countLabel}
+        >
+          {count}
+        </span>
+      )}
     </NavLink>
   );
 }

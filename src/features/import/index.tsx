@@ -70,6 +70,9 @@ export function ImportScreen() {
   const [step, setStep] = useState(0);
   // `?path=` presets the folder source (the project page's "Import from this project").
   const presetPath = new URLSearchParams(location.search).get("path");
+  // `?select=<candidate id>` (with `path`) imports just that artifact: the Drift tab's
+  // "Import to library". Used once, by the first scan.
+  const preselect = useRef(new URLSearchParams(location.search).get("select"));
   const [form, setForm] = useState<SourceForm>({
     choice: presetPath ? "folder" : "claude",
     url: "",
@@ -116,7 +119,15 @@ export function ImportScreen() {
       }
       setPreview(found);
       setScannedKey(key);
-      setExcluded(new Set(criticalIds(found.candidates)));
+      const only = preselect.current;
+      preselect.current = null;
+      setExcluded(
+        only && found.candidates.some((c) => c.id === only)
+          ? new Set(
+              found.candidates.filter((c) => c.id !== only).map((c) => c.id),
+            )
+          : new Set(criticalIds(found.candidates)),
+      );
       setTags(
         Object.fromEntries(
           found.candidates.map((c) => [c.id, c.suggestedTags]),

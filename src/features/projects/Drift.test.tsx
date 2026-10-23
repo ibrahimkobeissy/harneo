@@ -1,0 +1,541 @@
+import { emit } from "@tauri-apps/api/event";
+import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { afterEach, describe, expect, it } from "vitest";
+import type { DriftReport } from "../../bindings/DriftReport";
+import type { DriftSummary } from "../../bindings/DriftSummary";
+import type { Plan } from "../../bindings/Plan";
+import type { Project } from "../../bindings/Project";
+import { CollectionsProvider } from "../../app/collections";
+import { Sidebar } from "../../app/Sidebar";
+import { ProjectScreen, ProjectsScreen } from ".";
+import { statusOf } from "./format";
+
+afterEach(() => clearMocks());
+
+const NOW = Math.floor(Date.now() / 1000);
+
+function project(id: number, name: string): Project {
+  return {
+    id: BigInt(id),
+    path: `/work/${name}`,
+    name,
+    profileId: 10n,
+    profileName: "Heavy",
+    profileVersion: 4,
+    appliedAt: BigInt(NOW - 3600),
+    fileCount: 5,
+  };
+}
+
+const edited = {
+  path: ".claude/agents/code-reviewer.md",
+  change: { type: "edited", plus: 6, minus: 2 },
+  artifact: "agent:code-reviewer",
+} as const;
+const deleted = {
+  path: ".claude/commands/test.md",
+  change: { type: "deleted" },
+  artifact: "command:test",
+} as const;
+const generated = {
+  path: ".claude/settings.json",
+  change: { type: "edited", plus: 2, minus: 0 },
+  artifact: null,
+} as const;
+const added = {
+  path: ".claude/skills/mine/SKILL.md",
+  change: { type: "added" },
+  artifact: null,
+} as const;
+
+function report(over: Partial<DriftReport> = {}): DriftReport {
+  return {
+    status: "drift",
+    files: [edited, deleted, generated, added],
+    libraryNewer: [],
+    profileNewer: null,
+    ...over,
+  };
+}
+
+function plan(): Plan {
+  const write = (path: string, action: "replace" | "new") => ({
+    path,
+    action,
+    bytes: null,
+    diff: null,
+    artifact: null,
+  });
+  return {
+    target: "/work/shop",
+    profileId: 10n,
+    profileName: "Heavy",
+    profileVersion: 4,
+    reason: "Re-apply",
+    writes: [
+      write(edited.path, "replace"),
+      write(deleted.path, "new"),
+      { ...write("HARNESS.md", "replace"), action: "keep" },
+    ],
+    backupCount: 2,
+    kind: "reapply",
+    editedInProject: [],
+    restored: [],
+  } as unknown as Plan;
+}
+
+interface Opts {
+  report?: DriftReport | null;
+  checkError?: boolean;
+  diffError?: boolean;
+  planError?: boolean;
+  applyError?: boolean;
+  promoteError?: boolean;
+  addedError?: boolean;
+  candidate?: string | null;
+  summaries?: { projectId: bigint; summary: DriftSummary }[];
+  projects?: Project[];
+}
+
+function Where() {
+  const l = useLocation();
+  return <p data-testid="where">{l.pathname + l.search}</p>;
+}
+
+function setup(path: string, opts: Opts = {}) {
+  const calls: { cmd: string; args: unknown }[] = [];
+  mockIPC(
+    (cmd, args) => {
+      calls.push({ cmd, args });
+      switch (cmd) {
+        case "projects_list":
+          return opts.projects ?? [project(1, "shop")];
+        case "project_get":
+          return (opts.projects ?? [project(1, "shop")])[0];
+        case "profiles_list":
+          return [
+            {
+              id: 10,
+              name: "Heavy",
+              description: "",
+              version: 4,
+              counts: [],
+              fileCount: 1,
+              projectCount: 1,
+              updatedAt: 1,
+            },
+          ];
+        case "project_files":
+        case "project_backups":
+          return [];
+        case "app_info":
+          return { version: "1", dataDir: "/data" };
+        case "drift_check":
+          if (opts.checkError) throw new Error("boom");
+          return opts.report === undefined ? report() : opts.report;
+        case "drift_check_all":
+          return opts.summaries ?? [];
+        case "drift_diff":
+          if (opts.diffError) throw new Error("no diff");
+          return [
+            {
+              oldStart: 1,
+              newStart: 1,
+              lines: [
+                { kind: "context", text: "---" },
+                { kind: "removed", text: "tools: Read, Bash" },
+                { kind: "added", text: "tools: Read" },
+              ],
+            },
+          ];
+        case "drift_reapply_plan":
+          if (opts.planError) throw new Error("no plan");
+          return plan();
+        case "install_apply":
+          if (opts.applyError) throw new Error("disk full");
+          return { written: 2 };
+        case "drift_promote":
+          if (opts.promoteError) throw new Error("audit refused it");
+          return { path: edited.path, artifact: "a", backup: "b" };
+        case "drift_promote_added":
+          if (opts.addedError) throw new Error("nothing there");
+          return {
+            preview: { source: { kind: "local", path: "/work/shop" } },
+            candidate:
+              opts.candidate === undefined ? "id-mine" : opts.candidate,
+          };
+        default:
+          return null;
+      }
+    },
+    { shouldMockEvents: true },
+  );
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <CollectionsProvider>
+        <Sidebar
+          onShortcuts={() => undefined}
+          onSearch={() => undefined}
+          onCollapse={() => undefined}
+        />
+        <Routes>
+          <Route path="/projects" element={<ProjectsScreen />} />
+          <Route path="/projects/:id" element={<ProjectScreen />} />
+          <Route path="*" element={<Where />} />
+        </Routes>
+      </CollectionsProvider>
+    </MemoryRouter>,
+  );
+  return calls;
+}
+
+const summary = (over: Partial<DriftSummary> = {}): DriftSummary => ({
+  status: "inSync",
+  drifted: 0,
+  libraryNewer: 0,
+  profileNewer: null,
+  ...over,
+});
+
+describe("statusOf with drift", () => {
+  const p = project(1, "x");
+  it("weighs missing, drift, profile, library, sync in that order", () => {
+    const counts = (d: Partial<DriftSummary>) => ({
+      status: "inSync" as const,
+      drifted: 0,
+      libraryNewer: 0,
+      ...d,
+    });
+    expect(statusOf(p, 5, counts({ status: "missing", drifted: 2 }))).toEqual({
+      kind: "missing",
+    });
+    expect(statusOf(p, 5, counts({ drifted: 2 }))).toEqual({
+      kind: "drift",
+      files: 2,
+    });
+    expect(statusOf(p, 5, counts({ libraryNewer: 1 }))).toEqual({
+      kind: "available",
+      version: 5,
+    });
+    expect(statusOf(p, 4, counts({ libraryNewer: 1 }))).toEqual({
+      kind: "library",
+    });
+    expect(statusOf(p, 4, counts({}))).toEqual({ kind: "sync" });
+  });
+});
+
+describe("Projects list and sidebar", () => {
+  it("shows every pill and the drifted count in the sidebar", async () => {
+    const names = ["a", "b", "c", "d"];
+    setup("/projects", {
+      projects: names.map((n, i) => project(i + 1, n)),
+      summaries: [
+        { projectId: 1n, summary: summary({ status: "drift", drifted: 3 }) },
+        { projectId: 2n, summary: summary({ libraryNewer: 2 }) },
+        { projectId: 3n, summary: summary({ status: "missing" }) },
+        { projectId: 4n, summary: summary() },
+      ],
+    });
+    expect(await screen.findByText("Drift · 3 files")).toBeVisible();
+    expect(screen.getByText("Library has newer copies")).toBeVisible();
+    expect(screen.getByText("Missing")).toBeVisible();
+    expect(screen.getByText("In sync")).toBeVisible();
+    const nav = screen.getByRole("link", { name: "Projects" });
+    await waitFor(() => expect(nav).toHaveTextContent("1"));
+    expect(within(nav).getByTitle("1 project has drifted files")).toBeVisible();
+  });
+
+  it("pluralises the sidebar tooltip and reloads on a rescan event", async () => {
+    const summaries = [
+      { projectId: 1n, summary: summary({ status: "drift", drifted: 1 }) },
+      { projectId: 2n, summary: summary({ status: "drift", drifted: 1 }) },
+    ];
+    const calls = setup("/projects", {
+      projects: [project(1, "a"), project(2, "b")],
+      summaries,
+    });
+    expect(
+      await screen.findByTitle("2 projects have drifted files"),
+    ).toBeVisible();
+    const before = calls.filter((c) => c.cmd === "drift_check_all").length;
+    await emit("harneo://changed", { scope: "library" });
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.cmd === "drift_check_all").length,
+      ).toBeGreaterThan(before),
+    );
+  });
+});
+
+describe("Drift tab", () => {
+  it("opens on Drift with the callout, tree marks and the diff", async () => {
+    setup("/projects/1");
+    expect(
+      await screen.findByText(/3 files in shop no longer match Heavy v4/),
+    ).toBeVisible();
+    expect(screen.getByRole("tab", { name: /Drift/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    const tree = screen.getByRole("navigation", { name: "Drifted files" });
+    expect(within(tree).getByText("+6 −2")).toBeVisible();
+    expect(within(tree).getByText("deleted")).toBeVisible();
+    expect(await screen.findByText("tools: Read, Bash")).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Added in project" }),
+    ).toHaveTextContent("mine/SKILL.md");
+  });
+
+  it("falls back to Installed files when nothing drifted, and says No drift", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { report: report({ status: "inSync", files: [] }) });
+    await screen.findByRole("tab", { name: /Installed files/ });
+    await waitFor(() =>
+      expect(screen.getByRole("tab", { name: /Installed/ })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
+    );
+    await u.click(screen.getByRole("tab", { name: /Drift/ }));
+    expect(screen.getByText("No drift")).toBeVisible();
+    expect(
+      screen.getByText("Every file in shop matches Heavy v4."),
+    ).toBeVisible();
+  });
+
+  it("says so when the check failed or the folder is gone", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { checkError: true });
+    await screen.findByRole("tab", { name: /Drift/ });
+    await u.click(screen.getByRole("tab", { name: /Drift/ }));
+    expect(screen.getByText("Could not check this project.")).toBeVisible();
+  });
+
+  it("shows a missing folder", async () => {
+    setup("/projects/1", {
+      report: report({ status: "missing", files: [] }),
+    });
+    await screen.findByRole("tab", { name: /Drift/ });
+    expect(await screen.findByText(/folder for shop is gone/)).toBeVisible();
+    expect(screen.queryByText("No drift")).toBeNull();
+  });
+
+  it("re-applies all after a confirm that lists the files", async () => {
+    const u = userEvent.setup();
+    const calls = setup("/projects/1");
+    await u.click(await screen.findByRole("button", { name: /Re-apply all/ }));
+    const dlg = await screen.findByRole("dialog");
+    expect(await within(dlg).findByText(edited.path)).toBeVisible();
+    expect(within(dlg).getByText(deleted.path)).toBeVisible();
+    expect(within(dlg).queryByText("HARNESS.md")).toBeNull();
+    await u.click(within(dlg).getByRole("button", { name: "Re-apply" }));
+    expect(
+      await screen.findByText("Re-applied 2 files; originals backed up."),
+    ).toBeVisible();
+    const plan = calls.find((c) => c.cmd === "drift_reapply_plan");
+    expect(plan?.args).toMatchObject({ projectId: 1, paths: null });
+    expect(calls.some((c) => c.cmd === "install_apply")).toBe(true);
+  });
+
+  it("keeps the dialog open with the error when the apply fails", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { applyError: true });
+    await u.click(await screen.findByRole("button", { name: /Re-apply all/ }));
+    const dlg = await screen.findByRole("dialog");
+    await within(dlg).findByText(edited.path);
+    await u.click(within(dlg).getByRole("button", { name: "Re-apply" }));
+    expect(await within(dlg).findByRole("alert")).toHaveTextContent(
+      "Nothing was changed. disk full",
+    );
+  });
+
+  it("reports a plan that cannot be made", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { planError: true });
+    await u.click(await screen.findByRole("button", { name: /Re-apply all/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("no plan");
+    expect(screen.getByRole("button", { name: "Re-apply" })).toBeDisabled();
+  });
+
+  it("closes the dialog on Cancel", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1");
+    await u.click(await screen.findByRole("button", { name: /Re-apply all/ }));
+    const dlg = await screen.findByRole("dialog");
+    await u.click(within(dlg).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("re-applies one file straight away", async () => {
+    const u = userEvent.setup();
+    const calls = setup("/projects/1");
+    await u.click(
+      await screen.findByRole("button", { name: "Re-apply profile version" }),
+    );
+    expect(
+      await screen.findByText(
+        "Re-applied code-reviewer.md; the project's version is backed up.",
+      ),
+    ).toBeVisible();
+    expect(
+      calls.find((c) => c.cmd === "drift_reapply_plan")?.args,
+    ).toMatchObject({ paths: [edited.path] });
+  });
+
+  it("reports a single re-apply that failed", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { applyError: true });
+    await u.click(
+      await screen.findByRole("button", { name: "Re-apply profile version" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `Could not re-apply ${edited.path}. disk full`,
+    );
+  });
+
+  it("promotes after the prototype's confirm", async () => {
+    const u = userEvent.setup();
+    const calls = setup("/projects/1");
+    await u.click(
+      await screen.findByRole("button", { name: "Promote to library" }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    expect(dlg).toHaveTextContent("Promote this change to the library?");
+    await u.click(
+      within(dlg).getByRole("button", { name: "Promote to library" }),
+    );
+    expect(
+      await screen.findByText(
+        "Promoted to the library. Other projects get it when they re-apply.",
+      ),
+    ).toBeVisible();
+    expect(calls.find((c) => c.cmd === "drift_promote")?.args).toMatchObject({
+      projectId: 1,
+      path: edited.path,
+    });
+  });
+
+  it("shows the core's refusal when a promote fails", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { promoteError: true });
+    await u.click(
+      await screen.findByRole("button", { name: "Promote to library" }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    await u.click(
+      within(dlg).getByRole("button", { name: "Promote to library" }),
+    );
+    expect(await within(dlg).findByRole("alert")).toHaveTextContent(
+      "Nothing was changed. audit refused it",
+    );
+  });
+
+  it("disables promote, with the reason, for deleted and generated files", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1");
+    const tree = await screen.findByRole("navigation", {
+      name: "Drifted files",
+    });
+    await u.click(within(tree).getByTitle(deleted.path));
+    const promote = screen.getByRole("button", { name: "Promote to library" });
+    expect(promote).toBeDisabled();
+    expect(
+      screen.getAllByText("A deleted file has nothing to promote.").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText(/was deleted in the project/)).toBeVisible();
+    await u.click(within(tree).getByTitle(generated.path));
+    expect(
+      screen.getByRole("button", { name: "Promote to library" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/Generated files can only be re-applied/),
+    ).toBeVisible();
+  });
+
+  it("shows a diff that could not be read", async () => {
+    setup("/projects/1", { diffError: true });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `Could not compare ${edited.path}. no diff`,
+    );
+  });
+
+  it("imports an added artifact with it preselected", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1");
+    await u.click(
+      await screen.findByRole("button", { name: "Import to library" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("where")).toHaveTextContent(
+        "/import?path=%2Fwork%2Fshop&select=id-mine",
+      ),
+    );
+  });
+
+  it("imports without a preselection when the scan found no candidate", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { candidate: null });
+    await u.click(
+      await screen.findByRole("button", { name: "Import to library" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("where")).toHaveTextContent(
+        "/import?path=%2Fwork%2Fshop",
+      ),
+    );
+    expect(screen.getByTestId("where")).not.toHaveTextContent("select");
+  });
+
+  it("reports an import that could not be prepared", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", { addedError: true });
+    await u.click(
+      await screen.findByRole("button", { name: "Import to library" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Could not prepare the import. nothing there",
+    );
+  });
+
+  it("offers a re-apply when the library has newer copies", async () => {
+    const u = userEvent.setup();
+    const calls = setup("/projects/1", {
+      report: report({
+        status: "inSync",
+        files: [],
+        libraryNewer: [edited.path, deleted.path],
+      }),
+    });
+    await screen.findByRole("tab", { name: /Drift/ });
+    await u.click(screen.getByRole("tab", { name: /Drift/ }));
+    expect(
+      screen.getByText("Library has newer copies of 2 files."),
+    ).toBeVisible();
+    await u.click(screen.getByRole("button", { name: "Re-apply" }));
+    const dlg = await screen.findByRole("dialog");
+    await within(dlg).findByText(edited.path);
+    await u.click(within(dlg).getByRole("button", { name: "Re-apply" }));
+    expect(
+      await screen.findByText("Re-applied 2 files; originals backed up."),
+    ).toBeVisible();
+    expect(
+      calls.find((c) => c.cmd === "drift_reapply_plan")?.args,
+    ).toMatchObject({ paths: [edited.path, deleted.path] });
+  });
+
+  it("reloads on a rescan event for this project, not another", async () => {
+    const calls = setup("/projects/1");
+    await screen.findByText(/3 files in shop/);
+    await new Promise((r) => setTimeout(r, 30));
+    const count = () => calls.filter((c) => c.cmd === "drift_check").length;
+    const before = count();
+    await emit("harneo://changed", { scope: "project", id: 2 });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(count()).toBe(before);
+    await emit("harneo://changed", { scope: "project", id: 1 });
+    await waitFor(() => expect(count()).toBe(before + 1));
+  });
+});

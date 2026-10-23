@@ -131,6 +131,18 @@
 .status[data-tone="green"] .dot {
   background: var(--green-fill);
 }
+.status[data-tone="amber"] {
+  color: var(--amber);
+}
+.status[data-tone="amber"] .dot {
+  background: var(--amber-fill);
+}
+.status[data-tone="red"] {
+  color: var(--red);
+}
+.status[data-tone="red"] .dot {
+  background: var(--red);
+}
 .status[data-tone="blue"] {
   color: var(--blue);
 }
@@ -423,4 +435,35 @@
 }
 .stat a {
   color: var(--blue);
+}
+
+/* Drift tab */
+.vbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: var(--hairline) solid var(--line);
+  background: var(--side);
+  flex-wrap: wrap;
+}
+.vbar svg {
+  flex: none;
+  color: var(--t3);
+}
+.vpath {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  overflow-wrap: anywhere;
+}
+.addedBox {
+  margin-top: var(--space-lg);
+}
+.addedHead {
+  margin: 0;
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+.addedBox .group {
+  margin-top: var(--space-sm);
 }
