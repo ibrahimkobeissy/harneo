@@ -8,6 +8,7 @@ mod watch;
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(commands::LibraryState::open())
         .manage(commands::UsageState::open())
         .manage(watch::WatchState::default())

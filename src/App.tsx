@@ -10,7 +10,7 @@ import { CleanupScreen } from "./features/cleanup";
 import { ImportScreen } from "./features/import";
 import { CollectionScreen, LibraryScreen } from "./features/library";
 import { ProfileBuilder, ProfilesScreen } from "./features/profiles";
-import { ProjectsScreen } from "./features/projects";
+import { ProjectScreen, ProjectsScreen } from "./features/projects";
 import { RefitScreen } from "./features/refit";
 import { ScaffoldScreen } from "./features/scaffold";
 import { SecurityScreen } from "./features/security";
@@ -26,6 +26,7 @@ export function AppRoutes() {
         <Route path="profiles" element={<ProfilesScreen />} />
         <Route path="profiles/:id" element={<ProfileBuilder />} />
         <Route path="projects" element={<ProjectsScreen />} />
+        <Route path="projects/:id" element={<ProjectScreen />} />
         <Route path="security" element={<SecurityScreen />} />
         <Route path="import" element={<ImportScreen />} />
         <Route path="scaffold" element={<ScaffoldScreen />} />

@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
+import { openPath } from "@tauri-apps/plugin-opener";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Preview } from "../bindings/Preview";
 import type { Source } from "../bindings/Source";
@@ -706,4 +707,9 @@ export function driftPromoteAdded(
     projectId: Number(projectId),
     path,
   });
+}
+
+/** Opens a project folder in the system file manager. */
+export function openFolder(path: string): Promise<void> {
+  return openPath(path);
 }

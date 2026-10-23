@@ -1,8 +1,15 @@
-import { Keyboard, Layers, Plus, Search, type LucideIcon } from "lucide-react";
+import {
+  FolderGit2,
+  Keyboard,
+  Layers,
+  Plus,
+  Search,
+  type LucideIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useNavigate } from "react-router";
 import { kinds } from "../features/library/kinds";
-import { libraryList, profilesList } from "../lib/ipc";
+import { libraryList, profilesList, projectsList } from "../lib/ipc";
 import { Kbd } from "../ui";
 import { Modal } from "./Modal";
 import styles from "./Palette.module.css";
@@ -11,7 +18,7 @@ import { actions, places, settingsDestination } from "./routes";
 interface Entry {
   id: string;
   label: string;
-  group: "Places" | "Actions" | "Profiles" | "Help" | "Artifacts";
+  group: "Places" | "Actions" | "Profiles" | "Projects" | "Help" | "Artifacts";
   icon: LucideIcon;
   /** Where Enter goes; defaults to `id`. */
   to?: string;
@@ -99,6 +106,34 @@ function useProfileEntries(): Entry[] {
   return found;
 }
 
+/** Every project by name with its path, for the palette's Projects group. */
+function useProjectEntries(): Entry[] {
+  const [found, setFound] = useState<Entry[]>([]);
+  useEffect(() => {
+    let stale = false;
+    projectsList()
+      .then((list) => {
+        if (stale || !Array.isArray(list)) return;
+        setFound(
+          list.map((p) => ({
+            id: `project-${p.id}`,
+            label: p.name,
+            group: "Projects" as const,
+            icon: FolderGit2,
+            to: `/projects/${p.id}`,
+            hint: p.path,
+          })),
+        );
+      })
+      // Quiet: without projects the group is just absent.
+      .catch(() => undefined);
+    return () => {
+      stale = true;
+    };
+  }, []);
+  return found;
+}
+
 const entries: readonly Entry[] = [
   ...[...places, settingsDestination].map((d) => ({
     id: d.path,
@@ -125,7 +160,14 @@ const entries: readonly Entry[] = [
     icon: Keyboard,
   },
 ];
-const groups = ["Places", "Actions", "Profiles", "Help", "Artifacts"] as const;
+const groups = [
+  "Places",
+  "Actions",
+  "Profiles",
+  "Projects",
+  "Help",
+  "Artifacts",
+] as const;
 const optionId = (e: Entry) => `palette-${e.id.replace(/\W/g, "") || "x"}`;
 
 interface PaletteProps {
@@ -141,12 +183,13 @@ export function Palette({ onClose, onShortcuts }: PaletteProps) {
   const q = query.trim().toLowerCase();
   const artifactRows = useArtifactEntries(q);
   const profileRows = useProfileEntries();
+  const projectRows = useProjectEntries();
   const matches = useMemo(
     () =>
-      [...entries, ...profileRows]
+      [...entries, ...profileRows, ...projectRows]
         .filter((e) => e.label.toLowerCase().includes(q))
         .concat(artifactRows),
-    [q, artifactRows, profileRows],
+    [q, artifactRows, profileRows, projectRows],
   );
   const current = Math.min(active, Math.max(matches.length - 1, 0));
   const activeEntry = matches[current];

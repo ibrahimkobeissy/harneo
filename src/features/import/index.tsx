@@ -68,10 +68,12 @@ export function ImportScreen() {
     (location.state as { firstRun?: boolean } | null)?.firstRun === true;
 
   const [step, setStep] = useState(0);
+  // `?path=` presets the folder source (the project page's "Import from this project").
+  const presetPath = new URLSearchParams(location.search).get("path");
   const [form, setForm] = useState<SourceForm>({
-    choice: "claude",
+    choice: presetPath ? "folder" : "claude",
     url: "",
-    path: "",
+    path: presetPath ?? "",
   });
   const [failure, setFailure] = useState<ImportFailure | null>(null);
   const [scanning, setScanning] = useState(false);

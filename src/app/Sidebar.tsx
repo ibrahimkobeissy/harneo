@@ -6,7 +6,9 @@ import {
   Plus,
   Search,
 } from "lucide-react";
-import { Link } from "react-router";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "react-router";
+import { projectsList } from "../lib/ipc";
 import { Kbd, Logo, NavItem } from "../ui";
 import { initialsOf } from "../ui/initials";
 import { useCollections } from "./collections";
@@ -20,9 +22,29 @@ interface SidebarProps {
   onCollapse: () => void;
 }
 
+/** How many projects Harneo manages; refreshed on every navigation, quiet when it cannot load. */
+function useProjectCount(): number | undefined {
+  const { pathname } = useLocation();
+  const [count, setCount] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    projectsList().then(
+      (list) => {
+        if (live && Array.isArray(list)) setCount(list.length);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [pathname]);
+  return count;
+}
+
 export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
   const search = searchShortcut();
   const { collections, openNew } = useCollections();
+  const projectCount = useProjectCount();
   return (
     <nav className={styles.side} aria-label="Main">
       <div className={styles.top}>
@@ -46,7 +68,13 @@ export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
         </button>
       </div>
       {places.map((d) => (
-        <NavItem key={d.path} to={d.path} label={d.label} icon={d.icon} />
+        <NavItem
+          key={d.path}
+          to={d.path}
+          label={d.label}
+          icon={d.icon}
+          count={d.path === "/projects" ? projectCount : undefined}
+        />
       ))}
       <div className={styles.headingRow}>
         <h2 className={styles.heading}>Collections</h2>
