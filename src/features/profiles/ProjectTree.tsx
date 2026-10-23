@@ -4,7 +4,7 @@ import type { Layout } from "../../bindings/Layout";
 import type { PlannedPath } from "../../bindings/PlannedPath";
 import type { Resolved } from "../../bindings/Resolved";
 import { libraryDetail } from "../../lib/ipc";
-import { Panel } from "../../ui";
+import { Button, Panel } from "../../ui";
 import styles from "./Builder.module.css";
 import { sourceLabel, treeRows } from "./spec";
 
@@ -18,10 +18,15 @@ const generatedLabel = {
 export function ProjectTree({
   layout,
   resolved,
+  summary,
+  onRemove,
   onManualOnly,
 }: {
   layout: Layout | null;
   resolved: Resolved | null;
+  /** What the profile holds, as "3 skills · 1 rule", for the panel header. */
+  summary: string;
+  onRemove: (id: string) => void;
   onManualOnly: (id: string, value: boolean) => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -40,19 +45,38 @@ export function ProjectTree({
         </span>
       }
     >
+      {summary && <p className={styles.treeSummary}>{summary}</p>}
       {rows.length === 0 && (
         <p className={styles.quiet}>
           The files appear here as you add artifacts.
         </p>
       )}
-      {conflicts.length > 0 && (
-        <p role="alert" className={styles.errorText}>
-          {conflicts.length === 1
-            ? "1 path is claimed twice:"
-            : `${conflicts.length} paths are claimed twice:`}{" "}
-          {conflicts.map((c) => c.path).join(", ")}
-        </p>
-      )}
+      {conflicts.map((c) => {
+        const claimers = c.artifacts.map((id) => ({
+          id,
+          name: resolved?.artifacts.find((a) => a.id === id)?.name ?? id,
+        }));
+        return (
+          <div key={c.path} role="alert" className={styles.conflictBox}>
+            <p>
+              <b className={styles.mono}>{c.path}</b> is claimed by{" "}
+              {claimers.map((x) => x.name).join(" and ")}. Remove one.
+            </p>
+            <div className={styles.conflictActions}>
+              {claimers.map((x) => (
+                <Button
+                  key={x.id}
+                  variant="secondary"
+                  small
+                  onClick={() => onRemove(x.id)}
+                >
+                  Remove {x.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
       {rows.length > 0 && (
         <ul className={styles.tree} aria-label="Project files">
           {rows.map((row) => (

@@ -250,7 +250,15 @@ export function CollectionBar({
     setProfileError(null);
     try {
       const id = await profileFromCollection(collection.id, collection.name);
-      void navigate(`/profiles/${id}`);
+      void navigate(`/profiles/${id}`, {
+        state: {
+          notice: {
+            text: `Created ${collection.name}. Settings and MCP servers are left out of a profile made from a collection; add them in the cart.`,
+            tone: "ok",
+            sticky: true,
+          },
+        },
+      });
     } catch (err) {
       setProfileError(String(err));
       setMaking(false);

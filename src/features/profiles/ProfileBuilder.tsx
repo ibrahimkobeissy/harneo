@@ -1,12 +1,13 @@
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams } from "react-router";
 import type { Layout } from "../../bindings/Layout";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { Resolved } from "../../bindings/Resolved";
 import {
   bundleOf,
+  libraryDetail,
   profileCreate,
   profileGet,
   profileLayout,
@@ -48,10 +49,22 @@ type Load =
 export interface Notice {
   text: string;
   tone: "ok" | "warn" | "bad";
+  /** An ok notice that stays until dismissed (warnings and errors always do). */
+  sticky?: boolean;
 }
+
+/** Router state a screen can hand to the builder it navigates to. */
+export interface BuilderState {
+  notice?: Notice;
+}
+
+/** Trust scores under this line get a warning in the cart. */
+const LOW_TRUST = 60;
 
 const LIVE_DELAY_MS = 150;
 const NOTICE_MS = 6000;
+const notFound =
+  "This profile is no longer in your library. It may have been removed; go back to Profiles to pick another.";
 const noneResolved: Resolved = { artifacts: [], missing: [], worstTrust: null };
 const noneLayout: Layout = { paths: [], conflicts: [] };
 
@@ -103,8 +116,8 @@ function Loader({ id }: { id: string }) {
       (next) => {
         if (!stale) setLoad(next);
       },
-      (err: unknown) => {
-        if (!stale) setLoad({ status: "error", message: String(err) });
+      () => {
+        if (!stale) setLoad({ status: "error", message: notFound });
       },
     );
     return () => {
@@ -134,6 +147,37 @@ function Loader({ id }: { id: string }) {
   );
 }
 
+/** The audit score of each picked artifact that falls under the warning line. */
+function useLowTrust(resolved: Resolved | null): Record<string, number> {
+  const [scores, setScores] = useState<Record<string, number | null>>({});
+  useEffect(() => {
+    const ids = (resolved?.artifacts ?? [])
+      .filter((a) => a.kind !== "settings" && a.kind !== "mcp")
+      .map((a) => a.id)
+      .filter((id) => !(id in scores));
+    if (ids.length === 0) return;
+    let stale = false;
+    Promise.all(
+      ids.map((id) =>
+        libraryDetail(id)
+          .then((d) => [id, d.audit?.score ?? null] as const)
+          .catch(() => [id, null] as const),
+      ),
+    ).then((pairs) => {
+      if (!stale)
+        setScores((prev) => ({ ...prev, ...Object.fromEntries(pairs) }));
+    });
+    return () => {
+      stale = true;
+    };
+  }, [resolved, scores]);
+  const low: Record<string, number> = {};
+  for (const [id, score] of Object.entries(scores)) {
+    if (score !== null && score < LOW_TRUST) low[id] = score;
+  }
+  return low;
+}
+
 function Builder({
   routeId,
   initial,
@@ -150,7 +194,10 @@ function Builder({
   const [spec, setSpec] = useState(kept?.spec ?? initial.spec);
   const [liveResolved, setResolved] = useState<Resolved | null>(null);
   const [liveLayout, setLayout] = useState<Layout | null>(null);
-  const [notice, setNotice] = useState<Notice | null>(null);
+  const location = useLocation();
+  const [notice, setNotice] = useState<Notice | null>(
+    (location.state as BuilderState | null)?.notice ?? null,
+  );
   const [ask, setAsk] = useState<RemoveAsk | null>(null);
   const [busy, setBusy] = useState(false);
   const bypass = useRef(false);
@@ -201,9 +248,9 @@ function Builder({
   const resolved = isEmpty(spec) ? noneResolved : liveResolved;
   const layout = isEmpty(spec) ? noneLayout : liveLayout;
 
-  // A success or warning toast leaves by itself; an error stays until dismissed.
+  // Only a plain success toast leaves by itself; warnings, errors and the first save stay until dismissed.
   useEffect(() => {
-    if (!notice || notice.tone === "bad") return;
+    if (!notice || notice.tone !== "ok" || notice.sticky) return;
     const timer = setTimeout(() => setNotice(null), NOTICE_MS);
     return () => clearTimeout(timer);
   }, [notice]);
@@ -231,7 +278,7 @@ function Builder({
     change((s) => addItem(s, item.id));
     if (
       item.trustScore !== null &&
-      item.trustScore < 60 &&
+      item.trustScore < LOW_TRUST &&
       item.findingCount > 0
     ) {
       setNotice({
@@ -295,7 +342,14 @@ function Builder({
         const created = await profileCreate(finalName, "", spec);
         bypass.current = true;
         dropDraft(routeId);
-        void navigate(`/profiles/${created}`, { replace: true });
+        const state: BuilderState = {
+          notice: {
+            text: `Saved ${finalName} v1`,
+            tone: "ok",
+            sticky: true,
+          },
+        };
+        void navigate(`/profiles/${created}`, { replace: true, state });
         return;
       }
       if (finalName !== saved.name) await profileRename(saved.id, finalName);
@@ -317,6 +371,8 @@ function Builder({
     setSpec(saved.spec);
     setNotice(null);
   }
+
+  const lowTrust = useLowTrust(resolved);
 
   const picked = useMemo(
     () => new Set(resolved?.artifacts.map((a) => a.id)),
@@ -353,6 +409,7 @@ function Builder({
           specChanged={specChanged}
           busy={busy}
           projectCount={projectCount}
+          lowTrust={lowTrust}
           spec={spec}
           resolved={resolved}
           layout={layout}

@@ -1,5 +1,5 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
   createMemoryRouter,
@@ -8,7 +8,7 @@ import {
   RouterProvider,
   useLocation,
 } from "react-router";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { ResolvedItem } from "../../bindings/ResolvedItem";
@@ -32,6 +32,9 @@ const lib: Art[] = [
   { id: "M", kind: "agent", name: "reviewer", trust: 88 },
   { id: "T", kind: "skill", name: "tdd", trust: 40, findings: 3 },
   { id: "D", kind: "skill", name: "dup", trust: null },
+  { id: "R1", kind: "rule", name: "r-one" },
+  { id: "R2", kind: "rule", name: "r-two" },
+  { id: "R3", kind: "rule", name: "r-three" },
   {
     id: "S",
     kind: "settings",
@@ -100,7 +103,10 @@ function detail(a: Art) {
       replacedSecretKeys: [],
     },
     files: a.files ?? ["x"],
-    audit: null,
+    audit:
+      a.trust === null || a.trust === undefined
+        ? null
+        : { score: a.trust, tier: "low", findings: [], reach: {} },
     auditedAt: null,
     links: { needs: [], neededBy: [] },
   };
@@ -322,8 +328,10 @@ describe("Builder: picker and cart", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       "Added review + 1 bundled",
     );
-    const totals = within(cart()).getByText("Files written").closest("div");
-    await waitFor(() => expect(totals).toHaveTextContent("3"));
+    await waitFor(() =>
+      expect(within(cart()).getByText("3 files")).toBeVisible(),
+    );
+    expect(within(cart()).getByText("1 skill · 1 subagent")).toBeVisible();
     expect(screen.getByText("Unsaved")).toBeVisible();
   });
 
@@ -334,6 +342,40 @@ describe("Builder: picker and cart", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Added tdd. Trust 40: 3 security findings.",
     );
+  });
+
+  it("flags a low-trust artifact in the cart and keeps the warning until dismissed", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/new");
+    await user.click(await screen.findByRole("button", { name: "Add tdd" }));
+    expect(await within(cart()).findByText("trust 40")).toBeVisible();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(7000);
+    });
+    vi.useRealTimers();
+    expect(screen.getByRole("status")).toHaveTextContent("Trust 40");
+    await user.click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the first rows of a long cart and the rest on Show all", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/4", {
+      spec: { ...base, items: ["L", "T", "D", "R1", "R2", "R3"] },
+    });
+    await within(cart()).findByText("pulled in by review");
+    expect(within(cart()).getByText("7 artifacts")).toBeVisible();
+    const list = () => within(cart()).getByRole("list", { name: "Artifacts" });
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(5);
+    await user.click(
+      within(cart()).getByRole("button", { name: "Show all 7" }),
+    );
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(7);
+    await user.click(
+      within(cart()).getByRole("button", { name: "Show fewer" }),
+    );
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(5);
   });
 
   it("asks before removing a member a picked lead needs, and removes both", async () => {
@@ -430,10 +472,22 @@ describe("Builder: picker and cart", () => {
       await within(cart()).findByText(/No longer in the library: X/),
     ).toBeVisible();
     expect(within(cart()).getByText(/1 path is claimed twice/)).toBeVisible();
+    expect(
+      within(cart()).getByText(/is claimed by tdd and dup\. Remove one\./),
+    ).toBeVisible();
+    expect(
+      within(cart()).getByRole("button", { name: "Remove tdd" }),
+    ).toBeVisible();
     const flagged = within(cart()).getAllByText("conflict");
     expect(flagged).toHaveLength(1);
-    await user.click(flagged[0]?.closest("button") as HTMLElement);
-    expect(within(cart()).getByText("Claimed by tdd and dup.")).toBeVisible();
+    await user.click(
+      within(cart()).getByRole("button", { name: "Remove dup" }),
+    );
+    await waitFor(() =>
+      expect(
+        within(cart()).queryByRole("button", { name: "Remove dup" }),
+      ).toBeNull(),
+    );
   });
 
   it("reports a resolve failure", async () => {
@@ -448,6 +502,8 @@ describe("Builder: picker and cart", () => {
     expect(
       await screen.findByRole("heading", { name: "Profile not found" }),
     ).toBeVisible();
+    expect(screen.queryByText(/no such profile/)).toBeNull();
+    expect(screen.getByText(/no longer in your library/)).toBeVisible();
   });
 });
 
@@ -635,7 +691,7 @@ describe("Builder: save", () => {
   it("shows the next version, saves it and reports it", async () => {
     const user = userEvent.setup();
     const { calls } = await setup("/profiles/4", { projectCount: 2 });
-    expect(await within(cart()).findByText("v2 · saved")).toBeVisible();
+    expect(await within(cart()).findByText("v2")).toBeVisible();
     expect(within(cart()).getByRole("button", { name: "Save" })).toBeDisabled();
     expect(
       within(cart()).getByText(
@@ -646,7 +702,7 @@ describe("Builder: save", () => {
     expect(await within(cart()).findByText("v2 → v3 on save")).toBeVisible();
     await user.click(within(cart()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Saved Heavy v3")).toBeVisible();
-    expect(within(cart()).getByText("v3 · saved")).toBeVisible();
+    expect(within(cart()).getByText("v3")).toBeVisible();
     expect(screen.queryByText("Unsaved")).toBeNull();
     expect(callsOf(calls, "profile_rename")).toHaveLength(0);
     await user.click(screen.getByRole("button", { name: "Dismiss" }));
@@ -659,7 +715,7 @@ describe("Builder: save", () => {
     const name = await within(cart()).findByLabelText("Profile name");
     await user.clear(name);
     await user.type(name, "Heavier");
-    expect(within(cart()).getByText("v2 · rename on save")).toBeVisible();
+    expect(within(cart()).getByText("v2")).toBeVisible();
     await user.click(within(cart()).getByRole("button", { name: "Save" }));
     expect(await screen.findByText("Saved Heavier v2")).toBeVisible();
     expect(callsOf(calls, "profile_save")).toHaveLength(0);
@@ -694,7 +750,7 @@ describe("Builder: save", () => {
 
   it("creates a new profile on first save, named by default, and opens it", async () => {
     const user = userEvent.setup();
-    const { calls } = await setup("/profiles/new");
+    const { calls, router } = await setup("/profiles/new");
     expect(await within(cart()).findByText("new · v1")).toBeVisible();
     expect(within(cart()).getByRole("button", { name: "Save" })).toBeDisabled();
     await user.type(within(cart()).getByLabelText("Profile name"), "x");
@@ -708,6 +764,9 @@ describe("Builder: save", () => {
     await waitFor(() =>
       expect(screen.getByTestId("where")).toHaveTextContent("/profiles/9"),
     );
+    expect(router.state.location.state).toEqual({
+      notice: { text: "Saved Untitled profile v1", tone: "ok", sticky: true },
+    });
     const create = callsOf(calls, "profile_create")[0]?.args;
     expect(create?.["name"]).toBe("Untitled profile");
     expect((create?.["spec"] as ProfileSpec).items).toEqual(["T"]);
@@ -739,7 +798,7 @@ describe("Builder: leaving with unsaved changes", () => {
   it("does not ask when nothing changed", async () => {
     const user = userEvent.setup();
     await setup("/profiles/4");
-    await within(cart()).findByText("v2 · saved");
+    await within(cart()).findByText("v2");
     await user.click(screen.getByRole("link", { name: "Go elsewhere" }));
     expect(await screen.findByText("Elsewhere page")).toBeVisible();
   });
