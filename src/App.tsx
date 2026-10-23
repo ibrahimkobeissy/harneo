@@ -1,9 +1,15 @@
-import { HashRouter, Navigate, Route, Routes } from "react-router";
+import {
+  createHashRouter,
+  Navigate,
+  Route,
+  RouterProvider,
+  Routes,
+} from "react-router";
 import { Layout } from "./app/Layout";
 import { CleanupScreen } from "./features/cleanup";
 import { ImportScreen } from "./features/import";
 import { CollectionScreen, LibraryScreen } from "./features/library";
-import { ProfileStub, ProfilesScreen } from "./features/profiles";
+import { ProfileBuilder, ProfilesScreen } from "./features/profiles";
 import { ProjectsScreen } from "./features/projects";
 import { RefitScreen } from "./features/refit";
 import { ScaffoldScreen } from "./features/scaffold";
@@ -18,7 +24,7 @@ export function AppRoutes() {
         <Route path="library" element={<LibraryScreen />} />
         <Route path="collections/:id" element={<CollectionScreen />} />
         <Route path="profiles" element={<ProfilesScreen />} />
-        <Route path="profiles/:id" element={<ProfileStub />} />
+        <Route path="profiles/:id" element={<ProfileBuilder />} />
         <Route path="projects" element={<ProjectsScreen />} />
         <Route path="security" element={<SecurityScreen />} />
         <Route path="import" element={<ImportScreen />} />
@@ -32,11 +38,10 @@ export function AppRoutes() {
   );
 }
 
-// Hash history: a Tauri webview has no server to rewrite paths.
+// Hash history: a Tauri webview has no server to rewrite paths. A data router, so screens can
+// block navigation while they hold unsaved changes (`useBlocker`).
+const router = createHashRouter([{ path: "*", element: <AppRoutes /> }]);
+
 export function App() {
-  return (
-    <HashRouter>
-      <AppRoutes />
-    </HashRouter>
-  );
+  return <RouterProvider router={router} />;
 }

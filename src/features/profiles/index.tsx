@@ -1,2 +1,2 @@
-export { ProfileStub } from "./ProfileStub";
+export { ProfileBuilder } from "./ProfileBuilder";
 export { exportFileName, ProfilesScreen } from "./ProfilesScreen";

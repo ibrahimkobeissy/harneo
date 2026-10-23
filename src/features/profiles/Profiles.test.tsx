@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import { Palette } from "../../app/Palette";
-import { exportFileName, ProfileStub, ProfilesScreen } from ".";
+import { exportFileName, ProfileBuilder, ProfilesScreen } from ".";
 
 function summary(id: number, name: string, over: Partial<ProfileSummary> = {}) {
   return {
@@ -100,6 +100,10 @@ function setup(opts: Opts = {}) {
           missing: [],
           worstTrust: null,
         };
+      case "library_list":
+        return { items: [], total: 0, unfilteredTotal: 0 };
+      case "profile_layout":
+        return { paths: [], conflicts: [] };
       default:
         return null;
     }
@@ -108,7 +112,7 @@ function setup(opts: Opts = {}) {
     <MemoryRouter initialEntries={["/profiles"]}>
       <Routes>
         <Route path="/profiles" element={<ProfilesScreen />} />
-        <Route path="/profiles/:id" element={<ProfileStub />} />
+        <Route path="/profiles/:id" element={<ProfileBuilder />} />
       </Routes>
       <Where />
     </MemoryRouter>,
