@@ -164,7 +164,7 @@
   display: inline-block;
   min-width: 2.2em;
   margin-right: var(--space-sm);
-  color: var(--t3);
+  color: var(--t2);
   text-align: right;
   user-select: none;
 }

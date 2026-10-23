@@ -98,6 +98,28 @@ describe("UpdateDialog", () => {
 });
 
 describe("LocalEditDialog", () => {
+  it("states the backup location and what a removed file does before confirming", async () => {
+    mockIPC((cmd) => (cmd === "update_diff" ? diff : undefined));
+    render(
+      <LocalEditDialog
+        id="id-a"
+        name="a"
+        toVersion="2"
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
+    expect(
+      await screen.findByText("Take upstream deletes this file."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("library/.backups/id-a/<date>"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 3, name: /a\/SKILL\.md/ }),
+    ).toBeInTheDocument();
+  });
+
   it("shows the error when applying throws, and a failed report's message", async () => {
     const user = userEvent.setup();
     let fail: "throw" | "report" = "throw";
@@ -171,5 +193,30 @@ describe("UpdateAllDialog", () => {
       await within(dialog).findByRole("button", { name: "Update 1" }),
     );
     expect(await within(dialog).findByText(/all broke/)).toBeInTheDocument();
+  });
+
+  it("keeps the actions outside the scrolling list for 30 rows, and shortens the edited names", async () => {
+    const many = Array.from({ length: 30 }, (_, n) =>
+      item(`r${n}`, {
+        update: { toVersion: n % 2 ? "2" : null, localEdits: false },
+      }),
+    );
+    const edited = Array.from({ length: 8 }, (_, n) =>
+      item(`e${n}`, { update: { toVersion: "2", localEdits: true } }),
+    );
+    mockIPC((cmd) =>
+      cmd === "library_list" ? page([...many, ...edited]) : undefined,
+    );
+    render(<UpdateAllDialog onClose={() => {}} onUpdated={() => {}} />);
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    const update = await within(dialog).findByRole("button", {
+      name: "Update 30",
+    });
+    const list = within(dialog).getAllByRole("list")[0] as HTMLElement;
+    const scroll = list.parentElement as HTMLElement;
+    expect(scroll.contains(update)).toBe(false);
+    expect(scroll.contains(within(dialog).getByRole("note"))).toBe(true);
+    expect(within(dialog).getByRole("note")).toHaveTextContent("and 3 more");
+    expect(within(dialog).getAllByText("changed")).toHaveLength(15);
   });
 });

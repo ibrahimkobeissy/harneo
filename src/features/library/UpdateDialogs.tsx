@@ -276,15 +276,20 @@ function SideBySide({ file }: { file: FileDiff }) {
   const { sign, word } = marks[file.status];
   return (
     <section className={styles.pair} aria-label={file.path}>
-      <h4 className={styles.pairHead}>
+      <h3 className={styles.pairHead}>
         <span className={styles.sign} aria-hidden="true">
           {sign}
         </span>
         <span className={styles.path}>{file.path}</span>
         <span className={styles.word}>{word} upstream</span>
-      </h4>
+      </h3>
+      {file.status === "removed" && (
+        <p className={styles.muted}>Take upstream deletes this file.</p>
+      )}
       {file.hunks.length === 0 ? (
-        <p className={styles.muted}>No text preview for this file.</p>
+        file.status !== "removed" && (
+          <p className={styles.muted}>No text preview for this file.</p>
+        )
       ) : (
         <div className={styles.cols}>
           <div className={styles.col}>
@@ -388,8 +393,12 @@ export function LocalEditDialog({
               <span>
                 <b>Take upstream{toVersion ? ` ${toVersion}` : ""}</b>
                 <span className={styles.sub}>
-                  Your edited copy is saved to the library&apos;s backups folder
-                  first; the path is shown once it is done.
+                  Your edited copy is backed up first, to Harneo&apos;s library
+                  backups folder (
+                  <span className={styles.mono}>
+                    library/.backups/{id}/&lt;date&gt;
+                  </span>
+                  ).
                 </span>
               </span>
             </label>
@@ -430,6 +439,14 @@ type Outdated =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; items: LibraryItem[] };
+
+const NAMES_SHOWN = 5;
+
+/** The first few names, then "and N more". */
+function editedNames(names: string[]): string {
+  if (names.length <= NAMES_SHOWN) return names.join(", ");
+  return `${names.slice(0, NAMES_SHOWN).join(", ")} and ${names.length - NAMES_SHOWN} more`;
+}
 
 /** Update all: the artifacts that will update, the edited ones that are skipped, the result. */
 export function UpdateAllDialog({
@@ -521,28 +538,32 @@ export function UpdateAllDialog({
                 {outdated.message}
               </p>
             )}
-            {clean.length > 0 && (
-              <ul className={styles.names}>
-                {clean.map((i) => (
-                  <li key={i.id}>
-                    <span className={styles.path}>{i.name}</span>
-                    <span className={styles.word}>
-                      {i.update?.toVersion ? `→ ${i.update.toVersion}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            {edited.length > 0 && (
-              <div className={styles.callout} data-tone="warn" role="note">
-                <p>
-                  {edited.map((i) => i.name).join(", ")}{" "}
-                  {edited.length === 1 ? "has" : "have"} local edits and{" "}
-                  {edited.length === 1 ? "is" : "are"} skipped; update{" "}
-                  {edited.length === 1 ? "it" : "them"} one by one to choose.
-                </p>
-              </div>
-            )}
+            <div className={styles.scroll}>
+              {clean.length > 0 && (
+                <ul className={styles.names}>
+                  {clean.map((i) => (
+                    <li key={i.id}>
+                      <span className={styles.path}>{i.name}</span>
+                      <span className={styles.word}>
+                        {i.update?.toVersion
+                          ? `→ ${i.update.toVersion}`
+                          : "changed"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {edited.length > 0 && (
+                <div className={styles.callout} data-tone="warn" role="note">
+                  <p>
+                    {editedNames(edited.map((i) => i.name))}{" "}
+                    {edited.length === 1 ? "has" : "have"} local edits and{" "}
+                    {edited.length === 1 ? "is" : "are"} skipped; update{" "}
+                    {edited.length === 1 ? "it" : "them"} one by one to choose.
+                  </p>
+                </div>
+              )}
+            </div>
           </>
         )}
         {reports && (
