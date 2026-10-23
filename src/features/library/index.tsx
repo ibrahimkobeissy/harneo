@@ -33,6 +33,7 @@ import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
 import { FilterSheet } from "./FilterSheet";
+import { FindBundlesDialog, LibraryMenu } from "./FindBundles";
 import { onGridKeyDown } from "./gridNav";
 import { Insights } from "./Insights";
 import { ItemCard } from "./ItemCard";
@@ -160,6 +161,7 @@ export function LibraryScreen({
     },
   );
   const [dragging, setDragging] = useState(false);
+  const [finding, setFinding] = useState(false);
   const filtersButton = useRef<HTMLButtonElement>(null);
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
   // The card to give focus back to once the panel has closed.
@@ -447,6 +449,7 @@ export function LibraryScreen({
           List
         </button>
       </div>
+      {!collection && <LibraryMenu onFind={() => setFinding(true)} />}
       {!collection && (
         <Button variant="primary" onClick={() => void navigate("/import")}>
           <Download size={14} aria-hidden="true" />
@@ -612,6 +615,13 @@ export function LibraryScreen({
             openPanel(null);
             reload();
           }}
+        />
+      )}
+      {finding && (
+        <FindBundlesDialog
+          ids={null}
+          onClose={() => setFinding(false)}
+          onAccepted={reload}
         />
       )}
     </div>

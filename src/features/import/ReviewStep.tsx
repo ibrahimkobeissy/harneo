@@ -7,6 +7,9 @@ import { tagsList } from "../../lib/ipc";
 import { Tag } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
+import { DetectionSection } from "./DetectionSection";
+import type { DetectionControl } from "./useDetection";
+import type { ProposalState } from "../../ui";
 import { TagAll } from "./TagAll";
 import { defaultTagColor } from "./tagColor";
 
@@ -81,8 +84,14 @@ export function ReviewStep({
   onRemoveAll,
   heldBack,
   onReviewHeldBack,
+  detection,
+  proposals,
+  names,
 }: {
   chosen: Candidate[];
+  detection: DetectionControl;
+  proposals: ProposalState;
+  names: ReadonlyMap<string, string>;
   heldBack: number;
   onReviewHeldBack: () => void;
   tags: Readonly<Record<string, string[]>>;
@@ -126,11 +135,17 @@ export function ReviewStep({
         heldBack={heldBack}
         onReviewHeldBack={onReviewHeldBack}
       />
+      <DetectionSection
+        control={detection}
+        proposals={proposals}
+        names={names}
+        count={chosen.length}
+      />
       <h2 className={styles.h}>
         Suggested tags{" "}
         <span>
-          from each artifact's keywords: remove any you don't want, or add your
-          own
+          from each artifact's keywords and Claude: remove any you don't want,
+          or add your own
         </span>
       </h2>
       <div className={styles.bulkTags}>

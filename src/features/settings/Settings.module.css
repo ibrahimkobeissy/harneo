@@ -1,0 +1,113 @@
+.group {
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  overflow: hidden;
+  background: var(--raised);
+}
+.ghead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--side);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.ghead svg {
+  color: var(--t3);
+}
+.ghead h2 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: 600;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-top: var(--hairline) solid var(--line);
+}
+.ghead + .row {
+  border-top: 0;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.sec {
+  color: var(--t2);
+  margin-top: var(--space-xxs);
+}
+.where {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-xxs);
+  min-width: 0;
+  color: var(--t2);
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  word-break: break-all;
+  text-align: right;
+}
+.select {
+  flex: none;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+}
+.select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.switch {
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  border: 0;
+  padding: 2px;
+  background: var(--line2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.switch i {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--raised);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease;
+}
+.switch[aria-checked="true"] {
+  background: var(--blue);
+}
+.switch[aria-checked="true"] i {
+  transform: translateX(14px);
+}
+.switch:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.error {
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--red);
+}
+@media (prefers-reduced-motion: reduce) {
+  .switch i {
+    transition: none;
+  }
+}
+@media (max-width: 760px) {
+  .row {
+    flex-wrap: wrap;
+  }
+}

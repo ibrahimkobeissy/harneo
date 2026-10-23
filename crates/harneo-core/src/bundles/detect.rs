@@ -106,6 +106,25 @@ pub struct Detection {
     pub tags: Vec<TagSuggestion>,
 }
 
+/// How far a detection pass is: batches done of the total, sent while it runs.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct DetectProgress {
+    pub done: u32,
+    pub total: u32,
+}
+
+impl DetectProgress {
+    /// The progress for `done` of `total` batches (counts past `u32` are capped).
+    pub fn new(done: usize, total: usize) -> Self {
+        Self {
+            done: u32::try_from(done).unwrap_or(u32::MAX),
+            total: u32::try_from(total).unwrap_or(u32::MAX),
+        }
+    }
+}
+
 /// A link the user accepted: `(from, to, reason)`.
 pub type AcceptedLink = (ArtifactId, ArtifactId, String);
 

@@ -18,7 +18,9 @@ mod links_tests;
 
 pub use claude_cli::{cli_status, ClaudeConfig, CliStatus, DEFAULT_MODEL};
 pub(crate) use detect::store_accepted;
-pub use detect::{AcceptedLink, Confidence, Detection, DetectionJob, ProposedLink, TagSuggestion};
+pub use detect::{
+    AcceptedLink, Confidence, DetectProgress, Detection, DetectionJob, ProposedLink, TagSuggestion,
+};
 
 use std::collections::{HashMap, HashSet};
 

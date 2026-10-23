@@ -8,6 +8,7 @@ import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
+import type { DetectProgress } from "../bindings/DetectProgress";
 import type { CliStatus } from "../bindings/CliStatus";
 import type { Collection } from "../bindings/Collection";
 import type { LinkOrigin } from "../bindings/LinkOrigin";
@@ -357,4 +358,12 @@ export function updateApply(
 /** Updates every outdated artifact without local edits; edited ones come back skipped. */
 export function updateAll(): Promise<UpdateReport[]> {
   return invoke<UpdateReport[]>("update_all");
+}
+/** Calls `handler` as a detection pass moves through its batches; resolves with the stop function. */
+export function onBundlesDetectProgress(
+  handler: (progress: DetectProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<DetectProgress>("bundles-detect-progress", (event) =>
+    handler(event.payload),
+  );
 }

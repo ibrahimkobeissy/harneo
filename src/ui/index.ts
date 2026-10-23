@@ -26,3 +26,10 @@ export {
   type TierInfo,
 } from "./audit";
 export { AnyNote, FindingTitle, SeverityBadge } from "./AuditParts";
+export {
+  groupByLead,
+  Proposals,
+  useProposals,
+  type ProposalGroup,
+  type ProposalState,
+} from "./Proposals";

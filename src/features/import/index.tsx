@@ -1,5 +1,5 @@
 import { ArrowLeft, CircleAlert, Download, Info } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { Preview } from "../../bindings/Preview";
@@ -8,12 +8,14 @@ import type { Source } from "../../bindings/Source";
 import {
   homeClaudeDir,
   libraryImport,
+  linkReject,
   libraryPreview,
   pickFolder,
   tagCreate,
   tagsList,
 } from "../../lib/ipc";
-import { Button, Screen } from "../../ui";
+import { resolveNames } from "../../lib/names";
+import { Button, Screen, useProposals } from "../../ui";
 import { ChooseStep, Scanning } from "./ChooseStep";
 import { Done } from "./Done";
 import {
@@ -27,6 +29,7 @@ import { criticalIds, criticalRule } from "./trust";
 import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
+import { useDetection } from "./useDetection";
 
 /** What the user sees for the chosen source, in messages and the scan title. */
 function sourceName(form: SourceForm): string {
@@ -142,6 +145,47 @@ export function ImportScreen() {
     (c) => !c.alreadyInLibrary && !excluded.has(c.id),
   );
 
+  const chosenIds = useMemo(() => chosen.map((c) => c.id), [chosen]);
+  const detection = useDetection(step === 2, preview, chosenIds, (found) => {
+    // Claude's tags join the keyword suggestions; a tag already there (any case) is kept once.
+    const mine = new Set(chosenIds);
+    setTags((prev) => {
+      const next = { ...prev };
+      for (const s of found.tags) {
+        if (!mine.has(s.artifact)) continue;
+        const own = next[s.artifact] ?? [];
+        const fresh = s.tags.filter(
+          (t) => !own.some((o) => o.toLowerCase() === t.toLowerCase()),
+        );
+        if (fresh.length > 0) next[s.artifact] = [...own, ...fresh];
+      }
+      return next;
+    });
+  });
+  const proposedLinks = useMemo(
+    () =>
+      detection.phase.kind === "done" ? detection.phase.detection.links : [],
+    [detection.phase],
+  );
+  const proposals = useProposals(proposedLinks);
+  const [names, setNames] = useState<ReadonlyMap<string, string>>(new Map());
+  useEffect(() => {
+    if (proposedLinks.length === 0) return;
+    let live = true;
+    const known = new Map(
+      (preview?.candidates ?? []).map((c) => [c.id, c.artifact.name]),
+    );
+    void resolveNames(
+      proposedLinks.flatMap((l) => [l.from, l.to]),
+      known,
+    ).then((found) => {
+      if (live) setNames(found);
+    });
+    return () => {
+      live = false;
+    };
+  }, [proposedLinks, preview]);
+
   async function includeManaged() {
     if (!preview) return;
     setRefreshing(true);
@@ -193,13 +237,23 @@ export function ImportScreen() {
       const picked: Record<string, string[]> = {};
       for (const c of chosen) picked[c.id] = tags[c.id] ?? [];
       await createColoredTags(Object.values(picked).flat());
+      const accepted: [string, string, string][] = proposals.accepted.map(
+        (l) => [l.from, l.to, l.reason],
+      );
       setReport(
         await libraryImport(
           preview,
           chosen.map((c) => c.id),
           picked,
+          accepted,
         ),
       );
+      // A refused group is remembered only where both artifacts are already in the library.
+      const inPreview = new Set((preview.candidates ?? []).map((c) => c.id));
+      for (const l of proposals.rejected) {
+        if (inPreview.has(l.from) || inPreview.has(l.to)) continue;
+        await linkReject(l.from, l.to).catch(() => undefined);
+      }
     } catch (error) {
       setImportError(messageOf(error));
     } finally {
@@ -300,6 +354,9 @@ export function ImportScreen() {
             tags={tags}
             colors={newColors}
             heldBack={heldBack}
+            detection={detection}
+            proposals={proposals}
+            names={names}
             onReviewHeldBack={() => setStep(1)}
             onAddAll={(name, color) => {
               if (color) {
@@ -384,7 +441,11 @@ export function ImportScreen() {
         {step === 2 && (
           <Button
             variant="primary"
-            disabled={importing || chosen.length === 0}
+            disabled={
+              importing ||
+              chosen.length === 0 ||
+              detection.phase.kind === "running"
+            }
             onClick={() => void runImport()}
           >
             <Download size={14} aria-hidden="true" />

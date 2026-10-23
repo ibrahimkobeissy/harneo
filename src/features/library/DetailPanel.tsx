@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Boxes,
   CircleAlert,
   FileText,
   FolderMinus,
@@ -15,12 +16,14 @@ import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { Audit } from "../../bindings/Audit";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
+import type { Links } from "../../bindings/Links";
 import { Modal } from "../../app/Modal";
 import {
   collectionRemove,
   libraryDetail,
   libraryFind,
   libraryRemove,
+  linksOf,
 } from "../../lib/ipc";
 import {
   AnyNote,
@@ -34,6 +37,7 @@ import {
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
 import { BundleSection } from "./BundleSection";
+import { FindBundlesDialog } from "./FindBundles";
 import styles from "./Detail.module.css";
 import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
@@ -371,6 +375,10 @@ export function DetailPanel({
     detail ? detail.artifact.references : null,
   );
   const [confirming, setConfirming] = useState(false);
+  const [finding, setFinding] = useState(false);
+  // Links added by Find bundles: the Bundle section remounts on the fresh list.
+  const [fresh, setFresh] = useState<{ id: string; links: Links } | null>(null);
+  const [linksRev, setLinksRev] = useState(0);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -485,6 +493,10 @@ export function DetailPanel({
           {detail && (
             <div className={styles.actions}>
               <AddToMenu artifactId={id} onChanged={onMembershipChanged} />
+              <Button small onClick={() => setFinding(true)}>
+                <Boxes size={14} aria-hidden="true" />
+                Find bundles
+              </Button>
               {collection?.kind === "manual" && (
                 <Button small onClick={() => void leaveCollection()}>
                   <FolderMinus size={14} aria-hidden="true" />
@@ -531,9 +543,9 @@ export function DetailPanel({
               <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
               <TrustSection audit={detail.audit} />
               <BundleSection
-                key={id}
+                key={`${id}:${linksRev}`}
                 artifactId={id}
-                initial={detail.links}
+                initial={fresh?.id === id ? fresh.links : detail.links}
                 onOpen={(next) => onOpen(next, detail.artifact.name)}
                 onChanged={onLinksChanged}
               />
@@ -591,6 +603,22 @@ export function DetailPanel({
             </div>
           </div>
         </Modal>
+      )}
+      {finding && (
+        <FindBundlesDialog
+          ids={[id]}
+          onClose={() => setFinding(false)}
+          onAccepted={() => {
+            void linksOf(id).then(
+              (links) => {
+                setFresh({ id, links });
+                setLinksRev((n) => n + 1);
+              },
+              () => undefined,
+            );
+            onLinksChanged();
+          }}
+        />
       )}
     </>
   );
