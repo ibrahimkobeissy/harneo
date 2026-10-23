@@ -33,6 +33,7 @@ function useCandidates(text: string, active: boolean): LibraryItem[] {
           trustMin: null,
           tiers: [],
           hasFindings: false,
+          outdated: false,
         },
         sort: "name",
         descending: false,
