@@ -7,6 +7,7 @@ import { item, page } from "../../test/library";
 import { LibraryScreen } from ".";
 
 const facets = {
+  tiers: [],
   kinds: [{ kind: "skill" as const, count: 2 }],
   tags: [{ name: "review", color: "violet" as const, count: 1 }],
   sources: [],

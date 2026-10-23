@@ -72,6 +72,9 @@ fn is_empty_rule(rule: &Filter) -> bool {
     rule.types.is_empty()
         && rule.tags.is_empty()
         && rule.sources.is_empty()
+        && rule.trust_min.is_none()
+        && rule.tiers.is_empty()
+        && !rule.has_findings
         && rule.text.as_deref().is_none_or(|t| t.trim().is_empty())
 }
 

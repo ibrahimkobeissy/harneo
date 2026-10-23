@@ -3,4 +3,4 @@
 /**
  * What to sort the list by.
  */
-export type SortKey = "name" | "kind" | "source" | "tagCount" | "importedAt" | "position";
+export type SortKey = "name" | "kind" | "source" | "tagCount" | "importedAt" | "trust" | "position";

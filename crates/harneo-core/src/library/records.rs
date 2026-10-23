@@ -9,6 +9,7 @@ use ts_rs::TS;
 
 use super::source::Source;
 use crate::artifact::Artifact;
+use crate::audit::{Audit, Reach, Tier};
 use crate::error::Result;
 
 /// Where an artifact came from, as recorded at import.
@@ -53,6 +54,11 @@ pub struct ArtifactDetail {
     pub provenance: Provenance,
     /// The files stored in the library copy, relative to the copy, sorted.
     pub files: Vec<String>,
+    /// The security audit stored for the artifact; `None` until it is audited (artifacts
+    /// imported before the audit existed show this until the next re-audit).
+    pub audit: Option<Audit>,
+    /// Unix seconds of that audit.
+    pub audited_at: Option<i64>,
 }
 
 pub(crate) fn now() -> i64 {
@@ -121,12 +127,13 @@ pub(crate) fn insert_artifact(
     artifact: &Artifact,
     imported_at: i64,
     replaced_secret_keys: &[String],
+    audit: &Audit,
 ) -> Result<()> {
     conn.execute(
         "INSERT INTO artifacts
             (id, source_id, kind, name, description, source_path, digest, imported_at, artifact,
-             replaced_secret_keys)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+             replaced_secret_keys, trust_score, tier, findings, reach, audited_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
         params![
             id,
             source_id,
@@ -140,9 +147,69 @@ pub(crate) fn insert_artifact(
             imported_at,
             serde_json::to_string(artifact)?,
             serde_json::to_string(replaced_secret_keys)?,
+            audit.score,
+            tier_name(audit.tier)?,
+            serde_json::to_string(&audit.findings)?,
+            serde_json::to_string(&audit.reach)?,
+            imported_at,
         ],
     )?;
     Ok(())
+}
+
+pub(crate) fn tier_name(tier: Tier) -> Result<String> {
+    Ok(serde_json::to_value(tier)?
+        .as_str()
+        .unwrap_or_default()
+        .to_owned())
+}
+
+/// Replaces the stored audit of `id`; false when there is no such row.
+pub(crate) fn update_audit(conn: &Connection, id: &str, audit: &Audit, at: i64) -> Result<bool> {
+    let changed = conn.execute(
+        "UPDATE artifacts SET trust_score = ?2, tier = ?3, findings = ?4, reach = ?5,
+                audited_at = ?6 WHERE id = ?1",
+        params![
+            id,
+            audit.score,
+            tier_name(audit.tier)?,
+            serde_json::to_string(&audit.findings)?,
+            serde_json::to_string(&audit.reach)?,
+            at,
+        ],
+    )?;
+    Ok(changed > 0)
+}
+
+/// The stored audit of `id`, or `None` when the row is missing or was never audited.
+pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i64)>> {
+    type Row = (
+        Option<i64>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<i64>,
+    );
+    let row: Option<Row> = conn
+        .query_row(
+            "SELECT trust_score, tier, findings, reach, audited_at FROM artifacts WHERE id = ?1",
+            params![id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+        )
+        .optional()?;
+    let Some((Some(score), Some(tier), Some(findings), Some(reach), Some(at))) = row else {
+        return Ok(None);
+    };
+    let reach: Reach = serde_json::from_str(&reach)?;
+    Ok(Some((
+        Audit {
+            score: u8::try_from(score).unwrap_or(0),
+            tier: serde_json::from_value(serde_json::Value::String(tier))?,
+            findings: serde_json::from_str(&findings)?,
+            reach,
+        },
+        at,
+    )))
 }
 
 /// The record without its stored file list, or `None` when the id is unknown.
@@ -179,11 +246,14 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
         return Ok(None);
     };
     provenance.replaced_secret_keys = serde_json::from_str(&keys)?;
+    let stored = load_audit(conn, id)?;
     Ok(Some(ArtifactDetail {
         id: id.to_owned(),
         artifact: serde_json::from_str(&json)?,
         provenance,
         files: Vec::new(),
+        audit: stored.as_ref().map(|(audit, _)| audit.clone()),
+        audited_at: stored.map(|(_, at)| at),
     }))
 }
 

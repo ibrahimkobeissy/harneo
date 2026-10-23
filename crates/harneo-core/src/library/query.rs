@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::artifact::ArtifactKind;
+use crate::audit::Tier;
 use crate::error::Result;
 
 /// Most rows one page may hold; a larger `limit` is clamped to this.
@@ -45,6 +46,12 @@ pub struct Filter {
     /// Source ids.
     pub sources: Vec<String>,
     pub text: Option<String>,
+    /// Keep artifacts scored at least this (0 to 100); unaudited ones never match.
+    pub trust_min: Option<u8>,
+    /// Trust tiers; unaudited artifacts never match.
+    pub tiers: Vec<Tier>,
+    /// Only artifacts whose audit has at least one finding.
+    pub has_findings: bool,
 }
 
 /// What to sort the list by.
@@ -60,6 +67,8 @@ pub enum SortKey {
     Source,
     TagCount,
     ImportedAt,
+    /// By trust score; artifacts not audited yet come last in both directions.
+    Trust,
     /// A manual collection's own order. Only meaningful in `Library::collection_page` of a
     /// manual collection; everywhere else it sorts like `Name`.
     Position,
@@ -134,6 +143,11 @@ pub struct LibraryItem {
     pub reference_count: u32,
     /// How many of those references were found in the same scan.
     pub resolved_references: u32,
+    /// The stored trust score; `None` until the artifact is audited.
+    pub trust_score: Option<u8>,
+    pub tier: Option<Tier>,
+    /// Findings in the stored audit (0 when not audited).
+    pub finding_count: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -141,6 +155,14 @@ pub struct LibraryItem {
 #[ts(export, rename_all = "camelCase")]
 pub struct KindCount {
     pub kind: ArtifactKind,
+    pub count: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct TierCount {
+    pub tier: Tier,
     pub count: u32,
 }
 
@@ -172,6 +194,8 @@ pub struct Facets {
     pub tags: Vec<TagCount>,
     /// Sorted by label, then id.
     pub sources: Vec<SourceCount>,
+    /// In `Tier` order (best first); only tiers present in that set, plus selected ones at 0.
+    pub tiers: Vec<TierCount>,
 }
 
 /// One page of the list.
@@ -202,6 +226,7 @@ enum Facet {
     Types,
     Tags,
     Sources,
+    Tiers,
 }
 
 fn placeholders(n: usize) -> String {
@@ -213,6 +238,10 @@ fn kind_name(kind: ArtifactKind) -> Result<String> {
         .as_str()
         .unwrap_or_default()
         .to_owned())
+}
+
+fn tier_name(tier: Tier) -> Result<String> {
+    super::records::tier_name(tier)
 }
 
 fn escape_like(text: &str) -> String {
@@ -262,6 +291,19 @@ fn build(
             placeholders(filter.sources.len())
         ));
         params.extend(filter.sources.iter().cloned().map(Value::Text));
+    }
+    if let Some(min) = filter.trust_min {
+        parts.push("a.trust_score >= ?".to_owned());
+        params.push(Value::Integer(i64::from(min)));
+    }
+    if omit != Some(Facet::Tiers) && !filter.tiers.is_empty() {
+        parts.push(format!("a.tier IN ({})", placeholders(filter.tiers.len())));
+        for tier in &filter.tiers {
+            params.push(Value::Text(tier_name(*tier)?));
+        }
+    }
+    if filter.has_findings {
+        parts.push("COALESCE(json_array_length(a.findings), 0) > 0".to_owned());
     }
     if let Some(text) = filter
         .text
@@ -357,6 +399,8 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             "(SELECT COUNT(*) FROM artifact_tags x WHERE x.artifact_id = a.id)".to_owned()
         }
         SortKey::ImportedAt => "a.imported_at".to_owned(),
+        // NULLs (not audited) sort last whichever way the scores go.
+        SortKey::Trust => "(a.trust_score IS NULL) ASC, a.trust_score".to_owned(),
         SortKey::Position => match scope.and_then(|s| s.manual_collection) {
             Some(id) => format!(
                 "(SELECT position FROM collection_items \
@@ -373,6 +417,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
     let sql = format!(
         "SELECT p.id, p.kind, p.name, p.description, p.imported_at, p.source_id, p.skind,
                 p.location, p.branch,
+                p.trust_score, p.tier, COALESCE(json_array_length(p.findings), 0),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.diagnostics')
                   WHERE json_extract(value, '$.severity') = 'error'),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.diagnostics')
@@ -382,7 +427,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
                   WHERE json_extract(value, '$.resolved') = 1)
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
-                      s.kind AS skind, s.location, s.branch
+                      a.trust_score, a.tier, a.findings, s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
                WHERE {clause}
                ORDER BY {order} {direction}, a.id ASC
@@ -400,11 +445,14 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, String>(6)?,
             r.get::<_, String>(7)?,
             r.get::<_, Option<String>>(8)?,
-            r.get::<_, i64>(9)?,
-            r.get::<_, i64>(10)?,
+            r.get::<_, Option<i64>>(9)?,
+            r.get::<_, Option<String>>(10)?,
             r.get::<_, i64>(11)?,
             r.get::<_, i64>(12)?,
             r.get::<_, i64>(13)?,
+            r.get::<_, i64>(14)?,
+            r.get::<_, i64>(15)?,
+            r.get::<_, i64>(16)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -419,6 +467,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             skind,
             location,
             branch,
+            trust,
+            tier,
+            finding_count,
             errors,
             warnings,
             files,
@@ -443,6 +494,11 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             file_count: count(files),
             reference_count: count(references),
             resolved_references: count(resolved),
+            trust_score: trust.and_then(|t| u8::try_from(t).ok()),
+            tier: tier
+                .map(|t| serde_json::from_value(serde_json::Value::String(t)))
+                .transpose()?,
+            finding_count: count(finding_count),
         });
     }
     drop(stmt);
@@ -559,9 +615,37 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
         (a.source.label.to_lowercase(), &a.source.id)
             .cmp(&(b.source.label.to_lowercase(), &b.source.id))
     });
+
+    // Tiers.
+    let (clause, params) = build(filter, Some(Facet::Tiers), scope)?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT a.tier, COUNT(*) FROM artifacts a JOIN sources s ON s.id = a.source_id
+         WHERE {clause} AND a.tier IS NOT NULL GROUP BY a.tier"
+    ))?;
+    let rows = stmt.query_map(params_from_iter(params.iter()), |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut tiers: Vec<TierCount> = Vec::new();
+    for row in rows {
+        let (name, n) = row?;
+        tiers.push(TierCount {
+            tier: serde_json::from_value(serde_json::Value::String(name))?,
+            count: count(n),
+        });
+    }
+    for tier in &filter.tiers {
+        if !tiers.iter().any(|t| t.tier == *tier) {
+            tiers.push(TierCount {
+                tier: *tier,
+                count: 0,
+            });
+        }
+    }
+    tiers.sort_by_key(|t| t.tier);
     Ok(Facets {
         kinds,
         tags,
         sources,
+        tiers,
     })
 }

@@ -6,6 +6,7 @@ import { parseParams } from "./params";
 import { ResultsToolbar } from "./ResultsToolbar";
 
 const facets: Facets = {
+  tiers: [],
   kinds: [],
   tags: [],
   sources: [

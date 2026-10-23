@@ -21,6 +21,9 @@ export function item(
     fileCount: 1,
     referenceCount: 0,
     resolvedReferences: 0,
+    trustScore: null,
+    tier: null,
+    findingCount: 0,
     ...over,
   };
 }
@@ -30,7 +33,7 @@ export function page(items: LibraryItem[], over: Partial<Page> = {}): Page {
   return {
     items,
     total: items.length,
-    facets: { kinds: [], tags: [], sources: [] },
+    facets: { kinds: [], tags: [], sources: [], tiers: [] },
     ...over,
     unfilteredTotal: over.unfilteredTotal ?? over.total ?? items.length,
   };

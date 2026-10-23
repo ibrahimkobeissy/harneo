@@ -35,6 +35,8 @@ function detailOf(id: string): ArtifactDetail {
       digest: null,
       origin: { type: "own" },
     },
+    audit: null,
+    auditedAt: null,
     provenance: {
       source: {
         id: "s1",
@@ -62,6 +64,7 @@ interface Stored {
 }
 
 const facets = {
+  tiers: [],
   kinds: [
     { kind: "skill" as const, count: 2 },
     { kind: "agent" as const, count: 1 },
@@ -204,7 +207,15 @@ const smartSkills: Stored = {
   id: 2,
   name: "All skills",
   kind: "smart",
-  rule: { types: ["skill"], tags: [], sources: [], text: null },
+  rule: {
+    types: ["skill"],
+    tags: [],
+    sources: [],
+    text: null,
+    trustMin: null,
+    tiers: [],
+    hasFindings: false,
+  },
   members: [],
 };
 
@@ -323,7 +334,15 @@ describe("new collection", () => {
     ).toHaveTextContent("2");
     expect(sent("collection_create_smart")[0]?.args).toEqual({
       name: "Skills only",
-      rule: { types: ["skill"], tags: [], sources: [], text: null },
+      rule: {
+        types: ["skill"],
+        tags: [],
+        sources: [],
+        text: null,
+        trustMin: null,
+        tiers: [],
+        hasFindings: false,
+      },
     });
     await waitFor(() => expect(where()).toBe("/collections/10"));
     // The screen shows the members and the rule as chips.
@@ -429,7 +448,15 @@ describe("new collection", () => {
     await screen.findByRole("link", { name: "Reviewing" });
     expect(sent("collection_create_smart")[0]?.args).toEqual({
       name: "Reviewing",
-      rule: { types: ["skill"], tags: ["review"], sources: [], text: null },
+      rule: {
+        types: ["skill"],
+        tags: ["review"],
+        sources: [],
+        text: null,
+        trustMin: null,
+        tiers: [],
+        hasFindings: false,
+      },
     });
   });
 
@@ -597,7 +624,15 @@ describe("collection screen", () => {
       [
         {
           ...smartSkills,
-          rule: { types: [], tags: [], sources: ["s1", "zz"], text: null },
+          rule: {
+            types: [],
+            tags: [],
+            sources: ["s1", "zz"],
+            text: null,
+            trustMin: null,
+            tiers: [],
+            hasFindings: false,
+          },
         },
       ],
       "/collections/2",
@@ -623,7 +658,15 @@ describe("collection screen", () => {
     expect(await screen.findByText("beta")).toBeInTheDocument();
     expect(sent("collection_update_rule")[0]?.args).toEqual({
       id: 2,
-      rule: { types: ["agent"], tags: [], sources: [], text: null },
+      rule: {
+        types: ["agent"],
+        tags: [],
+        sources: [],
+        text: null,
+        trustMin: null,
+        tiers: [],
+        hasFindings: false,
+      },
     });
     expect(pageQueries.length).toBeGreaterThan(1);
   });

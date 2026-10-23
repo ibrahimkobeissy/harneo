@@ -2,6 +2,7 @@
 import type { ArtifactKind } from "./ArtifactKind";
 import type { SourceSummary } from "./SourceSummary";
 import type { TagChip } from "./TagChip";
+import type { Tier } from "./Tier";
 
 /**
  * What a card or row shows; the full artifact is `Library::detail`.
@@ -26,4 +27,12 @@ referenceCount: number,
 /**
  * How many of those references were found in the same scan.
  */
-resolvedReferences: number, };
+resolvedReferences: number, 
+/**
+ * The stored trust score; `None` until the artifact is audited.
+ */
+trustScore: number | null, tier: Tier | null, 
+/**
+ * Findings in the stored audit (0 when not audited).
+ */
+findingCount: number, };

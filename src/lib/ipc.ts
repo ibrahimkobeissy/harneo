@@ -10,6 +10,7 @@ import type { Collection } from "../bindings/Collection";
 import type { Filter } from "../bindings/Filter";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
+import type { ReauditReport } from "../bindings/ReauditReport";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -42,6 +43,11 @@ export function libraryFind(
   name: string,
 ): Promise<string | null> {
   return invoke<string | null>("library_find", { kind, name });
+}
+
+/** Re-runs the security audit on every stored copy; resolves with how many were audited and changed. */
+export function libraryReaudit(): Promise<ReauditReport> {
+  return invoke<ReauditReport>("library_reaudit", {});
 }
 
 // --- Import flow -----------------------------------------------------------------------

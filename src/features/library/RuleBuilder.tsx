@@ -13,6 +13,9 @@ export const emptyRule: Filter = {
   tags: [],
   sources: [],
   text: null,
+  trustMin: null,
+  tiers: [],
+  hasFindings: false,
 };
 
 /** True when the rule has no condition at all (a smart collection needs one). */

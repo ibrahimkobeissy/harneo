@@ -134,6 +134,29 @@ fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     Ok(out)
 }
 
+/// The artifact as it looks inside its library copy, for auditing the copy: `files` (and `path`
+/// when it is one of them) are the stored paths, relative to the artifact's folder. An MCP
+/// server's stored `server.json` is left out, since its definition is the artifact's metadata.
+/// Also returns the map from stored path back to source path.
+pub(crate) fn stored_view(
+    artifact: &Artifact,
+) -> Result<(Artifact, std::collections::HashMap<String, String>)> {
+    let mut view = artifact.clone();
+    let mut back = std::collections::HashMap::new();
+    view.files.clear();
+    for (source, dest) in plan(artifact)? {
+        if source == artifact.path {
+            view.path.clone_from(&dest);
+        }
+        back.insert(dest.clone(), source);
+        view.files.push(dest);
+    }
+    if artifact.kind == ArtifactKind::Mcp {
+        view.files.retain(|f| f != SERVER_FILE);
+    }
+    Ok((view, back))
+}
+
 /// Upper snake case for a key name: `apiKey`, `X-Api-Key` and `api_key` all become `API_KEY`.
 fn upper_snake(key: &str) -> String {
     let mut out = String::new();

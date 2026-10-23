@@ -91,8 +91,22 @@ CREATE INDEX collection_items_order ON collection_items(collection_id, position)
 CREATE INDEX collection_items_artifact ON collection_items(artifact_id);
 ";
 
+/// Version 2: the audit result on each artifact row. All five columns are NULL until the
+/// artifact is audited (a row imported before this version shows as not audited until the next
+/// re-audit). `trust_score` is 0 to 100, `tier` the camelCase tier name, `findings` and `reach`
+/// the JSON of the audit's lists, `audited_at` Unix seconds.
+const V2: &str = "
+ALTER TABLE artifacts ADD COLUMN trust_score INTEGER;
+ALTER TABLE artifacts ADD COLUMN tier        TEXT;
+ALTER TABLE artifacts ADD COLUMN findings    TEXT;
+ALTER TABLE artifacts ADD COLUMN reach       TEXT;
+ALTER TABLE artifacts ADD COLUMN audited_at  INTEGER;
+CREATE INDEX artifacts_trust_score ON artifacts(trust_score);
+CREATE INDEX artifacts_tier ON artifacts(tier);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1];
+const MIGRATIONS: &[&str] = &[V1, V2];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -286,6 +300,36 @@ mod tests {
         assert_eq!(again.schema_version().expect("v"), SCHEMA_VERSION);
         assert_eq!(schema(&again), before);
         assert_eq!(count(&again, "artifacts"), 1);
+    }
+
+    /// The version 1 schema and a row in it, as a build before the audit wrote them.
+    #[test]
+    fn a_v1_database_opens_keeps_its_data_and_shows_as_not_audited() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v1 db");
+            conn.execute_batch(V1).expect("v1 schema");
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location) VALUES ('s1', 'local', '/x');
+                 INSERT INTO artifacts (id, source_id, kind, name, source_path, imported_at, artifact)
+                 VALUES ('a1', 's1', 'agent', 'old', 'agents/old.md', 5, '{}');
+                 PRAGMA user_version = 1;",
+            )
+            .expect("v1 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), 2);
+        let row: (String, i64, Option<i64>, Option<String>, Option<String>) = store
+            .conn
+            .query_row(
+                "SELECT name, imported_at, trust_score, tier, findings FROM artifacts",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )
+            .expect("row survives");
+        assert_eq!(row, ("old".to_owned(), 5, None, None, None));
     }
 
     #[test]

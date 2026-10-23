@@ -14,6 +14,7 @@ pub fn run() {
             commands::library_detail,
             commands::library_remove,
             commands::library_find,
+            commands::library_reaudit,
             commands::home_claude_dir,
             commands::library_preview,
             commands::library_import,

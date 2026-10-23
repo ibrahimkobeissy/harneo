@@ -9,6 +9,8 @@
 //! Importing is two steps: [`Library::preview`] scans a [`Source`] and lists [`Candidate`]s,
 //! then [`Library::import`] copies the ticked ones (see `copy`).
 
+#[cfg(test)]
+mod audit_tests;
 mod collections;
 #[cfg(test)]
 mod collections_tests;
@@ -45,6 +47,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions};
+use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use collections::{Collection, CollectionKind};
 use copy::{copy_artifact, ImportHooks, NoHooks};
@@ -52,7 +55,7 @@ pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
-    TagChip, TagCount, MAX_LIMIT,
+    TagChip, TagCount, TierCount, MAX_LIMIT,
 };
 pub use records::{ArtifactDetail, Provenance, SourceRecord};
 pub use source::Source;
@@ -78,6 +81,21 @@ pub struct Candidate {
     pub suggested_tags: Vec<String>,
     /// Paths of identical copies (same kind, name and digest) folded into this candidate.
     pub copies: Vec<String>,
+    /// The security audit of the artifact in its source (for a git source, inside the clone).
+    /// `import` stores this one.
+    pub audit: Audit,
+}
+
+/// What [`Library::reaudit_all`] did.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ReauditReport {
+    /// Artifacts audited (those whose stored copy could be read).
+    pub audited: u32,
+    /// Of those, how many now have a different audit than before (a never-audited artifact
+    /// counts as changed).
+    pub changed: u32,
 }
 
 /// What a source holds, before anything is copied. Hand it back to [`Library::import`].
@@ -236,6 +254,7 @@ impl Library {
             .collect();
         let id_refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let known = records::existing(&self.store.conn, &id_refs)?;
+        let scan_options = ScanOptions::default();
         let candidates: Vec<Candidate> = report
             .artifacts
             .into_iter()
@@ -245,6 +264,7 @@ impl Library {
                 replaced_secret_keys: copy::replaced_secret_keys(&artifact),
                 suggested_tags: tags::suggestions(&artifact),
                 copies: Vec::new(),
+                audit: audit::audit(&artifact, root, &scan_options),
                 id,
                 artifact,
             })
@@ -355,6 +375,7 @@ impl Library {
                     &candidate.artifact,
                     now,
                     keys,
+                    &candidate.audit,
                 )?;
                 if let Some(names) = tag_choices.get(&candidate.id) {
                     tags::apply_names(&tx, &candidate.id, names)?;
@@ -393,6 +414,50 @@ impl Library {
             .ok_or_else(|| Error::NotInLibrary { id: id.to_owned() })?;
         detail.files = stored_files(&self.store.artifacts_dir().join(id))?;
         Ok(detail)
+    }
+
+    /// Re-runs the audit on every stored library copy (after a rule change) and stores the
+    /// results. The audit runs on `<data>/library/artifacts/<id>/` with that folder as the scan
+    /// root; the artifact's file list is mapped from source paths to stored paths first (see
+    /// `copy::stored_view`) and the findings' files are mapped back, so they read the same as
+    /// the ones the preview produced. An artifact whose copy is missing is skipped. One
+    /// transaction: either every audit is stored or none.
+    pub fn reaudit_all(&mut self) -> Result<ReauditReport> {
+        let rows: Vec<(String, String)> = {
+            let mut stmt = self
+                .store
+                .conn
+                .prepare("SELECT id, artifact FROM artifacts ORDER BY id")?;
+            let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
+            rows.collect::<std::result::Result<_, _>>()?
+        };
+        let options = ScanOptions::default();
+        let artifacts_dir = self.store.artifacts_dir();
+        let now = records::now();
+        let mut report = ReauditReport::default();
+        let tx = self.store.conn.transaction()?;
+        for (id, json) in rows {
+            let folder = artifacts_dir.join(&id);
+            if !folder.is_dir() {
+                continue;
+            }
+            let artifact: Artifact = serde_json::from_str(&json)?;
+            let (view, to_source) = copy::stored_view(&artifact)?;
+            let mut fresh = audit::audit(&view, &folder, &options);
+            for finding in &mut fresh.findings {
+                if let Some(source) = to_source.get(&finding.file) {
+                    finding.file.clone_from(source);
+                }
+            }
+            let before = records::load_audit(&tx, &id)?.map(|(a, _)| a);
+            records::update_audit(&tx, &id, &fresh, now)?;
+            report.audited += 1;
+            if before.as_ref() != Some(&fresh) {
+                report.changed += 1;
+            }
+        }
+        tx.commit()?;
+        Ok(report)
     }
 
     /// Deletes an artifact's copy and its index rows (tags and collection entries go with them).

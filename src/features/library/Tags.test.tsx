@@ -23,6 +23,8 @@ const detail: ArtifactDetail = {
     digest: null,
     origin: { type: "own" },
   },
+  audit: null,
+  auditedAt: null,
   provenance: {
     source: {
       id: "s1",
@@ -60,6 +62,7 @@ function setup(existing: Row[], onArtifact: number[] = []) {
           .map((t) => ({ name: t.name, color: t.color }));
         return page([item("alpha", { tags: chips })], {
           facets: {
+            tiers: [],
             kinds: [],
             sources: [],
             tags: tags

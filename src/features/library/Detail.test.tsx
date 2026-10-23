@@ -27,6 +27,8 @@ function detail(
       origin: { type: "own" },
       ...over,
     },
+    audit: null,
+    auditedAt: null,
     provenance: {
       source: {
         id: "s1",

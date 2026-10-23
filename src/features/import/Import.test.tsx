@@ -33,6 +33,12 @@ function candidate(
     replacedSecretKeys: [],
     suggestedTags: [],
     copies: [],
+    audit: {
+      score: 100,
+      tier: "trusted",
+      findings: [],
+      reach: { files: [], network: [], shell: [], env: [] },
+    },
     ...over,
   };
 }

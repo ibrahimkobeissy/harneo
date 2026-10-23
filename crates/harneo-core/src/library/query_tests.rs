@@ -254,6 +254,7 @@ fn filters_and_across() {
         tags: vec!["ops".into()],
         sources: vec!["s2".into()],
         text: None,
+        ..Filter::default()
     };
     assert_eq!(ids(&lib.list(&q(f)).expect("list")), ["a3"]);
 }
@@ -501,6 +502,7 @@ fn filter_clause_is_reusable_and_only_binds_values() {
         tags: vec!["a".into(), "b".into()],
         sources: vec!["x".into()],
         text: Some("it's".into()),
+        ..Filter::default()
     };
     let (clause, params) = filter_clause(&f).expect("clause");
     assert!(!clause.contains("it's") && !clause.contains("skill"));
@@ -574,6 +576,7 @@ fn a_2000_artifact_library_answers_a_filtered_sorted_page_under_100_ms() {
             tags: vec!["tag3".into(), "tag4".into()],
             sources: vec!["s1".into(), "s2".into(), "s3".into()],
             text: Some("thing".into()),
+            ..Filter::default()
         },
         sort: SortKey::TagCount,
         descending: true,

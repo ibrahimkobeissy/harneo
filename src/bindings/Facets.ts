@@ -2,6 +2,7 @@
 import type { KindCount } from "./KindCount";
 import type { SourceCount } from "./SourceCount";
 import type { TagCount } from "./TagCount";
+import type { TierCount } from "./TierCount";
 
 /**
  * Counts per filter value (see the module docs for what they are counted over).
@@ -18,4 +19,8 @@ tags: Array<TagCount>,
 /**
  * Sorted by label, then id.
  */
-sources: Array<SourceCount>, };
+sources: Array<SourceCount>, 
+/**
+ * In `Tier` order (best first); only tiers present in that set, plus selected ones at 0.
+ */
+tiers: Array<TierCount>, };

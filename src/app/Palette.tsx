@@ -30,7 +30,15 @@ function useArtifactEntries(text: string): Entry[] {
     let stale = false;
     const timer = setTimeout(() => {
       libraryList({
-        filter: { text, types: [], tags: [], sources: [] },
+        filter: {
+          text,
+          types: [],
+          tags: [],
+          sources: [],
+          trustMin: null,
+          tiers: [],
+          hasFindings: false,
+        },
         sort: "name",
         descending: false,
         offset: 0,
