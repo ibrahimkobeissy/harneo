@@ -99,14 +99,17 @@ describe("Settings: Claude CLI", () => {
     expect(toggle).toHaveAttribute("aria-checked", "true");
   });
 
-  it("defaults to Haiku with detection on", async () => {
+  it("defaults to Haiku with detection at import off", async () => {
     setup({ found: true, path: "/bin/claude", version: "2" });
     expect(await screen.findByRole("combobox", { name: "Model" })).toHaveValue(
       "haiku",
     );
     expect(
       screen.getByRole("switch", { name: "Detect bundles and tags at import" }),
-    ).toHaveAttribute("aria-checked", "true");
+    ).toHaveAttribute("aria-checked", "false");
+    expect(
+      screen.getByText(/Off by default\. When on, each import sends/),
+    ).toBeVisible();
   });
 });
 

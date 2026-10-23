@@ -22,7 +22,7 @@ const models = [
 export function ClaudeSettings() {
   const [cli, setCli] = useState<CliStatus | undefined>(undefined);
   const [model, setModel] = useState("haiku");
-  const [atImport, setAtImport] = useState(true);
+  const [atImport, setAtImport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const modelId = useId();
   const toggleId = useId();
@@ -142,7 +142,11 @@ export function ClaudeSettings() {
             <b>Detect bundles and tags at import</b>
           </label>
           <div className={styles.sec}>
-            When off, the Review step offers a Detect now button instead.
+            Off by default. When on, each import sends the artifacts' main files
+            (up to 6,000 characters each) and the names and descriptions of your
+            library to Claude through your own claude CLI, using your Claude
+            plan. Artifacts flagged for secrets are sent by name and description
+            only. When off, the Review step offers Detect now for that import.
             {notFound && " Needs the Claude CLI."}
           </div>
         </div>

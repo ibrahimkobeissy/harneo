@@ -67,7 +67,8 @@ export function useDetection(
         if (!forced) {
           const enabled = await settingsGet("bundles.atImport");
           if (!current()) return;
-          if (enabled === false) {
+          // Off unless the user turned it on: it sends artifact text to Claude.
+          if (enabled !== true) {
             setPhase({ kind: "off" });
             return;
           }

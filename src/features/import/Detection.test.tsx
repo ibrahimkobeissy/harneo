@@ -76,7 +76,7 @@ interface Call {
 
 function setup(opts: {
   cli?: { found: boolean; path: string | null; version: string | null };
-  atImport?: boolean;
+  atImport?: boolean | null;
   detect?: () => Detection | Promise<Detection>;
 }) {
   const calls: Call[] = [];
@@ -98,7 +98,11 @@ function setup(opts: {
         return [];
       case "settings_get": {
         const { key } = args as { key: string };
-        return key === "bundles.atImport" ? (opts.atImport ?? true) : null;
+        return key === "bundles.atImport"
+          ? opts.atImport === undefined
+            ? true
+            : opts.atImport
+          : null;
       }
       case "claude_cli_status":
         return opts.cli ?? { found: true, path: "/bin/claude", version: "2.0" };
@@ -236,16 +240,28 @@ describe("Review step detection", () => {
     const u = userEvent.setup();
     await toReview(u);
     expect(
-      await screen.findByText(/Detection at import is off in/),
+      await screen.findByText(/Bundle and tag suggestions are off/),
     ).toBeVisible();
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute(
       "href",
       "/settings",
     );
-    expect(screen.getByText(/Library → Find bundles/)).toBeVisible();
     expect(calls.some((c) => c.cmd === "bundles_detect_preview")).toBe(false);
-    await u.click(screen.getByRole("button", { name: "Detect now" }));
+    await u.click(
+      screen.getByRole("button", { name: "Detect now for this import" }),
+    );
     expect(await screen.findByText("needs 2")).toBeVisible();
+  });
+
+  it("sends nothing to Claude on a fresh install, where the setting was never set", async () => {
+    const calls = setup({ atImport: null });
+    const u = userEvent.setup();
+    await toReview(u);
+    expect(
+      await screen.findByText(/Bundle and tag suggestions are off/),
+    ).toBeVisible();
+    expect(calls.some((c) => c.cmd === "bundles_detect_preview")).toBe(false);
+    expect(calls.some((c) => c.cmd === "claude_cli_status")).toBe(false);
   });
 
   it("leads with 'needs N', says what accepting does and counts links on the Import button", async () => {

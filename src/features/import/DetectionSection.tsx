@@ -69,12 +69,12 @@ export function DetectionSection({
       {phase.kind === "off" && (
         <div className={styles.callout} data-tone="neutral">
           <p>
-            Detection at import is off in <Link to="/settings">Settings</Link>,
-            so no bundles or tags were suggested. Detect now, or run {RERUN}{" "}
-            later.
+            Bundle and tag suggestions are off. They send artifact text to
+            Claude through your claude CLI. Detect now for this import, or turn
+            them on in <Link to="/settings">Settings</Link>.
           </p>
           <Button small onClick={control.detectNow}>
-            Detect now
+            Detect now for this import
           </Button>
         </div>
       )}

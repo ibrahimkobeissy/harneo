@@ -13,7 +13,7 @@ Make sure nothing ships half-wired. Harneo records which artifacts **need** whic
 ### Decisions (pre-approved 2026-10-23; for the user's review)
 
 1. **A link is directed:** `A needs B`. A's **bundle** is A plus everything reachable from it through confirmed links (transitive). "Bundle of N" counts the members other than A. There is no separate bundle object to name or keep in sync.
-2. **Claude runs through the user's `claude` CLI** (`CONTEXT.md` §3 1.3): no API key, no network code in Harneo. Default model **Haiku** (`--model haiku`), changeable in Settings (Haiku, Sonnet, Opus). Detection runs **at import by default** (Settings toggle) and on demand from the library.
+2. **Claude runs through the user's `claude` CLI** (`CONTEXT.md` §3 1.3): no API key, no network code in Harneo. Default model **Haiku** (`--model haiku`), changeable in Settings (Haiku, Sonnet, Opus). **Detection at import is off until the user turns it on in Settings** (user decision 2026-10-23: "this should not be automatic this should be a setting of the app and the user has to enable it, it's a good idea but it should be off by default"). While it is off, nothing is sent: the Review step offers *Detect now for this import*, and *Find bundles with Claude* in the library is an explicit action with a confirm step.
 3. **What is sent:** each artifact's kind, name, description and main-file text (cut to 6,000 characters), plus a catalogue of the library's artifacts (kind, name, description cut to 120 characters, at most 500 entries) so Claude can link to what is already there. Secrets are already `${KEY}` placeholders in library copies; in the Review step the same replacement is applied before sending. **An artifact with a `plaintext-secrets` or `credential-theft` finding is sent by kind, name and description only.**
 4. **Structured references become links automatically** (origin `reference`): a resolved `Reference` whose target is in the library (same kind and name) or in the same import.
 5. **Rejected proposals are remembered**, so a re-run doesn't propose them again.
@@ -38,10 +38,10 @@ Make sure nothing ships half-wired. Harneo records which artifacts **need** whic
 
 **App**
 - **IPC:** `claude_cli_status`, `bundles_detect_preview` (async), `bundles_detect_library` (async), `links_of`, `link_add`, `link_remove`, `link_reject`, `bundle_of`; `library_import` takes the accepted links. `settings_get` / `settings_set`; this module's keys are `bundles.model` and `bundles.atImport`.
-- **Import Review step** (prototype `flows.js:38-50`): while Claude reads, "Claude is reading N artifacts…" with progress per batch; *Proposed bundles* (one group per lead with "+ N", the reason, member chips with ×, an accept toggle per group, "No bundles found: these artifacts don't depend on each other."); *Suggested tags* merges frontmatter keywords and Claude's tags, removable, **plus an add-tag input** (closes the prototype gap); the CLI-missing callout and the error callout ("Claude couldn't finish: <reason>. Import without bundles, or retry.") with **Retry**. Detection off in Settings → the sections say so with a "Detect now" button.
+- **Import Review step** (prototype `flows.js:38-50`): while Claude reads, "Claude is reading N artifacts…" with progress per batch; *Proposed bundles* (one group per lead with "+ N", the reason, member chips with ×, an accept toggle per group, "No bundles found: these artifacts don't depend on each other."); *Suggested tags* merges frontmatter keywords and Claude's tags, removable, **plus an add-tag input** (closes the prototype gap); the CLI-missing callout and the error callout ("Claude couldn't finish: <reason>. Import without bundles, or retry.") with **Retry**. Detection off (the default) → a neutral callout says suggestions are off and send artifact text to Claude, with *Detect now for this import* and a link to Settings.
 - **Library:** "Bundle of N" badge on cards and a Bundle column in the list; the detail panel's **Bundle** section ("installed together, always"): *Needs* and *Needed by* lists with origin chips (`reference`, `Claude`, `manual`), each opening that artifact with a Back trail; **Add a link…** (artifact picker), remove (×) on `ai` and `manual` links (reference links are explained, not removable).
 - **Find bundles with Claude** (library toolbar overflow and the detail panel): runs `bundles_detect_library` on the current selection or the whole library and shows the proposals in a dialog with the same component as the Review step.
-- **Settings screen:** *Claude CLI* row (Found + path + version / Not found with the prototype copy), model select, "Detect bundles and tags at import" toggle.
+- **Settings screen:** *Claude CLI* row (Found + path + version / Not found with the prototype copy), model select, "Detect bundles and tags at import" toggle (off by default, its description says what is sent and to whom).
 
 **Out of scope:** profiles pulling bundles (`profiles`); a judgement of whether a profile is good (`CONTEXT.md` §6); linking inside plugins; sending anything anywhere but the local `claude` CLI.
 
@@ -107,4 +107,4 @@ pub(crate) fn run_batch(cfg: &ClaudeConfig, prompt: &str, schema: &str) -> Resul
 
 ## Open Questions
 
-None blocking. For the user's review: Haiku as the default model; detection on by default at import; the 6,000-character cut.
+None blocking. For the user's review: Haiku as the default model; the 6,000-character cut. (Detection at import: off by default, decided by the user 2026-10-23.)
