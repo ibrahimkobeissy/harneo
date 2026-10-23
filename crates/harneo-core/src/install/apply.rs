@@ -13,7 +13,7 @@ use super::backup::{self, write_atomic, BackupSet};
 use super::plan::{check_plan, resolve_inside, Plan, PlanKind, WriteAction};
 use super::registry;
 use crate::error::{Error, Result};
-use crate::library::Library;
+use crate::library::{make_executable, Library};
 
 const LOCK_FILE: &str = "install.lock";
 /// How long an apply waits for another Harneo to finish.
@@ -167,6 +167,9 @@ fn write_all(
                     journal.make_folders(folder, target).map_err(step)?;
                 }
                 write_atomic(&path, bytes).map_err(step)?;
+                if write.executable {
+                    make_executable(&path).map_err(step)?;
+                }
             }
             (WriteAction::Delete, _) => {
                 hooks.before_write(&write.path).map_err(step)?;

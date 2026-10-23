@@ -79,6 +79,7 @@ pub fn write(path: &str, action: WriteAction, text: Option<&str>) -> Write {
         bytes: text.map(|t| t.as_bytes().to_vec()),
         diff: None,
         artifact: None,
+        executable: false,
     }
 }
 

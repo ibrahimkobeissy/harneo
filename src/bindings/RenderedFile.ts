@@ -12,4 +12,8 @@ path: string,
 /**
  * The content; base64 over IPC.
  */
-bytes: string, from: PathFrom, };
+bytes: string, from: PathFrom, 
+/**
+ * The library copy is executable (a script): written 0o755 on unix. Absent means not.
+ */
+executable: boolean, };

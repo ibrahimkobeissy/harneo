@@ -370,6 +370,7 @@ impl Library {
                 bytes: Some(file.bytes),
                 diff: None,
                 artifact,
+                executable: false,
             });
         }
         writes.sort_by(|a, b| a.path.cmp(&b.path));

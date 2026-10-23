@@ -18,7 +18,7 @@ use super::{invalid, is_placeholder, ProfileId, ProfileSpec, MAX_NAME_CHARS};
 use crate::artifact::literal_secret::{is_literal_secret, REDACTED};
 use crate::artifact::{Artifact, ArtifactKind};
 use crate::error::Result;
-use crate::library::{ArtifactId, Library, Provenance, Restored};
+use crate::library::{is_executable, ArtifactId, Library, Provenance, Restored};
 
 /// The `format` field of every profile file.
 pub const FORMAT: &str = "harneo-profile";
@@ -63,6 +63,9 @@ struct FileEntry {
     path: String,
     encoding: Encoding,
     content: String,
+    /// The stored file is executable; absent means not.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    executable: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Copy)]
@@ -73,17 +76,19 @@ enum Encoding {
 }
 
 impl FileEntry {
-    fn new(path: String, bytes: &[u8]) -> Self {
+    fn new(path: String, bytes: &[u8], executable: bool) -> Self {
         match std::str::from_utf8(bytes) {
             Ok(text) => Self {
                 path,
                 encoding: Encoding::Utf8,
                 content: text.to_owned(),
+                executable,
             },
             Err(_) => Self {
                 path,
                 encoding: Encoding::Base64,
                 content: STANDARD.encode(bytes),
+                executable,
             },
         }
     }
@@ -380,6 +385,7 @@ impl Library {
             let detail = self.detail(&item.id)?;
             let folder = self.store.artifacts_dir().join(&item.id);
             let mut stored = Vec::new();
+            let mut executable = Vec::new();
             for rel in &detail.files {
                 let target = crate::library::safe_join(&folder, rel)?;
                 let bytes = std::fs::read(&target).map_err(|e| crate::Error::Io {
@@ -390,6 +396,7 @@ impl Library {
                 if total > MAX_FILE_BYTES {
                     return Err(invalid("the profile is larger than 50 MiB to export"));
                 }
+                executable.push(is_executable(&target));
                 stored.push((rel.clone(), bytes));
             }
             let entry = FileArtifact {
@@ -398,7 +405,8 @@ impl Library {
                 provenance: detail.provenance,
                 files: stored
                     .iter()
-                    .map(|(p, b)| FileEntry::new(p.clone(), b))
+                    .zip(&executable)
+                    .map(|((p, b), x)| FileEntry::new(p.clone(), b, *x))
                     .collect(),
             };
             let keys = literal_secrets(&entry, &stored);
@@ -488,6 +496,12 @@ impl Library {
                 artifact: item.artifact.clone(),
                 provenance: item.provenance.clone(),
                 files: decode_files(&item.files)?,
+                executable: item
+                    .files
+                    .iter()
+                    .filter(|e| e.executable)
+                    .map(|e| e.path.clone())
+                    .collect(),
             });
         }
         let imported = self.restore_artifacts(restore)?;

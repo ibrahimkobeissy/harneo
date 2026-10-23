@@ -149,6 +149,7 @@ mod tests {
             bytes: None,
             diff: None,
             artifact: None,
+            executable: false,
         };
         let plan = Plan {
             target: "/p".into(),

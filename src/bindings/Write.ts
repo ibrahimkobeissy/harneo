@@ -21,4 +21,8 @@ diff: Array<Hunk> | null,
 /**
  * The library artifact the content comes from; `None` for generated files.
  */
-artifact: string | null, };
+artifact: string | null, 
+/**
+ * The file is written executable (a script); unix only, absent means not.
+ */
+executable: boolean, };

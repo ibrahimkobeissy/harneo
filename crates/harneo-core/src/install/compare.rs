@@ -145,6 +145,7 @@ pub struct Comparison {
 struct ProfileFile {
     bytes: Vec<u8>,
     artifact: Option<ArtifactId>,
+    executable: bool,
 }
 
 /// An item with the content behind its row.
@@ -451,6 +452,7 @@ impl Library {
                 ProfileFile {
                     bytes: file.bytes,
                     artifact,
+                    executable: file.executable,
                 },
             );
         }
@@ -570,25 +572,36 @@ fn item_writes(item: &Item, action: RefitAction) -> Vec<Write> {
         bytes,
         diff,
         artifact,
+        executable: false,
+    };
+    let exec = |mut w: Write, f: &ProfileFile| {
+        w.executable = f.executable;
+        w
     };
     let mut out = Vec::new();
     for path in &item.row.paths {
         let (mine, theirs) = (item.project.get(path), item.profile.get(path));
         let artifact = theirs.and_then(|f| f.artifact.clone());
         out.push(match (action, mine, theirs) {
-            (RefitAction::Replace | RefitAction::Add, None, Some(f)) => write(
-                path,
-                WriteAction::New,
-                Some(f.bytes.clone()),
-                None,
-                artifact,
+            (RefitAction::Replace | RefitAction::Add, None, Some(f)) => exec(
+                write(
+                    path,
+                    WriteAction::New,
+                    Some(f.bytes.clone()),
+                    None,
+                    artifact,
+                ),
+                f,
             ),
-            (RefitAction::Replace, Some(old), Some(f)) if *old != f.bytes => write(
-                path,
-                WriteAction::Replace,
-                Some(f.bytes.clone()),
-                Some(hunks(old, &f.bytes)),
-                artifact,
+            (RefitAction::Replace, Some(old), Some(f)) if *old != f.bytes => exec(
+                write(
+                    path,
+                    WriteAction::Replace,
+                    Some(f.bytes.clone()),
+                    Some(hunks(old, &f.bytes)),
+                    artifact,
+                ),
+                f,
             ),
             // Already what the profile has: nothing to write, and the manifest tracks it.
             (RefitAction::Replace | RefitAction::Keep, Some(old), Some(f)) if *old == f.bytes => {

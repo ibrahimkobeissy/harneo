@@ -21,6 +21,8 @@ pub(crate) struct Restored {
     pub provenance: Provenance,
     /// Stored files (relative to the artifact's folder) and their bytes.
     pub files: Vec<(String, Vec<u8>)>,
+    /// The stored files that keep their executable bit.
+    pub executable: Vec<String>,
 }
 
 fn is_id(text: &str) -> bool {
@@ -66,6 +68,9 @@ impl Library {
                     fs::create_dir_all(parent).map_err(|e| io_error(parent, e))?;
                 }
                 fs::write(&target, bytes).map_err(|e| io_error(&target, e))?;
+                if item.executable.contains(rel) {
+                    super::make_executable(&target).map_err(|e| io_error(&target, e))?;
+                }
             }
             let (view, to_source) = stored_view(&item.artifact)?;
             let mut result = audit::audit(&view, &dir, &options);

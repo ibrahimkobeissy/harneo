@@ -350,6 +350,34 @@ fn refusal(root: &Path, rel: &str, max_file_bytes: u64) -> Result<Option<SkipRea
     })
 }
 
+/// Whether the file at `path` has any executable bit (unix); `false` elsewhere or when unreadable.
+pub(crate) fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::metadata(path).is_ok_and(|m| m.permissions().mode() & 0o111 != 0)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        false
+    }
+}
+
+/// Makes the file at `path` executable by its owner, group and others (0o755); a no-op off unix.
+pub(crate) fn make_executable(path: &Path) -> io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o755))
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = path;
+        Ok(())
+    }
+}
+
 /// What copying one artifact did.
 pub(crate) struct Copied {
     /// Listed files that were left out.
@@ -369,7 +397,7 @@ pub(crate) fn copy_artifact(
     let max = ScanOptions::default().max_file_bytes as u64;
     let mut skipped = Vec::new();
     let mut replaced = Vec::new();
-    let write = |dest_rel: &str, bytes: Vec<u8>| -> Result<()> {
+    let write = |dest_rel: &str, bytes: Vec<u8>, executable: bool| -> Result<()> {
         let target = safe_join(dest, dest_rel)?;
         hooks
             .before_file(artifact_id, dest_rel)
@@ -377,13 +405,17 @@ pub(crate) fn copy_artifact(
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|e| io_error(parent, e))?;
         }
-        fs::write(&target, bytes).map_err(|e| io_error(&target, e))
+        fs::write(&target, bytes).map_err(|e| io_error(&target, e))?;
+        if executable {
+            make_executable(&target).map_err(|e| io_error(&target, e))?;
+        }
+        Ok(())
     };
     if artifact.kind == ArtifactKind::Mcp {
         let (definition, keys) = mcp_definition(source_root, artifact);
         replaced.extend(keys);
         let json = serde_json::to_vec_pretty(&definition)?;
-        write(SERVER_FILE, json)?;
+        write(SERVER_FILE, json, false)?;
     }
     for (src_rel, dest_rel) in plan(artifact)? {
         if let Some(reason) = refusal(source_root, &src_rel, max)? {
@@ -398,7 +430,7 @@ pub(crate) fn copy_artifact(
         let bytes = fs::read(&source).map_err(|e| io_error(&source, e))?;
         let (bytes, keys) = rewrite(artifact, &src_rel, bytes)?;
         replaced.extend(keys);
-        write(&dest_rel, bytes)?;
+        write(&dest_rel, bytes, is_executable(&source))?;
     }
     replaced.sort();
     replaced.dedup();

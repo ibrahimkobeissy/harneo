@@ -80,6 +80,7 @@ pub(super) fn take_out(
             bytes,
             diff: None,
             artifact: None,
+            executable: false,
         });
     }
     Ok(writes)
@@ -132,6 +133,7 @@ impl Library {
                     PathFrom::Artifact { artifact } => Some(artifact.clone()),
                     PathFrom::Generated { .. } => None,
                 },
+                executable: file.executable,
             };
             match manifest.get(file.path.as_str()) {
                 Some(known) if known.digest == digest(&file.bytes) => {}

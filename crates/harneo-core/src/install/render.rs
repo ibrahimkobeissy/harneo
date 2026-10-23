@@ -13,7 +13,7 @@ use ts_rs::TS;
 
 use crate::artifact::{Artifact, ArtifactKind, Origin};
 use crate::error::{Error, Result};
-use crate::library::{safe_join, ArtifactId, Library};
+use crate::library::{is_executable, safe_join, ArtifactId, Library};
 use crate::profiles::layout::{load, placed};
 use crate::profiles::{Generated, PathFrom, ProfileSpec, Resolved, ResolvedItem};
 
@@ -35,6 +35,9 @@ pub struct RenderedFile {
     #[ts(type = "string")]
     pub bytes: Vec<u8>,
     pub from: PathFrom,
+    /// The library copy is executable (a script): written 0o755 on unix. Absent means not.
+    #[serde(default)]
+    pub executable: bool,
 }
 
 /// Everything a profile version writes, sorted by path.
@@ -267,16 +270,16 @@ impl Library {
         }
         let mut files = Vec::new();
         for planned in &layout.paths {
-            let bytes = match &planned.from {
+            let (bytes, executable) = match &planned.from {
                 PathFrom::Generated {
                     generated: Generated::HarnessMd,
                 } => continue,
                 PathFrom::Generated {
                     generated: Generated::McpJson,
-                } => self.mcp_json(spec, &resolved)?,
+                } => (self.mcp_json(spec, &resolved)?, false),
                 PathFrom::Generated {
                     generated: Generated::Settings,
-                } => settings_bytes(None, &plugins)?,
+                } => (settings_bytes(None, &plugins)?, false),
                 PathFrom::Artifact { artifact } => {
                     self.artifact_bytes(artifact, &planned.path, &resolved, &plugins)?
                 }
@@ -285,6 +288,7 @@ impl Library {
                 path: planned.path.clone(),
                 bytes,
                 from: planned.from.clone(),
+                executable,
             });
         }
         let harness = self.harness_md(&resolved, &layout.paths, profile_name, version, date)?;
@@ -294,6 +298,7 @@ impl Library {
             from: PathFrom::Generated {
                 generated: Generated::HarnessMd,
             },
+            executable: false,
         });
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(Rendered { files })
@@ -305,7 +310,7 @@ impl Library {
         path: &str,
         resolved: &Resolved,
         plugins: &[Artifact],
-    ) -> Result<Vec<u8>> {
+    ) -> Result<(Vec<u8>, bool)> {
         let artifact =
             load(&self.store.conn, id)?.ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
         let (view, _) = crate::library::stored_view(&artifact)?;
@@ -317,7 +322,8 @@ impl Library {
         let file = safe_join(&self.store.artifacts_dir().join(id), &stored)?;
         let bytes = fs::read(&file).map_err(|e| io_error(&file, e))?;
         let main = stored == view.path;
-        Ok(match artifact.kind {
+        let executable = is_executable(&file);
+        let bytes = match artifact.kind {
             ArtifactKind::Settings if main => settings_bytes(Some(bytes), plugins)?,
             ArtifactKind::ClaudeMd if path == CLAUDE_MD => with_harness_import(&bytes),
             ArtifactKind::Skill if stored == "SKILL.md" => {
@@ -329,7 +335,8 @@ impl Library {
                 set_manual_only(&bytes, manual)
             }
             _ => bytes,
-        })
+        };
+        Ok((bytes, executable))
     }
 
     fn mcp_json(&self, spec: &ProfileSpec, resolved: &Resolved) -> Result<Vec<u8>> {

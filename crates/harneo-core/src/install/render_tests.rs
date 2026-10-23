@@ -391,6 +391,7 @@ fn rendered_files_round_trip_through_json_as_base64() -> TestResult {
         from: PathFrom::Generated {
             generated: Generated::HarnessMd,
         },
+        executable: false,
     };
     let json = serde_json::to_value(&file)?;
     assert_eq!(json["bytes"], "AJ//");

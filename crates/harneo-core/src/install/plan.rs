@@ -47,6 +47,9 @@ pub struct Write {
     pub diff: Option<Vec<Hunk>>,
     /// The library artifact the content comes from; `None` for generated files.
     pub artifact: Option<ArtifactId>,
+    /// The file is written executable (a script); unix only, absent means not.
+    #[serde(default)]
+    pub executable: bool,
 }
 
 /// What a plan is for. `apply` registers the project for every kind but `Removal`, which
@@ -305,6 +308,7 @@ impl Library {
                     PathFrom::Artifact { artifact } => Some(artifact),
                     PathFrom::Generated { .. } => None,
                 },
+                executable: file.executable,
             })
             .collect();
         let plan = Plan {

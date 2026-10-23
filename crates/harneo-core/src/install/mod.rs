@@ -11,6 +11,8 @@ mod backup_tests;
 mod compare;
 #[cfg(test)]
 mod compare_tests;
+#[cfg(all(test, unix))]
+mod executable_tests;
 #[cfg(test)]
 pub(crate) mod fixture;
 #[cfg(test)]

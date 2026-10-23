@@ -70,6 +70,7 @@ function plan(over: Partial<Plan> = {}): Plan {
         bytes: b64("n"),
         diff: null,
         artifact: "a",
+        executable: false,
       },
       {
         path: ".claude/agents/old.md",
@@ -77,6 +78,7 @@ function plan(over: Partial<Plan> = {}): Plan {
         bytes: null,
         diff: null,
         artifact: "b",
+        executable: false,
       },
       {
         path: "CLAUDE.md",
@@ -84,6 +86,7 @@ function plan(over: Partial<Plan> = {}): Plan {
         bytes: b64("c"),
         diff: null,
         artifact: null,
+        executable: false,
       },
       {
         path: "HARNESS.md",
@@ -91,6 +94,7 @@ function plan(over: Partial<Plan> = {}): Plan {
         bytes: null,
         diff: null,
         artifact: null,
+        executable: false,
       },
     ],
     ...over,
@@ -175,6 +179,7 @@ function setup(path: string, opts: Opts = {}) {
                 bytes: b64("o"),
                 diff: null,
                 artifact: null,
+                executable: false,
               },
               {
                 path: "HARNESS.md",
@@ -182,6 +187,7 @@ function setup(path: string, opts: Opts = {}) {
                 bytes: null,
                 diff: null,
                 artifact: null,
+                executable: false,
               },
               {
                 path: ".claude/x.md",
@@ -189,6 +195,7 @@ function setup(path: string, opts: Opts = {}) {
                 bytes: null,
                 diff: null,
                 artifact: null,
+                executable: false,
               },
             ],
           })
@@ -719,6 +726,7 @@ describe("Clean removal", () => {
             bytes: null,
             diff: null,
             artifact: null,
+            executable: false,
           },
         ],
       }),

@@ -57,7 +57,7 @@ use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
 pub use collections::{Collection, CollectionKind};
 pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
-pub(crate) use copy::{rewrite, safe_join, stored_view};
+pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub(crate) use query::source_label;

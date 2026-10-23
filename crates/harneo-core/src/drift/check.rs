@@ -366,6 +366,7 @@ impl Library {
                     PathFrom::Artifact { artifact } => Some(artifact.clone()),
                     PathFrom::Generated { .. } => None,
                 },
+                executable: file.executable,
                 path,
             });
         }
