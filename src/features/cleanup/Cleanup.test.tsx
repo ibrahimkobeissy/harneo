@@ -2,9 +2,10 @@ import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { Cleanup } from "../../bindings/Cleanup";
 import type { CleanupItem } from "../../bindings/CleanupItem";
+import { UsageIndexContext, type UsageIndexState } from "../../app/usageIndex";
 import { CleanupScreen } from ".";
 
 function item(over: Partial<CleanupItem>): CleanupItem {
@@ -41,9 +42,10 @@ interface Setup {
   updateThrows?: boolean;
   updateAllThrows?: boolean;
   weeks?: unknown;
+  lastRead?: string;
 }
 
-function setup(s: Setup) {
+function setup(s: Setup, usage: Partial<UsageIndexState> = {}) {
   const calls: { cmd: string; args: unknown }[] = [];
   mockIPC((cmd, args) => {
     calls.push({ cmd, args });
@@ -52,6 +54,8 @@ function setup(s: Setup) {
         if (s.failList) throw new Error("db locked");
         return s.data;
       case "settings_get":
+        if ((args as { key?: string })["key"] === "usage.lastIndexedAt")
+          return s.lastRead ?? null;
         return s.weeks ?? null;
       case "prune_plan":
         if (s.planFails) throw new Error("no plan");
@@ -96,9 +100,20 @@ function setup(s: Setup) {
     }
   });
   render(
-    <MemoryRouter>
-      <CleanupScreen />
-    </MemoryRouter>,
+    <UsageIndexContext.Provider
+      value={{
+        indexed: true,
+        progress: null,
+        error: null,
+        runs: 0,
+        refresh: () => {},
+        ...usage,
+      }}
+    >
+      <MemoryRouter>
+        <CleanupScreen />
+      </MemoryRouter>
+    </UsageIndexContext.Provider>,
   );
   return calls;
 }
@@ -150,21 +165,26 @@ describe("Cleanup groups", () => {
     expect(screen.getByText("local edits")).toBeVisible();
     expect(
       await screen.findByRole("heading", {
-        name: "Unused for 6+ weeks, in every project",
+        name: "Unused for 6+ weeks",
       }),
     ).toBeVisible();
     expect(screen.getAllByText("in Heavy, Light")).toHaveLength(2);
     expect(screen.getByText("in no profile")).toBeVisible();
-    expect(screen.getByText("never used")).toBeVisible();
+    expect(screen.getByText("not used yet")).toBeVisible();
+    expect(screen.getByText("last used 2 months ago")).toHaveAttribute(
+      "title",
+      "2026-08-01",
+    );
     expect(screen.getByText(/Not a problem in itself/)).toBeVisible();
     expect(screen.getByText("2 copies")).toBeVisible();
     expect(
       screen.getByRole("link", { name: "Show in library" }),
     ).toHaveAttribute("href", "/library?q=twin");
-    expect(screen.getByRole("link", { name: "Review" })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "shady" })[0]).toHaveAttribute(
       "href",
-      "/library?open=o2",
+      "/library?open=f1",
     );
+    expect(screen.getByRole("button", { name: "Open profiles" })).toBeVisible();
   });
 
   it("shows the first 12 unused and links to the rest", async () => {
@@ -185,17 +205,14 @@ describe("Cleanup actions", () => {
     const calls = setup({
       data: {
         ...empty,
-        findings: [
-          item({ id: "f1", name: "shady", trustScore: 70, profiles: used }),
-        ],
+        findings: [item({ id: "f1", name: "shady", trustScore: 70 })],
       },
     });
     await userEvent.click(
       await screen.findByRole("button", { name: "Remove from library" }),
     );
     const dlg = screen.getByRole("dialog");
-    expect(within(dlg).getByText("Heavy")).toBeVisible();
-    expect(within(dlg).getByText("Light")).toBeVisible();
+    expect(within(dlg).getByText(/It is in no profile/)).toBeVisible();
     await userEvent.click(
       within(dlg).getByRole("button", { name: "Remove from library" }),
     );
@@ -205,6 +222,49 @@ describe("Cleanup actions", () => {
     expect(calls.some((c) => c.cmd === "library_remove")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByText("Removed shady from the library")).toBeNull();
+  });
+
+  it("prunes a risky artifact that profiles install, from its row", async () => {
+    setup({
+      data: {
+        ...empty,
+        findings: [
+          item({ id: "f1", name: "shady", findingCount: 3, profiles: used }),
+        ],
+      },
+    });
+    expect(
+      screen.queryByRole("button", { name: "Remove from library" }),
+    ).toBeNull();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove from profiles" }),
+    );
+    expect(
+      await screen.findByRole("dialog", {
+        name: "Remove shady from 2 profiles?",
+      }),
+    ).toBeVisible();
+  });
+
+  it("opens the security screen from a findings row", async () => {
+    setup({
+      data: { ...empty, findings: [item({ id: "f1", name: "shady" })] },
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "View findings" }),
+    );
+  });
+
+  it("reviews an edited outdated artifact in the library", async () => {
+    setup({
+      data: {
+        ...empty,
+        outdated: [item({ id: "o2", name: "edited", localEdits: true })],
+      },
+    });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Review" }),
+    );
   });
 
   it("shows a library removal failure and keeps the dialog", async () => {
@@ -344,10 +404,16 @@ describe("Cleanup actions", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: "Update all" }),
     );
-    const dlg = screen.getByRole("dialog");
+    const dlg = screen.getByRole("dialog", {
+      name: "Update 1 of 2 artifacts?",
+    });
     expect(
-      within(dlg).getByText(/edited has local edits and is skipped/),
+      within(dlg).getByText(/has local edits and is skipped/),
     ).toBeVisible();
+    expect(within(dlg).getByRole("link", { name: "edited" })).toHaveAttribute(
+      "href",
+      "/library?open=o2",
+    );
     await userEvent.click(
       within(dlg).getByRole("button", { name: "Update 1" }),
     );
@@ -370,5 +436,98 @@ describe("Cleanup actions", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not update",
     );
+  });
+});
+
+describe("Cleanup and the usage index", () => {
+  const unused = [item({ id: "u1", name: "old", profiles: used })];
+
+  it("lists no unused artifacts until the first index run", async () => {
+    setup(
+      { data: { ...empty, unused } },
+      {
+        indexed: false,
+        progress: { filesDone: 12, filesTotal: 40, newUses: 0 },
+      },
+    );
+    expect(
+      await screen.findByText(/Reading Claude's session logs/),
+    ).toBeVisible();
+    expect(screen.getByText(/12 of 40 files/)).toBeVisible();
+    expect(screen.queryByText("old")).toBeNull();
+    expect(screen.queryByText("Nothing to clean up")).toBeNull();
+  });
+
+  it("waits quietly before the first run reports progress", async () => {
+    setup({ data: { ...empty, unused } }, { indexed: false });
+    expect(
+      await screen.findByText(/Reading Claude's session logs/),
+    ).toBeVisible();
+  });
+
+  it("says the logs could not be read and retries", async () => {
+    const refresh = vi.fn();
+    setup(
+      { data: { ...empty, unused } },
+      { indexed: false, error: "no folder", refresh },
+    );
+    expect(await screen.findByText(/no folder/)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refresh).toHaveBeenCalled();
+    expect(screen.queryByText("old")).toBeNull();
+  });
+
+  it("says when usage was last read in the empty state", async () => {
+    setup({ data: empty, lastRead: new Date().toISOString() });
+    expect(await screen.findByText("Nothing to clean up")).toBeVisible();
+    expect(await screen.findByText(/Usage last read today/)).toBeVisible();
+  });
+
+  it("retries a failed load", async () => {
+    const calls = setup({ data: empty, failList: true });
+    await userEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.cmd === "cleanup_list").length).toBe(2),
+    );
+  });
+});
+
+describe("Cleanup dialogs while applying", () => {
+  it("ignores Esc and Cancel while the apply runs", async () => {
+    let finishApply: () => void = () => {};
+    mockIPC((cmd) => {
+      if (cmd === "cleanup_list")
+        return { ...empty, unused: [item({ id: "u2", name: "orphan" })] };
+      if (cmd === "settings_get") return null;
+      if (cmd === "library_remove")
+        return new Promise<void>((resolve) => {
+          finishApply = resolve;
+        });
+      return undefined;
+    });
+    render(
+      <MemoryRouter>
+        <CleanupScreen />
+      </MemoryRouter>,
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Remove from library" }),
+    );
+    const dlg = screen.getByRole("dialog");
+    await userEvent.click(
+      within(dlg).getByRole("button", { name: "Remove from library" }),
+    );
+    expect(
+      await within(dlg).findByRole("button", { name: "Cancel" }),
+    ).toBeDisabled();
+    expect(dlg.querySelector("form")).toHaveAttribute("aria-busy", "true");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      document.querySelector("[aria-hidden='true'][class*='scrim']") ??
+        document.body,
+    );
+    expect(screen.getByRole("dialog")).toBeVisible();
+    finishApply();
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 });

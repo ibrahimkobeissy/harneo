@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router";
 import type { CleanupItem } from "../../bindings/CleanupItem";
 import type { PrunePlan } from "../../bindings/PrunePlan";
 import type { PruneReport } from "../../bindings/PruneReport";
@@ -15,7 +16,7 @@ function messageOf(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** A confirm: title, body, Cancel and one action. Esc and the scrim close it. */
+/** A confirm: title, body, Cancel and one action. Esc and the scrim close it, except while it applies. */
 export function Confirm({
   title,
   submit,
@@ -37,24 +38,26 @@ export function Confirm({
 }) {
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+      if (event.key === "Escape" && !event.defaultPrevented && !busy) onClose();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  }, [onClose, busy]);
   function submitForm(event: FormEvent) {
     event.preventDefault();
     onSubmit();
   }
   return (
-    <Modal label={title} onClose={onClose}>
-      <form className={styles.dlg} onSubmit={submitForm}>
+    <Modal label={title} onClose={busy ? undefined : onClose}>
+      <form className={styles.dlg} onSubmit={submitForm} aria-busy={busy}>
         <div className={styles.dhead}>
           <h2>{title}</h2>
         </div>
         <div className={styles.dbody}>{children}</div>
         <div className={styles.dfoot}>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
           <Button variant={variant} type="submit" disabled={busy || !canSubmit}>
             {submit}
           </Button>
@@ -99,7 +102,7 @@ export function RemoveFromLibrary({
       <p>
         Deletes the library copy.
         {item.profiles.length > 0
-          ? " It is in the profiles below; remove it from them first if they should stop installing it."
+          ? " Profiles that install it are listed below."
           : " It is in no profile."}
       </p>
       {item.profiles.length > 0 && (
@@ -257,7 +260,7 @@ export function UpdateAllDialog({
   const n = total - edited.length;
   return (
     <Confirm
-      title={`Update ${plural(total, "artifact")}?`}
+      title={`Update ${n} of ${plural(total, "artifact")}?`}
       submit={busy ? "Updating…" : `Update ${n}`}
       busy={busy}
       canSubmit={n > 0}
@@ -270,7 +273,17 @@ export function UpdateAllDialog({
       </p>
       {edited.length > 0 && (
         <p className={styles.warn}>
-          {edited.map((a) => a.name).join(", ")}{" "}
+          {edited.map((a, i) => (
+            <span key={a.id}>
+              {i > 0 && ", "}
+              <Link
+                className={styles.warnLink}
+                to={`/library?open=${encodeURIComponent(a.id)}`}
+              >
+                {a.name}
+              </Link>
+            </span>
+          ))}{" "}
           {edited.length === 1 ? "has" : "have"} local edits and{" "}
           {edited.length === 1 ? "is" : "are"} skipped; review{" "}
           {edited.length === 1 ? "it" : "them"} one by one to choose.

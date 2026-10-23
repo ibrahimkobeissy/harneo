@@ -44,7 +44,7 @@
 }
 .name {
   font-weight: 600;
-  color: var(--t1);
+  color: var(--blue);
   text-decoration: none;
   overflow-wrap: anywhere;
 }
@@ -67,8 +67,27 @@
   color: var(--t2);
 }
 .err {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
   margin: 0 0 var(--space-md);
   color: var(--red);
+}
+.kindIcon {
+  display: inline-flex;
+  flex: none;
+}
+.quietDanger {
+  color: var(--red);
+}
+.quietDanger:hover {
+  background: var(--red-soft);
+  color: var(--red);
+}
+.warnLink {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
 }
 .link {
   color: var(--blue);
@@ -144,6 +163,11 @@
   flex: 1;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.toastClose:focus-visible,
+.warnLink:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
 }
 .toastClose {
   background: none;

@@ -14,7 +14,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { LAST_INDEXED_KEY, useUsageIndex } from "../../app/usageIndex";
 import type { Cleanup } from "../../bindings/Cleanup";
 import type { CleanupItem } from "../../bindings/CleanupItem";
 import type { Tier } from "../../bindings/Tier";
@@ -25,7 +26,15 @@ import {
   updateApply,
 } from "../../lib/ipc";
 import { useChanged } from "../../lib/useChanged";
-import { Badge, Button, EmptyState, Screen, TrustMeter, kinds } from "../../ui";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  Screen,
+  TrustMeter,
+  kinds,
+  relativeDay,
+} from "../../ui";
 import styles from "./Cleanup.module.css";
 import {
   plural,
@@ -87,17 +96,57 @@ function Group({
   );
 }
 
+function KindIcon({ kind }: { kind: CleanupItem["kind"] }) {
+  const { icon: Icon, tint } = kinds[kind];
+  return (
+    <span
+      className={styles.kindIcon}
+      style={{ color: `var(--tint-${tint})` }}
+      aria-hidden="true"
+    >
+      <Icon size={16} />
+    </span>
+  );
+}
+
 function Who({ item }: { item: CleanupItem }) {
   return (
-    <div className={styles.grow}>
-      <Link
-        className={styles.name}
-        to={`/library?open=${encodeURIComponent(item.id)}`}
-      >
-        {item.name}
-      </Link>
-      <div className={styles.kind}>{kinds[item.kind].label}</div>
-    </div>
+    <>
+      <KindIcon kind={item.kind} />
+      <div className={styles.grow}>
+        <Link
+          className={styles.name}
+          to={`/library?open=${encodeURIComponent(item.id)}`}
+        >
+          {item.name}
+        </Link>
+        <div className={styles.kind}>{kinds[item.kind].label}</div>
+      </div>
+    </>
+  );
+}
+
+/** The one way out of a row: take it out of its profiles, else out of the library. */
+function RemoveAction({
+  item,
+  onRemove,
+}: {
+  item: CleanupItem;
+  onRemove: (kind: "remove" | "prune") => void;
+}) {
+  return item.profiles.length > 0 ? (
+    <Button small onClick={() => onRemove("prune")}>
+      Remove from profiles
+    </Button>
+  ) : (
+    <Button
+      small
+      variant="ghost"
+      className={styles.quietDanger}
+      onClick={() => onRemove("remove")}
+    >
+      Remove from library
+    </Button>
   );
 }
 
@@ -107,8 +156,13 @@ function inProfiles(item: CleanupItem): string {
     : "in no profile";
 }
 
-function lastUsedText(item: CleanupItem): string {
-  return item.lastUsed ? `last used ${item.lastUsed}` : "never used";
+function LastUsed({ item }: { item: CleanupItem }) {
+  if (!item.lastUsed) return <span className={styles.muted}>not used yet</span>;
+  return (
+    <span className={styles.muted} title={item.lastUsed}>
+      last used {relativeDay(item.lastUsed)}
+    </span>
+  );
 }
 
 /** Cleanup: what is risky, stale, never used or repeated, with the one-click ways out. */
@@ -119,7 +173,10 @@ export function CleanupScreen() {
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lastRead, setLastRead] = useState<string | null>(null);
   const alive = useRef(true);
+  const navigate = useNavigate();
+  const usage = useUsageIndex();
 
   const load = useCallback(() => {
     cleanupList().then(
@@ -148,6 +205,21 @@ export function CleanupScreen() {
     };
   }, [load]);
   useChanged(() => load());
+  useEffect(() => {
+    if (usage.runs > 0) load();
+  }, [usage.runs, load]);
+  useEffect(() => {
+    let live = true;
+    settingsGet(LAST_INDEXED_KEY).then(
+      (v) => {
+        if (live && typeof v === "string") setLastRead(v);
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [usage.runs]);
 
   useEffect(() => {
     if (!notice || notice.tone === "bad") return;
@@ -198,11 +270,13 @@ export function CleanupScreen() {
     }
   }
 
+  const unused = usage.indexed && data ? data.unused : [];
   const empty =
     data !== null &&
+    usage.indexed &&
     data.findings.length +
       data.outdated.length +
-      data.unused.length +
+      unused.length +
       data.repeated.length +
       data.duplicates.length ===
       0;
@@ -213,9 +287,12 @@ export function CleanupScreen() {
         Keep the harness lean: what&apos;s risky, stale or never used.
       </p>
       {loadError && (
-        <p className={styles.err} role="alert">
-          Could not load the suggestions. {loadError}
-        </p>
+        <div className={styles.err} role="alert">
+          <span>Could not load the suggestions. {loadError}</span>
+          <Button small onClick={load}>
+            Retry
+          </Button>
+        </div>
       )}
       {!data && !loadError && (
         <p className={styles.muted} role="status">
@@ -225,7 +302,35 @@ export function CleanupScreen() {
       {empty && (
         <EmptyState icon={CircleCheck} title="Nothing to clean up">
           No findings, no outdated or unused artifacts.
+          {lastRead &&
+            ` Usage last read ${relativeDay(lastRead.slice(0, 10))}.`}
         </EmptyState>
+      )}
+      {!usage.indexed && (
+        <section className={styles.group} aria-labelledby="cleanup-reading">
+          <header className={styles.ghead}>
+            <Moon size={15} aria-hidden="true" />
+            <h2 id="cleanup-reading">Unused for {weeks}+ weeks</h2>
+          </header>
+          {usage.error && !usage.progress ? (
+            <div className={styles.row}>
+              <p className={styles.err} role="alert">
+                Could not read Claude&apos;s session logs. {usage.error}
+              </p>
+              <Button small onClick={usage.refresh}>
+                Retry
+              </Button>
+            </div>
+          ) : (
+            <p className={`${styles.row} ${styles.muted}`} role="status">
+              Reading Claude&apos;s session logs…
+              {usage.progress && usage.progress.filesTotal > 0
+                ? ` ${usage.progress.filesDone} of ${plural(usage.progress.filesTotal, "file")}.`
+                : ""}{" "}
+              Unused artifacts appear when this finishes.
+            </p>
+          )}
+        </section>
       )}
       {data && data.findings.length > 0 && (
         <Group
@@ -239,13 +344,13 @@ export function CleanupScreen() {
               <Who item={a} />
               <TrustMeter score={a.trustScore} tier={tierOf(a.trustScore)} />
               <Badge tone="bad">{plural(a.findingCount, "finding")}</Badge>
-              <Button
-                small
-                variant="danger"
-                onClick={() => setDialog({ kind: "remove", item: a })}
-              >
-                Remove from library
+              <Button small onClick={() => void navigate("/security")}>
+                View findings
               </Button>
+              <RemoveAction
+                item={a}
+                onRemove={(kind) => setDialog({ kind, item: a })}
+              />
             </div>
           ))}
         </Group>
@@ -270,12 +375,14 @@ export function CleanupScreen() {
                 {a.fromVersion ?? "?"} → {a.toVersion ?? "?"}
               </span>
               {a.localEdits ? (
-                <Link
-                  className={styles.link}
-                  to={`/library?open=${encodeURIComponent(a.id)}`}
+                <Button
+                  small
+                  onClick={() =>
+                    void navigate(`/library?open=${encodeURIComponent(a.id)}`)
+                  }
                 >
                   Review
-                </Link>
+                </Button>
               ) : (
                 <Button small onClick={() => void updateOne(a)}>
                   Update
@@ -285,40 +392,28 @@ export function CleanupScreen() {
           ))}
         </Group>
       )}
-      {data && data.unused.length > 0 && (
+      {unused.length > 0 && (
         <Group
           id="cleanup-unused"
-          title={`Unused for ${weeks}+ weeks, in every project`}
+          title={`Unused for ${weeks}+ weeks`}
           icon={Moon}
-          count={data.unused.length}
+          count={unused.length}
         >
-          {data.unused.slice(0, UNUSED_SHOWN).map((a) => (
+          {unused.slice(0, UNUSED_SHOWN).map((a) => (
             <div className={styles.row} key={a.id}>
               <Who item={a} />
-              <span className={styles.muted}>{lastUsedText(a)}</span>
+              <LastUsed item={a} />
               <span className={styles.muted}>{inProfiles(a)}</span>
-              {a.profiles.length > 0 ? (
-                <Button
-                  small
-                  onClick={() => setDialog({ kind: "prune", item: a })}
-                >
-                  Remove from profiles
-                </Button>
-              ) : (
-                <Button
-                  small
-                  variant="danger"
-                  onClick={() => setDialog({ kind: "remove", item: a })}
-                >
-                  Remove from library
-                </Button>
-              )}
+              <RemoveAction
+                item={a}
+                onRemove={(kind) => setDialog({ kind, item: a })}
+              />
             </div>
           ))}
-          {data.unused.length > UNUSED_SHOWN && (
+          {unused.length > UNUSED_SHOWN && (
             <div className={styles.row}>
               <Link className={styles.link} to="/library?status=unused">
-                See all {data.unused.length} in the library
+                See all {unused.length} in the library
               </Link>
             </div>
           )}
@@ -335,6 +430,9 @@ export function CleanupScreen() {
             <div className={styles.row} key={a.id}>
               <Who item={a} />
               <span className={styles.muted}>{inProfiles(a)}</span>
+              <Button small onClick={() => void navigate("/profiles")}>
+                Open profiles
+              </Button>
             </div>
           ))}
           <div className={`${styles.row} ${styles.note}`}>

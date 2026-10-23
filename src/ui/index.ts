@@ -1,6 +1,7 @@
 export { announce } from "./Announcer";
 export { Badge, type BadgeTone } from "./Badge";
 export { Button, type ButtonVariant } from "./Button";
+export { relativeDay } from "./dates";
 export { EmptyState } from "./EmptyState";
 export { Kbd } from "./Kbd";
 export { kinds, type KindMeta } from "./kinds";
