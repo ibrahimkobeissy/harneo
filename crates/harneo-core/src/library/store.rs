@@ -152,8 +152,32 @@ CREATE TABLE upstream (
 CREATE INDEX upstream_state ON upstream(state);
 ";
 
+/// Version 5: profiles. `profiles.current_version` is the newest row of `profile_versions`; a
+/// version's `spec` is the JSON of a `ProfileSpec` and is never edited. `artifacts.manual_only`
+/// is the library default for skills (1 = installed with `disable-model-invocation`).
+const V5: &str = "
+CREATE TABLE profiles (
+    id              INTEGER PRIMARY KEY,
+    name            TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    description     TEXT NOT NULL DEFAULT '',
+    current_version INTEGER NOT NULL,
+    created_at      INTEGER NOT NULL,
+    updated_at      INTEGER NOT NULL
+) STRICT;
+
+CREATE TABLE profile_versions (
+    profile_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    version    INTEGER NOT NULL,
+    spec       TEXT NOT NULL,
+    saved_at   INTEGER NOT NULL,
+    PRIMARY KEY (profile_id, version)
+) STRICT;
+
+ALTER TABLE artifacts ADD COLUMN manual_only INTEGER NOT NULL DEFAULT 0;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -544,5 +568,37 @@ mod tests {
                 []
             )
             .is_err());
+    }
+
+    /// A version 4 database with an artifact gains the profile tables and the manual-only column.
+    #[test]
+    fn a_v4_database_migrates_to_profiles_keeping_its_data() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v4 db");
+            for sql in [V1, V2, V3, V4] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location) VALUES ('s1', 'local', '/x');
+                 INSERT INTO artifacts (id, source_id, kind, name, source_path, imported_at, artifact)
+                 VALUES ('a1', 's1', 'skill', 'old', 'skills/old', 5, '{}');
+                 PRAGMA user_version = 4;",
+            )
+            .expect("v4 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let row: (String, i64) = store
+            .conn
+            .query_row("SELECT name, manual_only FROM artifacts", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .expect("row survives");
+        assert_eq!(row, ("old".to_owned(), 0));
+        assert_eq!(count(&store, "profiles"), 0);
+        assert_eq!(count(&store, "profile_versions"), 0);
     }
 }

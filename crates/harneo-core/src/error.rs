@@ -188,6 +188,24 @@ pub enum Error {
     ClaudeBadOutput {
         /// What is wrong with it.
         message: String,
+}
+    /// A profile name or spec is not acceptable.
+    #[error("invalid profile: {reason}")]
+    InvalidProfile {
+        /// What is wrong, ready to show.
+        reason: String,
+    },
+    /// Another profile already has this name (names are unique ignoring case).
+    #[error("a profile named {name} already exists")]
+    ProfileExists {
+        /// The name that clashed.
+        name: String,
+    },
+    /// No profile has this id, or it has no such version.
+    #[error("profile {id} does not exist")]
+    ProfileNotFound {
+        /// The id that was asked for.
+        id: i64,
     },
 }
 
