@@ -236,7 +236,9 @@ pub(crate) fn check_plan(plan: &Plan) -> Result<PathBuf> {
             return Err(install(format!("{} appears twice in the plan", write.path)));
         }
         let needs_bytes = matches!(write.action, WriteAction::New | WriteAction::Replace);
-        if needs_bytes != write.bytes.is_some() {
+        // A `Keep` may carry the bytes of a file that is already identical, so the manifest tracks it.
+        let allows_bytes = needs_bytes || write.action == WriteAction::Keep;
+        if needs_bytes && write.bytes.is_none() || !allows_bytes && write.bytes.is_some() {
             return Err(install(format!(
                 "{}: content does not match its action",
                 write.path

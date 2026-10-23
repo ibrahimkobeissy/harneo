@@ -73,6 +73,8 @@ pub fn run() {
             commands::artifact_set_manual_only,
             commands::scaffold_plan,
             commands::install_apply,
+            commands::refit_compare,
+            commands::refit_plan,
             commands::projects_list,
             commands::project_get,
             commands::project_files,

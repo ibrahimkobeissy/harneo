@@ -8,6 +8,9 @@ mod apply_tests;
 mod backup;
 #[cfg(test)]
 mod backup_tests;
+mod compare;
+#[cfg(test)]
+mod compare_tests;
 #[cfg(test)]
 mod fixture;
 #[cfg(test)]
@@ -29,7 +32,9 @@ mod switch;
 mod switch_tests;
 
 pub use apply::ApplyReport;
+pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub use plan::{Plan, PlanKind, Write, WriteAction};
+pub use plan::{Plan, Write, WriteAction};
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
 pub use render::{Rendered, RenderedFile};

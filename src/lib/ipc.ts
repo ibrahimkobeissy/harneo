@@ -39,7 +39,9 @@ import type { Resolved } from "../bindings/Resolved";
 import type { ApplyReport } from "../bindings/ApplyReport";
 import type { Backup } from "../bindings/Backup";
 import type { InstalledFile } from "../bindings/InstalledFile";
+import type { Comparison } from "../bindings/Comparison";
 import type { Plan } from "../bindings/Plan";
+import type { RefitAction } from "../bindings/RefitAction";
 import type { Project } from "../bindings/Project";
 import type { ProjectFile } from "../bindings/ProjectFile";
 import type { Tag } from "../bindings/Tag";
@@ -528,6 +530,34 @@ export function scaffoldPlan(
     target,
     profileId: Number(profileId),
     version: version ?? null,
+  });
+}
+
+/** A project's harness compared with a profile (the current version when omitted), item by item. */
+export function refitCompare(
+  target: string,
+  profileId: bigint,
+  version?: number,
+): Promise<Comparison> {
+  return invoke<Comparison>("refit_compare", {
+    target,
+    profileId: Number(profileId),
+    version: version ?? null,
+  });
+}
+
+/** The refit plan for the user's choices (item to action; unchosen items take their default). */
+export function refitPlan(
+  target: string,
+  profileId: bigint,
+  choices: Record<string, RefitAction>,
+  version?: number,
+): Promise<Plan> {
+  return invoke<Plan>("refit_plan", {
+    target,
+    profileId: Number(profileId),
+    version: version ?? null,
+    choices,
   });
 }
 

@@ -131,7 +131,8 @@ pub(super) fn record(
                     params![project_id, write.path],
                 )?;
             }
-            (WriteAction::New | WriteAction::Replace, Some(bytes)) => {
+            (WriteAction::New | WriteAction::Replace, Some(bytes)) => {}
+            (WriteAction::New | WriteAction::Replace | WriteAction::Keep, Some(bytes)) => {
                 conn.execute(
                     "INSERT OR REPLACE INTO installed_files (project_id, path, digest, artifact_id)
                      VALUES (?1, ?2, ?3, ?4)",

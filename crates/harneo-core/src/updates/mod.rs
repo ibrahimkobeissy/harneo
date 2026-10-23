@@ -41,6 +41,7 @@ use crate::library::records::{self, SourceRecord};
 use crate::library::{Library, LibraryItem};
 pub use apply::{UpdateAllPlan, UpdateChoice, UpdateJob, UpdateOutcome, UpdateReport};
 pub use check::{CheckJob, CheckOutcome};
+pub(crate) use diff::hunks;
 pub use diff::{DiffLine, DiffStatus, FileDiff, Hunk, LineKind};
 
 /// The metadata key that records the commit an artifact was last updated from (git sources).

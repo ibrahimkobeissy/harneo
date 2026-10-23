@@ -9,6 +9,9 @@ use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
 };
 use harneo_core::install::{ApplyReport, Backup, InstalledFile, Plan, Project, ProjectFile};
+use harneo_core::install::{
+    ApplyReport, Comparison, InstalledFile, Plan, Project, ProjectFile, RefitAction,
+};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -772,6 +775,41 @@ pub fn scaffold_plan(
     version: Option<u32>,
 ) -> Result<Plan, String> {
     state.with(|library| library.plan_scaffold(std::path::Path::new(&target), profile_id, version))
+}
+
+/// Compares a project's harness with a profile, item by item. Reads the project, writes nothing.
+/// Runs on the blocking pool: it scans the folder.
+#[tauri::command]
+pub async fn refit_compare(
+    app: AppHandle,
+    target: String,
+    profile_id: i64,
+    version: Option<u32>,
+) -> Result<Comparison, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>()
+            .with(|library| library.compare(std::path::Path::new(&target), profile_id, version))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The plan for the user's choices (item to action; an item without one takes its default).
+#[tauri::command]
+pub async fn refit_plan(
+    app: AppHandle,
+    target: String,
+    profile_id: i64,
+    version: Option<u32>,
+    choices: std::collections::BTreeMap<String, RefitAction>,
+) -> Result<Plan, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<LibraryState>().with(|library| {
+            library.refit_plan(std::path::Path::new(&target), profile_id, version, &choices)
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// Writes a plan into its project, backing up first and rolling back on a failure. Runs on the

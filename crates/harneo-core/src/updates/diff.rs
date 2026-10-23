@@ -86,7 +86,7 @@ fn number(n: usize) -> u32 {
 }
 
 /// The hunks turning `old` into `new`; none when either is not UTF-8 text.
-fn hunks(old: &[u8], new: &[u8]) -> Vec<Hunk> {
+pub(crate) fn hunks(old: &[u8], new: &[u8]) -> Vec<Hunk> {
     let (Ok(old), Ok(new)) = (std::str::from_utf8(old), std::str::from_utf8(new)) else {
         return Vec::new();
     };
