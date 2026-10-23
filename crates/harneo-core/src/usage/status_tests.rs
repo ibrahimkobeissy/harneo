@@ -1,8 +1,6 @@
 //! Usage and status in `Library::list`. Rows go straight into the index; uses go straight into
 //! the attached usage database.
 
-use std::time::Instant;
-
 use rusqlite::params;
 use serde_json::json;
 
@@ -278,7 +276,7 @@ fn usage_page_with_usage_stays_under_100_ms_at_2000_artifacts() {
     let best = |q: &Query| {
         (0..3)
             .map(|_| {
-                let started = Instant::now();
+                let started = crate::test_support::Stopwatch::start();
                 let page = lib.list(q).expect("list");
                 (started.elapsed(), page.total)
             })

@@ -1,7 +1,6 @@
 use std::fs;
 use std::io::Write;
 use std::path::Path;
-use std::time::Instant;
 
 use serde_json::json;
 
@@ -275,7 +274,7 @@ fn one_hundred_megabytes_index_in_under_ten_seconds() {
         }
         n += 1;
     }
-    let start = Instant::now();
+    let start = crate::test_support::Stopwatch::start();
     let report = index.index(&root, |_| {}).expect("index");
     let elapsed = start.elapsed();
     assert!(report.files >= 4);

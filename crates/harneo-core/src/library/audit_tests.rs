@@ -4,7 +4,6 @@
 use std::fs;
 use std::io;
 use std::path::Path;
-use std::time::Instant;
 
 use rusqlite::params;
 
@@ -382,7 +381,7 @@ fn listing_2000_audited_artifacts_by_trust_stays_fast() -> TestResult {
     let mut elapsed = std::time::Duration::MAX;
     let mut page = library.list(&query)?;
     for _ in 0..5 {
-        let start = Instant::now();
+        let start = crate::test_support::Stopwatch::start();
         page = library.list(&query)?;
         elapsed = elapsed.min(start.elapsed());
     }

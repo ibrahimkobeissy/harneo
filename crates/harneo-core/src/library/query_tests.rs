@@ -1,7 +1,5 @@
 //! Tests for `Library::list`. Rows are inserted straight into the index.
 
-use std::time::Instant;
-
 use rusqlite::params;
 
 use super::query::filter_clause;
@@ -588,7 +586,7 @@ fn a_2000_artifact_library_answers_a_filtered_sorted_page_under_100_ms() {
     let mut elapsed = std::time::Duration::MAX;
     let mut page = lib.list(&query).expect("list");
     for _ in 0..5 {
-        let start = Instant::now();
+        let start = crate::test_support::Stopwatch::start();
         page = lib.list(&query).expect("list");
         elapsed = elapsed.min(start.elapsed());
     }
