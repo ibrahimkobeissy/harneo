@@ -32,8 +32,8 @@ mod switch;
 mod switch_tests;
 
 pub use apply::ApplyReport;
-pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub(crate) use backup::write_atomic;
+pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
 pub use plan::{Plan, PlanKind, Write, WriteAction};
 pub(crate) use registry::{project_count, project_names};
