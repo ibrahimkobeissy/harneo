@@ -282,9 +282,8 @@ describe("Builder: picker and cart", () => {
     const row = (
       await screen.findByText("review", { selector: "div" })
     ).closest("li") as HTMLElement;
-    expect(
-      within(row).getByText(/bundle of 2 · addy\/skills · trust 90/),
-    ).toBeVisible();
+    expect(within(row).getByText("bundle of 2 · addy/skills")).toBeVisible();
+    expect(within(row).getByText("trust 90")).toBeVisible();
     const query = callsOf(calls, "library_list").find(
       (c) => (c.args["query"] as { sort: string }).sort === "sessions",
     )?.args["query"] as {
@@ -296,7 +295,9 @@ describe("Builder: picker and cart", () => {
     expect(query.filter.types).not.toContain("mcp");
     expect(query.sort).toBe("sessions");
     expect(query.descending).toBe(true);
-    expect(screen.getByRole("button", { name: "Remove review" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Added review, remove" }),
+    ).toBeVisible();
     expect(screen.getByText(/not audited/)).toBeVisible();
   });
 
@@ -441,7 +442,9 @@ describe("Builder: picker and cart", () => {
   it("removes a plain item without asking", async () => {
     const user = userEvent.setup();
     await setup("/profiles/4", { spec: { ...base, items: ["T"] } });
-    await user.click(await screen.findByRole("button", { name: "Remove tdd" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Added tdd, remove" }),
+    );
     await within(cart()).findByText(/Nothing yet/);
     expect(screen.queryByRole("dialog")).toBeNull();
   });

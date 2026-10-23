@@ -141,13 +141,16 @@
 }
 .seg {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  max-width: 100%;
+  overflow-x: auto;
   border: var(--hairline) solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--raised);
-  overflow: hidden;
 }
 .seg button {
+  flex: none;
+  white-space: nowrap;
   height: calc(var(--size-control) - 2px);
   padding: 0 var(--space-md);
   border: 0;
@@ -216,12 +219,40 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.prow button {
+  height: 28px;
+  flex: none;
+}
 .srcline {
-  color: var(--t3);
-  font-size: var(--text-label-quiet);
+  color: var(--t2);
+  font-size: var(--text-label);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.trustline {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--t2);
+  font-size: var(--text-label);
+  white-space: nowrap;
+}
+.trustline.warn {
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-xs);
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-weight: 600;
+}
+.count {
+  margin: 0 0 var(--space-sm);
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.more {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-lg);
 }
 
 .cart {

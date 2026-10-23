@@ -31,13 +31,21 @@ const pickable: ArtifactKind[] = [
   "workflow",
 ];
 
-const LIMIT = 40;
+const PAGE = 40;
 const DEBOUNCE_MS = 200;
+
+type View = "all" | "added" | "notAdded";
+
+const views: { value: View; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "added", label: "Added" },
+  { value: "notAdded", label: "Not added" },
+];
 
 type Rows =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; items: LibraryItem[] };
+  | { status: "ready"; items: LibraryItem[]; total: number };
 
 /** The library, most used first, to pick from. */
 export function Picker({
@@ -52,6 +60,8 @@ export function Picker({
   const searchId = useId();
   const [text, setText] = useState("");
   const [segment, setSegment] = useState<Segment>("all");
+  const [view, setView] = useState<View>("all");
+  const [limit, setLimit] = useState(PAGE);
   const [rows, setRows] = useState<Rows>({ status: "loading" });
 
   useEffect(() => {
@@ -72,10 +82,11 @@ export function Picker({
         sort: "sessions",
         descending: true,
         offset: 0,
-        limit: LIMIT,
+        limit,
       }).then(
         (page) => {
-          if (!stale) setRows({ status: "ready", items: page.items });
+          if (!stale)
+            setRows({ status: "ready", items: page.items, total: page.total });
         },
         (err: unknown) => {
           if (!stale) setRows({ status: "error", message: String(err) });
@@ -86,7 +97,7 @@ export function Picker({
       stale = true;
       clearTimeout(timer);
     };
-  }, [text, segment]);
+  }, [text, segment, limit]);
 
   return (
     <section className={styles.picker} aria-labelledby="picker-title">
@@ -106,7 +117,10 @@ export function Picker({
             placeholder="Search library"
             autoComplete="off"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              setLimit(PAGE);
+            }}
           />
         </div>
         <div className={styles.seg} role="group" aria-label="Type">
@@ -116,9 +130,25 @@ export function Picker({
               type="button"
               className={segment === s.value ? styles.on : ""}
               aria-pressed={segment === s.value}
-              onClick={() => setSegment(s.value)}
+              onClick={() => {
+                setSegment(s.value);
+                setLimit(PAGE);
+              }}
             >
               {s.label}
+            </button>
+          ))}
+        </div>
+        <div className={styles.seg} role="group" aria-label="Show">
+          {views.map((v) => (
+            <button
+              key={v.value}
+              type="button"
+              className={view === v.value ? styles.on : ""}
+              aria-pressed={view === v.value}
+              onClick={() => setView(v.value)}
+            >
+              {v.label}
             </button>
           ))}
         </div>
@@ -128,12 +158,52 @@ export function Picker({
           The library did not load: {rows.message}
         </p>
       )}
-      {rows.status === "ready" && rows.items.length === 0 && (
-        <p className={styles.quiet}>No matches.</p>
+      {rows.status === "ready" && (
+        <Results
+          rows={rows}
+          view={view}
+          picked={picked}
+          onAdd={onAdd}
+          onRemove={onRemove}
+          onMore={() => setLimit((n) => n + PAGE)}
+        />
       )}
-      {rows.status === "ready" && rows.items.length > 0 && (
+    </section>
+  );
+}
+
+function Results({
+  rows,
+  view,
+  picked,
+  onAdd,
+  onRemove,
+  onMore,
+}: {
+  rows: { items: LibraryItem[]; total: number };
+  view: View;
+  picked: Set<string>;
+  onAdd: (item: LibraryItem) => void;
+  onRemove: (id: string) => void;
+  onMore: () => void;
+}) {
+  const shown = rows.items.filter(
+    (i) => view === "all" || (view === "added") === picked.has(i.id),
+  );
+  const count =
+    view === "all"
+      ? `Showing ${rows.items.length} of ${rows.total}`
+      : `${shown.length} of the ${rows.items.length} loaded shown (${rows.total} match)`;
+  return (
+    <>
+      <p className={styles.count}>{count}</p>
+      {shown.length === 0 ? (
+        <p className={styles.quiet}>
+          {rows.items.length === 0 ? "No matches." : "Nothing here yet."}
+        </p>
+      ) : (
         <ul className={styles.pgrid} aria-label="Library">
-          {rows.items.map((item) => (
+          {shown.map((item) => (
             <PickRow
               key={item.id}
               item={item}
@@ -144,7 +214,14 @@ export function Picker({
           ))}
         </ul>
       )}
-    </section>
+      {rows.items.length < rows.total && (
+        <div className={styles.more}>
+          <Button onClick={onMore}>
+            Show more ({Math.min(PAGE, rows.total - rows.items.length)})
+          </Button>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -164,10 +241,18 @@ function PickRow({
   const line = [
     item.bundleSize > 0 ? `bundle of ${item.bundleSize + 1}` : null,
     item.source.label,
-    item.trustScore === null ? "not audited" : `trust ${item.trustScore}`,
   ]
     .filter(Boolean)
     .join(" · ");
+  const flagged =
+    item.trustScore !== null && (item.trustScore < 60 || item.findingCount > 0);
+  const trust =
+    item.trustScore === null
+      ? "not audited"
+      : `trust ${item.trustScore}` +
+        (item.findingCount > 0
+          ? ` · ${item.findingCount} ${item.findingCount === 1 ? "finding" : "findings"}`
+          : "");
   return (
     <li className={`${styles.prow} ${added ? styles.in : ""}`}>
       <span className={styles.kindIcon} title={meta.label}>
@@ -175,12 +260,18 @@ function PickRow({
       </span>
       <div className={styles.rowText}>
         <div className={styles.rowName}>{item.name}</div>
-        <div className={styles.srcline}>{line}</div>
+        <div className={styles.srcline} title={line}>
+          {line}
+        </div>
+        <div className={`${styles.trustline} ${flagged ? styles.warn : ""}`}>
+          {trust}
+        </div>
       </div>
       {added ? (
         <Button
           small
-          aria-label={`Remove ${item.name}`}
+          aria-pressed={true}
+          aria-label={`Added ${item.name}, remove`}
           onClick={() => onRemove(item.id)}
         >
           <Check size={13} aria-hidden="true" />
@@ -189,6 +280,7 @@ function PickRow({
       ) : (
         <Button
           small
+          aria-pressed={false}
           aria-label={`Add ${item.name}`}
           onClick={() => onAdd(item)}
         >
