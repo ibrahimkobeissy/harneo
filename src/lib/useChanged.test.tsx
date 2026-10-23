@@ -16,6 +16,14 @@ function Probe({ onScope }: { onScope: (scope: ChangeScope) => void }) {
 }
 
 describe("useChanged", () => {
+  it("unmounts quietly when the event bridge is already gone", async () => {
+    mockIPC(() => null, { shouldMockEvents: true });
+    const live = render(<Probe onScope={() => undefined} />);
+    await new Promise((r) => setTimeout(r, 20));
+    clearMocks();
+    expect(() => live.unmount()).not.toThrow();
+  });
+
   it("calls the newest callback on each harneo://changed event", async () => {
     mockIPC(() => null, { shouldMockEvents: true });
     const first: ChangeScope[] = [];
