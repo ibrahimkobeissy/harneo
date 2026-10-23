@@ -273,3 +273,207 @@ fn audit_of_a_missing_path_or_a_file_exits_1() -> Result<(), Box<dyn std::error:
         .stderr(predicate::str::contains("not a folder"));
     Ok(())
 }
+
+mod scaffold_cli {
+    use super::{harneo, skill_folder};
+    use harneo_core::library::{Library, Source, TagChoices};
+    use harneo_core::profiles::ProfileSpec;
+    use predicates::prelude::*;
+    use std::path::Path;
+
+    type TestResult = Result<(), Box<dyn std::error::Error>>;
+
+    /// A data folder with the fixture skills imported and a profile "Heavy" holding both.
+    fn seeded() -> Result<tempfile::TempDir, Box<dyn std::error::Error>> {
+        let data = tempfile::tempdir()?;
+        let src = skill_folder()?;
+        let mut library = Library::open(data.path())?;
+        let preview = library.preview(&Source::Local {
+            path: src.path().to_path_buf(),
+        })?;
+        let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+        library.import(&preview, &ids, &TagChoices::new())?;
+        let spec = ProfileSpec {
+            items: ids,
+            ..ProfileSpec::default()
+        };
+        library.create_profile("Heavy", "", &spec)?;
+        Ok(data)
+    }
+
+    fn with_data(data: &Path) -> assert_cmd::Command {
+        let mut cmd = harneo();
+        cmd.env("HARNEO_DATA_DIR", data);
+        cmd
+    }
+
+    #[test]
+    fn data_dir_override_is_honoured() {
+        harneo()
+            .arg("paths")
+            .env("HARNEO_DATA_DIR", "/tmp/harneo-override")
+            .assert()
+            .success()
+            .stdout("/tmp/harneo-override\n");
+    }
+
+    #[test]
+    fn profiles_lists_human_and_json() -> TestResult {
+        let data = seeded()?;
+        with_data(data.path())
+            .arg("profiles")
+            .assert()
+            .success()
+            .stdout("Heavy (id 1) v1: 2 artifacts, 0 projects\n");
+        with_data(data.path())
+            .args(["profiles", "--json"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("\"name\": \"Heavy\""));
+        let empty = tempfile::tempdir()?;
+        with_data(empty.path())
+            .arg("profiles")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("No profiles yet"));
+        Ok(())
+    }
+
+    #[test]
+    fn dry_run_prints_the_plan_and_writes_nothing() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        with_data(data.path())
+            .args(["scaffold", "--profile", "heavy", "--dry-run"])
+            .arg(project.path())
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "new     .claude/skills/alpha/SKILL.md",
+            ))
+            .stdout(predicate::str::contains("files will be written."));
+        assert_eq!(std::fs::read_dir(project.path())?.count(), 0);
+        Ok(())
+    }
+
+    fn files_under(root: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let mut found = Vec::new();
+        let mut stack = vec![root.to_path_buf()];
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(dir)? {
+                let path = entry?.path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    found.push(
+                        path.strip_prefix(root)?
+                            .to_string_lossy()
+                            .replace('\\', "/"),
+                    );
+                }
+            }
+        }
+        found.sort();
+        Ok(found)
+    }
+
+    #[test]
+    fn yes_writes_exactly_the_planned_files() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        let plan = with_data(data.path())
+            .args(["scaffold", "--profile", "1", "--dry-run", "--json"])
+            .arg(project.path())
+            .output()?;
+        let plan: serde_json::Value = serde_json::from_slice(&plan.stdout)?;
+        let mut planned: Vec<String> = plan["writes"]
+            .as_array()
+            .ok_or("no writes")?
+            .iter()
+            .filter_map(|w| w["path"].as_str().map(str::to_owned))
+            .collect();
+        planned.sort();
+        with_data(data.path())
+            .args(["scaffold", "--profile", "Heavy", "--yes"])
+            .arg(project.path())
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(format!(
+                "Heavy v1: {} files, registered.",
+                planned.len()
+            )));
+        assert_eq!(files_under(project.path())?, planned);
+        with_data(data.path())
+            .arg("profiles")
+            .assert()
+            .stdout(predicate::str::contains("1 project"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_harness_folder_is_refused() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        std::fs::write(project.path().join("CLAUDE.md"), "x")?;
+        with_data(data.path())
+            .args(["scaffold", "--profile", "Heavy", "--yes"])
+            .arg(project.path())
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("already has a harness"))
+            .stderr(predicate::str::contains("refit it in the app"));
+        Ok(())
+    }
+
+    #[test]
+    fn unknown_profile_fails() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        with_data(data.path())
+            .args(["scaffold", "--profile", "nope", "--yes"])
+            .arg(project.path())
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(
+                "no profile named or numbered nope",
+            ));
+        Ok(())
+    }
+
+    #[test]
+    fn non_interactive_without_yes_exits_2_and_writes_nothing() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        with_data(data.path())
+            .args(["scaffold", "--profile", "Heavy"])
+            .arg(project.path())
+            .write_stdin("")
+            .assert()
+            .code(2)
+            .stderr(predicate::str::contains(
+                "pass --yes to write without asking",
+            ));
+        assert_eq!(std::fs::read_dir(project.path())?.count(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn a_held_lock_makes_scaffold_fail_busy() -> TestResult {
+        let data = seeded()?;
+        let project = tempfile::tempdir()?;
+        let lock = std::fs::File::options()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(data.path().join("install.lock"))?;
+        lock.lock()?;
+        with_data(data.path())
+            .args(["scaffold", "--profile", "Heavy", "--yes"])
+            .arg(project.path())
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains("Harneo is busy"));
+        assert_eq!(std::fs::read_dir(project.path())?.count(), 0);
+        Ok(())
+    }
+}

@@ -1,9 +1,13 @@
 //! `harneo`: the CLI companion. Commands arrive with the modules that own them.
 
 mod audit;
+mod profiles;
+mod scaffold;
 mod scan;
 
+use std::io::{BufRead, IsTerminal};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
@@ -40,11 +44,40 @@ enum Command {
         #[arg(long)]
         include_managed: bool,
     },
+    /// List the profiles in the library.
+    Profiles {
+        /// Print the profiles as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Write a profile into a folder that has no harness yet, and register the project.
+    Scaffold(scaffold::ScaffoldArgs),
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> ExitCode {
+    match run() {
+        Ok(code) => code,
+        Err(error) => {
+            eprintln!("harneo: {error:#}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn run() -> anyhow::Result<ExitCode> {
     match Cli::parse().command {
         Command::Paths => println!("{}", harneo_core::paths::data_dir()?.display()),
+        Command::Profiles { json } => {
+            profiles::run(json, &mut std::io::stdout())?;
+        }
+        Command::Scaffold(args) => {
+            let interactive = std::io::stdin().is_terminal();
+            return scaffold::run(&args, &mut std::io::stdout(), interactive, || {
+                let mut line = String::new();
+                std::io::stdin().lock().read_line(&mut line)?;
+                Ok(matches!(line.trim().to_lowercase().as_str(), "y" | "yes"))
+            });
+        }
         Command::Scan {
             path,
             json,
@@ -56,5 +89,5 @@ fn main() -> anyhow::Result<()> {
             include_managed,
         } => audit::run(&path, json, include_managed)?,
     }
-    Ok(())
+    Ok(ExitCode::SUCCESS)
 }

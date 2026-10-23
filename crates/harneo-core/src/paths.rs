@@ -9,7 +9,11 @@ const APP_ID: &str = "io.harneo";
 
 /// Harneo's data folder: the library, profiles and backups live here.
 /// Same rule as Tauri's `app_data_dir`, so the app and the CLI share one library.
+/// `HARNEO_DATA_DIR`, when set and not empty, replaces it (tests and scripts).
 pub fn data_dir() -> Result<PathBuf> {
+    if let Some(dir) = std::env::var_os("HARNEO_DATA_DIR").filter(|v| !v.is_empty()) {
+        return Ok(PathBuf::from(dir));
+    }
     dirs::data_dir()
         .map(|base| base.join(APP_ID))
         .ok_or(Error::NoDataDir)
