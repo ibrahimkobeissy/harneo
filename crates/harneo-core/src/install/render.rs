@@ -118,7 +118,7 @@ pub(super) fn set_manual_only(bytes: &[u8], on: bool) -> Vec<u8> {
 }
 
 /// `text` followed by the `@HARNESS.md` import, unless a line already is that import.
-pub(super) fn with_harness_import(bytes: &[u8]) -> Vec<u8> {
+pub(crate) fn with_harness_import(bytes: &[u8]) -> Vec<u8> {
     let Ok(text) = std::str::from_utf8(bytes) else {
         return bytes.to_vec();
     };

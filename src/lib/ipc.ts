@@ -44,7 +44,12 @@ import type { InstalledFile } from "../bindings/InstalledFile";
 import type { Comparison } from "../bindings/Comparison";
 import type { Plan } from "../bindings/Plan";
 import type { RefitAction } from "../bindings/RefitAction";
+import type { AddedPreview } from "../bindings/AddedPreview";
+import type { DriftReport } from "../bindings/DriftReport";
+import type { Hunk } from "../bindings/Hunk";
 import type { Project } from "../bindings/Project";
+import type { ProjectDrift } from "../bindings/ProjectDrift";
+import type { PromoteReport } from "../bindings/PromoteReport";
 import type { ProjectFile } from "../bindings/ProjectFile";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
@@ -651,4 +656,54 @@ export function watchStatus(): Promise<WatchStatus> {
 /** Pauses or resumes the live rescan (remembered). */
 export function watchPause(paused: boolean): Promise<void> {
   return invoke<void>("watch_pause", { paused });
+}
+
+// --- Drift: check, diff, re-apply, promote ---------------------------------------------
+
+/** How a project's files compare with what Harneo wrote. */
+export function driftCheck(id: bigint): Promise<DriftReport> {
+  return invoke<DriftReport>("drift_check", { id: Number(id) });
+}
+
+/** The drift summary of every project. */
+export function driftCheckAll(): Promise<ProjectDrift[]> {
+  return invoke<ProjectDrift[]>("drift_check_all");
+}
+
+/** The line changes from the profile version's file to the project's file. */
+export function driftDiff(projectId: bigint, path: string): Promise<Hunk[]> {
+  return invoke<Hunk[]>("drift_diff", { projectId: Number(projectId), path });
+}
+
+/** The plan that puts the profile's version back; all drifted files when `paths` is omitted. */
+export function driftReapplyPlan(
+  projectId: bigint,
+  paths?: string[],
+): Promise<Plan> {
+  return invoke<Plan>("drift_reapply_plan", {
+    projectId: Number(projectId),
+    paths: paths ?? null,
+  });
+}
+
+/** Makes the project's edited file the library copy of its artifact. */
+export function driftPromote(
+  projectId: bigint,
+  path: string,
+): Promise<PromoteReport> {
+  return invoke<PromoteReport>("drift_promote", {
+    projectId: Number(projectId),
+    path,
+  });
+}
+
+/** A library preview of the project with the artifact added at `path` preselected. */
+export function driftPromoteAdded(
+  projectId: bigint,
+  path: string,
+): Promise<AddedPreview> {
+  return invoke<AddedPreview>("drift_promote_added", {
+    projectId: Number(projectId),
+    path,
+  });
 }

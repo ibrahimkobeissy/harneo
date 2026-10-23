@@ -434,7 +434,7 @@ impl Library {
 
 /// Copies the library copy to `<library>/.backups/<id>/<UTC timestamp>/` and returns that
 /// folder.
-fn backup_copy(library_root: &Path, id: &str, from: &Path) -> Result<PathBuf> {
+pub(crate) fn backup_copy(library_root: &Path, id: &str, from: &Path) -> Result<PathBuf> {
     let parent = library_root.join(".backups").join(id);
     fs::create_dir_all(&parent).map_err(|e| io_error(&parent, e))?;
     let stamp = utc_stamp(records::now());

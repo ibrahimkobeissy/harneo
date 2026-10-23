@@ -230,6 +230,12 @@ pub enum Error {
         /// What failed and whether the project was restored.
         message: String,
     },
+    /// A drift action is refused (a generated or deleted file cannot be promoted...).
+    #[error("{message}")]
+    Drift {
+        /// Why, ready to show.
+        message: String,
+    },
     /// No project has this id.
     #[error("project {id} does not exist")]
     ProjectNotFound {

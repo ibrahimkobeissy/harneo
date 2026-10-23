@@ -15,7 +15,7 @@ mod apply;
 #[cfg(test)]
 mod apply_tests;
 mod check;
-mod diff;
+pub(crate) mod diff;
 #[cfg(test)]
 mod diff_tests;
 pub(crate) mod remote;
@@ -39,6 +39,7 @@ use crate::artifact::Artifact;
 use crate::error::{Error, Result};
 use crate::library::records::{self, SourceRecord};
 use crate::library::{Library, LibraryItem};
+pub(crate) use apply::backup_copy;
 pub use apply::{UpdateAllPlan, UpdateChoice, UpdateJob, UpdateOutcome, UpdateReport};
 pub use check::{CheckJob, CheckOutcome};
 pub(crate) use diff::hunks;

@@ -8,9 +8,11 @@ use harneo_core::artifact::{ArtifactKind, ScanOptions};
 use harneo_core::bundles::{
     cli_status, ClaudeConfig, CliStatus, DetectProgress, Detection, LinkOrigin, Links,
 };
+use harneo_core::drift::{AddedPreview, DriftReport, ProjectDrift, PromoteReport};
 use harneo_core::install::{
     ApplyReport, Backup, Comparison, InstalledFile, Plan, Project, ProjectFile, RefitAction,
 };
+use harneo_core::install::{ApplyReport, Backup, InstalledFile, Plan, Project, ProjectFile};
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
     ReauditReport, Source, Tag, TagColor, TagWithCount,
@@ -20,7 +22,7 @@ use harneo_core::profiles::{
     ProfileUse, ProfileView, Resolved, MAX_FILE_BYTES,
 };
 use harneo_core::updates::{
-    CheckReport, CheckScope, FileDiff, UpdateChoice, UpdateReport, UpdateStatus,
+    CheckReport, CheckScope, FileDiff, Hunk, UpdateChoice, UpdateReport, UpdateStatus,
 };
 use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
@@ -913,6 +915,93 @@ pub async fn backup_delete(app: AppHandle, backup_id: i64) -> Result<(), String>
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+// --- Drift: check, diff, re-apply, promote ----------------------------------------------
+
+/// Runs a drift call on the blocking pool: it reads the project and renders its profile.
+async fn blocking<R: tauri::Runtime, T: Send + 'static>(
+    app: AppHandle<R>,
+    f: impl FnOnce(&Library) -> harneo_core::Result<T> + Send + 'static,
+) -> Result<T, String> {
+    tauri::async_runtime::spawn_blocking(move || app.state::<LibraryState>().with(f))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Compares a project's files with what Harneo wrote.
+#[tauri::command]
+pub async fn drift_check(app: AppHandle, id: i64) -> Result<DriftReport, String> {
+    blocking(app, move |library| library.check_project(id)).await
+}
+
+/// The drift summary of every project.
+#[tauri::command]
+pub async fn drift_check_all(app: AppHandle) -> Result<Vec<ProjectDrift>, String> {
+    blocking(app, |library| library.check_all()).await
+}
+
+/// The line changes from the profile version's file to the project's file.
+#[tauri::command]
+pub async fn drift_diff(
+    app: AppHandle,
+    project_id: i64,
+    path: String,
+) -> Result<Vec<Hunk>, String> {
+    blocking(app, move |library| library.drift_diff(project_id, &path)).await
+}
+
+/// The plan that puts the profile's version back (`paths` narrows it; none means all).
+#[tauri::command]
+pub async fn drift_reapply_plan(
+    app: AppHandle,
+    project_id: i64,
+    paths: Option<Vec<String>>,
+) -> Result<Plan, String> {
+    blocking(app, move |library| library.plan_reapply(project_id, paths)).await
+}
+
+/// Makes the project's edited file the library copy of its artifact.
+#[tauri::command]
+pub async fn drift_promote(
+    app: AppHandle,
+    project_id: i64,
+    path: String,
+) -> Result<PromoteReport, String> {
+    blocking(app, move |library| library.promote(project_id, &path)).await
+}
+
+/// A library preview of the project with the added artifact at `path` to preselect.
+#[tauri::command]
+pub async fn drift_promote_added(
+    app: AppHandle,
+    project_id: i64,
+    path: String,
+) -> Result<AddedPreview, String> {
+    blocking(app, move |library| library.promote_added(project_id, &path)).await
+}
+
+#[cfg(test)]
+mod drift_tests {
+    use super::*;
+
+    #[test]
+    fn drift_calls_run_on_the_blocking_pool_and_report_errors_as_text(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let handle = app.handle().clone();
+        tauri::async_runtime::block_on(async {
+            assert!(blocking(handle.clone(), |l| l.check_all())
+                .await?
+                .is_empty());
+            let failed = blocking(handle, |l| l.check_project(1)).await;
+            assert_eq!(failed.err().as_deref(), Some("project 1 does not exist"));
+            Ok::<(), String>(())
+        })?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]

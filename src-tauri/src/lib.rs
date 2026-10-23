@@ -93,6 +93,12 @@ pub fn run() {
             commands::backup_delete,
             watch::watch_status,
             watch::watch_pause,
+            commands::drift_check,
+            commands::drift_check_all,
+            commands::drift_diff,
+            commands::drift_reapply_plan,
+            commands::drift_promote,
+            commands::drift_promote_added,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

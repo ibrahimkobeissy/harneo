@@ -285,7 +285,11 @@ fn mcp_definition(source_root: &Path, artifact: &Artifact) -> (Value, Vec<String
 /// Settings file has its literal `env` secrets replaced by `${KEY}` and is written
 /// pretty-printed (unchanged when it held none); a Settings file that is not valid JSON is
 /// refused. Every other file is copied byte for byte.
-fn rewrite(artifact: &Artifact, src_rel: &str, bytes: Vec<u8>) -> Result<(Vec<u8>, Vec<String>)> {
+pub(crate) fn rewrite(
+    artifact: &Artifact,
+    src_rel: &str,
+    bytes: Vec<u8>,
+) -> Result<(Vec<u8>, Vec<String>)> {
     if artifact.kind != ArtifactKind::Settings || src_rel != artifact.path {
         return Ok((bytes, Vec::new()));
     }
