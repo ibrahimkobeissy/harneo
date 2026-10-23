@@ -164,6 +164,7 @@ mod tests {
                 write("e", WriteAction::Skip),
             ],
             backup_count: 0,
+            ..Plan::default()
         };
         let text = render(&plan);
         assert!(text.starts_with("Scaffold /p with Web v2:\n  new     a\n  replace b\n"));
