@@ -195,7 +195,7 @@ mod tests {
     fn a_failure_names_what_was_and_was_not_deleted() -> TestResult {
         let data = tempfile::tempdir()?;
         let base = data.path().join("d");
-        fs::create_dir(&base)?;
+        drop(Library::open(&base)?);
         put(&base, "settings.txt", "x")?;
         // A folder that cannot be listed for removal (unix only): read-only parent is the
         // folder itself, so make a child dir we cannot enter.
@@ -210,7 +210,7 @@ mod tests {
             fs::set_permissions(&locked, fs::Permissions::from_mode(0o755))?;
             // Running as root can delete anything; otherwise the failure is reported.
             if let Err(Error::Reset { message }) = err {
-                assert!(message.contains("locked"));
+                assert!(message.contains("locked") && message.contains("settings.txt"));
             }
         }
         Ok(())
