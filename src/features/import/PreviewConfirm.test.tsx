@@ -61,10 +61,7 @@ const ticket = {
   diagnostics: [],
   candidates: [
     cand("session-radar", audit(10, "dangerous", [flagged, flagged])),
-    cand(
-      "wild",
-      audit(70, "needs-review", [{ ...flagged, severity: "medium" }]),
-    ),
+    cand("wild", audit(70, "review", [{ ...flagged, severity: "medium" }])),
     cand("calm", audit(100, "trusted", [])),
   ],
 } as PreviewTicket;

@@ -769,10 +769,7 @@ pub struct PreviewConfirmed {
 
 /// Asks Claude about the flagged candidates of the held preview, one by one, without holding
 /// the library, emitting each candidate's updated audit. Verdicts go into the shared cache.
-fn run_preview_confirm<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    token: &str,
-) -> Result<(), String> {
+fn run_preview_confirm<R: tauri::Runtime>(app: &AppHandle<R>, token: &str) -> Result<(), String> {
     let _one_at_a_time = PREVIEW_CONFIRM_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);

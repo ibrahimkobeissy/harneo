@@ -338,11 +338,13 @@ impl Library {
                     }
                     let input = AuditInput::read(&c.artifact, root, &options);
                     let phase1 = audit::audit_input(&input);
-                    let to_stored: HashMap<String, String> = copy::plan(&c.artifact)?
-                        .into_iter()
-                        .collect();
+                    let to_stored: HashMap<String, String> =
+                        copy::plan(&c.artifact)?.into_iter().collect();
                     let cands = confirm::candidates_keyed(&input, &phase1.findings, &|file| {
-                        to_stored.get(file).cloned().unwrap_or_else(|| file.to_owned())
+                        to_stored
+                            .get(file)
+                            .cloned()
+                            .unwrap_or_else(|| file.to_owned())
                     });
                     let cache = cached(conn, &cands)?;
                     items.push(Item {

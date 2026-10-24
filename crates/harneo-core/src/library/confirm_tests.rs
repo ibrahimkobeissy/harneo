@@ -350,7 +350,8 @@ fn previewed() -> std::result::Result<(Setup, Preview), Box<dyn std::error::Erro
 }
 
 #[test]
-fn a_preview_run_judges_the_flagged_candidates_and_the_import_run_asks_nothing_more() -> TestResult {
+fn a_preview_run_judges_the_flagged_candidates_and_the_import_run_asks_nothing_more() -> TestResult
+{
     let (s, preview) = previewed()?;
     let job = s.library.prepare_preview_confirmation(&preview)?;
     assert_eq!(job.artifact_count(), 3, "only flagged candidates");
@@ -385,7 +386,10 @@ fn a_preview_run_judges_the_flagged_candidates_and_the_import_run_asks_nothing_m
         .filter_map(std::result::Result::ok)
         .filter(|e| e.file_name().to_string_lossy().starts_with("in-"))
         .count();
-    assert_eq!(calls, 3, "the run after the import used the cached verdicts");
+    assert_eq!(
+        calls, 3,
+        "the run after the import used the cached verdicts"
+    );
     for row in library.audits()? {
         let audit = row.audit.ok_or("not audited")?;
         assert!(audit.findings.is_empty(), "{}", row.name);
