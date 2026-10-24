@@ -52,6 +52,32 @@ describe("usage wrappers", () => {
   });
 });
 
+describe("audit phase 2 wrappers", () => {
+  it("send the right command and argument keys", async () => {
+    const calls = record(true);
+    expect(await ipc.auditConfirmations()).toBe(true);
+    await ipc.auditConfirm(["a"]);
+    await ipc.auditConfirmAll();
+    expect(await ipc.auditConfirmSettingGet()).toBe(true);
+    await ipc.auditConfirmSettingSet(false);
+    expect(calls).toEqual([
+      { cmd: "audit_confirmations", args: {} },
+      { cmd: "audit_confirm", args: { ids: ["a"] } },
+      { cmd: "audit_confirm_all", args: {} },
+      { cmd: "audit_confirm_setting_get", args: {} },
+      { cmd: "audit_confirm_setting_set", args: { enabled: false } },
+    ]);
+  });
+
+  it("onAuditConfirmProgress hands the event payload to the handler", async () => {
+    mockIPC(() => null, { shouldMockEvents: true });
+    const seen: unknown[] = [];
+    await ipc.onAuditConfirmProgress((p) => seen.push(p));
+    await emit("audit-confirm-progress", { done: 1, total: 2 });
+    expect(seen).toEqual([{ done: 1, total: 2 }]);
+  });
+});
+
 describe("links, bundles and settings wrappers", () => {
   it("send the right command and argument keys", async () => {
     const calls = record("value");

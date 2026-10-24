@@ -38,6 +38,8 @@ function candidate(
       tier: "trusted",
       findings: [],
       reach: { files: [], network: [], shell: [], env: [], protects: 0 },
+      dismissed: [],
+      confirmation: null,
     },
     ...over,
   };

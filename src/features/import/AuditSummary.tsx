@@ -37,7 +37,8 @@ export function AuditSummary({
       <h2 className={styles.h}>
         Security audit{" "}
         <span>
-          static checks on the files that will be copied; nothing was run
+          phase 1: static checks on the files that will be copied; nothing was
+          run. Claude confirms the findings after the import.
         </span>
       </h2>
       {heldBack > 0 && (

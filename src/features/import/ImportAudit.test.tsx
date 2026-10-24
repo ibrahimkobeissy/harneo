@@ -58,6 +58,8 @@ function cand(
         protects: 0,
         ...reach,
       },
+      dismissed: [],
+      confirmation: null,
     },
   } as Candidate;
 }
@@ -273,6 +275,8 @@ describe("Import audit", () => {
     await toChoose(u);
     await u.click(screen.getByRole("button", { name: "Continue" }));
     const audit = screen.getByRole("region", { name: "Security audit" });
+    expect(audit).toHaveTextContent("phase 1");
+    expect(audit).toHaveTextContent("Claude confirms the findings after");
     const tiers = within(audit).getByRole("list", {
       name: "Artifacts per tier",
     });

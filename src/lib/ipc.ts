@@ -8,6 +8,8 @@ import type { ChangeScope } from "../bindings/ChangeScope";
 import type { WatchStatus } from "../bindings/WatchStatus";
 import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
+import type { ArtifactConfirmation } from "../bindings/ArtifactConfirmation";
+import type { ConfirmProgress } from "../bindings/ConfirmProgress";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
 import type { DetectProgress } from "../bindings/DetectProgress";
@@ -108,6 +110,42 @@ export function libraryReaudit(): Promise<ReauditReport> {
 /** The stored audit of every library artifact (trust, findings, reach), for the Security page. */
 export function libraryAudits(): Promise<ArtifactAudit[]> {
   return invoke<ArtifactAudit[]>("library_audits", {});
+}
+
+// --- Audit phase 2 (Claude confirms each finding) ---
+
+/** The phase 2 status of every artifact: off, pending, unavailable, failed or confirmed. */
+export function auditConfirmations(): Promise<ArtifactConfirmation[]> {
+  return invoke<ArtifactConfirmation[]>("audit_confirmations", {});
+}
+
+/** Asks Claude to confirm these artifacts' findings now; resolves when they are done. */
+export function auditConfirm(ids: string[]): Promise<void> {
+  return invoke<void>("audit_confirm", { ids });
+}
+
+/** Asks Claude to confirm the findings of the whole library; resolves when done. */
+export function auditConfirmAll(): Promise<void> {
+  return invoke<void>("audit_confirm_all", {});
+}
+
+/** Whether phase 2 is on (Settings; on by default). */
+export function auditConfirmSettingGet(): Promise<boolean> {
+  return invoke<boolean>("audit_confirm_setting_get", {});
+}
+
+/** Turns phase 2 on or off. */
+export function auditConfirmSettingSet(enabled: boolean): Promise<void> {
+  return invoke<void>("audit_confirm_setting_set", { enabled });
+}
+
+/** Calls `handler` as phase 2 moves through the artifacts; resolves with the stop function. */
+export function onAuditConfirmProgress(
+  handler: (progress: ConfirmProgress) => void,
+): Promise<UnlistenFn> {
+  return listen<ConfirmProgress>("audit-confirm-progress", (event) =>
+    handler(event.payload),
+  );
 }
 
 // --- Import flow -----------------------------------------------------------------------

@@ -45,6 +45,8 @@ const audit: Audit = {
     env: ["API_NAME"],
     protects: 2,
   },
+  dismissed: [],
+  confirmation: null,
 };
 
 function detail(name: string, a: Audit | null): ArtifactDetail {
