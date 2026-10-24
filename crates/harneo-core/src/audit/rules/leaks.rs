@@ -22,6 +22,7 @@ use serde_json::Value;
 
 use crate::artifact::literal_secret::{is_literal_secret, REDACTED};
 use crate::audit::input::{InputFile, Line};
+use crate::audit::protect::{analyze, names_credential, SEND_RES};
 use crate::audit::{excerpt, AuditInput, AuditRule, Finding, Severity};
 
 const EVIDENCE_CHARS: usize = 160;
@@ -340,42 +341,6 @@ fn secret_line(file: &InputFile, key: &str, marker: bool) -> Option<u32> {
 
 // --- credential-theft ---
 
-/// Credential stores, keychain tools and environment dumps (case-insensitive).
-const CRED_TARGETS: [&str; 12] = [
-    r"\.ssh/(?:id_[a-z0-9]+|authorized_keys|known_hosts|config)\b",
-    r"\b(?:id_rsa|id_ed25519|id_ecdsa|id_dsa)\b",
-    r"\.(?:aws/(?:credentials|config)|gcloud/(?:credentials|application_default)|config/gcloud)",
-    r#"(?:^|[\s/"'=<(])\.env(?:\.(?:local|production|prod|development|dev|staging|test))?(?:$|[\s/"'):;|&>])"#,
-    r"(?:\bcredentials\.json|\.netrc|\.pgpass|\.git-credentials|\.npmrc|\.pypirc)\b",
-    r"\.config/gh\b",
-    r"\.docker/config\.json",
-    r"\.kube(?:/|\b)",
-    r"\.claude/\.credentials\.json",
-    r"\bsecurity\s+find-(?:generic|internet)-password\b|\bsecret-tool\s+(?:lookup|search)\b|\bkeyctl\s+(?:read|print|pipe)\b|\bgit\s+credential\s+fill\b|\bcmdkey\s+/list\b|\b(?:kwallet-query|gnome-keyring)\b",
-    r"\bprintenv\b|\bexport\s+-p\b|\bcompgen\s+-e\b",
-    r"(?:^|[;&|(`]\s*|\$\(\s*)env\s*(?:$|[|>;)`])",
-];
-
-/// Network sends (case-insensitive).
-const SEND_PATTERNS: [&str; 3] = [
-    r"\b(?:curl|wget|nc|ncat|netcat|socat|scp|rsync|sftp|ftp|telnet)\b",
-    r"/dev/tcp/|\bfetch\s*\(|\brequests\.(?:post|put)\b|\baxios\.(?:post|put)\b|XMLHttpRequest|\bInvoke-(?:WebRequest|RestMethod)\b|\burlopen\s*\(|\bhttp\.client\b|\bgh\s+gist\s+create\b",
-    r"\b(?:post|upload|send|exfil\w*)\b.*https?://",
-];
-
-static CRED_RES: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    CRED_TARGETS
-        .iter()
-        .filter_map(|p| Regex::new(&format!("(?i){p}")).ok())
-        .collect()
-});
-static SEND_RES: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    SEND_PATTERNS
-        .iter()
-        .filter_map(|p| Regex::new(&format!("(?i){p}")).ok())
-        .collect()
-});
-
 /// A read of a credential store or an environment dump. Critical when a network send is within
 /// 20 lines in the same file, else high (the reference itself is still worth a look).
 pub(crate) struct CredentialTheft;
@@ -392,10 +357,11 @@ impl AuditRule for CredentialTheft {
     fn check(&self, input: &AuditInput) -> Vec<Finding> {
         let mut out = Vec::new();
         for file in &input.files {
+            let protected = analyze(file).lines;
             let mut reads: Vec<(u32, &str)> = Vec::new();
             let mut sends: Vec<u32> = Vec::new();
             for line in file.lines() {
-                if CRED_RES.iter().any(|r| r.is_match(line.text)) {
+                if names_credential(line.text) && !protected.contains(&line.number) {
                     reads.push((line.number, line.text));
                 }
                 if SEND_RES.iter().any(|r| r.is_match(line.text)) {

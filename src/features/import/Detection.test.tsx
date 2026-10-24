@@ -31,7 +31,7 @@ function candidate(name: string): Candidate {
       score: 100,
       tier: "trusted",
       findings: [],
-      reach: { files: [], network: [], shell: [], env: [] },
+      reach: { files: [], network: [], shell: [], env: [], protects: 0 },
     },
   };
 }

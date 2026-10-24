@@ -9,7 +9,7 @@ import type { Reach } from "../../bindings/Reach";
 import type { Tier } from "../../bindings/Tier";
 import { SecurityScreen } from ".";
 
-const none: Reach = { files: [], network: [], shell: [], env: [] };
+const none: Reach = { files: [], network: [], shell: [], env: [], protects: 0 };
 
 function entry(
   name: string,

@@ -38,7 +38,13 @@ const audit: Audit = {
       evidence: "npx tool",
     },
   ],
-  reach: { files: [], network: ["x.test"], shell: ["curl"], env: ["API_NAME"] },
+  reach: {
+    files: [],
+    network: ["x.test"],
+    shell: ["curl"],
+    env: ["API_NAME"],
+    protects: 2,
+  },
 };
 
 function detail(name: string, a: Audit | null): ArtifactDetail {
@@ -218,6 +224,9 @@ describe("trust in the detail panel", () => {
     expect(within(panel).getByText("x.test")).toBeInTheDocument();
     expect(within(panel).getByText("curl")).toBeInTheDocument();
     expect(within(panel).getByText("API_NAME")).toBeInTheDocument();
+    expect(
+      within(panel).getByText("Protects 2 credential paths"),
+    ).toBeInTheDocument();
   });
 
   it("says so when the artifact was never audited", async () => {

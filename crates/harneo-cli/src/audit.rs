@@ -114,6 +114,9 @@ fn render(entries: &[Entry]) -> String {
                 let _ = writeln!(out, "  reach {name}: {}", list.join(", "));
             }
         }
+        if a.reach.protects > 0 {
+            let _ = writeln!(out, "  protects {} credential paths", a.reach.protects);
+        }
         out.push('\n');
     }
     out.push_str(&summary(entries));

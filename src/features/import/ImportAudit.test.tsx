@@ -50,7 +50,14 @@ function cand(
       score,
       tier,
       findings,
-      reach: { files: [], network: [], shell: [], env: [], ...reach },
+      reach: {
+        files: [],
+        network: [],
+        shell: [],
+        env: [],
+        protects: 0,
+        ...reach,
+      },
     },
   } as Candidate;
 }

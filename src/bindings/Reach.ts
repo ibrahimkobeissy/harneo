@@ -3,4 +3,9 @@
 /**
  * What an artifact can reach, as sorted lists without duplicates. Names only, never values.
  */
-export type Reach = { files: Array<string>, network: Array<string>, shell: Array<string>, env: Array<string>, };
+export type Reach = { files: Array<string>, network: Array<string>, shell: Array<string>, env: Array<string>, 
+/**
+ * How many credential paths the artifact only guards (a "never read" list, a
+ * `permissions.deny` rule, a blocking hook). Info, not reach: never part of `files`.
+ */
+protects: number, };

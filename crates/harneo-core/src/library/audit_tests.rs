@@ -165,6 +165,47 @@ fn reaudit_refreshes_stale_scores_from_the_stored_copy_and_settles() -> TestResu
 }
 
 #[test]
+fn reaudit_drops_a_stale_credential_finding_for_protective_text() -> TestResult {
+    let mut s = setup()?;
+    let preview = import_all(&mut s)?;
+    let scout = by_name(&preview, "scout")?.id.clone();
+    let copy = s
+        .data
+        .path()
+        .join("library/artifacts")
+        .join(&scout)
+        .join("scout.md");
+    let theft = |s: &Setup| -> std::result::Result<usize, Box<dyn std::error::Error>> {
+        let audit = s.library.detail(&scout)?.audit.ok_or("audit")?;
+        Ok(audit
+            .findings
+            .iter()
+            .filter(|f| f.rule == "credential-theft")
+            .count())
+    };
+
+    fs::write(
+        &copy,
+        "---\nname: scout\ndescription: d\n---\nNever read ~/.ssh/id_rsa or ~/.aws/credentials.\n",
+    )?;
+    s.library.store.conn.execute(
+        "UPDATE artifacts SET findings = ?2, trust_score = 85 WHERE id = ?1",
+        params![
+            scout,
+            r#"[{"rule":"credential-theft","severity":"high","message":"m","file":"scout.md","line":5,"evidence":"e"}]"#
+        ],
+    )?;
+    assert_eq!(theft(&s)?, 1);
+    let report = s.library.reaudit_all()?;
+    assert_eq!(report.changed, 1);
+    assert_eq!(theft(&s)?, 0);
+    let audit = s.library.detail(&scout)?.audit.ok_or("audit")?;
+    assert_eq!((audit.score, audit.reach.protects), (100, 2));
+    assert!(audit.reach.files.is_empty());
+    Ok(())
+}
+
+#[test]
 fn reaudit_skips_an_artifact_whose_copy_is_missing() -> TestResult {
     let mut s = setup()?;
     let preview = import_all(&mut s)?;

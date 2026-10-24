@@ -23,6 +23,7 @@ use regex::Regex;
 use serde_json::{Map, Value};
 
 use super::input::{FileRole, InputFile};
+use super::protect;
 use super::{excerpt, AuditInput, Reach};
 use crate::artifact::ArtifactKind;
 
@@ -71,13 +72,24 @@ pub(super) fn trace(input: &AuditInput) -> Trace {
             network: t.network.iter().map(|s| s.value.clone()).collect(),
             shell: t.shell.iter().map(|s| s.value.clone()).collect(),
             env: t.env.iter().map(|s| s.value.clone()).collect(),
+            protects: 0,
         },
         network: t.network,
         shell: t.shell,
         env: t.env,
     };
     out.reach.normalize();
+    out.reach.protects = count_protected(input);
     out
+}
+
+/// How many distinct credential paths the artifact only guards.
+fn count_protected(input: &AuditInput) -> u32 {
+    let mut all = std::collections::BTreeSet::new();
+    for file in &input.files {
+        all.extend(protect::analyze(file).paths);
+    }
+    u32::try_from(all.len()).unwrap_or(u32::MAX)
 }
 
 fn compile(pattern: &str) -> Option<Regex> {
@@ -151,6 +163,7 @@ impl Tracer {
             .iter()
             .filter(|r| is_shell_fence(file, r.start))
             .collect();
+        let protection = protect::analyze(file);
         for line in file.lines() {
             let evidence = excerpt(line.text, EVIDENCE_CHARS);
             let at = At {
@@ -164,7 +177,9 @@ impl Tracer {
                 FileRole::Json | FileRole::Other => true,
                 _ => false,
             };
-            self.urls_and_paths(line.text, &at, incidental);
+            // A credential path the artifact only guards is not a file it reaches.
+            let guarded = protection.lines.contains(&line.number);
+            self.urls_and_paths(line.text, &at, incidental, !guarded);
             if shell_spans.iter().any(|r| r.contains(&line.offset)) {
                 self.commands(line.text, &at);
             }
@@ -180,7 +195,7 @@ impl Tracer {
         }
     }
 
-    fn urls_and_paths(&mut self, text: &str, at: &At<'_>, incidental: bool) {
+    fn urls_and_paths(&mut self, text: &str, at: &At<'_>, incidental: bool, paths: bool) {
         if let Some(re) = URL_HOST.as_ref() {
             for caps in re.captures_iter(text) {
                 if let Some(host) = caps.get(1) {
@@ -190,6 +205,9 @@ impl Tracer {
                     }
                 }
             }
+        }
+        if !paths {
+            return;
         }
         if let Some(re) = SENSITIVE_PATHS.as_ref() {
             for m in re.find_iter(text) {
@@ -243,7 +261,7 @@ impl Tracer {
                 line: json_line(file, text),
                 evidence: &evidence,
             };
-            self.urls_and_paths(text, &at, false);
+            self.urls_and_paths(text, &at, false, true);
             if is_command {
                 for part in text.lines() {
                     self.commands(part, &at);

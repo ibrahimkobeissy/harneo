@@ -9,6 +9,7 @@
 //! Rule ids are stable once released (the library stores them), so never rename one.
 
 pub mod input;
+mod protect;
 mod reach;
 mod redact;
 mod rules;
@@ -97,6 +98,10 @@ pub struct Reach {
     pub network: Vec<String>,
     pub shell: Vec<String>,
     pub env: Vec<String>,
+    /// How many credential paths the artifact only guards (a "never read" list, a
+    /// `permissions.deny` rule, a blocking hook). Info, not reach: never part of `files`.
+    #[serde(default)]
+    pub protects: u32,
 }
 
 impl Reach {

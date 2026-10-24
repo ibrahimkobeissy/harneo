@@ -304,6 +304,12 @@ function TrustSection({ audit }: { audit: Audit | null }) {
           );
         })
       )}
+      {audit.reach.protects > 0 && (
+        <p className={styles.muted}>
+          Protects {audit.reach.protects} credential{" "}
+          {audit.reach.protects === 1 ? "path" : "paths"}
+        </p>
+      )}
       <h4 className={styles.sub}>Reach</h4>
       {none ? (
         <p className={styles.muted}>Nothing beyond its own files.</p>
