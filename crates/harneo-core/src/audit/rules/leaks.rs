@@ -51,8 +51,10 @@ const SHAPES: [(&str, &str); 11] = [
 /// `://user:password@host`: the password is the secret.
 const URL_USERINFO: &str = r"://[^\s/@:]+:([^\s/@]+)@";
 
-/// `[export] NAME=value` in scripts and settings commands.
-const ASSIGNMENT: &str = r#"\b(?:export\s+)?([A-Za-z][A-Za-z0-9_]*)=("[^"]*"|'[^']*'|[^\s"';&|]+)"#;
+/// `[export] NAME=value` in scripts and settings commands, and the spaced forms of code and
+/// config (`const NAME = "v"`, `name: "v"`): group 2 is the operator with its spaces.
+const ASSIGNMENT: &str =
+    r#"\b(?:export\s+)?([A-Za-z][A-Za-z0-9_]*)(\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s"';&|]+)"#;
 
 static SHAPE_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
     SHAPES
@@ -218,7 +220,7 @@ impl PlaintextSecrets {
                 }
             }
             if assignments {
-                for (start, end) in literal_assignments(line.text) {
+                for (start, end) in literal_assignments(line.text, &file.path) {
                     // An attribute inside a JSX/HTML tag is not an assignment.
                     if spans.iter().any(|&(a, b)| start >= a && start < b) {
                         continue;
@@ -324,15 +326,18 @@ impl TagState {
 }
 
 /// `(value start, value end)` of every secret-named assignment with a literal value.
-fn literal_assignments(line: &str) -> Vec<(usize, usize)> {
+fn literal_assignments(line: &str, path: &str) -> Vec<(usize, usize)> {
     let Some(re) = ASSIGN_RE.as_ref() else {
         return Vec::new();
     };
     let mut out = Vec::new();
     for caps in re.captures_iter(line) {
-        let (Some(name), Some(val)) = (caps.get(1), caps.get(2)) else {
+        let (Some(name), Some(op), Some(val)) = (caps.get(1), caps.get(2), caps.get(3)) else {
             continue;
         };
+        if op.as_str() != "=" && !loose_assignment_ok(path, op.as_str(), val.as_str()) {
+            continue;
+        }
         let inner = val.as_str().trim_matches(|c| c == '"' || c == '\'');
         if closes_open_string(line, val.start(), val.as_str()) || looks_like_expression(inner) {
             continue;
@@ -347,6 +352,30 @@ fn literal_assignments(line: &str) -> Vec<(usize, usize)> {
         out.push((val.start(), val.end()));
     }
     out
+}
+
+/// Spaced `=` and every `:` form are code or config syntax, not shell: a colon only counts in
+/// code and config files (prose such as `token: the value you copied` stays quiet), and the value
+/// must be a quoted string, or in YAML a plain scalar that is not a bare identifier path
+/// (`process.env.KEY`, `some_variable`).
+fn loose_assignment_ok(path: &str, op: &str, value: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    let ext_is = |exts: &[&str]| exts.iter().any(|e| lower.ends_with(e));
+    if op.contains(':')
+        && !ext_is(&[
+            ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".rb", ".go", ".yaml", ".yml",
+            ".toml",
+        ])
+    {
+        return false;
+    }
+    if value.starts_with(['"', '\'']) {
+        return true;
+    }
+    ext_is(&[".yaml", ".yml"])
+        && !value
+            .chars()
+            .all(|c| c.is_ascii_alphabetic() || c == '_' || c == '.')
 }
 
 /// The value's opening quote closes a string that began earlier on the line
@@ -631,9 +660,59 @@ mod tests {
         let shaped = format!("<Comp token=\"{token}\" />\n");
         assert_eq!(tsx(&shaped).len(), 1);
         let var = "const API_TOKEN = \"s3cr3t-value-123\";\nconst x = <A/>;\nAPI_TOKEN=\"s3cr3t-value-123\"\n";
-        assert_eq!(tsx(var).len(), 1);
+        // The spaced `const` line (#167) and the unspaced line are both found.
+        assert_eq!(tsx(var).len(), 2);
         let after = "<A id=\"x\" /> ; API_TOKEN=\"s3cr3t-value-123\"\n";
         assert_eq!(tsx(after).len(), 1);
+    }
+
+    #[test]
+    fn spaced_secret_assignments_in_code_and_config_are_found() {
+        let v = ["s3cr3t", "-value-", "123"].concat();
+        for (path, line) in [
+            ("a.ts", format!("const API_TOKEN = \"{v}\";")),
+            ("a.js", format!("  apiKey: '{v}',")),
+            ("a.py", format!("API_KEY = \"{v}\"")),
+            ("a.yaml", format!("api_key: \"{v}\"")),
+            ("a.yml", format!("api_key: {v}")),
+            ("a.toml", format!("api_key = \"{v}\"")),
+            ("a.sh", format!("API_KEY = \"{v}\"")),
+        ] {
+            let found = secrets(&format!("{line}\n"), path, ArtifactKind::Skill);
+            assert_eq!(found.len(), 1, "{path}: {line}");
+            assert_eq!(found[0].severity, Severity::Critical);
+            let json = serde_json::to_string(&found).unwrap_or_default();
+            assert!(!json.contains(&v), "{path}: {json}");
+        }
+    }
+
+    #[test]
+    fn spaced_assignments_that_are_not_literals_stay_quiet() {
+        let v = ["s3cr3t", "-value-", "123"].concat();
+        for (path, line) in [
+            (
+                "a.ts",
+                "const o = { apiKey: process.env.API_KEY };".to_string(),
+            ),
+            ("a.py", "token = getToken()".to_string()),
+            ("a.py", "password = \"\"".to_string()),
+            ("a.py", "API_KEY = \"your-key-here\"".to_string()),
+            ("a.py", "token = some_variable_name".to_string()),
+            ("a.ts", "if (token === \"abcdefghij\") {}".to_string()),
+            ("a.ts", "const f = (token) => token;".to_string()),
+            ("a.yaml", "api_key: ${API_KEY}".to_string()),
+            ("a.yaml", "api_key: some_variable_name".to_string()),
+            ("a.txt", format!("password: {v}")),
+            ("a.txt", "token: the value you copied".to_string()),
+            (
+                "README.md",
+                format!("set `api_key: \"{v}\"` and API_KEY = \"{v}\""),
+            ),
+            ("a.md", "token: the value you copied".to_string()),
+        ] {
+            let found = secrets(&format!("{line}\n"), path, ArtifactKind::Skill);
+            assert!(found.is_empty(), "{path}: {line}");
+        }
     }
 
     #[test]
