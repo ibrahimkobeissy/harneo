@@ -473,3 +473,6 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#161](https://github.com/ibrahimkobeissy/harneo/issues/161) Security audit phase 2: Claude confirms each finding, non-threats are dropped
 - [#162](https://github.com/ibrahimkobeissy/harneo/issues/162) Security audit phase 2 on screen: setting, phase-1-only warning, progress and dismissed findings
 - [#163](https://github.com/ibrahimkobeissy/harneo/issues/163) View an artifact's files in the app: rendered Markdown, highlighted code, or open in the default editor
+- [#164](https://github.com/ibrahimkobeissy/harneo/issues/164) Run audit phase 2 on the import's Choose step, live, and let verdicts lift auto-exclusions
+- [#165](https://github.com/ibrahimkobeissy/harneo/issues/165) Audit: JSX and HTML attributes are not plaintext secrets
+- [#166](https://github.com/ibrahimkobeissy/harneo/issues/166) Remove the PostCSS 'from' warning at dev start
