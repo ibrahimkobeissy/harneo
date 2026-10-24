@@ -310,6 +310,10 @@ html,
 body,
 #root {
   height: 100%;
+  /* The document never scrolls: only each screen's own body does. clip (unlike hidden) cannot be
+     scrolled by focus() or scrollIntoView(), which is what moved the whole window. */
+  overflow: hidden;
+  overflow: clip;
 }
 body {
   font-family: var(--font-sans);

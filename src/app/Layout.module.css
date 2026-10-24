@@ -3,8 +3,9 @@
   display: grid;
   grid-template-columns: var(--slot) 1fr;
   transition: grid-template-columns 0.18s ease;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
+  overflow: clip;
 }
 
 /* A column: Screen fills it and scrolls its own body. Overflow stays for unframed pages. */
