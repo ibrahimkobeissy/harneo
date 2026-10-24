@@ -49,6 +49,9 @@ const READ_VERB: &str = r"(?i)\b(?:cat|less|more|head|tail|read|reads|reading|op
 
 const BLOCK_MARKER: &str = r#"(?i)\bexit\s*\(?\s*2\b|["']decision["']\s*:\s*["']block|permissionDecision["']?\s*[:=]\s*["']deny"#;
 
+/// A script that guards: it returns a deny decision, checks for one, or writes deny rules.
+const GUARD_MARKER: &str = r#"(?i)permissionDecision\W{0,24}deny|\bexit\s*\(?\s*2\b|["']decision["']\s*:\s*["']block|permissions\W{0,40}deny|["']deny["']\s*[,)\]:]"#;
+
 const START_WITH_VERB: &str = r"(?i)^\s*(?:sudo\s+)?(?:cat|less|more|head|tail|cp|scp|rsync|curl|wget|tar|zip|base64|grep|source|\.)\s";
 
 fn compile(p: &str) -> Option<Regex> {
@@ -72,6 +75,7 @@ static PROHIBITION_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(PROHIB
 static VERB_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(READ_VERB));
 static BLOCK_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(BLOCK_MARKER));
 static START_VERB_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(START_WITH_VERB));
+static GUARD_RE: LazyLock<Option<Regex>> = LazyLock::new(|| compile(GUARD_MARKER));
 
 fn is_match(re: &LazyLock<Option<Regex>>, text: &str) -> bool {
     re.as_ref().is_some_and(|r| r.is_match(text))
@@ -115,6 +119,7 @@ pub(crate) fn analyze(file: &InputFile) -> Protection {
         FileRole::Settings => settings(file, &mut p),
         FileRole::Markdown => markdown(file, &mut p),
         FileRole::HookScript => hook_script(file, &mut p),
+        FileRole::Script => guard_script(file, &mut p),
         _ => {}
     }
     p
@@ -159,7 +164,8 @@ fn markdown(file: &InputFile, p: &mut Protection) {
         let own = is_match(&PROHIBITION_RE, line.text);
         let verb = is_match(&VERB_RE, line.text);
         let fenced = file.in_fenced(line.offset);
-        let protective = if verb && sends(line.text) && (fenced || !own) {
+        // In a fence the line is code: a read verb there is a command, whatever a comment says.
+        let protective = if (verb && sends(line.text) && !own) || (verb && fenced) {
             false
         } else if own || (!verb && !is_command_target(line.text)) {
             true
@@ -244,6 +250,71 @@ fn hook_script(file: &InputFile, p: &mut Protection) {
         }
         let exfil = is_match(&VERB_RE, line.text) && sends(line.text);
         if exfil || is_match(&START_VERB_RE, line.text) {
+            continue;
+        }
+        p.lines.insert(line.number);
+        mentioned_paths(line.text, &mut p.paths);
+    }
+}
+
+/// `line` with the contents of its string literals and its trailing comment blanked out: what is
+/// left is the code that runs.
+fn code_of(line: &str) -> String {
+    let mut out = String::with_capacity(line.len());
+    let mut quote: Option<char> = None;
+    let mut escaped = false;
+    for c in line.chars() {
+        match quote {
+            Some(q) => {
+                if escaped {
+                    escaped = false;
+                } else if c == '\\' {
+                    escaped = true;
+                } else if c == q {
+                    quote = None;
+                    out.push(c);
+                }
+            }
+            None if c == '"' || c == '\'' || c == '`' => {
+                quote = Some(c);
+                out.push(c);
+            }
+            None if c == '#' => break,
+            None if c == '/' && out.ends_with('/') => {
+                out.pop();
+                break;
+            }
+            None => out.push(c),
+        }
+    }
+    out
+}
+
+/// Any other script (a guard shipped in a skill, its installer, its self-test): when it returns,
+/// checks or writes deny decisions and sends nothing over the network, the credential paths in
+/// its strings, comments and docstrings are the ones it guards. A path in the code itself, or a
+/// read verb next to it, stays a finding.
+fn guard_script(file: &InputFile, p: &mut Protection) {
+    if !is_match(&GUARD_RE, &file.text) || file.lines().any(|l| sends(&code_of(l.text))) {
+        return;
+    }
+    let mut in_docstring = false;
+    for line in file.lines() {
+        // A line that opens or closes a `"""` block is part of it; a block never runs.
+        let fences = line.text.matches("\"\"\"").count() + line.text.matches("'''").count();
+        let docstring = in_docstring || fences > 0;
+        if fences % 2 == 1 {
+            in_docstring = !in_docstring;
+        }
+        if !mentions(line.text) {
+            continue;
+        }
+        let code = if docstring {
+            String::new()
+        } else {
+            code_of(line.text)
+        };
+        if mentions(&code) || is_match(&VERB_RE, &code) {
             continue;
         }
         p.lines.insert(line.number);
