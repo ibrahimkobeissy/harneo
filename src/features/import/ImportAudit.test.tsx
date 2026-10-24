@@ -275,7 +275,7 @@ describe("Import audit", () => {
     await toChoose(u);
     await u.click(screen.getByRole("button", { name: "Continue" }));
     const audit = screen.getByRole("region", { name: "Security audit" });
-    expect(audit).toHaveTextContent("phase 1");
+    expect(audit).toHaveTextContent("Phase 1 (pattern checks)");
     expect(audit).toHaveTextContent("Claude confirms the findings after");
     const tiers = within(audit).getByRole("list", {
       name: "Artifacts per tier",

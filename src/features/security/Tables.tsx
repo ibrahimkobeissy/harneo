@@ -4,6 +4,7 @@ import type { Reach } from "../../bindings/Reach";
 import { OpenArtifactButton } from "../../lib/artifactPanel";
 import {
   AnyNote,
+  Badge,
   FindingTitle,
   hasAny,
   SeverityBadge,
@@ -112,6 +113,12 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
                   </td>
                   <td>
                     <ArtifactLink a={a} />
+                    {a.audit.confirmation?.status === "pending" && (
+                      <>
+                        {" "}
+                        <Badge tone="warn">pending</Badge>
+                      </>
+                    )}
                   </td>
                   <td>{kindLabel[a.kind]}</td>
                   <td>
@@ -145,6 +152,12 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
                       <td colSpan={3}>
                         <span className={styles.rule}>
                           <FindingTitle rule={f.rule} />
+                          {a.audit.confirmation?.status === "confirmed" && (
+                            <>
+                              {" "}
+                              <Badge tone="ok">Confirmed by Claude</Badge>
+                            </>
+                          )}
                         </span>
                         <span className={styles.msg}>{f.message}</span>
                         <span className={styles.where}>

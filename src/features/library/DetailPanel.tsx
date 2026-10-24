@@ -292,6 +292,11 @@ function TrustSection({ audit }: { audit: Audit | null }) {
                     <ShieldAlert size={14} aria-hidden="true" />
                     <span>
                       <FindingTitle rule={f.rule} />
+                      {audit.confirmation?.status === "confirmed" && (
+                        <span>
+                          <Badge tone="ok">Confirmed by Claude</Badge>
+                        </span>
+                      )}
                       <span className={styles.msg}>{f.message}</span>
                       <span className={`${styles.mono} ${styles.file}`}>
                         {f.line === null ? f.file : `${f.file}:${f.line}`}
@@ -306,6 +311,30 @@ function TrustSection({ audit }: { audit: Audit | null }) {
             </div>
           );
         })
+      )}
+      {audit.dismissed.length > 0 && (
+        <details className={styles.dismissed}>
+          <summary>Dismissed by Claude ({audit.dismissed.length})</summary>
+          <ul className={styles.diags}>
+            {audit.dismissed.map(({ finding: f, reason }, i) => (
+              <li
+                key={`${f.rule}:${f.file}:${f.line ?? 0}:${i}`}
+                className={styles.finding}
+                data-sev={f.severity}
+              >
+                <ShieldAlert size={14} aria-hidden="true" />
+                <span>
+                  <FindingTitle rule={f.rule} />
+                  <span className={styles.msg}>{f.message}</span>
+                  <span className={`${styles.mono} ${styles.file}`}>
+                    {f.line === null ? f.file : `${f.file}:${f.line}`}
+                  </span>
+                  <span className={styles.muted}>Claude: {reason}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
       {audit.reach.protects > 0 && (
         <p className={styles.muted}>

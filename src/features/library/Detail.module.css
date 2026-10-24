@@ -316,3 +316,16 @@
   background: var(--sunk);
   color: var(--t1);
 }
+
+.dismissed {
+  margin-top: var(--space-sm);
+}
+.dismissed > summary {
+  cursor: pointer;
+  color: var(--t2);
+  font-size: var(--text-label);
+  font-weight: 500;
+}
+.dismissed[open] > summary {
+  margin-bottom: var(--space-xs);
+}

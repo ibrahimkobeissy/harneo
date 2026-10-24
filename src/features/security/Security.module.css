@@ -443,3 +443,9 @@
     grid-template-columns: 1fr;
   }
 }
+
+.progress {
+  margin: 0 0 var(--space-md);
+  color: var(--t2);
+  font-size: var(--text-label);
+}

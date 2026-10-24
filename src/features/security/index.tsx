@@ -4,16 +4,28 @@ import {
   Files,
   RefreshCw,
   ShieldCheck,
+  ShieldQuestion,
+  Sparkles,
   Terminal,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
+import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import { useArtifactPanelChanged } from "../../lib/artifactPanel";
-import { libraryAudits, libraryReaudit } from "../../lib/ipc";
+import {
+  auditConfirmAll,
+  auditConfirmSettingGet,
+  claudeCliStatus,
+  libraryAudits,
+  libraryReaudit,
+  onAuditConfirmProgress,
+} from "../../lib/ipc";
 import {
   Button,
+  Callout,
   EmptyState,
   Panel,
   Screen,
@@ -149,6 +161,25 @@ function Attention({ list }: { list: readonly Audited[] }) {
   );
 }
 
+/** The phase 1 only warning: shown whenever Claude is not confirming the findings. */
+function Phase1Warning({ cliMissing }: { cliMissing: boolean }) {
+  return (
+    <Callout tone="warn" icon={ShieldQuestion}>
+      <b>Phase 1 only.</b> These findings come from pattern matching and include
+      false positives; Claude has not confirmed them.{" "}
+      {cliMissing ? (
+        <Link to="/settings#claude-settings">
+          Set up the Claude CLI to confirm them
+        </Link>
+      ) : (
+        <Link to="/settings#claude-settings">
+          Turn on Confirm security findings with Claude
+        </Link>
+      )}
+    </Callout>
+  );
+}
+
 export function SecurityScreen() {
   const [all, setAll] = useState<ArtifactAudit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -156,6 +187,10 @@ export function SecurityScreen() {
   const [rerunResult, setRerunResult] = useState<Rerun | null>(null);
   const [filter, setFilter] = useState<ReachKey | null>(null);
   const [rev, setRev] = useState(0);
+  const [confirmOn, setConfirmOn] = useState(true);
+  const [cliFound, setCliFound] = useState<boolean | null>(null);
+  const [progress, setProgress] = useState<ConfirmProgress | null>(null);
+  const [confirming, setConfirming] = useState(false);
   useArtifactPanelChanged(() => setRev((n) => n + 1));
   const reachRef = useRef<HTMLHeadingElement>(null);
 
@@ -175,6 +210,62 @@ export function SecurityScreen() {
       active = false;
     };
   }, [rev]);
+
+  // Settings and the CLI decide whether the warning shows; read again when the screen is shown.
+  useEffect(() => {
+    let live = true;
+    auditConfirmSettingGet().then(
+      (on) => live && setConfirmOn(on !== false),
+      () => undefined,
+    );
+    claudeCliStatus().then(
+      (cli) => live && setCliFound(cli?.found === true),
+      () => live && setCliFound(false),
+    );
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Phase 2 runs in the background after an import, an update or a re-audit, too.
+  useEffect(() => {
+    let live = true;
+    let stop: (() => void) | undefined;
+    onAuditConfirmProgress((p) => {
+      if (!live) return;
+      if (p.done >= p.total) {
+        setProgress(null);
+        setRev((n) => n + 1);
+      } else {
+        setProgress(p);
+      }
+    }).then(
+      (fn) => {
+        if (live) stop = fn;
+        else fn();
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+      stop?.();
+    };
+  }, []);
+
+  async function confirmNow() {
+    setConfirming(true);
+    setProgress({ done: 0, total: 0 });
+    try {
+      await auditConfirmAll();
+      setAll(await libraryAudits());
+      setError(null);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setConfirming(false);
+      setProgress(null);
+    }
+  }
 
   async function rerun() {
     setRunning(true);
@@ -217,6 +308,20 @@ export function SecurityScreen() {
       {running ? "Re-running…" : "Re-run audit"}
     </Button>
   );
+  const working = confirming || progress !== null;
+  const warn = !confirmOn || cliFound === false;
+  const confirmBar = (
+    <>
+      {warn && <Phase1Warning cliMissing={confirmOn && cliFound === false} />}
+      {working && (
+        <p className={styles.progress} role="status">
+          {progress !== null && progress.total > 0
+            ? `Confirming ${Math.min(progress.done + 1, progress.total)} of ${progress.total} with Claude…`
+            : "Confirming with Claude…"}
+        </p>
+      )}
+    </>
+  );
   const header = (
     <>
       <span className={styles.lede}>
@@ -224,6 +329,13 @@ export function SecurityScreen() {
         findings, and exactly what it can reach.
       </span>
       <span className={styles.grow} />
+      <Button
+        onClick={() => void confirmNow()}
+        disabled={working || running || !confirmOn || cliFound !== true}
+      >
+        <Sparkles size={14} aria-hidden="true" />
+        Confirm now
+      </Button>
       {rerunButton}
     </>
   );
@@ -247,6 +359,7 @@ export function SecurityScreen() {
   if (all.length === 0) {
     return (
       <Screen title="Security" actions={header}>
+        {confirmBar}
         <EmptyState icon={ShieldCheck} title="Nothing to audit yet">
           The library is empty. Import artifacts and each one is audited on the
           way in.
@@ -258,6 +371,7 @@ export function SecurityScreen() {
   if (audited.length === 0) {
     return (
       <Screen title="Security" actions={header}>
+        {confirmBar}
         {rerunResult && (
           <Moves rerun={rerunResult} onClose={() => setRerunResult(null)} />
         )}
@@ -291,6 +405,7 @@ export function SecurityScreen() {
 
   return (
     <Screen title="Security" actions={header}>
+      {confirmBar}
       {rerunResult && (
         <Moves rerun={rerunResult} onClose={() => setRerunResult(null)} />
       )}

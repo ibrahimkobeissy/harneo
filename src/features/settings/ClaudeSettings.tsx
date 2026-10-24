@@ -2,6 +2,8 @@ import { Bot } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { CliStatus } from "../../bindings/CliStatus";
 import {
+  auditConfirmSettingGet,
+  auditConfirmSettingSet,
   claudeCliStatus,
   openExternal,
   settingsGet,
@@ -30,7 +32,10 @@ export function ClaudeSettings() {
   const [cli, setCli] = useState<CliStatus | undefined>(undefined);
   const [model, setModel] = useState("haiku");
   const [atImport, setAtImport] = useState(false);
+  const [confirm, setConfirm] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const confirmId = useId();
+  const confirmHelpId = useId();
   const modelId = useId();
   const toggleId = useId();
   const modelHelpId = useId();
@@ -63,10 +68,28 @@ export function ClaudeSettings() {
       },
       () => undefined,
     );
+    auditConfirmSettingGet().then(
+      (value) => {
+        if (live && typeof value === "boolean") setConfirm(value);
+      },
+      () => undefined,
+    );
     return () => {
       live = false;
     };
   }, []);
+
+  async function saveConfirm(next: boolean) {
+    setError(null);
+    setConfirm(next);
+    try {
+      await auditConfirmSettingSet(next);
+      announce("Setting saved");
+    } catch (err) {
+      setConfirm(!next);
+      setError(String(err));
+    }
+  }
 
   async function save(key: string, value: string | boolean, undo: () => void) {
     setError(null);
@@ -167,6 +190,38 @@ export function ClaudeSettings() {
             </option>
           ))}
         </select>
+      </div>
+      <div className={styles.row}>
+        <div className={styles.grow}>
+          <label htmlFor={confirmId}>
+            <b>Confirm security findings with Claude</b>
+          </label>
+          <div id={confirmHelpId} className={`${styles.sec} ${styles.measure}`}>
+            <p className={styles.para}>
+              On by default. After an import or update, and on Confirm now in
+              Security, each finding is sent to Claude through your own claude
+              CLI, using your Claude plan, with the model chosen above:
+            </p>
+            <ul className={styles.list}>
+              <li>
+                each finding&apos;s rule, file and line, and a few lines around
+                it
+              </li>
+              <li>the artifact&apos;s name and description</li>
+            </ul>
+            <p className={styles.para}>
+              Claude can only keep or dismiss a finding. Turn it off and nothing
+              is sent; Security then warns that the audit is phase 1 only.
+              {notFound && " Needs the Claude CLI."}
+            </p>
+          </div>
+        </div>
+        <Switch
+          id={confirmId}
+          checked={confirm}
+          describedBy={confirmHelpId}
+          onChange={(next) => void saveConfirm(next)}
+        />
       </div>
       <div className={styles.row}>
         <div className={styles.grow}>

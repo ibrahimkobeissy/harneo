@@ -35,10 +35,11 @@ export function AuditSummary({
   return (
     <section aria-label="Security audit">
       <h2 className={styles.h}>
-        Security audit{" "}
+        Security audit: Phase 1 (pattern checks){" "}
         <span>
-          phase 1: static checks on the files that will be copied; nothing was
-          run. Claude confirms the findings after the import.
+          static checks on the files that will be copied; nothing was run.
+          Claude confirms the findings after the import when that is on in
+          Settings.
         </span>
       </h2>
       {heldBack > 0 && (

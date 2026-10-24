@@ -228,3 +228,34 @@ describe("Settings: structure", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("not allowed");
   });
 });
+
+describe("Settings: confirm security findings", () => {
+  it("is on by default and saves the change", async () => {
+    const user = userEvent.setup();
+    const calls: { cmd: string; args: unknown }[] = [];
+    mockIPC((cmd, args) => {
+      calls.push({ cmd, args });
+      if (cmd === "claude_cli_status")
+        return { found: true, path: "/bin/claude", version: "2" };
+      if (cmd === "audit_confirm_setting_get") return true;
+      if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
+      return null;
+    });
+    render(<SettingsScreen />);
+    const sw = await screen.findByRole("switch", {
+      name: "Confirm security findings with Claude",
+    });
+    expect(sw).toBeChecked();
+    expect(sw).toHaveAccessibleDescription(/rule, file and line/);
+    expect(sw).toHaveAccessibleDescription(/name and description/);
+    expect(sw).toHaveAccessibleDescription(/your own claude CLI/);
+    await user.click(sw);
+    expect(sw).not.toBeChecked();
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        cmd: "audit_confirm_setting_set",
+        args: { enabled: false },
+      }),
+    );
+  });
+});
