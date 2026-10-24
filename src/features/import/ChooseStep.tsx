@@ -16,10 +16,13 @@ import {
   Badge,
   Button,
   FindingTitle,
+  Phase1Warning,
   SeverityBadge,
   severityOrder,
   severityTone,
 } from "../../ui";
+import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
+import { ConfirmingNote, DismissedNote } from "./Phase2";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
@@ -299,6 +302,8 @@ export function ChooseStep({
   onRestore,
   onIncludeManaged,
   refreshing,
+  progress,
+  phase1Only,
 }: {
   preview: Preview;
   sourceName: string;
@@ -308,6 +313,10 @@ export function ChooseStep({
   /** Re-previews with the Claude-managed folders included. */
   onIncludeManaged: () => void;
   refreshing: boolean;
+  /** Phase 2 progress while Claude confirms the flagged candidates in the background. */
+  progress: ConfirmProgress | null;
+  /** Claude is not confirming findings; null when it is or it is not known yet. */
+  phase1Only: { cliMissing: boolean } | null;
 }) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const [copiesOpen, setCopiesOpen] = useState<ReadonlySet<string>>(new Set());
@@ -402,6 +411,7 @@ export function ChooseStep({
         <span className={styles.mono}>{sourceName}</span>. Everything is
         included; take out what you do not want.
       </p>
+      {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
       {note && (
         <div className={styles.callout} data-tone="neutral">
           <Info size={16} aria-hidden="true" />
@@ -467,6 +477,7 @@ export function ChooseStep({
       <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
         {toImport} to import, {excluded.size} excluded
       </p>
+      <ConfirmingNote progress={progress} />
       {skipNote && (
         <p className={styles.reason} role="status">
           {skipNote}
@@ -551,6 +562,7 @@ export function ChooseStep({
                               {c.artifact.description}
                             </span>
                           )}
+                          <DismissedNote candidate={c} />
                           {copiesOpen.has(c.id) && <CopyList candidate={c} />}
                         </span>
                       </div>
@@ -631,6 +643,7 @@ export function ChooseStep({
                         <span className={`${styles.line} ${styles.block}`}>
                           <span className={styles.mono}>{c.artifact.path}</span>
                         </span>
+                        <DismissedNote candidate={c} />
                       </span>
                     </div>
                     <Findings

@@ -10,6 +10,7 @@ import type { AppInfo } from "../bindings/AppInfo";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactConfirmation } from "../bindings/ArtifactConfirmation";
 import type { ConfirmProgress } from "../bindings/ConfirmProgress";
+import type { PreviewConfirmEvent } from "../bindings/PreviewConfirmEvent";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { FileView } from "../bindings/FileView";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
@@ -155,6 +156,25 @@ export function onAuditConfirmProgress(
   handler: (progress: ConfirmProgress) => void,
 ): Promise<UnlistenFn> {
   return listen<ConfirmProgress>("audit-confirm-progress", (event) =>
+    handler(event.payload),
+  );
+}
+
+/** Asks Claude about the flagged candidates of a held preview; resolves when done or cancelled. */
+export function libraryPreviewConfirm(token: string): Promise<void> {
+  return invoke<void>("library_preview_confirm", { token });
+}
+
+/** Stops the run over a held preview (the import was left). */
+export function libraryPreviewConfirmCancel(token: string): Promise<void> {
+  return invoke<void>("library_preview_confirm_cancel", { token });
+}
+
+/** Calls `handler` as each previewed candidate's verdicts arrive; resolves with the stop function. */
+export function onPreviewConfirmProgress(
+  handler: (event: PreviewConfirmEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<PreviewConfirmEvent>("preview-confirm-progress", (event) =>
     handler(event.payload),
   );
 }

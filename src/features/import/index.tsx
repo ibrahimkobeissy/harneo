@@ -1,6 +1,7 @@
 import { ArrowLeft, CircleAlert, Download, Info } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
+import type { Audit } from "../../bindings/Audit";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import type { TagColor } from "../../bindings/TagColor";
@@ -30,6 +31,7 @@ import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
 import { useDetection } from "./useDetection";
+import { usePreviewConfirmation } from "./usePreviewConfirmation";
 
 /** What the user sees for the chosen source, in messages and the scan title. */
 function sourceName(form: SourceForm): string {
@@ -84,6 +86,11 @@ export function ImportScreen() {
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  // Claude's verdicts so far: each candidate's audit once phase 2 has judged it.
+  const [verdicts, setVerdicts] = useState<Record<string, Audit>>({});
+  // Candidates excluded by the automatic rule alone. A hand exclusion or restore leaves this
+  // set, so a verdict never overrides the user.
+  const autoExcluded = useRef(new Set<string>());
   const [tags, setTags] = useState<Record<string, string[]>>({});
   // Colors picked in Tag all for names new to the library, created before the import.
   const [newColors, setNewColors] = useState<Record<string, TagColor>>({});
@@ -121,12 +128,16 @@ export function ImportScreen() {
       setScannedKey(key);
       const only = preselect.current;
       preselect.current = null;
+      setVerdicts({});
+      const picked = only && found.candidates.some((c) => c.id === only);
+      const auto = picked ? [] : criticalIds(found.candidates);
+      autoExcluded.current = new Set(auto);
       setExcluded(
-        only && found.candidates.some((c) => c.id === only)
+        picked
           ? new Set(
               found.candidates.filter((c) => c.id !== only).map((c) => c.id),
             )
-          : new Set(criticalIds(found.candidates)),
+          : new Set(auto),
       );
       setTags(
         Object.fromEntries(
@@ -150,11 +161,38 @@ export function ImportScreen() {
     }
   }
 
-  const heldBack = (preview?.candidates ?? []).filter(
+  // The preview as it stands: phase 1 audits, with Claude's verdicts applied as they arrive.
+  const view = useMemo(
+    () =>
+      preview
+        ? {
+            ...preview,
+            candidates: preview.candidates.map((c) =>
+              verdicts[c.id] ? { ...c, audit: verdicts[c.id] as Audit } : c,
+            ),
+          }
+        : null,
+    [preview, verdicts],
+  );
+  const phase2 = usePreviewConfirmation(preview?.token ?? null, onVerdict);
+
+  function onVerdict(id: string, audit: Audit) {
+    setVerdicts((prev) => ({ ...prev, [id]: audit }));
+    const critical = audit.findings.some((f) => f.severity === "critical");
+    if (!critical && autoExcluded.current.delete(id)) {
+      setExcluded((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  const heldBack = (view?.candidates ?? []).filter(
     (c) =>
       !c.alreadyInLibrary && excluded.has(c.id) && criticalRule(c) !== null,
   ).length;
-  const chosen = (preview?.candidates ?? []).filter(
+  const chosen = (view?.candidates ?? []).filter(
     (c) => !c.alreadyInLibrary && !excluded.has(c.id),
   );
 
@@ -209,6 +247,7 @@ export function ImportScreen() {
       const fresh = criticalIds(
         found.candidates.filter((c) => !seen.has(c.id)),
       );
+      for (const id of fresh) autoExcluded.current.add(id);
       setExcluded((prev) => new Set([...prev, ...fresh]));
       setPreview(found);
       setTags((prev) => ({
@@ -282,10 +321,12 @@ export function ImportScreen() {
   }
 
   function exclude(ids: string[]) {
+    for (const id of ids) autoExcluded.current.delete(id);
     setExcluded((prev) => new Set([...prev, ...ids]));
   }
 
   function restore(ids: string[]) {
+    for (const id of ids) autoExcluded.current.delete(id);
     setExcluded((prev) => {
       const next = new Set(prev);
       for (const id of ids) next.delete(id);
@@ -405,11 +446,13 @@ export function ImportScreen() {
         />
       )}
       {step === 1 &&
-        (scanning || !preview ? (
+        (scanning || !view ? (
           <Scanning source={shown} />
         ) : (
           <ChooseStep
-            preview={preview}
+            preview={view}
+            progress={phase2.progress}
+            phase1Only={phase2.phase1Only}
             sourceName={shown}
             excluded={excluded}
             onExclude={exclude}
@@ -433,6 +476,8 @@ export function ImportScreen() {
             tags={tags}
             colors={newColors}
             heldBack={heldBack}
+            phase1Only={phase2.phase1Only}
+            confirming={phase2.progress}
             detection={detection}
             proposals={proposals}
             names={names}

@@ -42,3 +42,4 @@ export { CodeView, decodeText } from "./CodeView";
 export { FileTree, markOf, type FileMark, type TreeFile } from "./FileTree";
 export { Stepper } from "./Stepper";
 export { FileViewer, isMarkdown, languageOf } from "./FileViewer";
+export { Phase1Warning } from "./Phase1Warning";

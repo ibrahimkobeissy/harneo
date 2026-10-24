@@ -4,6 +4,7 @@ import type { Candidate } from "../../bindings/Candidate";
 import type { TagColor } from "../../bindings/TagColor";
 import type { TagWithCount } from "../../bindings/TagWithCount";
 import { tagsList } from "../../lib/ipc";
+import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import { Tag, TagPicker } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
@@ -82,6 +83,8 @@ export function ReviewStep({
   onAddAll,
   onRemoveAll,
   heldBack,
+  phase1Only,
+  confirming,
   onReviewHeldBack,
   detection,
   proposals,
@@ -92,6 +95,8 @@ export function ReviewStep({
   proposals: ProposalState;
   names: ReadonlyMap<string, string>;
   heldBack: number;
+  phase1Only: { cliMissing: boolean } | null;
+  confirming: ConfirmProgress | null;
   onReviewHeldBack: () => void;
   tags: Readonly<Record<string, string[]>>;
   /** Colors picked in Tag all for names that are new to the library (lowercased name). */
@@ -132,6 +137,8 @@ export function ReviewStep({
       <AuditSummary
         chosen={chosen}
         heldBack={heldBack}
+        phase1Only={phase1Only}
+        confirming={confirming}
         onReviewHeldBack={onReviewHeldBack}
       />
       <DetectionSection

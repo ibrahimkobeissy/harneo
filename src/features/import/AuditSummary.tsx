@@ -1,6 +1,14 @@
 import { ShieldAlert } from "lucide-react";
 import type { Candidate } from "../../bindings/Candidate";
-import { severityLabels, severityOrder, tierLabels, tierOrder } from "../../ui";
+import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
+import {
+  Phase1Warning,
+  severityLabels,
+  severityOrder,
+  tierLabels,
+  tierOrder,
+} from "../../ui";
+import { ConfirmingNote } from "./Phase2";
 import styles from "./Import.module.css";
 import { TierLabel } from "./trust";
 
@@ -12,11 +20,17 @@ function plural(n: number, word: string): string {
 export function AuditSummary({
   chosen,
   heldBack,
+  phase1Only,
+  confirming,
   onReviewHeldBack,
 }: {
   chosen: Candidate[];
   /** Artifacts left out because of a critical finding. */
   heldBack: number;
+  /** Claude is not confirming findings; null when it is or it is not known yet. */
+  phase1Only: { cliMissing: boolean } | null;
+  /** Phase 2 progress while it runs in the background. */
+  confirming: ConfirmProgress | null;
   /** Goes back to Choose, where the held-back rows can be restored. */
   onReviewHeldBack: () => void;
 }) {
@@ -38,10 +52,12 @@ export function AuditSummary({
         Security audit: Phase 1 (pattern checks){" "}
         <span>
           static checks on the files that will be copied; nothing was run.
-          Claude confirms the findings after the import when that is on in
-          Settings.
+          Claude confirms the flagged findings in the background when that is on
+          in Settings; what it has judged is already applied here.
         </span>
       </h2>
+      {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
+      <ConfirmingNote progress={confirming} />
       {heldBack > 0 && (
         <p className={styles.held}>
           <ShieldAlert size={14} aria-hidden="true" />

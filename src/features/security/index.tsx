@@ -4,14 +4,12 @@ import {
   Files,
   RefreshCw,
   ShieldCheck,
-  ShieldQuestion,
   Sparkles,
   Terminal,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import { useArtifactPanelChanged } from "../../lib/artifactPanel";
@@ -25,7 +23,7 @@ import {
 } from "../../lib/ipc";
 import {
   Button,
-  Callout,
+  Phase1Warning,
   EmptyState,
   Panel,
   Screen,
@@ -158,25 +156,6 @@ function Attention({ list }: { list: readonly Audited[] }) {
         </p>
       )}
     </section>
-  );
-}
-
-/** The phase 1 only warning: shown whenever Claude is not confirming the findings. */
-function Phase1Warning({ cliMissing }: { cliMissing: boolean }) {
-  return (
-    <Callout tone="warn" icon={ShieldQuestion}>
-      <b>Phase 1 only.</b> These findings come from pattern matching and include
-      false positives; Claude has not confirmed them.{" "}
-      {cliMissing ? (
-        <Link to="/settings#claude-settings">
-          Set up the Claude CLI to confirm them
-        </Link>
-      ) : (
-        <Link to="/settings#claude-settings">
-          Turn on Confirm security findings with Claude
-        </Link>
-      )}
-    </Callout>
   );
 }
 

@@ -828,6 +828,11 @@ fn run_preview_confirm<R: tauri::Runtime>(
 /// follows `preview-confirm-progress` events meanwhile and never has to wait for it.
 #[tauri::command]
 pub async fn library_preview_confirm(app: AppHandle, token: String) -> Result<(), String> {
+    // A start after a cancel of the same token (the window re-ran its effect) is a new run.
+    PREVIEW_CONFIRM_CANCELLED
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .retain(|t| t != &token);
     tauri::async_runtime::spawn_blocking(move || run_preview_confirm(&app, &token))
         .await
         .map_err(|e| e.to_string())?
