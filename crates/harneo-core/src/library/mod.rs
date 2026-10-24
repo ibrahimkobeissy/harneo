@@ -79,7 +79,7 @@ pub(crate) use restore::{Restored, PROFILE_FILE_SOURCE};
 pub use source::Source;
 use store::Store;
 pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
-pub use viewer::{FileView, MAX_VIEW_BYTES};
+pub use viewer::{may_run_when_opened, FileView, MAX_VIEW_BYTES};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;

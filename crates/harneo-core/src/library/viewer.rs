@@ -15,6 +15,34 @@ use crate::error::{Error, Result};
 /// Files larger than this (1 MB) are not previewed.
 pub const MAX_VIEW_BYTES: u64 = 1_000_000;
 
+/// Extensions whose default app may run the file instead of showing it (Windows runs `.bat`,
+/// `.ps1` and often `.py`; macOS runs `.command`).
+const RUNNABLE: [&str; 18] = [
+    "sh", "bash", "zsh", "fish", "command", "bat", "cmd", "ps1", "vbs", "js", "mjs", "py", "rb",
+    "pl", "exe", "msi", "app", "jar",
+];
+
+/// True when opening `path` in its default app could run it: a script or program extension, or
+/// (on Unix) an executable file. Those are revealed in the file manager instead of opened, since
+/// library files come from untrusted sources.
+pub fn may_run_when_opened(path: &Path) -> bool {
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase);
+    if ext.as_deref().is_some_and(|e| RUNNABLE.contains(&e)) {
+        return true;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if fs::metadata(path).is_ok_and(|m| m.permissions().mode() & 0o111 != 0) {
+            return true;
+        }
+    }
+    false
+}
+
 /// What the viewer can show of one file.
 #[derive(Debug, Clone, PartialEq, Serialize, TS)]
 #[serde(tag = "kind", rename_all = "camelCase")]

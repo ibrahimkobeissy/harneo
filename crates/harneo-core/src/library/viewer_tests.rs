@@ -111,3 +111,38 @@ fn refuses_a_symlink_leaving_the_copy() -> TestResult {
     assert!(lib.artifact_file("abc123", "dir/outside.txt").is_err());
     Ok(())
 }
+
+#[test]
+fn scripts_and_executables_may_run_when_opened_and_documents_do_not() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    for name in [
+        "run.sh",
+        "Setup.BAT",
+        "x.ps1",
+        "tool.py",
+        "a.command",
+        "app.exe",
+        "i.js",
+    ] {
+        let path = dir.path().join(name);
+        fs::write(&path, b"x")?;
+        assert!(may_run_when_opened(&path), "{name}");
+    }
+    for name in ["SKILL.md", "notes.txt", "data.json", "conf.toml"] {
+        let path = dir.path().join(name);
+        fs::write(&path, b"x")?;
+        assert!(!may_run_when_opened(&path), "{name}");
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let path = dir.path().join("README");
+        fs::write(&path, b"x")?;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
+        assert!(
+            may_run_when_opened(&path),
+            "an executable file without an extension"
+        );
+    }
+    Ok(())
+}

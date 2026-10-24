@@ -209,6 +209,10 @@ pub fn library_open_file(
     path: String,
 ) -> Result<(), String> {
     let file = state.with(|library| library.artifact_file(&id, &path))?;
+    // A script's default app may run it: show it in the file manager instead.
+    if harneo_core::library::may_run_when_opened(&file) {
+        return tauri_plugin_opener::reveal_item_in_dir(&file).map_err(|e| e.to_string());
+    }
     app.opener()
         .open_path(file.to_string_lossy(), None::<&str>)
         .map_err(|e| e.to_string())

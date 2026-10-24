@@ -51,7 +51,10 @@ export function FileDialog({
     <Modal label={path} wide onClose={onClose}>
       <div className={styles.fileHead}>
         <h2 className={styles.fileTitle}>{path}</h2>
-        <Button onClick={() => void openInEditor()}>
+        <Button
+          title="Scripts and programs are shown in the file manager instead, so they never run"
+          onClick={() => void openInEditor()}
+        >
           <ExternalLink size={13} aria-hidden="true" /> Open in editor
         </Button>
         <button
