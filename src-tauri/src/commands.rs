@@ -161,11 +161,9 @@ impl LibraryState {
 pub async fn reset_harneo(app: AppHandle, delete_backups: bool) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let data_dir = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
-        let result = app
-            .state::<LibraryState>()
-            .reopen_after(&data_dir, || {
-                harneo_core::install::reset_data(&data_dir, delete_backups)
-            });
+        let result = app.state::<LibraryState>().reopen_after(&data_dir, || {
+            harneo_core::install::reset_data(&data_dir, delete_backups)
+        });
         crate::watch::refresh_watch(&app);
         result
     })

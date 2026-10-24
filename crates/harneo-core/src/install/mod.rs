@@ -26,7 +26,6 @@ mod registry;
 #[cfg(test)]
 mod registry_tests;
 mod removal;
-mod reset;
 #[cfg(test)]
 mod removal_restore_tests;
 #[cfg(test)]
@@ -34,12 +33,12 @@ mod removal_tests;
 mod render;
 #[cfg(test)]
 mod render_tests;
+mod reset;
 mod switch;
 #[cfg(test)]
 mod switch_tests;
 
 pub use apply::ApplyReport;
-pub use reset::reset_data;
 pub(crate) use backup::write_atomic;
 pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
@@ -48,3 +47,4 @@ pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
 pub(crate) use render::with_harness_import;
 pub use render::{Rendered, RenderedFile};
+pub use reset::reset_data;
