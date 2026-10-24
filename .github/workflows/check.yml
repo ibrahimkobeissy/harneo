@@ -1,8 +1,10 @@
 name: check
 
+# Runs only for release tags such as release_1.2.3; pushes to main run nothing.
 on:
   push:
-  pull_request:
+    tags:
+      - "release_[0-9]+.[0-9]+.[0-9]+"
 
 jobs:
   check-full:

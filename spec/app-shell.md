@@ -168,7 +168,7 @@ Conventions:
 
 - Write tests first (Addy's `test-driven-development`). Every bug fix starts with a failing test.
 - Every public core function and every IPC command has at least one test. Changed lines must be at least 80% covered, and project coverage must never fall (`CONSTRAINTS.md`).
-- `npm run check:task` must pass before a ticket is reported done, and `npm run check:full` before every merge to `main`. CI runs `check:full` again on every push.
+- `npm run check:task` must pass before a ticket is reported done, and `npm run check:full` before every merge to `main`. CI runs `check:full` again on every `release_x.y.z` tag.
 
 **For app-shell itself:**
 - `paths::data_dir()` ends in the app id;
@@ -208,7 +208,7 @@ Conventions:
 3. The About panel shows the version and data dir received from `app_info`.
 4. The theme follows the OS light/dark setting, and every color, font, spacing and radius value comes from the `DESIGN.md` tokens.
 5. `cargo run -p harneo-cli -- --version` prints the same version the About panel shows, and `harneo paths` prints the same data dir. That proves one shared core.
-6. `npm run check:fast`, `check:task` and `check:full` exist and run every check `CONSTRAINTS.md` lists, with its tools installed and configured. `check:full` passes locally, and the GitHub Actions workflow passes on `main`.
+6. `npm run check:fast`, `check:task` and `check:full` exist and run every check `CONSTRAINTS.md` lists, with its tools installed and configured. `check:full` passes locally, and the GitHub Actions workflow passes on a `release_x.y.z` tag.
 7. `npm run tauri build -- --no-bundle` produces a runnable binary and no installer.
 8. `BUILDING.md` lists prerequisites for Linux (WebKitGTK and the other Tauri system packages), Windows (WebView2, MSVC build tools) and macOS (Xcode command line tools), with Windows and macOS marked "untested by the maintainer".
 9. `CLAUDE.md` and `README.md` list the commands, and the Impeccable plugin is enabled in `.claude/settings.json`.

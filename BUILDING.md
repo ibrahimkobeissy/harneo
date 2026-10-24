@@ -90,10 +90,10 @@ eval "$(mise env -s bash)"
 
 ## Checks
 
-| Command              | When                                                  | Budget  | Runs                                                                                                                  |
-| -------------------- | ----------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
-| `npm run check:fast` | After each edit                                       | ~15 s   | Types, TS lint and format on changed files, `cargo check`, secrets, floor rules                                       |
-| `npm run check:task` | Before a ticket is reported done                      | 3 min   | `check:fast` + Rust format and Clippy, related tests, changed-line coverage, architecture rules                       |
-| `npm run check:full` | Before every merge to `main`; CI on every push        | none    | `check:task` + the full test suites, dependency and code scanning, the coverage ratchet                               |
+| Command              | When                                                     | Budget | Runs                                                                                            |
+| -------------------- | -------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| `npm run check:fast` | After each edit                                          | ~15 s  | Types, TS lint and format on changed files, `cargo check`, secrets, floor rules                 |
+| `npm run check:task` | Before a ticket is reported done                         | 3 min  | `check:fast` + Rust format and Clippy, related tests, changed-line coverage, architecture rules |
+| `npm run check:full` | Before every merge to `main`; CI on `release_x.y.z` tags | none   | `check:task` + the full test suites, dependency and code scanning, the coverage ratchet         |
 
 Every rule blocks. `CONSTRAINTS.md` is the source of truth for what each check enforces.
