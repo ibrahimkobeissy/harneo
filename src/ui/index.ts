@@ -11,6 +11,7 @@ export { Panel } from "./Panel";
 export { Screen } from "./Screen";
 export { WizardActions } from "./WizardActions";
 export { Tag, type TagTint } from "./Tag";
+export { TagPicker } from "./TagPicker";
 export { decodeBool, usePersisted } from "./usePersisted";
 export { TrustMeter } from "./TrustMeter";
 export {

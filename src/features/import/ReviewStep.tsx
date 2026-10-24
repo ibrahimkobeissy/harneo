@@ -4,13 +4,12 @@ import type { Candidate } from "../../bindings/Candidate";
 import type { TagColor } from "../../bindings/TagColor";
 import type { TagWithCount } from "../../bindings/TagWithCount";
 import { tagsList } from "../../lib/ipc";
-import { Tag } from "../../ui";
+import { Tag, TagPicker } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
 import { DetectionSection } from "./DetectionSection";
 import type { DetectionControl } from "./useDetection";
 import type { ProposalState } from "../../ui";
-import { TagAll } from "./TagAll";
 import { defaultTagColor } from "./tagColor";
 
 /** Core's limit on a tag name (`MAX_NAME_CHARS`). */
@@ -150,7 +149,7 @@ export function ReviewStep({
         </span>
       </h2>
       <div className={styles.bulkTags}>
-        <TagAll
+        <TagPicker
           existing={list}
           skip={new Set(common.map((t) => t.toLowerCase()))}
           maxChars={MAX_TAG_CHARS}

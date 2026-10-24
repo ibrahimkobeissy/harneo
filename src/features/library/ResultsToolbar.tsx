@@ -2,8 +2,7 @@ import { ListFilter, Trash2, X } from "lucide-react";
 import type { Facets } from "../../bindings/Facets";
 import type { TagColor } from "../../bindings/TagColor";
 import type { TagWithCount } from "../../bindings/TagWithCount";
-import { TagAll } from "../import/TagAll";
-import { Button, tierLabels } from "../../ui";
+import { Button, TagPicker, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import type { FilterGroup } from "./FilterColumn";
@@ -144,7 +143,7 @@ export function ResultsToolbar({
         </Button>
       )}
       {filtered && onTag && (
-        <TagAll
+        <TagPicker
           existing={allTags ?? []}
           skip={new Set()}
           maxChars={MAX_TAG_CHARS}

@@ -1,22 +1,5 @@
 import type { TagColor } from "../../bindings/TagColor";
-
-/** The tag palette in core's order (`TagColor::ALL`); the default color indexes into it. */
-export const palette: readonly TagColor[] = [
-  "cyan",
-  "sky",
-  "indigo",
-  "violet",
-  "fuchsia",
-  "stone",
-  "slate",
-  "red",
-  "orange",
-  "amber",
-  "lime",
-  "emerald",
-  "teal",
-  "pink",
-];
+import { palette } from "../../ui/tagPalette";
 
 const K = Uint32Array.from([
   0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1,

@@ -1,10 +1,11 @@
 import { Plus, Tag as TagIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { TagColor } from "../../bindings/TagColor";
-import type { TagWithCount } from "../../bindings/TagWithCount";
-import { Button, Tag } from "../../ui";
-import styles from "./Import.module.css";
-import { palette } from "./tagColor";
+import type { TagColor } from "../bindings/TagColor";
+import type { TagWithCount } from "../bindings/TagWithCount";
+import { Button } from "./Button";
+import { Tag } from "./Tag";
+import styles from "./TagPicker.module.css";
+import { palette } from "./tagPalette";
 
 type Option =
   { kind: "existing"; tag: TagWithCount } | { kind: "create"; name: string };
@@ -13,7 +14,7 @@ type Option =
  * "Tag all": a menu to pick an existing library tag or create one with a palette color, and
  * hand it back to apply to every artifact being imported. Mirrors the detail panel's Add tag.
  */
-export function TagAll({
+export function TagPicker({
   existing,
   skip,
   maxChars,
