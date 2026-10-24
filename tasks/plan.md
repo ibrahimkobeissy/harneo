@@ -468,3 +468,5 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#155](https://github.com/ibrahimkobeissy/harneo/issues/155) Fixed action bar for the Import, Scaffold and Refit wizards
 - [#156](https://github.com/ibrahimkobeissy/harneo/issues/156) Profile and project cards share one shape and size
 - [#157](https://github.com/ibrahimkobeissy/harneo/issues/157) Settings: red Danger zone to reset all of Harneo's data
+- [#159](https://github.com/ibrahimkobeissy/harneo/issues/159) Audit: URL query keys in code are not plaintext secrets
+- [#160](https://github.com/ibrahimkobeissy/harneo/issues/160) Audit: honest guidance is not prompt injection
