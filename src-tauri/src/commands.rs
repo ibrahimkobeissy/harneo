@@ -343,6 +343,22 @@ pub fn tag_create(
     state.with(|library| library.create_tag(&name, color))
 }
 
+/// Puts a tag on every artifact `filter` matches (all pages), creating it with `color` when the
+/// name is new, in one transaction.
+#[tauri::command]
+pub fn tag_filtered(
+    state: State<'_, LibraryState>,
+    filter: Filter,
+    name: String,
+    color: Option<TagColor>,
+) -> Result<Tag, String> {
+    state.with_mut(|library| {
+        library
+            .tag_filtered(&filter, &name, color)
+            .map(|(tag, _)| tag)
+    })
+}
+
 /// Renames a tag.
 #[tauri::command]
 pub fn tag_rename(state: State<'_, LibraryState>, id: i64, name: String) -> Result<Tag, String> {

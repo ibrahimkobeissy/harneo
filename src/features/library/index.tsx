@@ -17,9 +17,16 @@ import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Page } from "../../bindings/Page";
 import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
+import type { TagColor } from "../../bindings/TagColor";
+import type { TagWithCount } from "../../bindings/TagWithCount";
 import { useCollections } from "../../app/collections";
 import { useUsageIndex } from "../../app/usageIndex";
-import { collectionPage, libraryList } from "../../lib/ipc";
+import {
+  collectionPage,
+  libraryList,
+  tagFiltered,
+  tagsList,
+} from "../../lib/ipc";
 import { useChanged } from "../../lib/useChanged";
 import {
   Badge,
@@ -168,6 +175,8 @@ export function LibraryScreen({
   const [dragging, setDragging] = useState(false);
   const [finding, setFinding] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [allTags, setAllTags] = useState<TagWithCount[]>([]);
+  const [tagError, setTagError] = useState<string | null>(null);
   const filtersButton = useRef<HTMLButtonElement>(null);
   const [updatingAll, setUpdatingAll] = useState(false);
   const check = useUpdateCheck(reload);
@@ -255,6 +264,19 @@ export function LibraryScreen({
   });
 
   const filtered = hasFilters(params);
+
+  useEffect(() => {
+    let current = true;
+    tagsList().then(
+      (tags) => {
+        if (current) setAllTags(tags);
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
 
   if (
     load.status === "ready" &&
@@ -353,6 +375,17 @@ export function LibraryScreen({
     </button>
   );
 
+  async function tagAll(name: string, color: TagColor | null) {
+    setTagError(null);
+    try {
+      await tagFiltered(toFilter(params), name, color);
+      reload();
+      setAllTags(await tagsList());
+    } catch (err) {
+      setTagError(String(err));
+    }
+  }
+
   const toolbar = (
     <>
       {collection && (
@@ -403,8 +436,15 @@ export function LibraryScreen({
             onSaveCollection={
               collection ? undefined : () => openNew({ rule: toFilter(params) })
             }
+            onTag={collection ? undefined : (n, c) => void tagAll(n, c)}
+            allTags={allTags}
             onDelete={collection ? undefined : () => setDeleting(true)}
           />
+          {tagError && (
+            <span role="alert" className={styles.tagError}>
+              {tagError}
+            </span>
+          )}
           <span className={styles.grow} />
           {!collection && (
             <UpdatesControls

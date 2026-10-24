@@ -906,3 +906,7 @@
 .row[data-tier="dangerous"] [data-tone] {
   background: var(--raised);
 }
+.tagError {
+  color: var(--red);
+  font-size: var(--text-label);
+}

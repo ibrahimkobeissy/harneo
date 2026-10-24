@@ -1,14 +1,19 @@
 import { ListFilter, Trash2, X } from "lucide-react";
 import type { Facets } from "../../bindings/Facets";
+import type { TagColor } from "../../bindings/TagColor";
+import type { TagWithCount } from "../../bindings/TagWithCount";
+import { TagAll } from "../import/TagAll";
 import { Button, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import type { FilterGroup } from "./FilterColumn";
 import { type LibraryParams, statusLabels } from "./params";
 
+const MAX_TAG_CHARS = 40;
+
 /**
  * What the results are: one removable chip per active filter, "N of M artifacts", Clear all
- * and, in the library, the quick actions on every filtered artifact: Save as smart collection and Delete….
+ * and, in the library, the quick actions on every filtered artifact: Save as smart collection, Tag… and Delete….
  */
 export function ResultsToolbar({
   params,
@@ -22,6 +27,8 @@ export function ResultsToolbar({
   onClearTrustMin,
   onClearHasFindings,
   onSaveCollection,
+  onTag,
+  allTags,
   onDelete,
 }: {
   params: LibraryParams;
@@ -35,6 +42,10 @@ export function ResultsToolbar({
   onClearTrustMin: () => void;
   onClearHasFindings: () => void;
   onSaveCollection?: () => void;
+  /** Tag every filtered artifact; shown only while a filter is active. */
+  onTag?: (name: string, color: TagColor | null) => void;
+  /** Every library tag, for the Tag… picker. */
+  allTags?: readonly TagWithCount[];
   /** Delete every filtered artifact; shown only while a filter is active. */
   onDelete?: () => void;
 }) {
@@ -131,6 +142,16 @@ export function ResultsToolbar({
           <ListFilter size={14} aria-hidden="true" />
           Save as smart collection
         </Button>
+      )}
+      {filtered && onTag && (
+        <TagAll
+          existing={allTags ?? []}
+          skip={new Set()}
+          maxChars={MAX_TAG_CHARS}
+          label="Tag…"
+          onPick={onTag}
+          variant="toolbar"
+        />
       )}
       {filtered && onDelete && (
         <Button small variant="ghost" onClick={onDelete}>

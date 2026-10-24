@@ -167,6 +167,18 @@ export function tagCreate(name: string, color: TagColor): Promise<Tag> {
   return invoke<Tag>("tag_create", { name, color });
 }
 
+/**
+ * Puts a tag on every artifact the filter matches (all pages) in one go. A new name is created
+ * with `color`; an existing tag keeps its own color.
+ */
+export function tagFiltered(
+  filter: Filter,
+  name: string,
+  color: TagColor | null,
+): Promise<Tag> {
+  return invoke<Tag>("tag_filtered", { filter, name, color });
+}
+
 /** Renames a tag. */
 export function tagRename(id: bigint, name: string): Promise<Tag> {
   return invoke<Tag>("tag_rename", { id: Number(id), name });

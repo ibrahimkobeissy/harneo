@@ -703,6 +703,31 @@ impl Library {
         tags::tag_artifact(&self.store.conn, artifact_id, tag_id)
     }
 
+    /// Puts the tag named `name` on every artifact `filter` matches (all pages), in one
+    /// transaction. A missing tag is created with `color` (a stable default when `None`); an
+    /// existing one keeps its own. Artifacts that already carry it are left alone. Returns the
+    /// tag and how many artifacts newly got it.
+    pub fn tag_filtered(
+        &mut self,
+        filter: &Filter,
+        name: &str,
+        color: Option<TagColor>,
+    ) -> Result<(Tag, usize)> {
+        let name = tags::clean_name(name)?;
+        let (clause, params) = query::filter_clause(filter)?;
+        let tx = self.store.conn.transaction()?;
+        let tag = tags::find_or_create(&tx, &name, color)?;
+        let sql = format!(
+            "INSERT OR IGNORE INTO artifact_tags (artifact_id, tag_id) \
+             SELECT a.id, ?1 FROM artifacts a JOIN sources s ON s.id = a.source_id WHERE {clause}"
+        );
+        let mut all: Vec<rusqlite::types::Value> = vec![tag.id.into()];
+        all.extend(params);
+        let added = tx.execute(&sql, rusqlite::params_from_iter(all.iter()))?;
+        tx.commit()?;
+        Ok((tag, added))
+    }
+
     /// Takes a tag off an artifact; a tag it does not carry is fine.
     pub fn untag_artifact(&self, artifact_id: &str, tag_id: i64) -> Result<()> {
         tags::untag_artifact(&self.store.conn, artifact_id, tag_id)

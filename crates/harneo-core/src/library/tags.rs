@@ -172,6 +172,27 @@ pub(crate) fn create(conn: &Connection, name: &str, color: TagColor) -> Result<T
     }
 }
 
+/// The tag called `name` (already cleaned), or a new one: `color`, else a stable default.
+pub(crate) fn find_or_create(
+    conn: &Connection,
+    name: &str,
+    color: Option<TagColor>,
+) -> Result<Tag> {
+    let existing: Option<i64> = conn
+        .query_row("SELECT id FROM tags WHERE name = ?1", params![name], |r| {
+            r.get(0)
+        })
+        .optional()?;
+    match existing {
+        Some(id) => get(conn, id),
+        None => create(
+            conn,
+            name,
+            color.unwrap_or_else(|| TagColor::default_for(name)),
+        ),
+    }
+}
+
 pub(crate) fn rename(conn: &Connection, id: i64, name: &str) -> Result<Tag> {
     let name = clean_name(name)?;
     match conn.execute("UPDATE tags SET name = ?1 WHERE id = ?2", params![name, id]) {

@@ -1,10 +1,10 @@
-import type { ButtonHTMLAttributes } from "react";
+import type { ComponentProps } from "react";
 import styles from "./Button.module.css";
 
 export type ButtonVariant =
   "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
   small?: boolean;
 }

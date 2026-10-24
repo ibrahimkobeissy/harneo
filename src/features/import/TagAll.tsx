@@ -1,8 +1,8 @@
-import { Plus } from "lucide-react";
+import { Plus, Tag as TagIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import type { TagColor } from "../../bindings/TagColor";
 import type { TagWithCount } from "../../bindings/TagWithCount";
-import { Tag } from "../../ui";
+import { Button, Tag } from "../../ui";
 import styles from "./Import.module.css";
 import { palette } from "./tagColor";
 
@@ -18,6 +18,8 @@ export function TagAll({
   skip,
   maxChars,
   onPick,
+  label = "Tag all",
+  variant = "dashed",
 }: {
   existing: readonly TagWithCount[];
   /** Lowercased tag names already on every row; they are not offered again. */
@@ -25,6 +27,10 @@ export function TagAll({
   maxChars: number;
   /** `color` is set only for a new name; an existing tag keeps its own. */
   onPick: (name: string, color: TagColor | null) => void;
+  /** The button's text; the default is the import step's "Tag all". */
+  label?: string;
+  /** `toolbar` is a ghost toolbar button (Library); the default is the import step's dashed one. */
+  variant?: "dashed" | "toolbar";
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -62,6 +68,13 @@ export function TagAll({
     trigger.current?.focus();
   }
 
+  function toggle() {
+    setOpen(!open);
+    setQuery("");
+    setActive(0);
+    requestAnimationFrame(() => input.current?.focus());
+  }
+
   function pick(option: Option) {
     if (option.kind === "existing") onPick(option.tag.name, null);
     else onPick(option.name, color);
@@ -89,22 +102,31 @@ export function TagAll({
 
   return (
     <div className={styles.tagAllAnchor} ref={wrap}>
-      <button
-        type="button"
-        ref={trigger}
-        className={styles.addTag}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen(!open);
-          setQuery("");
-          setActive(0);
-          requestAnimationFrame(() => input.current?.focus());
-        }}
-      >
-        <Plus size={12} aria-hidden="true" />
-        Tag all
-      </button>
+      {variant === "toolbar" ? (
+        <Button
+          small
+          variant="ghost"
+          ref={trigger}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          <TagIcon size={14} aria-hidden="true" />
+          {label}
+        </Button>
+      ) : (
+        <button
+          type="button"
+          ref={trigger}
+          className={styles.addTag}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          <Plus size={12} aria-hidden="true" />
+          {label}
+        </button>
+      )}
       {open && (
         <div
           className={styles.tagMenu}
@@ -115,7 +137,7 @@ export function TagAll({
             ref={input}
             className={styles.tagSearch}
             role="combobox"
-            aria-label="Find or create a tag for all"
+            aria-label={`Find or create a tag: ${label}`}
             aria-expanded="true"
             aria-controls={listId}
             aria-activedescendant={options[at] ? `${listId}-${at}` : undefined}

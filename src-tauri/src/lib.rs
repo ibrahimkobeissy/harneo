@@ -36,6 +36,7 @@ pub fn run() {
             commands::library_import,
             commands::tags_list,
             commands::tag_create,
+            commands::tag_filtered,
             commands::tag_rename,
             commands::tag_recolor,
             commands::tag_delete,

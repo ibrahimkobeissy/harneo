@@ -601,3 +601,46 @@ fn a_2000_artifact_library_answers_a_filtered_sorted_page_under_100_ms() {
         "list took {elapsed:?} on 2,000 artifacts"
     );
 }
+
+#[test]
+fn tag_filtered_tags_every_match_and_is_idempotent() {
+    let (_dir, mut lib) = fixture();
+    let skills = Filter {
+        types: vec![ArtifactKind::Skill],
+        ..Filter::default()
+    };
+    let (tag, added) = lib
+        .tag_filtered(&skills, " fresh ", Some(TagColor::Red))
+        .expect("tag");
+    assert_eq!(
+        (tag.name.as_str(), tag.color, added),
+        ("fresh", TagColor::Red, 2)
+    );
+    // The fixture's own tags have placeholder colors, so count straight from the index.
+    let count = |lib: &Library| {
+        lib.store
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM artifact_tags a JOIN tags t ON t.id = a.tag_id \
+                 WHERE t.name = 'fresh'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .expect("count")
+    };
+    assert_eq!(count(&lib), 2);
+    // Again, with another case and color: the same tag, nothing added, nothing duplicated.
+    let (again, added) = lib
+        .tag_filtered(&skills, "FRESH", Some(TagColor::Sky))
+        .expect("tag again");
+    assert_eq!((again.id, again.color, added), (tag.id, TagColor::Red, 0));
+    assert_eq!(count(&lib), 2);
+    // A wider filter only adds the artifacts that lack it.
+    let (_, added) = lib
+        .tag_filtered(&Filter::default(), "fresh", None)
+        .expect("all");
+    assert_eq!(added, 3);
+    assert_eq!(count(&lib), 5);
+    // A bad name changes nothing.
+    assert!(lib.tag_filtered(&skills, "  ", None).is_err());
+}
