@@ -41,7 +41,7 @@ Last reviewed: 2026-10-19 by @ibrahimkobeissy. Decided through Addy Osmani's `co
 |---|---|---|---|
 | `npm run check:fast` | After each edit | ~15 s | Types, TS lint and format on changed files, `cargo check`, secrets, floor |
 | `npm run check:task` | When a subagent thinks its ticket is done | ≤ 3 min | `check:fast` + Rust format and Clippy, related tests, changed-line coverage, architecture (TS and Rust) |
-| `npm run check:full` | The orchestrator, before every merge to `main`; CI on every push | No limit | `check:task` + the full test suites, dependency and code scanning, the coverage ratchet |
+| `npm run check:full` | The orchestrator, before every merge to `main`; CI on every `release_x.y.z` tag | No limit | `check:task` + the full test suites, dependency and code scanning, the coverage ratchet |
 
 The task budget is 3 minutes instead of the usual 90 seconds because Rust compile times don't fit in 90. This file is the source of truth for the commands; the `package.json` scripts mirror it, and if they drift, this file wins.
 
