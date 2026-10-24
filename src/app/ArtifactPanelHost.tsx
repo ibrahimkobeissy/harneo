@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { useArtifactPanel } from "../../lib/artifactPanel";
-import { DetailPanel } from "./DetailPanel";
+import { DetailPanel } from "../features/library";
+import { useArtifactPanel } from "../lib/artifactPanel";
 
 /**
  * Shows the artifact details panel for whichever screen asked for it (see `lib/artifactPanel`),

@@ -1,7 +1,8 @@
 import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
-import { ArtifactPanelHost, NewCollectionHost } from "../features/library";
+import { NewCollectionHost } from "../features/library";
+import { ArtifactPanelHost } from "./ArtifactPanelHost";
 import { ArtifactPanelProvider } from "../lib/artifactPanel";
 import { decodeBool, usePersisted } from "../ui";
 import { CollectionsProvider } from "./collections";

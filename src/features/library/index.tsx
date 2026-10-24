@@ -745,4 +745,4 @@ export function CollectionScreen() {
     </Screen>
   );
 }
-export { ArtifactPanelHost } from "./ArtifactPanelHost";
+export { DetailPanel } from "./DetailPanel";

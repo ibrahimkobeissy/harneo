@@ -7,7 +7,7 @@ import type { Cleanup } from "../../bindings/Cleanup";
 import type { CleanupItem } from "../../bindings/CleanupItem";
 import { UsageIndexContext, type UsageIndexState } from "../../app/usageIndex";
 import { ArtifactPanelProvider } from "../../lib/artifactPanel";
-import { ArtifactPanelHost } from "../library";
+import { ArtifactPanelHost } from "../../app/ArtifactPanelHost";
 import { minimalDetail } from "../../test/artifactDetail";
 import { CleanupScreen } from ".";
 

@@ -8,7 +8,7 @@ import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Reach } from "../../bindings/Reach";
 import type { Tier } from "../../bindings/Tier";
 import { ArtifactPanelProvider } from "../../lib/artifactPanel";
-import { ArtifactPanelHost } from "../library";
+import { ArtifactPanelHost } from "../../app/ArtifactPanelHost";
 import { minimalDetail } from "../../test/artifactDetail";
 import { SecurityScreen } from ".";
 
