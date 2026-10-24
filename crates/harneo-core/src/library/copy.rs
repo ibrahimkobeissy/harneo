@@ -109,7 +109,7 @@ fn store_base(artifact: &Artifact, files: &[&str]) -> String {
 }
 
 /// Where each listed file goes: `(path in the source, path in the store)`.
-fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
+pub(crate) fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     let listed: Vec<&str> = artifact
         .files
         .iter()

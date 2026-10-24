@@ -13,7 +13,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use super::{copy, records, ArtifactId, Library};
+use super::{copy, records, ArtifactId, Library, Preview};
 use crate::artifact::{Artifact, ArtifactKind, ScanOptions};
 use crate::audit::confirm::{self, Candidate, Subject, Verdict};
 use crate::audit::{self, Audit, AuditInput, Confirmation, Finding};
@@ -169,9 +169,22 @@ impl ConfirmJob {
         progress: &dyn Fn(usize, usize),
         store: &mut dyn FnMut(&ConfirmOutcome) -> Result<()>,
     ) -> Result<()> {
+        self.run_until(progress, store, &|| false)
+    }
+
+    /// [`Self::run`] that stops before the next artifact once `cancelled()` is true.
+    pub fn run_until(
+        &self,
+        progress: &dyn Fn(usize, usize),
+        store: &mut dyn FnMut(&ConfirmOutcome) -> Result<()>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<()> {
         let total = self.items.len();
         progress(0, total);
         for (done, item) in self.items.iter().enumerate() {
+            if cancelled() {
+                return Ok(());
+            }
             let at = records::now();
             let outcome = if self.enabled {
                 let found = confirm::confirm(
@@ -305,6 +318,58 @@ impl Library {
             config,
             items,
         })
+    }
+
+    /// Reads what a phase 2 run over the flagged, not yet imported candidates of `preview`
+    /// needs. Verdicts are cached under the names the stored copy will have, so the run after
+    /// the import finds them. With phase 2 off the job is empty. Run it with
+    /// [`ConfirmJob::run_until`] and keep each result with [`Self::store_preview_verdicts`].
+    pub fn prepare_preview_confirmation(&self, preview: &Preview) -> Result<ConfirmJob> {
+        let conn = &self.store.conn;
+        let enabled = records::confirm_enabled(conn)?;
+        let config = self.confirm_config()?;
+        let mut items = Vec::new();
+        if enabled {
+            let options = ScanOptions::default();
+            self.with_preview_root(preview, |root| {
+                for c in &preview.candidates {
+                    if c.already_in_library || c.audit.findings.is_empty() {
+                        continue;
+                    }
+                    let input = AuditInput::read(&c.artifact, root, &options);
+                    let phase1 = audit::audit_input(&input);
+                    let to_stored: HashMap<String, String> = copy::plan(&c.artifact)?
+                        .into_iter()
+                        .collect();
+                    let cands = confirm::candidates_keyed(&input, &phase1.findings, &|file| {
+                        to_stored.get(file).cloned().unwrap_or_else(|| file.to_owned())
+                    });
+                    let cache = cached(conn, &cands)?;
+                    items.push(Item {
+                        id: c.id.clone(),
+                        subject: Subject {
+                            kind: c.artifact.kind,
+                            name: c.artifact.name.clone(),
+                            description: c.artifact.description.clone().unwrap_or_default(),
+                        },
+                        phase1,
+                        cands,
+                        cache,
+                    });
+                }
+                Ok(())
+            })?;
+        }
+        Ok(ConfirmJob {
+            enabled,
+            config,
+            items,
+        })
+    }
+
+    /// Keeps the verdicts Claude gave for a preview candidate, in the shared cache.
+    pub fn store_preview_verdicts(&self, outcome: &ConfirmOutcome) -> Result<()> {
+        store_verdicts(&self.store.conn, &outcome.fresh, &outcome.model, outcome.at)
     }
 
     /// Keeps one artifact's phase 2 result and the verdicts Claude gave. An artifact removed

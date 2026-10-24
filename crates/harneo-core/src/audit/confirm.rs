@@ -116,6 +116,17 @@ fn sha_hex(parts: &[&str]) -> String {
 
 /// The context of each finding, read from `input`. The result is aligned with `findings`.
 pub fn candidates(input: &AuditInput, findings: &[Finding]) -> Vec<Candidate> {
+    candidates_keyed(input, findings, &|file| file.to_owned())
+}
+
+/// Like [`candidates`], with each finding's file named by `key_file` in the cache key. A
+/// preview reads the source tree, a stored copy its own layout; naming the files as the copy
+/// does makes a verdict given at preview apply after the import.
+pub fn candidates_keyed(
+    input: &AuditInput,
+    findings: &[Finding],
+    key_file: &dyn Fn(&str) -> String,
+) -> Vec<Candidate> {
     findings
         .iter()
         .map(|finding| {
@@ -144,7 +155,7 @@ pub fn candidates(input: &AuditInput, findings: &[Finding]) -> Vec<Candidate> {
                 key: sha_hex(&[
                     PROMPT_VERSION,
                     &finding.rule,
-                    &finding.file,
+                    &key_file(&finding.file),
                     &line_text,
                     &context,
                 ]),

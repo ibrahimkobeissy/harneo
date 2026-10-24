@@ -328,3 +328,87 @@ fn a_scanned_folder_is_audited_in_both_phases_and_uses_the_cache() -> TestResult
     assert_eq!(s.calls(), 1);
     Ok(())
 }
+
+/// A library with the fixture previewed but not imported.
+fn previewed() -> std::result::Result<(Setup, Preview), Box<dyn std::error::Error>> {
+    let source = tempfile::tempdir()?;
+    fixture(source.path())?;
+    let data = tempfile::tempdir()?;
+    let library = Library::open(data.path())?;
+    let bin = tempfile::tempdir()?;
+    let preview = library.preview(&Source::Local {
+        path: source.path().to_path_buf(),
+    })?;
+    let mut s = Setup {
+        _source: source,
+        data,
+        bin,
+        library,
+    };
+    s.claude("not_a_threat")?;
+    Ok((s, preview))
+}
+
+#[test]
+fn a_preview_run_judges_the_flagged_candidates_and_the_import_run_asks_nothing_more() -> TestResult {
+    let (s, preview) = previewed()?;
+    let job = s.library.prepare_preview_confirmation(&preview)?;
+    assert_eq!(job.artifact_count(), 3, "only flagged candidates");
+    let mut seen = Vec::new();
+    job.run_until(
+        &|_, _| {},
+        &mut |outcome| {
+            s.library.store_preview_verdicts(outcome)?;
+            seen.push(outcome.audit.clone());
+            Ok(())
+        },
+        &|| false,
+    )?;
+    assert_eq!(seen.len(), 3);
+    for audit in &seen {
+        assert!(audit.findings.is_empty());
+        assert_eq!(audit.dismissed.len(), 1);
+        assert_eq!(
+            audit.confirmation.as_ref().map(|c| c.status),
+            Some(ConfirmStatus::Confirmed)
+        );
+    }
+    assert_eq!(s.calls(), 3);
+    // Nothing was stored for the previewed artifacts, only the verdicts.
+    assert!(s.library.confirmations()?.is_empty());
+
+    let mut library = s.library;
+    let ids: Vec<ArtifactId> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&preview, &ids, &TagChoices::new())?;
+    library.confirm_now(&ConfirmScope::Pending)?;
+    let calls = fs::read_dir(s.bin.path())?
+        .filter_map(std::result::Result::ok)
+        .filter(|e| e.file_name().to_string_lossy().starts_with("in-"))
+        .count();
+    assert_eq!(calls, 3, "the run after the import used the cached verdicts");
+    for row in library.audits()? {
+        let audit = row.audit.ok_or("not audited")?;
+        assert!(audit.findings.is_empty(), "{}", row.name);
+    }
+    Ok(())
+}
+
+#[test]
+fn a_cancelled_preview_run_asks_nothing_more() -> TestResult {
+    let (s, preview) = previewed()?;
+    let job = s.library.prepare_preview_confirmation(&preview)?;
+    job.run_until(&|_, _| {}, &mut |_| Ok(()), &|| true)?;
+    assert_eq!(s.calls(), 0);
+    Ok(())
+}
+
+#[test]
+fn with_the_setting_off_a_preview_run_covers_nothing() -> TestResult {
+    let (s, preview) = previewed()?;
+    s.library
+        .settings_set("audit.confirmWithClaude", &json!(false))?;
+    let job = s.library.prepare_preview_confirmation(&preview)?;
+    assert_eq!(job.artifact_count(), 0);
+    assert_eq!(s.calls(), 0);
+    Ok(())
+}

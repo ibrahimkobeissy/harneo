@@ -41,6 +41,8 @@ pub fn run() {
             commands::home_claude_dir,
             commands::library_preview,
             commands::library_import,
+            commands::library_preview_confirm,
+            commands::library_preview_confirm_cancel,
             commands::tags_list,
             commands::tag_create,
             commands::tag_filtered,
