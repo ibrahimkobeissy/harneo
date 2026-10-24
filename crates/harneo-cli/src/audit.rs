@@ -227,4 +227,43 @@ mod tests {
             "1 artifacts (0 trusted, 1 review, 0 risky, 0 dangerous); findings: 1 critical, 0 high, 0 medium, 0 low\n"
         ));
     }
+
+    #[test]
+    fn render_lists_what_claude_dismissed_and_the_phase_two_status() {
+        use harneo_core::audit::{ConfirmStatus, Confirmation, DismissedFinding};
+        let finding = Finding {
+            rule: "prompt-injection".into(),
+            severity: Severity::Critical,
+            message: "m".into(),
+            file: "SKILL.md".into(),
+            line: Some(7),
+            evidence: String::new(),
+        };
+        let entries = vec![Entry {
+            artifact: Who {
+                kind: "skill".into(),
+                name: "alpha",
+                path: "skills/alpha",
+            },
+            audit: Audit {
+                score: 100,
+                tier: Tier::Trusted,
+                findings: Vec::new(),
+                reach: Reach::default(),
+                dismissed: vec![DismissedFinding {
+                    finding,
+                    reason: "it only warns".into(),
+                }],
+                confirmation: Some(Confirmation {
+                    detail: Some("no verdict".into()),
+                    ..Confirmation::of(ConfirmStatus::Failed)
+                }),
+            },
+        }];
+        let text = render(&entries);
+        assert!(text.contains(
+            "  dismissed by Claude: 1\n    prompt-injection SKILL.md:7: it only warns\n"
+        ));
+        assert!(text.contains("  phase 2: failed (no verdict)\n"));
+    }
 }
