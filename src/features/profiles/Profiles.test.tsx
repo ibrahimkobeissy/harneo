@@ -152,6 +152,18 @@ describe("Profiles list", () => {
     expect(screen.getByText("Used in 2 projects")).toBeVisible();
   });
 
+  it("clamps long names and descriptions and keeps the full text as a title", async () => {
+    const name = "Cloned from Cloned from Cloned from a very long profile name";
+    const description = "Long description. ".repeat(30);
+    setup({ profiles: [summary(1, name, { description })] });
+    const nameEl = await screen.findByText(name);
+    expect(nameEl).toHaveAttribute("title", name);
+    expect(nameEl.className).toMatch(/name/);
+    const desc = screen.getByText(description.trim());
+    expect(desc).toHaveAttribute("title", description);
+    expect(desc.className).toMatch(/desc/);
+  });
+
   it("shows the empty state", async () => {
     setup();
     expect(

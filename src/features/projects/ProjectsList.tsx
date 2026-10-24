@@ -144,7 +144,9 @@ export function ProjectsScreen() {
                       <FolderGit2 size={16} aria-hidden="true" />
                     </span>
                     <span className={styles.who}>
-                      <span className={styles.name}>{p.name}</span>
+                      <span className={styles.name} title={p.name}>
+                        {p.name}
+                      </span>
                       <span className={styles.path} title={p.path}>
                         {p.path}
                       </span>
@@ -152,7 +154,7 @@ export function ProjectsScreen() {
                   </span>
                   <span className={styles.mid}>
                     <Layers size={14} aria-hidden="true" />
-                    <span>
+                    <span className={styles.profile} title={p.profileName}>
                       {p.profileName}{" "}
                       <span className={styles.mono}>v{p.profileVersion}</span>
                     </span>

@@ -44,9 +44,16 @@ export function ProfileStep({
             <Layers size={16} aria-hidden="true" />
           </span>
           <b>
-            {p.name} <span className={styles.muted}>v{p.version}</span>
+            <span className={styles.pname} title={p.name}>
+              {p.name}
+            </span>{" "}
+            <span className={styles.muted}>v{p.version}</span>
           </b>
-          {p.description && <span className={styles.sec}>{p.description}</span>}
+          {p.description && (
+            <span className={styles.sec} title={p.description}>
+              {p.description}
+            </span>
+          )}
           <span className={styles.count}>
             {p.fileCount} {p.fileCount === 1 ? "file" : "files"}
             {current === p.id ? " · current profile" : ""}

@@ -1,0 +1,17 @@
+/* Shared text clamps for cards: every card keeps one shape and size. */
+.one {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.two {
+  display: -webkit-box;
+  min-width: 0;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}

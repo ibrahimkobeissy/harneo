@@ -68,6 +68,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
+  grid-auto-rows: 1fr;
 }
 .choice {
   border: var(--hairline) solid var(--line);
@@ -90,9 +91,17 @@
   box-shadow: 0 0 0 3px var(--blue-ring);
 }
 .choice b {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  min-width: 0;
   font-size: var(--text-title-sm);
 }
+.pname {
+  composes: one from "../../ui/Clamp.module.css";
+}
 .sec {
+  composes: two from "../../ui/Clamp.module.css";
   color: var(--t2);
   font-size: var(--text-label);
 }
@@ -107,6 +116,7 @@
   color: var(--tint-blue);
 }
 .count {
+  margin-top: auto;
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs) var(--space-md);

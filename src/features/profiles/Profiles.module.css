@@ -36,7 +36,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: var(--space-md);
-  align-items: start;
+  grid-auto-rows: 1fr;
   list-style: none;
   margin: 0;
   padding: 0;
@@ -94,10 +94,7 @@
   min-width: 0;
 }
 .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
+  composes: one from "../../ui/Clamp.module.css";
 }
 .ver {
   font-family: var(--font-mono);
@@ -110,11 +107,7 @@
   color: var(--t2);
   font-size: var(--text-body);
   line-height: var(--leading);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  composes: two from "../../ui/Clamp.module.css";
 }
 .counts {
   display: flex;

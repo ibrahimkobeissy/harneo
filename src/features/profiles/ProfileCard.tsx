@@ -111,11 +111,15 @@ export function ProfileCard({
         </span>
         <span className={styles.topText}>
           <h2 className={styles.title}>
-            <span className={styles.name}>{profile.name}</span>
+            <span className={styles.name} title={profile.name}>
+              {profile.name}
+            </span>
             <span className={styles.ver}>v{profile.version}</span>
           </h2>
           {profile.description && (
-            <p className={styles.desc}>{profile.description}</p>
+            <p className={styles.desc} title={profile.description}>
+              {profile.description}
+            </p>
           )}
         </span>
       </Link>
