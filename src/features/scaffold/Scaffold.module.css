@@ -97,11 +97,7 @@
   min-width: 0;
   font-size: var(--text-title-sm);
 }
-.pname {
-  composes: one from "../../ui/Clamp.module.css";
-}
 .sec {
-  composes: two from "../../ui/Clamp.module.css";
   color: var(--t2);
   font-size: var(--text-label);
 }

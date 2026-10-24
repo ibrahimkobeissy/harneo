@@ -12,6 +12,7 @@ import { Link } from "react-router";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import { Button, kinds } from "../../ui";
 import styles from "./Profiles.module.css";
+import clamp from "../../ui/Clamp.module.css";
 
 /** The card's "…" menu: Rename and Delete. Esc and a click outside close it. */
 function CardMenu({
@@ -111,13 +112,16 @@ export function ProfileCard({
         </span>
         <span className={styles.topText}>
           <h2 className={styles.title}>
-            <span className={styles.name} title={profile.name}>
+            <span className={clamp.one} title={profile.name}>
               {profile.name}
             </span>
             <span className={styles.ver}>v{profile.version}</span>
           </h2>
           {profile.description && (
-            <p className={styles.desc} title={profile.description}>
+            <p
+              className={`${clamp.two} ${styles.desc}`}
+              title={profile.description}
+            >
               {profile.description}
             </p>
           )}

@@ -93,9 +93,6 @@
   letter-spacing: var(--tracking-title);
   min-width: 0;
 }
-.name {
-  composes: one from "../../ui/Clamp.module.css";
-}
 .ver {
   font-family: var(--font-mono);
   font-size: var(--text-mono);
@@ -107,7 +104,6 @@
   color: var(--t2);
   font-size: var(--text-body);
   line-height: var(--leading);
-  composes: two from "../../ui/Clamp.module.css";
 }
 .counts {
   display: flex;

@@ -83,7 +83,6 @@
 .name {
   font-size: var(--text-body-lg, 15px);
   font-weight: 600;
-  composes: one from "../../ui/Clamp.module.css";
 }
 .path {
   font-family: var(--font-mono);
@@ -94,7 +93,6 @@
   white-space: nowrap;
 }
 .profile {
-  composes: one from "../../ui/Clamp.module.css";
   flex: 0 1 auto;
 }
 .mid,

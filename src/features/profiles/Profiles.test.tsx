@@ -158,10 +158,10 @@ describe("Profiles list", () => {
     setup({ profiles: [summary(1, name, { description })] });
     const nameEl = await screen.findByText(name);
     expect(nameEl).toHaveAttribute("title", name);
-    expect(nameEl.className).toMatch(/name/);
+    expect(nameEl.className).toMatch(/one/);
     const desc = screen.getByText(description.trim());
     expect(desc).toHaveAttribute("title", description);
-    expect(desc.className).toMatch(/desc/);
+    expect(desc.className).toMatch(/two/);
   });
 
   it("shows the empty state", async () => {

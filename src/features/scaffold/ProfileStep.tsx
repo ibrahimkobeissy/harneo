@@ -2,6 +2,7 @@ import { Layers } from "lucide-react";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import { Button, EmptyState, kinds } from "../../ui";
 import styles from "./Scaffold.module.css";
+import clamp from "../../ui/Clamp.module.css";
 
 /** Step 2: which profile to install, one card each with its file count. */
 export function ProfileStep({
@@ -42,13 +43,16 @@ export function ProfileStep({
             <Layers size={16} aria-hidden="true" />
           </span>
           <b>
-            <span className={styles.pname} title={p.name}>
+            <span className={clamp.one} title={p.name}>
               {p.name}
             </span>{" "}
             <span className={styles.muted}>v{p.version}</span>
           </b>
           {p.description && (
-            <span className={styles.sec} title={p.description}>
+            <span
+              className={`${clamp.two} ${styles.sec}`}
+              title={p.description}
+            >
               {p.description}
             </span>
           )}

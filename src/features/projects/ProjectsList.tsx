@@ -15,6 +15,7 @@ import { ago, messageOf, plural, statusOf, type Status } from "./format";
 import styles from "./Projects.module.css";
 import { StatusPill } from "./StatusPill";
 import { Toast, type Notice } from "./Toast";
+import clamp from "../../ui/Clamp.module.css";
 
 /** Every profile's current version by id; a failed load just means no "available" pills. */
 export function useProfileVersions(): ReadonlyMap<bigint, number> {
@@ -144,7 +145,10 @@ export function ProjectsScreen() {
                       <FolderGit2 size={16} aria-hidden="true" />
                     </span>
                     <span className={styles.who}>
-                      <span className={styles.name} title={p.name}>
+                      <span
+                        className={`${clamp.one} ${styles.name}`}
+                        title={p.name}
+                      >
                         {p.name}
                       </span>
                       <span className={styles.path} title={p.path}>
@@ -154,7 +158,10 @@ export function ProjectsScreen() {
                   </span>
                   <span className={styles.mid}>
                     <Layers size={14} aria-hidden="true" />
-                    <span className={styles.profile} title={p.profileName}>
+                    <span
+                      className={`${clamp.one} ${styles.profile}`}
+                      title={p.profileName}
+                    >
                       {p.profileName}{" "}
                       <span className={styles.mono}>v{p.profileVersion}</span>
                     </span>
