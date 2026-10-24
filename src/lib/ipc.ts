@@ -17,6 +17,7 @@ import type { LinkOrigin } from "../bindings/LinkOrigin";
 import type { Links } from "../bindings/Links";
 import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
+import type { RemovalPlan } from "../bindings/RemovalPlan";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
 import type { ReauditReport } from "../bindings/ReauditReport";
@@ -79,6 +80,16 @@ export function libraryDetail(id: string): Promise<ArtifactDetail> {
 /** Deletes an artifact from the library. */
 export function libraryRemove(id: string): Promise<void> {
   return invoke<void>("library_remove", { id });
+}
+
+/** Every artifact the filter matches (all pages), with the profiles using each. */
+export function libraryRemovalPlan(filter: Filter): Promise<RemovalPlan> {
+  return invoke<RemovalPlan>("library_removal_plan", { filter });
+}
+
+/** Deletes these artifacts from the library, all or nothing. */
+export function libraryRemoveMany(ids: string[]): Promise<void> {
+  return invoke<void>("library_remove_many", { ids });
 }
 
 /** The id of the library artifact of this kind and name, or null when it is not imported. */

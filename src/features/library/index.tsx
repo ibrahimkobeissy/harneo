@@ -30,6 +30,7 @@ import {
   usePersisted,
 } from "../../ui";
 import { CollectionBar } from "./CollectionBar";
+import { DeleteFilteredDialog } from "./DeleteFiltered";
 import { DetailPanel } from "./DetailPanel";
 import { FilterColumn, type FilterGroup } from "./FilterColumn";
 import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
@@ -166,6 +167,7 @@ export function LibraryScreen({
   );
   const [dragging, setDragging] = useState(false);
   const [finding, setFinding] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const filtersButton = useRef<HTMLButtonElement>(null);
   const [updatingAll, setUpdatingAll] = useState(false);
   const check = useUpdateCheck(reload);
@@ -401,6 +403,7 @@ export function LibraryScreen({
             onSaveCollection={
               collection ? undefined : () => openNew({ rule: toFilter(params) })
             }
+            onDelete={collection ? undefined : () => setDeleting(true)}
           />
           <span className={styles.grow} />
           {!collection && (
@@ -652,6 +655,19 @@ export function LibraryScreen({
           }
           onClose={() => setFinding(false)}
           onAccepted={reload}
+        />
+      )}
+      {deleting && (
+        <DeleteFilteredDialog
+          filter={toFilter(params)}
+          onClose={() => setDeleting(false)}
+          onDeleted={() => {
+            setDeleting(false);
+            setTrail([]);
+            if (params.open !== null) openPanel(null);
+            reload();
+            refreshCollections();
+          }}
         />
       )}
       {updatingAll && (

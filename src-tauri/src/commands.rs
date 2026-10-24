@@ -15,7 +15,7 @@ use harneo_core::install::{
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactDetail, Collection, Filter, ImportReport, Library, Page, Preview, Query,
-    ReauditReport, Source, Tag, TagColor, TagWithCount,
+    ReauditReport, RemovalPlan, Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
@@ -161,6 +161,21 @@ pub fn library_detail(
 #[tauri::command]
 pub fn library_remove(state: State<'_, LibraryState>, id: String) -> Result<(), String> {
     state.with_mut(|library| library.remove(&id))
+}
+
+/// Everything `filter` matches across all pages, with the profiles using each artifact.
+#[tauri::command]
+pub fn library_removal_plan(
+    state: State<'_, LibraryState>,
+    filter: Filter,
+) -> Result<RemovalPlan, String> {
+    state.with(|library| library.removal_plan(&filter))
+}
+
+/// Deletes these artifacts from the library in one go: all or nothing.
+#[tauri::command]
+pub fn library_remove_many(state: State<'_, LibraryState>, ids: Vec<String>) -> Result<(), String> {
+    state.with_mut(|library| library.remove_many(&ids))
 }
 
 /// The id of the library artifact of `kind` named `name`, if any (for opening a reference).
@@ -1427,6 +1442,19 @@ mod tests {
         let state = LibraryState::from_result(Err("cannot open the library".into()));
         let err = state.with(|library| library.list(&Query::default())).err();
         assert_eq!(err.as_deref(), Some("cannot open the library"));
+    }
+
+    #[test]
+    fn library_remove_many_and_plan_cover_the_filter() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        let plan = library_removal_plan(state(), Filter::default())?;
+        assert!(plan.artifacts.is_empty());
+        let err = library_remove_many(state(), vec!["nope".into()]).err();
+        assert!(err.is_some_and(|m| m.contains("not in the library")));
+        Ok(())
     }
 
     #[test]

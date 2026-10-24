@@ -553,40 +553,123 @@ impl Library {
 
     /// Deletes an artifact's copy and its index rows (tags and collection entries go with them).
     pub fn remove(&mut self, id: &str) -> Result<()> {
-        // Validate before touching the disk: a crafted id (`..`, a path) must never reach a rename.
-        let is_hex = id.len() == 16 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
-        if !is_hex || records::load(&self.store.conn, id)?.is_none() {
-            return Err(Error::NotInLibrary { id: id.to_owned() });
+        self.remove_many(&[id.to_owned()])
+    }
+
+    /// Deletes several artifacts by the rules of [`Library::remove`], all or nothing: when one
+    /// fails (an unknown id, a disk error), none is removed.
+    pub fn remove_many(&mut self, ids: &[String]) -> Result<()> {
+        let mut unique: Vec<&str> = Vec::new();
+        for id in ids {
+            // Validate before touching the disk: a crafted id (`..`, a path) must never reach a
+            // rename.
+            let is_hex =
+                id.len() == 16 && id.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'));
+            if !is_hex || records::load(&self.store.conn, id)?.is_none() {
+                return Err(Error::NotInLibrary { id: id.clone() });
+            }
+            if !unique.contains(&id.as_str()) {
+                unique.push(id);
+            }
         }
-        let target = self.store.artifacts_dir().join(id);
         let trash = tempfile::Builder::new()
             .prefix(".remove-")
             .tempdir_in(self.store.root())
             .map_err(|e| io_error(self.store.root(), e))?;
-        let parked = trash.path().join(id);
-        // Park the folder first: a rename is atomic, so a failure below can put it back.
-        let moved = match fs::rename(&target, &parked) {
-            Ok(()) => true,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => false,
-            Err(e) => return Err(io_error(&target, e)),
+        // Park the folders first: a rename is atomic, so a failure below can put them back.
+        let mut parked: Vec<(PathBuf, PathBuf)> = Vec::new();
+        let put_back = |parked: &[(PathBuf, PathBuf)]| {
+            for (from, to) in parked.iter().rev() {
+                let _ = fs::rename(to, from);
+            }
         };
+        for id in &unique {
+            let target = self.store.artifacts_dir().join(id);
+            let to = trash.path().join(id);
+            match fs::rename(&target, &to) {
+                Ok(()) => parked.push((target, to)),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    put_back(&parked);
+                    return Err(io_error(&target, e));
+                }
+            }
+        }
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
-            crate::profiles::remove_artifact(&tx, id)?;
-            if !records::delete(&tx, id)? {
-                return Err(Error::NotInLibrary { id: id.to_owned() });
+            for id in &unique {
+                crate::profiles::remove_artifact(&tx, id)?;
+                if !records::delete(&tx, id)? {
+                    return Err(Error::NotInLibrary {
+                        id: (*id).to_owned(),
+                    });
+                }
             }
             tx.commit()?;
             Ok(())
         })();
         if let Err(error) = outcome {
-            if moved {
-                let _ = fs::rename(&parked, &target);
-            }
+            put_back(&parked);
             return Err(error);
         }
         Ok(())
     }
+
+    /// What deleting everything `filter` matches would take away: each artifact with the
+    /// profiles whose current version installs it. Nothing is changed.
+    pub fn removal_plan(&self, filter: &Filter) -> Result<RemovalPlan> {
+        let (clause, params) = query::filter_clause(filter)?;
+        let sql = format!(
+            "SELECT a.id, a.kind, a.name FROM artifacts a JOIN sources s ON s.id = a.source_id \
+             WHERE {clause} ORDER BY a.name COLLATE NOCASE, a.id"
+        );
+        let rows = self
+            .store
+            .conn
+            .prepare(&sql)?
+            .query_map(rusqlite::params_from_iter(params.iter()), |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut membership = self.profile_membership()?;
+        let mut artifacts = Vec::with_capacity(rows.len());
+        for (id, kind, name) in rows {
+            let kind: crate::artifact::ArtifactKind =
+                serde_json::from_value(serde_json::Value::String(kind))?;
+            let profiles = membership.remove(&id).unwrap_or_default();
+            artifacts.push(RemovalItem {
+                id,
+                kind,
+                name,
+                profiles,
+            });
+        }
+        Ok(RemovalPlan { artifacts })
+    }
+}
+
+/// One artifact a bulk delete would remove.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct RemovalItem {
+    pub id: String,
+    pub kind: crate::artifact::ArtifactKind,
+    pub name: String,
+    /// Profiles whose current version installs it (they get a new version without it).
+    pub profiles: Vec<crate::profiles::ProfileUse>,
+}
+
+/// Everything a filter matches, across all pages, before it is deleted.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct RemovalPlan {
+    pub artifacts: Vec<RemovalItem>,
 }
 
 impl Library {

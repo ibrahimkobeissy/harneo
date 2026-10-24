@@ -25,6 +25,8 @@ pub fn run() {
             commands::library_list,
             commands::library_detail,
             commands::library_remove,
+            commands::library_removal_plan,
+            commands::library_remove_many,
             commands::library_find,
             commands::library_reaudit,
             commands::library_audits,

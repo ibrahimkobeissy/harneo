@@ -317,3 +317,49 @@ fn a_failed_removal_leaves_profiles_alone() -> TestResult {
     assert_eq!(f.library.profile(id, None)?.current_version, 1);
     Ok(())
 }
+
+#[test]
+fn removing_many_removes_only_those_and_rolls_back_on_failure() -> TestResult {
+    let mut f = fixture()?;
+    let a = f.id(ArtifactKind::Skill, "a")?;
+    let b = f.id(ArtifactKind::Skill, "b")?;
+    let helper = f.id(ArtifactKind::Agent, "helper")?;
+    let id = f.library.create_profile("P", "", &spec(&[&a, &b]))?;
+
+    // An unknown id anywhere in the set: nothing goes, on disk or in the index.
+    let before = f.library.list(&Default::default())?.total;
+    let bad = vec![a.clone(), "ffffffffffffffff".to_owned()];
+    assert!(f.library.remove_many(&bad).is_err());
+    assert_eq!(f.library.list(&Default::default())?.total, before);
+    assert!(f.id(ArtifactKind::Skill, "a").is_ok());
+    assert_eq!(f.library.profile(id, None)?.current_version, 1);
+
+    f.library.remove_many(&[a.clone(), b.clone(), a.clone()])?;
+    assert_eq!(f.library.list(&Default::default())?.total, before - 2);
+    assert!(f.id(ArtifactKind::Skill, "a").is_err());
+    assert!(f.id(ArtifactKind::Skill, "b").is_err());
+    assert_eq!(f.id(ArtifactKind::Agent, "helper")?, helper);
+    assert!(f.library.profile(id, None)?.spec.items.is_empty());
+    Ok(())
+}
+
+#[test]
+fn the_removal_plan_lists_every_match_with_its_profiles() -> TestResult {
+    let f = fixture()?;
+    let a = f.id(ArtifactKind::Skill, "a")?;
+    let b = f.id(ArtifactKind::Skill, "b")?;
+    f.library.create_profile("P", "", &spec(&[&a]))?;
+    let filter = crate::library::Filter {
+        types: vec![ArtifactKind::Skill],
+        ..Default::default()
+    };
+    let plan = f.library.removal_plan(&filter)?;
+    let names: Vec<&str> = plan.artifacts.iter().map(|i| i.name.as_str()).collect();
+    assert_eq!(names, ["a", "b"]);
+    assert_eq!(plan.artifacts[0].id, a);
+    assert_eq!(plan.artifacts[0].profiles.len(), 1);
+    assert_eq!(plan.artifacts[0].profiles[0].name, "P");
+    assert_eq!(plan.artifacts[1].id, b);
+    assert!(plan.artifacts[1].profiles.is_empty());
+    Ok(())
+}

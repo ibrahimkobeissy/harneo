@@ -1,4 +1,4 @@
-import { ListFilter, X } from "lucide-react";
+import { ListFilter, Trash2, X } from "lucide-react";
 import type { Facets } from "../../bindings/Facets";
 import { Button, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
@@ -8,7 +8,7 @@ import { type LibraryParams, statusLabels } from "./params";
 
 /**
  * What the results are: one removable chip per active filter, "N of M artifacts", Clear all
- * and (in the library) Save as smart collection.
+ * and, in the library, the quick actions on every filtered artifact: Save as smart collection and Delete….
  */
 export function ResultsToolbar({
   params,
@@ -22,6 +22,7 @@ export function ResultsToolbar({
   onClearTrustMin,
   onClearHasFindings,
   onSaveCollection,
+  onDelete,
 }: {
   params: LibraryParams;
   facets: Facets;
@@ -34,6 +35,8 @@ export function ResultsToolbar({
   onClearTrustMin: () => void;
   onClearHasFindings: () => void;
   onSaveCollection?: () => void;
+  /** Delete every filtered artifact; shown only while a filter is active. */
+  onDelete?: () => void;
 }) {
   const chips: { key: string; label: string; remove: () => void }[] = [
     ...params.types.map((t) => ({
@@ -127,6 +130,12 @@ export function ResultsToolbar({
         <Button small variant="ghost" onClick={onSaveCollection}>
           <ListFilter size={14} aria-hidden="true" />
           Save as smart collection
+        </Button>
+      )}
+      {filtered && onDelete && (
+        <Button small variant="ghost" onClick={onDelete}>
+          <Trash2 size={14} aria-hidden="true" />
+          Delete…
         </Button>
       )}
     </>
