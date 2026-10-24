@@ -24,19 +24,9 @@ import {
 import { SortHeader, useSort } from "./SortHeader";
 import styles from "./Security.module.css";
 
-export function ArtifactLink({
-  a,
-  trust = true,
-}: {
-  a: Audited;
-  trust?: boolean;
-}) {
+export function ArtifactLink({ a }: { a: Audited }) {
   return (
-    <OpenArtifactButton
-      className={styles.link}
-      id={a.id}
-      focus={trust ? "trust" : undefined}
-    >
+    <OpenArtifactButton className={styles.link} id={a.id} focus="trust">
       {a.name}
     </OpenArtifactButton>
   );
