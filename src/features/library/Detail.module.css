@@ -269,3 +269,50 @@
   word-break: break-all;
   border: var(--hairline) solid var(--line);
 }
+.fileHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: var(--hairline) solid var(--line);
+}
+.fileTitle {
+  flex: 1;
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-section);
+  overflow-wrap: anywhere;
+}
+.fileClose,
+.fileLink,
+.fileOpen {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  padding: var(--space-xxs);
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.fileLink {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  color: var(--t2);
+  overflow-wrap: anywhere;
+}
+.fileLink:hover {
+  color: var(--blue);
+}
+.fileOpen {
+  color: var(--t3);
+}
+.fileOpen:hover,
+.fileClose:hover {
+  background: var(--sunk);
+  color: var(--t1);
+}

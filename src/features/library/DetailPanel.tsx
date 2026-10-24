@@ -3,6 +3,7 @@ import {
   Boxes,
   CircleAlert,
   CircleArrowUp,
+  ExternalLink,
   FileText,
   FolderMinus,
   Trash2,
@@ -24,6 +25,7 @@ import {
   collectionRemove,
   libraryDetail,
   libraryFind,
+  libraryOpenFile,
   libraryRemove,
   linksOf,
   updateStatus,
@@ -46,6 +48,7 @@ import updates from "./Updates.module.css";
 import { BundleSection } from "./BundleSection";
 import { FindBundlesDialog } from "./FindBundles";
 import styles from "./Detail.module.css";
+import { FileDialog } from "./FileDialog";
 import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
@@ -479,6 +482,7 @@ export function DetailPanel({
   const [linksRev, setLinksRev] = useState(0);
   // Bumped when the Add to… menu saves a profile: Used in follows.
   const [profilesRev, setProfilesRev] = useState(0);
+  const [viewing, setViewing] = useState<string | null>(null);
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLElement>(null);
@@ -522,6 +526,14 @@ export function DetailPanel({
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [confirming, onClose]);
+
+  async function openFile(path: string) {
+    try {
+      await libraryOpenFile(id, path);
+    } catch (err) {
+      setRemoveError(String(err));
+    }
+  }
 
   async function leaveCollection() {
     if (!collection) return;
@@ -676,8 +688,23 @@ export function DetailPanel({
                 <ul className={styles.files}>
                   {detail.files.map((f) => (
                     <li key={f} className={styles.mono}>
-                      <FileText size={13} aria-hidden="true" />
-                      {f}
+                      <button
+                        type="button"
+                        className={styles.fileLink}
+                        onClick={() => setViewing(f)}
+                      >
+                        <FileText size={13} aria-hidden="true" />
+                        {f}
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.fileOpen}
+                        aria-label={`Open ${f} in editor`}
+                        title="Open in editor"
+                        onClick={() => void openFile(f)}
+                      >
+                        <ExternalLink size={12} aria-hidden="true" />
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -718,6 +745,9 @@ export function DetailPanel({
             }}
           />
         ))}
+      {viewing !== null && (
+        <FileDialog id={id} path={viewing} onClose={() => setViewing(null)} />
+      )}
       {confirming && detail && (
         <Modal label={`Delete ${detail.artifact.name}`}>
           <div className={styles.confirm}>

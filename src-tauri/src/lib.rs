@@ -25,6 +25,8 @@ pub fn run() {
             commands::reset_harneo,
             commands::library_list,
             commands::library_detail,
+            commands::library_read_file,
+            commands::library_open_file,
             commands::library_remove,
             commands::library_removal_plan,
             commands::library_remove_many,

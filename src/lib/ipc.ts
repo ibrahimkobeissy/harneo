@@ -11,6 +11,7 @@ import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactConfirmation } from "../bindings/ArtifactConfirmation";
 import type { ConfirmProgress } from "../bindings/ConfirmProgress";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
+import type { FileView } from "../bindings/FileView";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
 import type { DetectProgress } from "../bindings/DetectProgress";
 import type { CliStatus } from "../bindings/CliStatus";
@@ -77,6 +78,16 @@ export function libraryList(query: Query): Promise<Page> {
 /** One library artifact in full. */
 export function libraryDetail(id: string): Promise<ArtifactDetail> {
   return invoke<ArtifactDetail>("library_detail", { id });
+}
+
+/** One file of an artifact's library copy: its text, or why it has no preview. */
+export function libraryReadFile(id: string, path: string): Promise<FileView> {
+  return invoke<FileView>("library_read_file", { id, path });
+}
+
+/** Opens one file of an artifact's library copy in the system's default app. */
+export function libraryOpenFile(id: string, path: string): Promise<void> {
+  return invoke<void>("library_open_file", { id, path });
 }
 
 /** Deletes an artifact from the library. */

@@ -45,6 +45,9 @@ mod store;
 mod tags;
 #[cfg(test)]
 mod tags_tests;
+mod viewer;
+#[cfg(test)]
+mod viewer_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -76,6 +79,7 @@ pub(crate) use restore::{Restored, PROFILE_FILE_SOURCE};
 pub use source::Source;
 use store::Store;
 pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
+pub use viewer::{FileView, MAX_VIEW_BYTES};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;

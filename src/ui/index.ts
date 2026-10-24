@@ -41,3 +41,4 @@ export { Callout } from "./Callout";
 export { CodeView, decodeText } from "./CodeView";
 export { FileTree, markOf, type FileMark, type TreeFile } from "./FileTree";
 export { Stepper } from "./Stepper";
+export { FileViewer, isMarkdown, languageOf } from "./FileViewer";

@@ -246,3 +246,40 @@ describe("detail panel", () => {
     );
   });
 });
+
+describe("detail panel files", () => {
+  it("opens a file in the viewer and returns focus to its row on close", async () => {
+    const user = userEvent.setup();
+    mockIPC((cmd, args) => {
+      const a = (args ?? {}) as Record<string, string>;
+      if (cmd === "library_list") return page([item("alpha")]);
+      if (cmd === "library_detail") return alpha;
+      if (cmd === "library_read_file")
+        return { kind: "text", text: `# ${a.path}` };
+      if (cmd === "tags_list" || cmd === "artifact_tags") return [];
+      return undefined;
+    });
+    render(
+      <MemoryRouter initialEntries={["/library?open=id-alpha"]}>
+        <Routes>
+          <Route path="/library" element={<LibraryScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const row = await screen.findByRole("button", { name: "alpha/SKILL.md" });
+    await user.click(row);
+    expect(
+      await screen.findByRole("dialog", { name: "alpha/SKILL.md" }),
+    ).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "alpha/SKILL.md" }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "alpha details" }),
+    ).toBeInTheDocument();
+    expect(row).toHaveFocus();
+  });
+});

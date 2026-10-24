@@ -189,6 +189,31 @@ pub fn library_detail(
     state.with(|library| library.detail(&id))
 }
 
+/// One file of an artifact's library copy for the viewer: text, or a reason it has no preview.
+#[tauri::command]
+pub fn library_read_file(
+    state: State<'_, LibraryState>,
+    id: String,
+    path: String,
+) -> Result<harneo_core::library::FileView, String> {
+    state.with(|library| library.read_artifact_file(&id, &path))
+}
+
+/// Opens one file of an artifact's library copy in the system's default app. The path is
+/// checked and resolved by the core first: nothing outside the copy is ever opened.
+#[tauri::command]
+pub fn library_open_file(
+    app: AppHandle,
+    state: State<'_, LibraryState>,
+    id: String,
+    path: String,
+) -> Result<(), String> {
+    let file = state.with(|library| library.artifact_file(&id, &path))?;
+    app.opener()
+        .open_path(file.to_string_lossy(), None::<&str>)
+        .map_err(|e| e.to_string())
+}
+
 /// Deletes an artifact from the library (its copy, tags and collection entries).
 #[tauri::command]
 pub fn library_remove(state: State<'_, LibraryState>, id: String) -> Result<(), String> {
