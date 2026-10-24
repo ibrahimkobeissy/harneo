@@ -262,6 +262,9 @@ fn literal_assignments(line: &str) -> Vec<(usize, usize)> {
             continue;
         };
         let inner = val.as_str().trim_matches(|c| c == '"' || c == '\'');
+        if closes_open_string(line, val.start(), val.as_str()) || looks_like_expression(inner) {
+            continue;
+        }
         if inner.len() < 8
             || inner.starts_with(['$', '`', '<', '{', '%', '@', '/', '~', '.', '(', '\\'])
             || looks_like_example(inner)
@@ -272,6 +275,24 @@ fn literal_assignments(line: &str) -> Vec<(usize, usize)> {
         out.push((val.start(), val.end()));
     }
     out
+}
+
+/// The value's opening quote closes a string that began earlier on the line
+/// (`'...?token=' + TOKEN + '...'`): the "value" is code between two literals.
+fn closes_open_string(line: &str, start: usize, value: &str) -> bool {
+    let Some(quote) = value.chars().next().filter(|c| matches!(c, '"' | '\'')) else {
+        return false;
+    };
+    line[..start].matches(quote).count() % 2 == 1
+}
+
+/// Code, not a literal: concatenation, interpolation or a call.
+fn looks_like_expression(value: &str) -> bool {
+    value.contains(" + ")
+        || value.contains("${")
+        || value
+            .find('(')
+            .is_some_and(|i| value[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 
 fn looks_like_example(value: &str) -> bool {
@@ -506,6 +527,22 @@ mod tests {
         assert!(!json.contains("correct-horse"));
         // The same line in prose is not a finding.
         assert!(secrets(text, "SKILL.md", ArtifactKind::Skill).is_empty());
+    }
+
+    #[test]
+    fn url_query_keys_in_code_are_not_assignments() {
+        let text = "const u = 'http://localhost:' + PORT + '/manual-edit-stash?token=' + TOKEN + '&pageUrl=' + encodeURIComponent(href);\n\
+                    fetch(`/x?token=${TOKEN}&a=1`);\n";
+        assert!(secrets(text, "live-browser.js", ArtifactKind::Skill).is_empty());
+    }
+
+    #[test]
+    fn literal_secrets_in_urls_and_assignments_stay_found() {
+        let token = ["gh", "p_", TAIL].concat();
+        let url = format!("const u = 'https://x.dev/api?token={token}';\n");
+        assert_eq!(secrets(&url, "a.js", ArtifactKind::Skill).len(), 1);
+        let assign = "API_TOKEN=\"s3cr3t-value-123\"\n";
+        assert_eq!(secrets(assign, "a.sh", ArtifactKind::Skill).len(), 1);
     }
 
     #[test]
