@@ -36,6 +36,13 @@ fn check_safe(data_dir: &Path) -> Result<()> {
     if canonical.join(".git").exists() {
         return refuse("it contains a .git folder, so it looks like a project");
     }
+    // Only Harneo's own folder: it holds the library database, or nothing but the lock file.
+    let has_files = fs::read_dir(&canonical)
+        .map(|mut entries| entries.any(|e| e.is_ok_and(|e| e.file_name() != LOCK_FILE)))
+        .unwrap_or(false);
+    if has_files && !canonical.join("library").join("library.db").is_file() {
+        return refuse("it holds no Harneo library, so it is not Harneo's data folder");
+    }
     Ok(())
 }
 
@@ -163,6 +170,15 @@ mod tests {
             Err(Error::Reset { .. })
         ));
         assert!(repo.path().join("keep.txt").exists());
+
+        // A folder with files but no Harneo library is someone else's: left alone.
+        let other = tempfile::tempdir()?;
+        put(other.path(), "notes/todo.md", "x")?;
+        assert!(matches!(
+            reset_data(other.path(), true),
+            Err(Error::Reset { .. })
+        ));
+        assert!(other.path().join("notes/todo.md").exists());
         Ok(())
     }
 
