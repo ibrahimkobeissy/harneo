@@ -457,3 +457,14 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 | Claude's session-log format is not ours | Med | Tolerant parser, parse failures counted, untracked kinds say "Not tracked", synthetic fixtures only |
 | Parallel tickets collide on migrations and shared files | Med | Fixed migration order through `Blocked by`; additions to shared files in their own blocks |
 | App and CLI writing at once | Low | Data-dir lock plus SQLite busy timeout |
+
+## User feedback, 2026-10-24
+
+- [#151](https://github.com/ibrahimkobeissy/harneo/issues/151) No screen scrolls as a whole: sidebar, filters and page headers stay fixed everywhere
+- [#158](https://github.com/ibrahimkobeissy/harneo/issues/158) Delete all filtered artifacts from the Library toolbar, with confirmation
+- [#152](https://github.com/ibrahimkobeissy/harneo/issues/152) Tag all filtered artifacts from the Library toolbar
+- [#153](https://github.com/ibrahimkobeissy/harneo/issues/153) Audit: credential paths in protective rules are not credential theft
+- [#154](https://github.com/ibrahimkobeissy/harneo/issues/154) Open artifact details in a side panel on Security and Cleanup, without leaving the page
+- [#155](https://github.com/ibrahimkobeissy/harneo/issues/155) Fixed action bar for the Import, Scaffold and Refit wizards
+- [#156](https://github.com/ibrahimkobeissy/harneo/issues/156) Profile and project cards share one shape and size
+- [#157](https://github.com/ibrahimkobeissy/harneo/issues/157) Settings: red Danger zone to reset all of Harneo's data
