@@ -470,3 +470,5 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#157](https://github.com/ibrahimkobeissy/harneo/issues/157) Settings: red Danger zone to reset all of Harneo's data
 - [#159](https://github.com/ibrahimkobeissy/harneo/issues/159) Audit: URL query keys in code are not plaintext secrets
 - [#160](https://github.com/ibrahimkobeissy/harneo/issues/160) Audit: honest guidance is not prompt injection
+- [#161](https://github.com/ibrahimkobeissy/harneo/issues/161) Security audit phase 2: Claude confirms each finding, non-threats are dropped
+- [#162](https://github.com/ibrahimkobeissy/harneo/issues/162) Security audit phase 2 on screen: setting, phase-1-only warning, progress and dismissed findings
