@@ -13,6 +13,7 @@ export function Screen({
   badge,
   actions,
   toolbar,
+  foot,
   children,
 }: {
   title: string;
@@ -28,6 +29,8 @@ export function Screen({
   actions?: ReactNode;
   /** Pinned under the title row: bars, chips, steppers. */
   toolbar?: ReactNode;
+  /** Pinned under the scrolling body: a wizard's action bar. */
+  foot?: ReactNode;
   children: ReactNode;
 }) {
   const id = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-title`;
@@ -51,6 +54,11 @@ export function Screen({
       <div className={styles.body} data-screen-body="">
         <div className={cap}>{children}</div>
       </div>
+      {foot && (
+        <div className={styles.foot} data-screen-foot="">
+          <div className={cap}>{foot}</div>
+        </div>
+      )}
     </section>
   );
 }

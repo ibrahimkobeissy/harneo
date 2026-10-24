@@ -9,6 +9,7 @@ export { Logo } from "./Logo";
 export { NavItem } from "./NavItem";
 export { Panel } from "./Panel";
 export { Screen } from "./Screen";
+export { WizardActions } from "./WizardActions";
 export { Tag, type TagTint } from "./Tag";
 export { decodeBool, usePersisted } from "./usePersisted";
 export { TrustMeter } from "./TrustMeter";

@@ -160,25 +160,6 @@
     animation-duration: 3s;
   }
 }
-.foot {
-  position: sticky;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: var(--space-xl);
-  bottom: calc(-1 * var(--space-page-bottom));
-  padding: var(--space-md) 0 calc(var(--space-md) + var(--space-page-bottom));
-  background: var(--bg);
-  border-top: var(--hairline) solid var(--line);
-}
-.target {
-  color: var(--t3);
-  font-size: var(--text-label);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .result {
   display: flex;
   flex-direction: column;

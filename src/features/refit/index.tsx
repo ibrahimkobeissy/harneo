@@ -17,7 +17,14 @@ import {
   refitCompare,
   refitPlan,
 } from "../../lib/ipc";
-import { announce, Button, Callout, Screen, Stepper } from "../../ui";
+import {
+  announce,
+  Button,
+  Callout,
+  Screen,
+  Stepper,
+  WizardActions,
+} from "../../ui";
 import { CompareStep } from "./CompareStep";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
@@ -225,12 +232,78 @@ export function RefitScreen() {
     ? `${comparison.profileName} v${comparison.profileVersion}`
     : label;
 
+  const foot =
+    step < 4 ? (
+      <WizardActions
+        back={
+          step > 0 ? (
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setApplyError(null);
+                setStepError(null);
+                setStep(step - 1);
+              }}
+            >
+              Back
+            </Button>
+          ) : undefined
+        }
+        note={
+          step === 3 ? (
+            <>
+              {path.trim()} · {flowLabel}
+            </>
+          ) : undefined
+        }
+      >
+        {step === 0 && (
+          <Button
+            variant="primary"
+            disabled={path.trim() === ""}
+            onClick={toProfile}
+          >
+            Continue
+          </Button>
+        )}
+        {step === 1 && (
+          <Button
+            variant="primary"
+            disabled={chosenId === null || busy}
+            onClick={() => void compare()}
+          >
+            {busy ? "Comparing…" : "Continue"}
+          </Button>
+        )}
+        {step === 2 && !nothing && (
+          <Button
+            variant="primary"
+            disabled={busy}
+            onClick={() => void preview()}
+          >
+            {busy ? "Preparing…" : "Preview changes"}
+          </Button>
+        )}
+        {step === 3 && (
+          <Button
+            variant="primary"
+            disabled={busy || changing === 0}
+            onClick={() => void apply()}
+          >
+            <Check size={14} aria-hidden="true" />
+            {busy ? "Applying…" : applyLabel}
+          </Button>
+        )}
+      </WizardActions>
+    ) : undefined;
+
   return (
     <Screen
       title="Refit project"
       narrow={step < 2}
       crumb={crumb}
       toolbar={<Stepper steps={steps} at={step} />}
+      foot={foot}
     >
       {step === 0 && (
         <FolderStep
@@ -318,66 +391,6 @@ export function RefitScreen() {
           onRestore={() => void restore()}
           onProjects={() => void navigate("/projects")}
         />
-      )}
-
-      {step < 4 && (
-        <div className={styles.foot}>
-          {step > 0 && (
-            <Button
-              disabled={busy}
-              onClick={() => {
-                setApplyError(null);
-                setStepError(null);
-                setStep(step - 1);
-              }}
-            >
-              Back
-            </Button>
-          )}
-          <span className={styles.grow} />
-          {step === 3 && (
-            <span className={styles.target}>
-              {path.trim()} · {flowLabel}
-            </span>
-          )}
-          {step === 0 && (
-            <Button
-              variant="primary"
-              disabled={path.trim() === ""}
-              onClick={toProfile}
-            >
-              Continue
-            </Button>
-          )}
-          {step === 1 && (
-            <Button
-              variant="primary"
-              disabled={chosenId === null || busy}
-              onClick={() => void compare()}
-            >
-              {busy ? "Comparing…" : "Continue"}
-            </Button>
-          )}
-          {step === 2 && !nothing && (
-            <Button
-              variant="primary"
-              disabled={busy}
-              onClick={() => void preview()}
-            >
-              {busy ? "Preparing…" : "Preview changes"}
-            </Button>
-          )}
-          {step === 3 && (
-            <Button
-              variant="primary"
-              disabled={busy || changing === 0}
-              onClick={() => void apply()}
-            >
-              <Check size={14} aria-hidden="true" />
-              {busy ? "Applying…" : applyLabel}
-            </Button>
-          )}
-        </div>
       )}
     </Screen>
   );

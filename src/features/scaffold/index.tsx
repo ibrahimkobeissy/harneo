@@ -12,7 +12,7 @@ import {
   scaffoldCheck,
   scaffoldPlan,
 } from "../../lib/ipc";
-import { Button, Callout, Screen, Stepper } from "../../ui";
+import { Button, Callout, Screen, Stepper, WizardActions } from "../../ui";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";
@@ -160,12 +160,70 @@ export function ScaffoldScreen() {
   const fileCount = plan?.writes.length ?? 0;
   const label = profile ? `${profile.name} v${profile.version}` : "";
 
+  const foot =
+    step < 3 ? (
+      <WizardActions
+        back={
+          step > 0 ? (
+            <Button
+              disabled={applying || planning}
+              onClick={() => {
+                setApplyError(null);
+                setStep(step - 1);
+              }}
+            >
+              Back
+            </Button>
+          ) : undefined
+        }
+        note={
+          step === 2 ? (
+            <>
+              {path.trim()} · {label}
+            </>
+          ) : undefined
+        }
+      >
+        {step === 0 && (
+          <Button
+            variant="primary"
+            disabled={path.trim() === "" || checking}
+            onClick={() => void checkFolder()}
+          >
+            {checking ? "Checking…" : "Continue"}
+          </Button>
+        )}
+        {step === 1 && (
+          <Button
+            variant="primary"
+            disabled={profileId === null || planning}
+            onClick={() => void preview()}
+          >
+            {planning ? "Preparing…" : "Continue"}
+          </Button>
+        )}
+        {step === 2 && (
+          <Button
+            variant="primary"
+            disabled={applying || fileCount === 0}
+            onClick={() => void write()}
+          >
+            <Download size={14} aria-hidden="true" />
+            {applying
+              ? "Writing…"
+              : `Write ${fileCount} ${fileCount === 1 ? "file" : "files"}`}
+          </Button>
+        )}
+      </WizardActions>
+    ) : undefined;
+
   return (
     <Screen
       title="Scaffold project"
       narrow
       crumb={crumb}
       toolbar={<Stepper steps={steps} at={step} />}
+      foot={foot}
     >
       {step === 0 && (
         <FolderStep
@@ -219,58 +277,6 @@ export function ScaffoldScreen() {
           onOpen={() => void navigate(`/projects/${report.projectId}`)}
           onAgain={again}
         />
-      )}
-
-      {step < 3 && (
-        <div className={styles.foot}>
-          {step > 0 && (
-            <Button
-              disabled={applying || planning}
-              onClick={() => {
-                setApplyError(null);
-                setStep(step - 1);
-              }}
-            >
-              Back
-            </Button>
-          )}
-          <span className={styles.grow} />
-          {step === 2 && (
-            <span className={styles.target}>
-              {path.trim()} · {label}
-            </span>
-          )}
-          {step === 0 && (
-            <Button
-              variant="primary"
-              disabled={path.trim() === "" || checking}
-              onClick={() => void checkFolder()}
-            >
-              {checking ? "Checking…" : "Continue"}
-            </Button>
-          )}
-          {step === 1 && (
-            <Button
-              variant="primary"
-              disabled={profileId === null || planning}
-              onClick={() => void preview()}
-            >
-              {planning ? "Preparing…" : "Continue"}
-            </Button>
-          )}
-          {step === 2 && (
-            <Button
-              variant="primary"
-              disabled={applying || fileCount === 0}
-              onClick={() => void write()}
-            >
-              <Download size={14} aria-hidden="true" />
-              {applying
-                ? "Writing…"
-                : `Write ${fileCount} ${fileCount === 1 ? "file" : "files"}`}
-            </Button>
-          )}
-        </div>
       )}
     </Screen>
   );

@@ -15,7 +15,7 @@ import {
   tagsList,
 } from "../../lib/ipc";
 import { resolveNames } from "../../lib/names";
-import { Button, Screen, useProposals } from "../../ui";
+import { Button, Screen, useProposals, WizardActions } from "../../ui";
 import { ChooseStep, Scanning } from "./ChooseStep";
 import { Done } from "./Done";
 import {
@@ -318,8 +318,72 @@ export function ImportScreen() {
     );
   }
 
+  const foot = (
+    <WizardActions
+      back={
+        step > 0 ? (
+          <Button onClick={back} disabled={importing}>
+            Back
+          </Button>
+        ) : (
+          firstRun && (
+            <Button variant="ghost" onClick={() => void navigate("/library")}>
+              Skip for now
+            </Button>
+          )
+        )
+      }
+    >
+      {step === 0 && (
+        <Button
+          variant="primary"
+          disabled={!canContinue}
+          onClick={() => void scan()}
+        >
+          Continue
+        </Button>
+      )}
+      {step === 1 && (
+        <Button
+          variant="primary"
+          disabled={scanning || chosen.length === 0}
+          onClick={() => setStep(2)}
+        >
+          Continue
+        </Button>
+      )}
+      {step === 2 && detection.phase.kind === "running" && (
+        <Button variant="ghost" onClick={detection.skip}>
+          Skip detection
+        </Button>
+      )}
+      {step === 2 && (
+        <Button
+          variant="primary"
+          disabled={
+            importing ||
+            chosen.length === 0 ||
+            detection.phase.kind === "running"
+          }
+          onClick={() => void runImport()}
+        >
+          <Download size={14} aria-hidden="true" />
+          Import {count}
+          {linkCount > 0 &&
+            ` and ${linkCount} link${linkCount === 1 ? "" : "s"}`}
+        </Button>
+      )}
+    </WizardActions>
+  );
+
   return (
-    <Screen title={title} narrow crumb={crumb} toolbar={<Stepper at={step} />}>
+    <Screen
+      title={title}
+      narrow
+      crumb={crumb}
+      toolbar={<Stepper at={step} />}
+      foot={foot}
+    >
       {firstRun && step === 0 && (
         <div className={styles.callout} data-tone="info">
           <Info size={16} aria-hidden="true" />
@@ -421,60 +485,6 @@ export function ImportScreen() {
           />
         </>
       )}
-
-      <div className={styles.foot}>
-        {step > 0 ? (
-          <Button onClick={back} disabled={importing}>
-            Back
-          </Button>
-        ) : (
-          firstRun && (
-            <Button variant="ghost" onClick={() => void navigate("/library")}>
-              Skip for now
-            </Button>
-          )
-        )}
-        <span className={styles.grow} />
-        {step === 0 && (
-          <Button
-            variant="primary"
-            disabled={!canContinue}
-            onClick={() => void scan()}
-          >
-            Continue
-          </Button>
-        )}
-        {step === 1 && (
-          <Button
-            variant="primary"
-            disabled={scanning || chosen.length === 0}
-            onClick={() => setStep(2)}
-          >
-            Continue
-          </Button>
-        )}
-        {step === 2 && detection.phase.kind === "running" && (
-          <Button variant="ghost" onClick={detection.skip}>
-            Skip detection
-          </Button>
-        )}
-        {step === 2 && (
-          <Button
-            variant="primary"
-            disabled={
-              importing ||
-              chosen.length === 0 ||
-              detection.phase.kind === "running"
-            }
-            onClick={() => void runImport()}
-          >
-            <Download size={14} aria-hidden="true" />
-            Import {count}
-            {linkCount > 0 &&
-              ` and ${linkCount} link${linkCount === 1 ? "" : "s"}`}
-          </Button>
-        )}
-      </div>
     </Screen>
   );
 }
