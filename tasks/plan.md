@@ -472,3 +472,4 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#160](https://github.com/ibrahimkobeissy/harneo/issues/160) Audit: honest guidance is not prompt injection
 - [#161](https://github.com/ibrahimkobeissy/harneo/issues/161) Security audit phase 2: Claude confirms each finding, non-threats are dropped
 - [#162](https://github.com/ibrahimkobeissy/harneo/issues/162) Security audit phase 2 on screen: setting, phase-1-only warning, progress and dismissed findings
+- [#163](https://github.com/ibrahimkobeissy/harneo/issues/163) View an artifact's files in the app: rendered Markdown, highlighted code, or open in the default editor
