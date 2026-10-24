@@ -27,11 +27,30 @@ To update, `git pull` and run the two build commands again. To just try the app 
 
 ## Use
 
-1. **Import.** Point Harneo at a folder (a repo, or `~/.claude/`) or paste a git URL, then tick the artifacts to keep. Each one gets a security audit and a trust score on arrival.
+![The library: every imported artifact with its type, tags, trust score and usage](docs/screenshots/library.png)
+
+1. **Import.** Point Harneo at a folder (a repo, or `~/.claude/`) or paste a git URL, then tick the artifacts to keep. Each one gets a security audit and a trust score on arrival, and risky ones start excluded.
+
+   ![Import: the audit holds back a skill that pipes a download into a shell](docs/screenshots/import.png)
+
 2. **Library.** Browse what you imported by type, bundle or source, with tags, collections, usage and an *outdated* flag. Only what you imported is there.
 3. **Profiles.** Pick artifacts (and their bundles), one Settings template and MCP servers to make a profile. Clone it to make a lighter or heavier one; export it as one file to share.
-4. **Scaffold or refit.** Scaffold writes a profile into an empty folder. Refit an existing project chooses keep, replace or delete per item. Both show a dry-run preview first, back up every replaced file and write a `HARNESS.md`.
+
+   ![A profile: pick from the library and see the files it will produce](docs/screenshots/profile.png)
+
+4. **Scaffold or refit.** Scaffold writes a profile into an empty folder. Refit an existing project chooses keep, replace or delete per item, and warns in red when a replaced file loses the project's own content. Both show a dry-run preview first, back up every replaced file and write a `HARNESS.md`.
+
+   ![Scaffold: a dry-run preview of every file before anything is written](docs/screenshots/scaffold.png)
+
+   ![Refit: the project's harness compared with the profile, item by item](docs/screenshots/refit-compare.png)
+
 5. **Live with it.** **Projects** shows drift from the profile (re-apply, or promote the change to the library). **Cleanup** suggests unused or duplicated artifacts. Removing a profile from a project restores its originals.
+
+   ![Projects: each registered project with its profile and drift](docs/screenshots/projects.png)
+
+   ![Drift: a local edit in a project, with re-apply or promote to library](docs/screenshots/drift.png)
+
+The screenshots use dummy data.
 
 Optional: in **Settings → Claude**, *Detect bundles and tags at import* asks your own `claude` CLI to propose bundles and tags. It is off by default, because it sends artifact text to Claude on your plan.
 
