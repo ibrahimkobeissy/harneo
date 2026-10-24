@@ -318,9 +318,9 @@ fn insert_profile(
     Ok(id)
 }
 
-/// Gives every profile whose current version holds `artifact` a new version without it. Runs
-/// inside the library's removal transaction.
-pub(crate) fn remove_artifact(conn: &Connection, artifact: &str) -> Result<()> {
+/// Gives every profile whose current version holds any of `artifacts` one new version without
+/// them. Runs inside the library's removal transaction.
+pub(crate) fn remove_artifacts(conn: &Connection, artifacts: &[&str]) -> Result<()> {
     let ids = conn
         .prepare("SELECT id FROM profiles ORDER BY id")?
         .query_map([], |r| r.get::<_, ProfileId>(0))?
@@ -329,8 +329,9 @@ pub(crate) fn remove_artifact(conn: &Connection, artifact: &str) -> Result<()> {
     for id in ids {
         let version = row(conn, id)?.current_version;
         let spec = spec_of(conn, id, version)?;
-        if spec.mentions(artifact) {
-            insert_version(conn, id, version + 1, &spec.without(artifact), at)?;
+        if artifacts.iter().any(|a| spec.mentions(a)) {
+            let pruned = artifacts.iter().fold(spec, |s, a| s.without(a));
+            insert_version(conn, id, version + 1, &pruned, at)?;
         }
     }
     Ok(())

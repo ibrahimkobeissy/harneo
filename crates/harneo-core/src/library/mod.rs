@@ -597,8 +597,8 @@ impl Library {
         }
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
+            crate::profiles::remove_artifacts(&tx, &unique)?;
             for id in &unique {
-                crate::profiles::remove_artifact(&tx, id)?;
                 if !records::delete(&tx, id)? {
                     return Err(Error::NotInLibrary {
                         id: (*id).to_owned(),

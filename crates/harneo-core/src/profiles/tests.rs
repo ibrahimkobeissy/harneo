@@ -339,7 +339,10 @@ fn removing_many_removes_only_those_and_rolls_back_on_failure() -> TestResult {
     assert!(f.id(ArtifactKind::Skill, "a").is_err());
     assert!(f.id(ArtifactKind::Skill, "b").is_err());
     assert_eq!(f.id(ArtifactKind::Agent, "helper")?, helper);
-    assert!(f.library.profile(id, None)?.spec.items.is_empty());
+    let view = f.library.profile(id, None)?;
+    assert!(view.spec.items.is_empty());
+    // One bulk delete is one new version of each profile, not one per artifact.
+    assert_eq!(view.current_version, 2);
     Ok(())
 }
 
