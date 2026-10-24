@@ -202,7 +202,14 @@ impl PlaintextSecrets {
 
     fn scan_lines(&self, file: &InputFile, out: &mut Vec<Finding>) {
         let assignments = !file.is_markdown() && !file.is_mcp_definition();
+        let markup = is_markup_path(&file.path);
+        let mut tag = TagState::default();
         for line in file.lines() {
+            let spans = if markup {
+                tag.scan(line.text)
+            } else {
+                Vec::new()
+            };
             let mut hits = shape_hits(line.text);
             let mut families: Vec<&'static str> = Vec::new();
             for h in &hits {
@@ -212,6 +219,10 @@ impl PlaintextSecrets {
             }
             if assignments {
                 for (start, end) in literal_assignments(line.text) {
+                    // An attribute inside a JSX/HTML tag is not an assignment.
+                    if spans.iter().any(|&(a, b)| start >= a && start < b) {
+                        continue;
+                    }
                     families.push("literal value in a secret-named variable");
                     hits.push(Hit {
                         family: "assignment",
@@ -248,6 +259,67 @@ impl PlaintextSecrets {
                 format!("\"{key}\": \"{REDACTED}\""),
             ));
         }
+    }
+}
+
+/// Files whose `<tag attr=value>` attributes are markup, not variable assignments.
+fn is_markup_path(path: &str) -> bool {
+    let lower = path.to_ascii_lowercase();
+    [".tsx", ".jsx", ".html", ".htm", ".vue", ".svelte"]
+        .iter()
+        .any(|ext| lower.ends_with(ext))
+}
+
+/// Tracks, across the lines of a markup file, whether the scan is inside an open `<Tag ...`.
+#[derive(Default)]
+struct TagState {
+    in_tag: bool,
+    brace: u32,
+    quote: Option<char>,
+}
+
+impl TagState {
+    /// Byte ranges of `line` that lie inside a tag (from `<Name` or the line start, to `>`).
+    fn scan(&mut self, line: &str) -> Vec<(usize, usize)> {
+        let mut spans = Vec::new();
+        let mut from = if self.in_tag { Some(0) } else { None };
+        let mut prev = ' ';
+        let mut chars = line.char_indices().peekable();
+        while let Some((i, c)) = chars.next() {
+            if self.in_tag {
+                if let Some(q) = self.quote {
+                    if c == q {
+                        self.quote = None;
+                    }
+                } else if self.brace > 0 {
+                    match c {
+                        '{' => self.brace += 1,
+                        '}' => self.brace -= 1,
+                        _ => {}
+                    }
+                } else {
+                    match c {
+                        '"' | '\'' => self.quote = Some(c),
+                        '{' => self.brace = 1,
+                        '>' if prev != '=' => {
+                            self.in_tag = false;
+                            if let Some(a) = from.take() {
+                                spans.push((a, i));
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            } else if c == '<' && chars.peek().is_some_and(|(_, n)| n.is_ascii_alphabetic()) {
+                self.in_tag = true;
+                from = Some(i);
+            }
+            prev = c;
+        }
+        if let Some(a) = from {
+            spans.push((a, line.len()));
+        }
+        spans
     }
 }
 
@@ -543,6 +615,25 @@ mod tests {
         assert_eq!(secrets(&url, "a.js", ArtifactKind::Skill).len(), 1);
         let assign = "API_TOKEN=\"s3cr3t-value-123\"\n";
         assert_eq!(secrets(assign, "a.sh", ArtifactKind::Skill).len(), 1);
+    }
+
+    #[test]
+    fn jsx_attributes_are_not_assignments_but_tokens_and_variables_stay_found() {
+        let tsx = |t: &str| secrets(t, "register.tsx", ArtifactKind::Plugin);
+        let tail = "<Button plain dimColor label={isUnrolled('mcp') ? '- show less' : `+ ${mcpList.hidden} more`} onPress={unroll('mcp')} />\n";
+        for key in ["key=\"mcp-toggle\"", "key={'mcp'}", "key=mcp-toggle-id"] {
+            let text = format!("<Button {key} {tail}");
+            assert!(tsx(&text).is_empty(), "{key}");
+        }
+        let multi = "<Button\n  key=\"mcp-toggle-1\"\n  id=\"unroll-button\"\n/>\n";
+        assert!(tsx(multi).is_empty());
+        let token = ["gh", "p_", TAIL].concat();
+        let shaped = format!("<Comp token=\"{token}\" />\n");
+        assert_eq!(tsx(&shaped).len(), 1);
+        let var = "const API_TOKEN = \"s3cr3t-value-123\";\nconst x = <A/>;\nAPI_TOKEN=\"s3cr3t-value-123\"\n";
+        assert_eq!(tsx(var).len(), 1);
+        let after = "<A id=\"x\" /> ; API_TOKEN=\"s3cr3t-value-123\"\n";
+        assert_eq!(tsx(after).len(), 1);
     }
 
     #[test]
