@@ -33,7 +33,9 @@ To update, `git pull` and run the two build commands again. To just try the app 
 
    ![Import: the audit holds back a skill that pipes a download into a shell](docs/screenshots/import.png)
 
-2. **Library.** Browse what you imported by type, bundle or source, with tags, collections, usage and an *outdated* flag. Only what you imported is there.
+2. **Library.** Browse what you imported by type, bundle or source, with tags, collections, usage and an *outdated* flag. Only what you imported is there. **Security** sums up the audit: trust scores, findings by severity, and what each artifact can reach (network, shell, environment variables, files).
+
+   ![Security: trust scores, findings and what each artifact can reach](docs/screenshots/security.png)
 3. **Profiles.** Pick artifacts (and their bundles), one Settings template and MCP servers to make a profile. Clone it to make a lighter or heavier one; export it as one file to share.
 
    ![A profile: pick from the library and see the files it will produce](docs/screenshots/profile.png)
@@ -49,6 +51,8 @@ To update, `git pull` and run the two build commands again. To just try the app 
    ![Projects: each registered project with its profile and drift](docs/screenshots/projects.png)
 
    ![Drift: a local edit in a project, with re-apply or promote to library](docs/screenshots/drift.png)
+
+   ![Cleanup: risky, unused, repeated and duplicate artifacts, each with a fix](docs/screenshots/cleanup.png)
 
 The screenshots use dummy data.
 
