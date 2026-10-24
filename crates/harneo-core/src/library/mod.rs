@@ -17,6 +17,9 @@ mod audits_tests;
 mod collections;
 #[cfg(test)]
 mod collections_tests;
+pub(crate) mod confirm;
+#[cfg(test)]
+mod confirm_tests;
 mod copies;
 #[cfg(test)]
 mod copies_tests;
@@ -56,6 +59,9 @@ use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
 pub use collections::{Collection, CollectionKind};
+pub use confirm::{
+    ArtifactConfirmation, ConfirmJob, ConfirmOutcome, ConfirmProgress, ConfirmScope,
+};
 pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
 pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
@@ -525,6 +531,8 @@ impl Library {
         let options = ScanOptions::default();
         let artifacts_dir = self.store.artifacts_dir();
         let now = records::now();
+        let enabled = records::confirm_enabled(&self.store.conn)?;
+        let model = crate::bundles::model_of(self.settings_get("bundles.model")?.as_ref());
         let mut report = ReauditReport::default();
         let tx = self.store.conn.transaction()?;
         for (id, json) in rows {
@@ -533,17 +541,26 @@ impl Library {
                 continue;
             }
             let artifact: Artifact = serde_json::from_str(&json)?;
-            let (view, to_source) = copy::stored_view(&artifact)?;
-            let mut fresh = audit::audit_stored(&view, &folder, &options);
-            for finding in &mut fresh.findings {
-                if let Some(source) = to_source.get(&finding.file) {
-                    finding.file.clone_from(source);
-                }
-            }
+            let phase1 = confirm::phase1_of(&artifact, &folder, &options)?;
+            let candidates: HashSet<audit::Finding> =
+                phase1.audit.findings.iter().cloned().collect();
+            let reach = phase1.audit.reach.clone();
+            // Verdicts already cached apply at once; the rest waits for Claude (`pending`).
+            let fresh = if enabled {
+                let cache = confirm::cached(&tx, &phase1.cands)?;
+                audit::confirm::resolve_cached(phase1.audit, &phase1.cands, &cache, &model, now)
+            } else {
+                audit::confirm::off(phase1.audit)
+            };
             let before = records::load_audit(&tx, &id)?.map(|(a, _)| a);
             records::update_audit(&tx, &id, &fresh, now)?;
             report.audited += 1;
-            if before.as_ref() != Some(&fresh) {
+            let same = before.as_ref().is_some_and(|b| {
+                b.score == fresh.score
+                    && b.reach == reach
+                    && confirm::candidate_set(b) == candidates
+            });
+            if !same {
                 report.changed += 1;
             }
         }

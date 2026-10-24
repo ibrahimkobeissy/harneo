@@ -9,15 +9,16 @@
 
 mod claude_cli;
 #[cfg(test)]
-mod claude_cli_tests;
+pub(crate) mod claude_cli_tests;
 mod detect;
 #[cfg(test)]
 mod detect_tests;
 #[cfg(test)]
 mod links_tests;
 
+pub(crate) use claude_cli::run as run_claude;
 pub use claude_cli::{cli_status, ClaudeConfig, CliStatus, DEFAULT_MODEL};
-pub(crate) use detect::store_accepted;
+pub(crate) use detect::{model_of, store_accepted};
 pub use detect::{
     AcceptedLink, Confidence, DetectProgress, Detection, DetectionJob, ProposedLink, TagSuggestion,
 };

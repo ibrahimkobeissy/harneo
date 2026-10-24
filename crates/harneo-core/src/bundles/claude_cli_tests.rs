@@ -11,14 +11,14 @@ use super::*;
 type TestResult = std::result::Result<(), Box<dyn std::error::Error>>;
 
 /// Writes an executable shell script and returns its path.
-pub(super) fn script(dir: &Path, name: &str, body: &str) -> std::io::Result<PathBuf> {
+pub(crate) fn script(dir: &Path, name: &str, body: &str) -> std::io::Result<PathBuf> {
     let path = dir.join(name);
     fs::write(&path, format!("#!/bin/sh\n{body}\n"))?;
     fs::set_permissions(&path, fs::Permissions::from_mode(0o755))?;
     Ok(path)
 }
 
-pub(super) fn config(program: &Path) -> ClaudeConfig {
+pub(crate) fn config(program: &Path) -> ClaudeConfig {
     ClaudeConfig {
         program: program.into(),
         timeout: Duration::from_secs(20),

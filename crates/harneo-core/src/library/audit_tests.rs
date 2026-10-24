@@ -92,17 +92,21 @@ fn preview_carries_the_audit_and_import_keeps_it_across_a_reopen() -> TestResult
     assert_eq!(notes.audit.findings[0].file, "skills/notes/SKILL.md");
     assert_eq!(notes.audit.score, 85);
 
+    // Stored with phase 2 pending: phase 2 is on by default and has not run.
+    let stored = Audit {
+        confirmation: Some(crate::audit::Confirmation::of(
+            crate::audit::ConfirmStatus::Pending,
+        )),
+        ..notes.audit.clone()
+    };
     let detail = s.library.detail(&notes.id)?;
-    assert_eq!(detail.audit.as_ref(), Some(&notes.audit));
+    assert_eq!(detail.audit.as_ref(), Some(&stored));
     assert!(detail.audited_at.is_some());
 
     let data = s.data.path().to_path_buf();
     drop(s.library);
     let reopened = Library::open(&data)?;
-    assert_eq!(
-        reopened.detail(&notes.id)?.audit.as_ref(),
-        Some(&notes.audit)
-    );
+    assert_eq!(reopened.detail(&notes.id)?.audit.as_ref(), Some(&stored));
     let page = reopened.list(&Query::default())?;
     let item = page.items.iter().find(|i| i.id == notes.id).ok_or("item")?;
     assert_eq!(
@@ -459,7 +463,14 @@ fn import_stores_its_own_audit_not_the_one_in_the_preview() -> TestResult {
     s.library.import(&preview, &ids, &TagChoices::new())?;
     let id = by_name(&preview, "evil")?.id.clone();
     let stored = s.library.detail(&id)?.audit.ok_or("audit")?;
-    assert_eq!(stored, real);
+    // Phase 2 is on and has not run yet.
+    let pending = Audit {
+        confirmation: Some(crate::audit::Confirmation::of(
+            crate::audit::ConfirmStatus::Pending,
+        )),
+        ..real
+    };
+    assert_eq!(stored, pending);
     assert!(stored.score < 100);
     assert!(!stored.findings.is_empty());
     Ok(())

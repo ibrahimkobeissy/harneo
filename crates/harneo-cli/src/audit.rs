@@ -38,24 +38,43 @@ const SEVERITIES: [Severity; 4] = [
 ];
 const TIERS: [Tier; 4] = [Tier::Trusted, Tier::Review, Tier::Risky, Tier::Dangerous];
 
-pub fn run(path: &Path, json: bool, include_managed: bool) -> anyhow::Result<()> {
+/// Audits the folder. Phase 2 (Claude confirms each finding) follows the library's
+/// `audit.confirmWithClaude` setting, and `claude` false skips it for this run. Without a
+/// library, phase 2 is on by default and nothing is cached.
+pub fn run(path: &Path, json: bool, include_managed: bool, claude: bool) -> anyhow::Result<()> {
     let options = ScanOptions {
         include_managed,
         ..ScanOptions::default()
     };
     let report = ClaudeAdapter.scan(path, &options)?;
+    let library = if claude {
+        crate::profiles::open_library()
+            .ok()
+            .map(|(library, _)| library)
+    } else {
+        None
+    };
     let entries: Vec<Entry> = report
         .artifacts
         .iter()
-        .map(|a: &Artifact| Entry {
-            artifact: Who {
-                kind: label(&a.kind),
-                name: &a.name,
-                path: &a.path,
-            },
-            audit: ClaudeAdapter.audit(a, path, &options),
+        .map(|a: &Artifact| {
+            let audit = match &library {
+                Some(library) => library.audit_confirmed(a, path, &options, true)?,
+                None if claude => {
+                    harneo_core::audit::confirm::audit_without_library(a, path, &options)
+                }
+                None => harneo_core::audit::confirm::off(ClaudeAdapter.audit(a, path, &options)),
+            };
+            Ok(Entry {
+                artifact: Who {
+                    kind: label(&a.kind),
+                    name: &a.name,
+                    path: &a.path,
+                },
+                audit,
+            })
         })
-        .collect();
+        .collect::<anyhow::Result<_>>()?;
     if json {
         let text = serde_json::to_string_pretty(&entries).context("cannot serialize the audit")?;
         println!("{text}");
@@ -117,6 +136,23 @@ fn render(entries: &[Entry]) -> String {
         if a.reach.protects > 0 {
             let _ = writeln!(out, "  protects {} credential paths", a.reach.protects);
         }
+        if !a.dismissed.is_empty() {
+            let _ = writeln!(out, "  dismissed by Claude: {}", a.dismissed.len());
+            for d in &a.dismissed {
+                let place = d.finding.line.map_or_else(
+                    || d.finding.file.clone(),
+                    |l| format!("{}:{l}", d.finding.file),
+                );
+                let _ = writeln!(out, "    {} {place}: {}", d.finding.rule, d.reason);
+            }
+        }
+        if let Some(c) = &a.confirmation {
+            let _ = write!(out, "  phase 2: {}", label(&c.status));
+            if let Some(detail) = &c.detail {
+                let _ = write!(out, " ({detail})");
+            }
+            out.push('\n');
+        }
         out.push('\n');
     }
     out.push_str(&summary(entries));
@@ -176,6 +212,8 @@ mod tests {
                     network: vec!["x".into()],
                     ..Reach::default()
                 },
+                dismissed: Vec::new(),
+                confirmation: None,
             },
         }];
         let text = render(&entries);

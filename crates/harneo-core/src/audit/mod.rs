@@ -8,6 +8,9 @@
 //!
 //! Rule ids are stable once released (the library stores them), so never rename one.
 
+pub mod confirm;
+#[cfg(test)]
+mod confirm_tests;
 pub mod input;
 mod protect;
 mod reach;
@@ -74,7 +77,7 @@ impl Tier {
 }
 
 /// One thing a rule found. `evidence` is a short excerpt and never holds a secret value.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct Finding {
@@ -134,8 +137,70 @@ pub struct Audit {
     /// 0 to 100; see [`score`].
     pub score: u8,
     pub tier: Tier,
+    /// The findings that count: every phase 1 finding that phase 2 did not dismiss. The score
+    /// is computed from these only.
     pub findings: Vec<Finding>,
     pub reach: Reach,
+    /// Findings Claude judged not to be a threat, with its reason. They stay auditable here
+    /// and count for nothing: not in the score, not in the findings counts.
+    #[serde(default)]
+    pub dismissed: Vec<DismissedFinding>,
+    /// Where phase 2 (Claude's confirmation) stands; `None` for a phase 1 result that was never
+    /// stored (an import preview).
+    #[serde(default)]
+    pub confirmation: Option<Confirmation>,
+}
+
+/// A finding Claude judged not to be a threat.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct DismissedFinding {
+    pub finding: Finding,
+    /// Claude's one-sentence reason.
+    pub reason: String,
+}
+
+/// How far phase 2 got for one artifact.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum ConfirmStatus {
+    /// Phase 2 is off in Settings: the findings are phase 1's.
+    Off,
+    /// Waiting for Claude.
+    Pending,
+    /// The `claude` CLI is missing: every finding is kept.
+    Unavailable,
+    /// A call failed, timed out or answered badly: the findings without a verdict are kept.
+    Failed,
+    /// Every finding has a verdict (or needed none).
+    Confirmed,
+}
+
+/// The phase 2 state stored with an audit.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct Confirmation {
+    pub status: ConfirmStatus,
+    /// The model that judged; `None` when Claude was not asked.
+    pub model: Option<String>,
+    /// Unix seconds of the run; `None` while pending or off.
+    pub at: Option<i64>,
+    /// Why a run was `unavailable` or `failed`, cut short.
+    pub detail: Option<String>,
+}
+
+impl Confirmation {
+    pub fn of(status: ConfirmStatus) -> Self {
+        Self {
+            status,
+            model: None,
+            at: None,
+            detail: None,
+        }
+    }
 }
 
 /// A check over an artifact's files. Pure: it reads only the [`AuditInput`], never panics and
@@ -204,6 +269,8 @@ pub fn audit_input(input: &AuditInput) -> Audit {
         tier: Tier::from_score(score),
         findings,
         reach: reach::infer(input),
+        dismissed: Vec::new(),
+        confirmation: None,
     }
 }
 
@@ -382,6 +449,8 @@ mod tests {
             tier: Tier::Trusted,
             findings: vec![f("x", Severity::High)],
             reach: Reach::default(),
+            dismissed: Vec::new(),
+            confirmation: None,
         };
         let v = serde_json::to_value(&a)?;
         assert_eq!(

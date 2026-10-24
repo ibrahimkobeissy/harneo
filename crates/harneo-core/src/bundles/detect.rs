@@ -418,7 +418,7 @@ fn tag_names(conn: &Connection) -> Result<Vec<String>> {
 }
 
 /// The model the user picked in Settings: letters, digits and `.-_` only (not starting with a dash), else the default.
-fn model_of(value: Option<&Value>) -> String {
+pub(crate) fn model_of(value: Option<&Value>) -> String {
     value
         .and_then(Value::as_str)
         .map(str::trim)

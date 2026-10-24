@@ -264,8 +264,32 @@ DROP TABLE backups_old;
 DROP TABLE projects_old;
 ";
 
+/// Version 8: audit phase 2 (Claude's confirmation). `dismissed` is the JSON list of findings
+/// Claude judged not to be a threat, `confirmation` the phase 2 status, model and time.
+/// `audit_verdicts` caches each verdict by a hash of (rule, file, line text, context), so an
+/// unchanged finding never asks Claude again.
+const V8: &str = "
+ALTER TABLE artifacts ADD COLUMN dismissed    TEXT;
+ALTER TABLE artifacts ADD COLUMN confirmation TEXT;
+
+CREATE TABLE audit_verdicts (
+    key        TEXT PRIMARY KEY,
+    threat     INTEGER NOT NULL CHECK (threat IN (0, 1)),
+    reason     TEXT NOT NULL,
+    model      TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+) STRICT;
+
+UPDATE artifacts SET
+    dismissed = '[]',
+    confirmation = CASE WHEN findings = '[]'
+        THEN '{\"status\":\"confirmed\",\"model\":null,\"at\":null,\"detail\":null}'
+        ELSE '{\"status\":\"pending\",\"model\":null,\"at\":null,\"detail\":null}' END
+    WHERE findings IS NOT NULL;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -556,6 +580,47 @@ mod tests {
             0,
             "upstream goes with the artifact"
         );
+    }
+
+    /// A version 7 database with audited artifacts migrates to version 8: findings stay, and each
+    /// artifact gets a phase 2 status (pending with findings, confirmed without).
+    #[test]
+    fn a_v7_database_migrates_to_audit_phase_two() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v7 db");
+            for sql in [V1, V2, V3, V4, V5, V6, V7] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location) VALUES ('s', 'local', '/x');
+                 INSERT INTO artifacts (id, source_id, kind, name, source_path, imported_at,
+                     artifact, replaced_secret_keys, trust_score, tier, findings, reach, audited_at)
+                 VALUES ('a', 's', 'skill', 'a', 'a', 1, '{}', '[]', 75, 'review', '[{}]', '{}', 1),
+                        ('b', 's', 'skill', 'b', 'b', 1, '{}', '[]', 100, 'trusted', '[]', '{}', 1),
+                        ('c', 's', 'skill', 'c', 'c', 1, '{}', '[]', NULL, NULL, NULL, NULL, NULL);
+                 PRAGMA user_version = 7;",
+            )
+            .expect("v7 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let status = |id: &str| -> Option<String> {
+            store
+                .conn
+                .query_row(
+                    "SELECT json_extract(confirmation, '$.status') FROM artifacts WHERE id = ?1",
+                    [id],
+                    |r| r.get(0),
+                )
+                .expect("row")
+        };
+        assert_eq!(status("a").as_deref(), Some("pending"));
+        assert_eq!(status("b").as_deref(), Some("confirmed"));
+        assert_eq!(status("c"), None, "never audited stays so");
+        assert_eq!(count(&store, "audit_verdicts"), 0);
     }
 
     #[test]

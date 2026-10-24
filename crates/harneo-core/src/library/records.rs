@@ -9,7 +9,7 @@ use ts_rs::TS;
 
 use super::source::Source;
 use crate::artifact::Artifact;
-use crate::audit::{Audit, Reach, Tier};
+use crate::audit::{Audit, ConfirmStatus, Confirmation, DismissedFinding, Reach, Tier};
 use crate::error::Result;
 
 /// Where an artifact came from, as recorded at import.
@@ -137,8 +137,9 @@ pub(crate) fn insert_artifact(
     conn.execute(
         "INSERT INTO artifacts
             (id, source_id, kind, name, description, source_path, digest, imported_at, artifact,
-             replaced_secret_keys, trust_score, tier, findings, reach, audited_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             replaced_secret_keys, trust_score, tier, findings, reach, audited_at, dismissed,
+             confirmation)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
         params![
             id,
             source_id,
@@ -157,6 +158,8 @@ pub(crate) fn insert_artifact(
             serde_json::to_string(&audit.findings)?,
             serde_json::to_string(&audit.reach)?,
             imported_at,
+            serde_json::to_string(&audit.dismissed)?,
+            serde_json::to_string(&confirmation_of(conn, audit, imported_at)?)?,
         ],
     )?;
     Ok(())
@@ -169,11 +172,41 @@ pub(crate) fn tier_name(tier: Tier) -> Result<String> {
         .to_owned())
 }
 
+/// Whether audit phase 2 is on: the `audit.confirmWithClaude` setting, on unless it is `false`.
+pub(crate) fn confirm_enabled(conn: &Connection) -> Result<bool> {
+    let text: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            params![crate::audit::confirm::SETTING_KEY],
+            |r| r.get(0),
+        )
+        .optional()?;
+    Ok(text.as_deref().map(str::trim) != Some("false"))
+}
+
+/// The phase 2 state to store with `audit`: its own when it has one, else `off` when the
+/// setting is off, `confirmed` when there is nothing to confirm, and `pending` otherwise.
+fn confirmation_of(conn: &Connection, audit: &Audit, at: i64) -> Result<Confirmation> {
+    if let Some(own) = &audit.confirmation {
+        return Ok(own.clone());
+    }
+    Ok(if !confirm_enabled(conn)? {
+        Confirmation::of(ConfirmStatus::Off)
+    } else if audit.findings.is_empty() {
+        Confirmation {
+            at: Some(at),
+            ..Confirmation::of(ConfirmStatus::Confirmed)
+        }
+    } else {
+        Confirmation::of(ConfirmStatus::Pending)
+    })
+}
+
 /// Replaces the stored audit of `id`; false when there is no such row.
 pub(crate) fn update_audit(conn: &Connection, id: &str, audit: &Audit, at: i64) -> Result<bool> {
     let changed = conn.execute(
         "UPDATE artifacts SET trust_score = ?2, tier = ?3, findings = ?4, reach = ?5,
-                audited_at = ?6 WHERE id = ?1",
+                audited_at = ?6, dismissed = ?7, confirmation = ?8 WHERE id = ?1",
         params![
             id,
             audit.score,
@@ -181,6 +214,8 @@ pub(crate) fn update_audit(conn: &Connection, id: &str, audit: &Audit, at: i64) 
             serde_json::to_string(&audit.findings)?,
             serde_json::to_string(&audit.reach)?,
             at,
+            serde_json::to_string(&audit.dismissed)?,
+            serde_json::to_string(&confirmation_of(conn, audit, at)?)?,
         ],
     )?;
     Ok(changed > 0)
@@ -194,15 +229,37 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
         Option<String>,
         Option<String>,
         Option<i64>,
+        Option<String>,
+        Option<String>,
     );
     let row: Option<Row> = conn
         .query_row(
-            "SELECT trust_score, tier, findings, reach, audited_at FROM artifacts WHERE id = ?1",
+            "SELECT trust_score, tier, findings, reach, audited_at, dismissed, confirmation
+             FROM artifacts WHERE id = ?1",
             params![id],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                ))
+            },
         )
         .optional()?;
-    let Some((Some(score), Some(tier), Some(findings), Some(reach), Some(at))) = row else {
+    let Some((
+        Some(score),
+        Some(tier),
+        Some(findings),
+        Some(reach),
+        Some(at),
+        dismissed,
+        confirmation,
+    )) = row
+    else {
         return Ok(None);
     };
     let reach: Reach = serde_json::from_str(&reach)?;
@@ -212,6 +269,13 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
             tier: serde_json::from_value(serde_json::Value::String(tier))?,
             findings: serde_json::from_str(&findings)?,
             reach,
+            dismissed: dismissed
+                .map(|d| serde_json::from_str::<Vec<DismissedFinding>>(&d))
+                .transpose()?
+                .unwrap_or_default(),
+            confirmation: confirmation
+                .map(|c| serde_json::from_str::<Confirmation>(&c))
+                .transpose()?,
         },
         at,
     )))

@@ -45,6 +45,9 @@ enum Command {
         /// Also audit Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
         #[arg(long)]
         include_managed: bool,
+        /// Skip phase 2 for this run: do not ask Claude to confirm the findings.
+        #[arg(long)]
+        no_claude: bool,
     },
     /// List the profiles in the library.
     Profiles {
@@ -108,7 +111,8 @@ fn run() -> anyhow::Result<ExitCode> {
             path,
             json,
             include_managed,
-        } => audit::run(&path, json, include_managed)?,
+            no_claude,
+        } => audit::run(&path, json, include_managed, !no_claude)?,
     }
     Ok(ExitCode::SUCCESS)
 }
