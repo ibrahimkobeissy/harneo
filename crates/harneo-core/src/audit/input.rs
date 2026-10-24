@@ -76,6 +76,9 @@ impl InputFile {
     pub fn is_markdown(&self) -> bool {
         self.role == FileRole::Markdown
     }
+    pub fn is_json(&self) -> bool {
+        self.role == FileRole::Json
+    }
     pub fn is_settings(&self) -> bool {
         self.role == FileRole::Settings
     }

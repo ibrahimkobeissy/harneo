@@ -53,8 +53,11 @@ const URL_USERINFO: &str = r"://[^\s/@:]+:([^\s/@]+)@";
 
 /// `[export] NAME=value` in scripts and settings commands, and the spaced forms of code and
 /// config (`const NAME = "v"`, `name: "v"`): group 2 is the operator with its spaces.
-const ASSIGNMENT: &str =
-    r#"\b(?:export\s+)?([A-Za-z][A-Za-z0-9_]*)(\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s"';&|]+)"#;
+/// The operator may also be a type annotation then `=` (`password: str = "v"`, Python).
+const ASSIGNMENT: &str = r#"\b(?:export\s+)?([A-Za-z][A-Za-z0-9_]*)(\s*:\s*[A-Za-z_][A-Za-z0-9_\[\], .|]*?\s*=\s*|\s*[=:]\s*)("[^"]*"|'[^']*'|[^\s"';&|]+)"#;
+
+/// A quoted JSON key with a quoted string value, for JSON that does not parse.
+const JSON_PAIR: &str = r#""([A-Za-z][A-Za-z0-9_\-]*)"\s*:\s*"([^"]*)""#;
 
 static SHAPE_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
     SHAPES
@@ -64,6 +67,7 @@ static SHAPE_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
 });
 static URL_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(URL_USERINFO).ok());
 static ASSIGN_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(ASSIGNMENT).ok());
+static JSON_PAIR_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(JSON_PAIR).ok());
 
 /// Passwords that are obviously documentation placeholders.
 const PLACEHOLDER_WORDS: [&str; 11] = [
@@ -178,6 +182,8 @@ impl AuditRule for PlaintextSecrets {
             self.scan_lines(file, &mut out);
             if file.is_settings() || file.is_mcp_definition() {
                 self.scan_structured(file, before, &mut out);
+            } else if file.is_json() {
+                self.scan_json(file, before, &mut out);
             }
         }
         out
@@ -238,6 +244,44 @@ impl PlaintextSecrets {
             }
             let evidence = masked_evidence(line.text, &hits);
             out.push(self.finding(file, Some(line.number), &families.join(", "), evidence));
+        }
+    }
+
+    /// Secret-named keys with a literal string value in any other JSON file: by parsed value, or
+    /// by line when the file does not parse. Lines that already have a finding are skipped.
+    fn scan_json(&self, file: &InputFile, from: usize, out: &mut Vec<Finding>) {
+        let mut found: Vec<(String, Option<u32>)> = Vec::new();
+        if let Ok(value) = serde_json::from_str::<Value>(&file.text) {
+            let mut keys = Vec::new();
+            collect_json_secrets(&value, &mut keys);
+            found = keys
+                .into_iter()
+                .map(|k| {
+                    let line = secret_line(file, &k, false);
+                    (k, line)
+                })
+                .collect();
+        } else if let Some(re) = JSON_PAIR_RE.as_ref() {
+            for line in file.lines() {
+                for caps in re.captures_iter(line.text) {
+                    if let (Some(k), Some(v)) = (caps.get(1), caps.get(2)) {
+                        if json_value_is_secret(k.as_str(), v.as_str()) {
+                            found.push((k.as_str().to_owned(), Some(line.number)));
+                        }
+                    }
+                }
+            }
+        }
+        for (key, line) in found {
+            if line.is_some() && out[from..].iter().any(|f| f.line == line) {
+                continue;
+            }
+            out.push(self.finding(
+                file,
+                line,
+                &format!("`{key}` holds a literal value"),
+                format!("\"{key}\": \"{REDACTED}\""),
+            ));
         }
     }
 
@@ -342,16 +386,41 @@ fn literal_assignments(line: &str, path: &str) -> Vec<(usize, usize)> {
         if closes_open_string(line, val.start(), val.as_str()) || looks_like_expression(inner) {
             continue;
         }
-        if inner.len() < 8
-            || inner.starts_with(['$', '`', '<', '{', '%', '@', '/', '~', '.', '(', '\\'])
-            || looks_like_example(inner)
-            || !is_literal_secret(name.as_str(), inner)
-        {
+        if !literal_value_ok(name.as_str(), inner) {
             continue;
         }
         out.push((val.start(), val.end()));
     }
     out
+}
+
+/// A value long enough, not a placeholder, variable or example, under a secret-looking name.
+fn literal_value_ok(name: &str, inner: &str) -> bool {
+    inner.len() >= 8
+        && !inner.starts_with(['$', '`', '<', '{', '%', '@', '/', '~', '.', '(', '\\'])
+        && !looks_like_example(inner)
+        && is_literal_secret(name, inner)
+}
+
+/// The same check for a JSON string value, where `${VAR}` anywhere is a placeholder.
+fn json_value_is_secret(key: &str, value: &str) -> bool {
+    !looks_like_expression(value) && literal_value_ok(key, value)
+}
+
+/// Keys of every string value under a secret-named key, at any depth.
+fn collect_json_secrets(value: &Value, out: &mut Vec<String>) {
+    match value {
+        Value::Object(map) => {
+            for (key, child) in map {
+                match child {
+                    Value::String(s) if json_value_is_secret(key, s) => out.push(key.clone()),
+                    _ => collect_json_secrets(child, out),
+                }
+            }
+        }
+        Value::Array(items) => items.iter().for_each(|v| collect_json_secrets(v, out)),
+        _ => {}
+    }
 }
 
 /// Spaced `=` and every `:` form are code or config syntax, not shell: a colon only counts in
@@ -361,6 +430,10 @@ fn literal_assignments(line: &str, path: &str) -> Vec<(usize, usize)> {
 fn loose_assignment_ok(path: &str, op: &str, value: &str) -> bool {
     let lower = path.to_ascii_lowercase();
     let ext_is = |exts: &[&str]| exts.iter().any(|e| lower.ends_with(e));
+    if op.contains(':') && op.contains('=') {
+        // `name: Type = "value"`: an annotated assignment.
+        return ext_is(&[".py"]) && value.starts_with(['"', '\'']);
+    }
     if op.contains(':')
         && !ext_is(&[
             ".js", ".mjs", ".cjs", ".ts", ".tsx", ".jsx", ".py", ".rb", ".go", ".yaml", ".yml",
@@ -713,6 +786,66 @@ mod tests {
             let found = secrets(&format!("{line}\n"), path, ArtifactKind::Skill);
             assert!(found.is_empty(), "{path}: {line}");
         }
+    }
+
+    #[test]
+    fn annotated_python_assignments_are_found_and_expressions_are_not() {
+        let v = ["s3cr3t", "-value-", "123"].concat();
+        for line in [
+            format!("password: str = \"{v}\""),
+            format!("API_KEY: Final = \"{v}\""),
+            format!("token: Optional[str] = '{v}'"),
+        ] {
+            let found = secrets(&format!("{line}\n"), "a.py", ArtifactKind::Skill);
+            assert_eq!(found.len(), 1, "{line}");
+            assert_eq!(found[0].severity, Severity::Critical);
+            assert!(!serde_json::to_string(&found)
+                .unwrap_or_default()
+                .contains(&v));
+        }
+        for line in [
+            "password: str = os.environ[\"P\"]",
+            "password: str = \"\"",
+            "password: str = \"your-key-here\"",
+            "password: str = f\"${x}\"",
+        ] {
+            let found = secrets(&format!("{line}\n"), "a.py", ArtifactKind::Skill);
+            assert!(found.is_empty(), "{line}");
+        }
+    }
+
+    #[test]
+    fn quoted_key_json_secrets_are_found_anywhere_once() {
+        let v = ["s3cr3t", "-value-", "123"].concat();
+        for text in [
+            format!("{{\"api_key\": \"{v}\"}}"),
+            format!("{{\n  \"a\": {{\"b\": [{{\"api_key\": \"{v}\"}}]}}\n}}"),
+            // Does not parse (trailing comma): found by line.
+            format!("{{\n  \"api_key\": \"{v}\",\n}}"),
+        ] {
+            let found = secrets(&text, "config.json", ArtifactKind::Skill);
+            assert_eq!(found.len(), 1, "{text}");
+            assert_eq!(found[0].severity, Severity::Critical);
+            assert!(!serde_json::to_string(&found)
+                .unwrap_or_default()
+                .contains(&v));
+        }
+        for text in [
+            "{\"api_key\": \"${API_KEY}\"}",
+            "{\"api_key\": \"\"}",
+            "{\"api_key\": \"your-key-here\"}",
+            "{\"name\": \"some-long-plain-value\"}",
+            "{\"api_key\": 12345678901}",
+        ] {
+            assert!(
+                secrets(text, "config.json", ArtifactKind::Skill).is_empty(),
+                "{text}"
+            );
+        }
+        // A shape on the same line is reported once.
+        let gh = ["gh", "p_", TAIL].concat();
+        let text = format!("{{\n  \"github_token\": \"{gh}\"\n}}");
+        assert_eq!(secrets(&text, "config.json", ArtifactKind::Skill).len(), 1);
     }
 
     #[test]
