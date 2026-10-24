@@ -1473,6 +1473,29 @@ mod drift_tests {
     use super::*;
 
     #[test]
+    fn library_read_file_returns_text_and_refuses_paths_outside_the_copy(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let library = Library::open(dir.path())?;
+        let copy = dir.path().join("library").join("artifacts").join("abc");
+        std::fs::create_dir_all(&copy)?;
+        std::fs::write(copy.join("SKILL.md"), "# Hi")?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(library)));
+        let state = app.state::<LibraryState>();
+        let view = library_read_file(state.clone(), "abc".into(), "SKILL.md".into())?;
+        assert_eq!(
+            view,
+            harneo_core::library::FileView::Text {
+                text: "# Hi".into()
+            }
+        );
+        let refused = library_read_file(state, "abc".into(), "../x".into());
+        assert!(refused.is_err());
+        Ok(())
+    }
+
+    #[test]
     fn drift_calls_run_on_the_blocking_pool_and_report_errors_as_text(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let dir = tempfile::tempdir()?;

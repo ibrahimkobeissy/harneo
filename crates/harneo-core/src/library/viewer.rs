@@ -67,17 +67,12 @@ impl Library {
         let real = self.artifact_file(id, path)?;
         let file = fs::File::open(&real).map_err(|e| io_error(&real, e))?;
         let size = file.metadata().map_err(|e| io_error(&real, e))?.len();
-        if size > MAX_VIEW_BYTES {
-            return Ok(FileView::TooLarge { size: size as f64 });
-        }
         let mut bytes = Vec::new();
         file.take(MAX_VIEW_BYTES + 1)
             .read_to_end(&mut bytes)
             .map_err(|e| io_error(&real, e))?;
         if bytes.len() as u64 > MAX_VIEW_BYTES {
-            return Ok(FileView::TooLarge {
-                size: bytes.len() as f64,
-            });
+            return Ok(FileView::TooLarge { size: size as f64 });
         }
         Ok(match String::from_utf8(bytes) {
             Ok(text) => FileView::Text { text },

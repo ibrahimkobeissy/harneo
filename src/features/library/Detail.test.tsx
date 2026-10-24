@@ -282,4 +282,38 @@ describe("detail panel files", () => {
     ).toBeInTheDocument();
     expect(row).toHaveFocus();
   });
+
+  it("opens a file in the default editor from its row and shows a refusal", async () => {
+    const user = userEvent.setup();
+    const opened: unknown[] = [];
+    mockIPC((cmd, args) => {
+      if (cmd === "library_list") return page([item("alpha")]);
+      if (cmd === "library_detail") return alpha;
+      if (cmd === "library_open_file") {
+        opened.push(args);
+        if ((args as { path: string }).path.endsWith("notes.md"))
+          throw new Error("nope");
+        return undefined;
+      }
+      if (cmd === "tags_list" || cmd === "artifact_tags") return [];
+      return undefined;
+    });
+    render(
+      <MemoryRouter initialEntries={["/library?open=id-alpha"]}>
+        <Routes>
+          <Route path="/library" element={<LibraryScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Open alpha/SKILL.md in editor",
+      }),
+    );
+    expect(opened[0]).toEqual({ id: "id-alpha", path: "alpha/SKILL.md" });
+    await user.click(
+      screen.getByRole("button", { name: "Open alpha/notes.md in editor" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("nope");
+  });
 });

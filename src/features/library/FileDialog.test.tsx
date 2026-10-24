@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { FileView } from "../../bindings/FileView";
 import { FileDialog } from "./FileDialog";
 
-function setup(view: FileView | Error, path = "SKILL.md") {
+function setup(view: FileView | Error, path = "SKILL.md", failOpen = false) {
   const calls: { cmd: string; args: unknown }[] = [];
   mockIPC((cmd, args) => {
     calls.push({ cmd, args });
@@ -13,6 +13,7 @@ function setup(view: FileView | Error, path = "SKILL.md") {
       if (view instanceof Error) throw view;
       return view;
     }
+    if (cmd === "library_open_file" && failOpen) throw new Error("no app");
     return undefined;
   });
   const onClose = vi.fn();
@@ -71,5 +72,14 @@ describe("file dialog", () => {
   it("shows a refusal from the backend", async () => {
     setup(new Error("unsafe path in the source: ../x"), "../x");
     expect(await screen.findByRole("alert")).toHaveTextContent("unsafe path");
+  });
+
+  it("shows an error when the file cannot be opened", async () => {
+    const user = userEvent.setup();
+    setup({ kind: "binary" }, "x.png", true);
+    await user.click(
+      await screen.findByRole("button", { name: /Open in editor/ }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("no app");
   });
 });

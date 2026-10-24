@@ -76,4 +76,9 @@ describe("FileViewer", () => {
     render(<FileViewer path="a.bin" text={null} empty={<p>No preview</p>} />);
     expect(screen.getByText("No preview")).toBeInTheDocument();
   });
+
+  it("shows an image without alt text or URL as a plain marker", () => {
+    render(<FileViewer path="a.md" text={"![](<>)"} />);
+    expect(screen.getByText("[image]")).toBeInTheDocument();
+  });
 });
