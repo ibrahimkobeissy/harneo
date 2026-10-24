@@ -1,7 +1,7 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router";
+import { HashRouter, MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AppRoutes } from "../App";
 import { item, page } from "../test/library";
@@ -107,6 +107,23 @@ describe("frame", () => {
     expect(
       screen.getByRole("link", { name: "Skip to content" }),
     ).toHaveAttribute("href", "#main");
+  });
+
+  it("skip link focuses the main content and keeps the current route", async () => {
+    const user = userEvent.setup();
+    window.location.hash = "#/profiles";
+    render(
+      <HashRouter>
+        <AppRoutes />
+      </HashRouter>,
+    );
+    await user.click(screen.getByRole("link", { name: "Skip to content" }));
+    expect(screen.getByRole("main")).toHaveFocus();
+    expect(window.location.hash).toBe("#/profiles");
+    expect(screen.getByRole("link", { name: "Profiles" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
   });
 
   it("marks only the Library item as current, not the brand", () => {

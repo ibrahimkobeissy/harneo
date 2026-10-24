@@ -64,7 +64,15 @@ export function Layout() {
     <CollectionsProvider>
       <UsageIndexProvider>
         <div className={styles.frame} data-collapsed={collapsed || undefined}>
-          <a href="#main" className={styles.skip}>
+          {/* The router owns the hash, so move focus by hand instead of following #main. */}
+          <a
+            href="#main"
+            className={styles.skip}
+            onClick={(ev) => {
+              ev.preventDefault();
+              document.getElementById("main")?.focus();
+            }}
+          >
             Skip to content
           </a>
           <div className={styles.slot}>
