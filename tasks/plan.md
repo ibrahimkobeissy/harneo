@@ -477,3 +477,4 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#165](https://github.com/ibrahimkobeissy/harneo/issues/165) Audit: JSX and HTML attributes are not plaintext secrets
 - [#166](https://github.com/ibrahimkobeissy/harneo/issues/166) Remove the PostCSS 'from' warning at dev start
 - [#167](https://github.com/ibrahimkobeissy/harneo/issues/167) Audit: catch secret assignments written with spaces
+- [#168](https://github.com/ibrahimkobeissy/harneo/issues/168) Audit: catch secrets in Python annotated assignments and quoted-key JSON
