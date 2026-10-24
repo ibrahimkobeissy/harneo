@@ -198,3 +198,62 @@
 .actions {
   margin-top: var(--space-xs);
 }
+.danger {
+  border-color: var(--red);
+}
+.danger .ghead {
+  background: var(--red-soft);
+  border-bottom-color: var(--red);
+  color: var(--red);
+}
+.danger .ghead svg {
+  color: var(--red);
+}
+.dlg {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: 80vh;
+}
+.dhead {
+  padding: var(--space-xl) var(--space-xl) var(--space-md);
+}
+.dhead h2 {
+  margin: 0;
+  font-size: var(--text-title);
+  color: var(--red);
+}
+.dbody {
+  padding: 0 var(--space-xl) var(--space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+.dbody p,
+.dbody ul {
+  margin: 0;
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.dbody ul {
+  padding-left: var(--space-lg);
+}
+.dwarn {
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius);
+  background: var(--red-soft);
+  color: var(--red);
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.dfoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding: var(--space-md) var(--space-xl);
+  border-top: var(--hairline) solid var(--line);
+}

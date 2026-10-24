@@ -15,7 +15,7 @@ use super::registry;
 use crate::error::{Error, Result};
 use crate::library::{make_executable, Library};
 
-const LOCK_FILE: &str = "install.lock";
+pub(super) const LOCK_FILE: &str = "install.lock";
 /// How long an apply waits for another Harneo to finish.
 pub(super) const LOCK_WAIT: Duration = Duration::from_secs(10);
 const LOCK_POLL: Duration = Duration::from_millis(50);

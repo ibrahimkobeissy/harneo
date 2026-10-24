@@ -7,14 +7,19 @@ export function Group({
   title,
   icon,
   children,
+  className,
 }: {
   id: string;
   title: string;
   icon: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className={styles.group} aria-labelledby={id}>
+    <section
+      className={[styles.group, className].filter(Boolean).join(" ")}
+      aria-labelledby={id}
+    >
       <header className={styles.ghead}>
         {icon}
         <h2 id={id}>{title}</h2>

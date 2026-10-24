@@ -348,6 +348,11 @@ export function settingsSet(key: string, value: unknown): Promise<void> {
   return invoke<void>("settings_set", { key, value });
 }
 
+/** Resets Harneo: deletes all its data (and the backups when asked) and starts with an empty library. */
+export function resetHarneo(deleteBackups: boolean): Promise<void> {
+  return invoke<void>("reset_harneo", { deleteBackups });
+}
+
 // --- Updates ---
 
 /** Looks at the sources for artifacts that changed at their source; one entry per source. */

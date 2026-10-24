@@ -234,6 +234,12 @@ pub enum Error {
         /// What failed and whether the project was restored.
         message: String,
     },
+    /// A reset of Harneo's data was refused or stopped part-way.
+    #[error("{message}")]
+    Reset {
+        /// What happened, and what was and was not deleted.
+        message: String,
+    },
     /// A drift action is refused (a generated or deleted file cannot be promoted...).
     #[error("{message}")]
     Drift {

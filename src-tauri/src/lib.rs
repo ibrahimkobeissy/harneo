@@ -22,6 +22,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::reset_harneo,
             commands::library_list,
             commands::library_detail,
             commands::library_remove,

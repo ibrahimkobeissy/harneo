@@ -128,6 +128,20 @@ impl LibraryState {
         }
     }
 
+    /// Closes the open library, runs `f` (which may delete its files) while every other command
+    /// waits, then opens the library again at `data_dir`.
+    pub(crate) fn reopen_after(
+        &self,
+        data_dir: &std::path::Path,
+        f: impl FnOnce() -> harneo_core::Result<()>,
+    ) -> Result<(), String> {
+        let mut guard = self.0.lock().map_err(|e| e.to_string())?;
+        *guard = Err("Harneo is being reset".to_string());
+        let result = f();
+        *guard = Library::open(data_dir).map_err(|e| e.to_string());
+        result.map_err(|e| e.to_string())
+    }
+
     pub(crate) fn with<T>(
         &self,
         f: impl FnOnce(&Library) -> harneo_core::Result<T>,
@@ -138,6 +152,25 @@ impl LibraryState {
             Err(message) => Err(message.clone()),
         }
     }
+}
+
+/// Resets Harneo: deletes the library, profiles, project registry, usage index and settings
+/// in the data folder (and the backups when `delete_backups`) and starts again with an empty
+/// library. Project folders and `~/.claude` are never touched.
+#[tauri::command]
+pub async fn reset_harneo(app: AppHandle, delete_backups: bool) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let data_dir = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
+        let result = app
+            .state::<LibraryState>()
+            .reopen_after(&data_dir, || {
+                harneo_core::install::reset_data(&data_dir, delete_backups)
+            });
+        crate::watch::refresh_watch(&app);
+        result
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// One page of the library (filter, sort, offset, limit) with its total and facet counts.
