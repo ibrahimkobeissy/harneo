@@ -7,6 +7,9 @@ import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Reach } from "../../bindings/Reach";
 import type { Tier } from "../../bindings/Tier";
+import { ArtifactPanelProvider } from "../../lib/artifactPanel";
+import { ArtifactPanelHost } from "../library";
+import { minimalDetail } from "../../test/artifactDetail";
 import { SecurityScreen } from ".";
 
 const none: Reach = { files: [], network: [], shell: [], env: [], protects: 0 };
@@ -82,18 +85,25 @@ function setup(
   reaudit = { audited: audits.length, changed: 0 },
 ) {
   const calls: string[] = [];
-  mockIPC((cmd) => {
+  mockIPC((cmd, args) => {
     calls.push(cmd);
+    if (cmd === "tags_list" || cmd === "artifact_tags") return [];
+    if (cmd === "library_detail")
+      return minimalDetail((args as { id: string }).id);
     if (cmd === "library_audits") return audits;
     if (cmd === "library_reaudit") return reaudit;
     return null;
   });
   render(
     <MemoryRouter initialEntries={["/security"]}>
-      <Routes>
-        <Route path="/security" element={<SecurityScreen />} />
-        <Route path="/library" element={<Where />} />
-      </Routes>
+      <ArtifactPanelProvider>
+        <Routes>
+          <Route path="/security" element={<SecurityScreen />} />
+          <Route path="/library" element={<Where />} />
+        </Routes>
+        <ArtifactPanelHost />
+        <Where />
+      </ArtifactPanelProvider>
     </MemoryRouter>,
   );
   return calls;
@@ -101,7 +111,7 @@ function setup(
 
 function names(table: HTMLElement): string[] {
   return within(table)
-    .getAllByRole("link")
+    .getAllByRole("button", { name: /^[a-z]+$/ })
     .map((a) => a.textContent ?? "");
 }
 
@@ -190,13 +200,22 @@ describe("Security page", () => {
     expect(names(table)).toHaveLength(3);
   });
 
-  it("opens an artifact in the library detail panel", async () => {
+  it("opens an artifact's details in place and gives focus back on Esc", async () => {
     setup(sample);
     const table = await screen.findByRole("table", { name: "Findings" });
-    await userEvent.click(within(table).getByRole("link", { name: "charlie" }));
-    expect(await screen.findByTestId("where")).toHaveTextContent(
-      "/library?open=id-charlie&focus=trust",
+    const row = within(table).getByRole("button", { name: "charlie" });
+    await userEvent.click(row);
+    expect(
+      await screen.findByRole("button", { name: "Close details" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/security$/);
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Close details" }),
+      ).toBeNull(),
     );
+    expect(row).toHaveFocus();
   });
 
   it("re-runs the audit, shows the result and reloads", async () => {
@@ -256,10 +275,8 @@ describe("Security page", () => {
     expect(within(table).getAllByRole("row")).toHaveLength(4);
     expect(within(table).getByText("curl | sh")).toBeInTheDocument();
     expect(
-      within(table).getAllByRole("link", {
-        name: "View multi trust in the library",
-      })[0],
-    ).toHaveAttribute("href", "/library?open=id-multi&focus=trust");
+      within(table).getAllByRole("button", { name: "View multi trust" })[0],
+    ).toBeInTheDocument();
   });
 
   it("washes only critical groups and lists Dangerous and Risky first", async () => {
@@ -271,7 +288,7 @@ describe("Security page", () => {
     const att = screen.getByRole("region", { name: /Needs attention/ });
     expect(
       within(att)
-        .getAllByRole("link")
+        .getAllByRole("button", { name: /^[a-z]+$/ })
         .map((a) => a.textContent),
     ).toEqual(["delta", "charlie"]);
   });

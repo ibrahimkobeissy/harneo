@@ -25,6 +25,11 @@ import {
   updateAll,
   updateApply,
 } from "../../lib/ipc";
+import {
+  OpenArtifactButton,
+  useArtifactPanel,
+  useArtifactPanelChanged,
+} from "../../lib/artifactPanel";
 import { useChanged } from "../../lib/useChanged";
 import {
   Badge,
@@ -115,12 +120,9 @@ function Who({ item }: { item: CleanupItem }) {
     <>
       <KindIcon kind={item.kind} />
       <div className={styles.grow}>
-        <Link
-          className={styles.name}
-          to={`/library?open=${encodeURIComponent(item.id)}`}
-        >
+        <OpenArtifactButton className={styles.name} id={item.id}>
           {item.name}
-        </Link>
+        </OpenArtifactButton>
         <div className={styles.kind}>{kinds[item.kind].label}</div>
       </div>
     </>
@@ -177,6 +179,7 @@ export function CleanupScreen() {
   const [lastRead, setLastRead] = useState<string | null>(null);
   const alive = useRef(true);
   const navigate = useNavigate();
+  const { openArtifact } = useArtifactPanel();
   const usage = useUsageIndex();
 
   const load = useCallback(() => {
@@ -206,6 +209,7 @@ export function CleanupScreen() {
     };
   }, [load]);
   useChanged(() => load());
+  useArtifactPanelChanged(() => load());
   useEffect(() => {
     if (usage.runs > 0) load();
   }, [usage.runs, load]);
@@ -377,8 +381,8 @@ export function CleanupScreen() {
               {a.localEdits ? (
                 <Button
                   small
-                  onClick={() =>
-                    void navigate(`/library?open=${encodeURIComponent(a.id)}`)
+                  onClick={(ev) =>
+                    openArtifact(a.id, { returnFocus: ev.currentTarget })
                   }
                 >
                   Review

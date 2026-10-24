@@ -1,7 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { Fragment, useState } from "react";
-import { Link } from "react-router";
 import type { Reach } from "../../bindings/Reach";
+import { OpenArtifactButton } from "../../lib/artifactPanel";
 import {
   AnyNote,
   FindingTitle,
@@ -24,11 +24,6 @@ import {
 import { SortHeader, useSort } from "./SortHeader";
 import styles from "./Security.module.css";
 
-/** The library detail panel for an artifact; `trust` scrolls it to the trust section. */
-export function libraryPath(id: string, trust = true): string {
-  return `/library?open=${encodeURIComponent(id)}${trust ? "&focus=trust" : ""}`;
-}
-
 export function ArtifactLink({
   a,
   trust = true,
@@ -37,9 +32,13 @@ export function ArtifactLink({
   trust?: boolean;
 }) {
   return (
-    <Link className={styles.link} to={libraryPath(a.id, trust)}>
+    <OpenArtifactButton
+      className={styles.link}
+      id={a.id}
+      focus={trust ? "trust" : undefined}
+    >
       {a.name}
-    </Link>
+    </OpenArtifactButton>
   );
 }
 
@@ -167,13 +166,14 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
                         </code>
                       </td>
                       <td>
-                        <Link
+                        <OpenArtifactButton
                           className={styles.link}
-                          to={libraryPath(a.id)}
-                          aria-label={`View ${a.name} trust in the library`}
+                          id={a.id}
+                          focus="trust"
+                          aria-label={`View ${a.name} trust`}
                         >
                           View
-                        </Link>
+                        </OpenArtifactButton>
                       </td>
                     </tr>
                   ))}

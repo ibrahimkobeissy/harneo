@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router";
+import { OpenArtifactButton } from "../../lib/artifactPanel";
 import type { CleanupItem } from "../../bindings/CleanupItem";
 import type { PrunePlan } from "../../bindings/PrunePlan";
 import type { PruneReport } from "../../bindings/PruneReport";
@@ -276,12 +276,13 @@ export function UpdateAllDialog({
           {edited.map((a, i) => (
             <span key={a.id}>
               {i > 0 && ", "}
-              <Link
+              <OpenArtifactButton
                 className={styles.warnLink}
-                to={`/library?open=${encodeURIComponent(a.id)}`}
+                id={a.id}
+                onOpened={onClose}
               >
                 {a.name}
-              </Link>
+              </OpenArtifactButton>
             </span>
           ))}{" "}
           {edited.length === 1 ? "has" : "have"} local edits and{" "}

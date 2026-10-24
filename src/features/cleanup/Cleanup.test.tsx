@@ -6,6 +6,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { Cleanup } from "../../bindings/Cleanup";
 import type { CleanupItem } from "../../bindings/CleanupItem";
 import { UsageIndexContext, type UsageIndexState } from "../../app/usageIndex";
+import { ArtifactPanelProvider } from "../../lib/artifactPanel";
+import { ArtifactPanelHost } from "../library";
+import { minimalDetail } from "../../test/artifactDetail";
 import { CleanupScreen } from ".";
 
 function item(over: Partial<CleanupItem>): CleanupItem {
@@ -92,6 +95,11 @@ function setup(s: Setup, usage: Partial<UsageIndexState> = {}) {
           { id: "o1", outcome: "updated" },
           { id: "o2", outcome: "skippedLocalEdits" },
         ];
+      case "tags_list":
+      case "artifact_tags":
+        return [];
+      case "library_detail":
+        return minimalDetail((args as { id: string }).id);
       case "library_remove":
         if (s.applyFails) throw new Error("locked");
         return undefined;
@@ -111,7 +119,10 @@ function setup(s: Setup, usage: Partial<UsageIndexState> = {}) {
       }}
     >
       <MemoryRouter>
-        <CleanupScreen />
+        <ArtifactPanelProvider>
+          <CleanupScreen />
+          <ArtifactPanelHost />
+        </ArtifactPanelProvider>
       </MemoryRouter>
     </UsageIndexContext.Provider>,
   );
@@ -180,11 +191,28 @@ describe("Cleanup groups", () => {
     expect(
       screen.getByRole("link", { name: "Show in library" }),
     ).toHaveAttribute("href", "/library?q=twin");
-    expect(screen.getAllByRole("link", { name: "shady" })[0]).toHaveAttribute(
-      "href",
-      "/library?open=f1",
-    );
+    expect(
+      screen.getAllByRole("button", { name: "shady" })[0],
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Open profiles" })).toBeVisible();
+  });
+
+  it("opens an artifact's details in place and gives focus back on Esc", async () => {
+    setup({
+      data: { ...empty, findings: [item({ id: "f1", name: "shady" })] },
+    });
+    const row = (await screen.findAllByRole("button", { name: "shady" }))[0]!;
+    await userEvent.click(row);
+    expect(
+      await screen.findByRole("button", { name: "Close details" }),
+    ).toBeVisible();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: "Close details" }),
+      ).toBeNull(),
+    );
+    expect(row).toHaveFocus();
   });
 
   it("shows the first 12 unused and links to the rest", async () => {
@@ -410,10 +438,9 @@ describe("Cleanup actions", () => {
     expect(
       within(dlg).getByText(/has local edits and is skipped/),
     ).toBeVisible();
-    expect(within(dlg).getByRole("link", { name: "edited" })).toHaveAttribute(
-      "href",
-      "/library?open=o2",
-    );
+    expect(
+      within(dlg).getByRole("button", { name: "edited" }),
+    ).toBeInTheDocument();
     await userEvent.click(
       within(dlg).getByRole("button", { name: "Update 1" }),
     );

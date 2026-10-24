@@ -1,7 +1,8 @@
 import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Outlet } from "react-router";
-import { NewCollectionHost } from "../features/library";
+import { ArtifactPanelHost, NewCollectionHost } from "../features/library";
+import { ArtifactPanelProvider } from "../lib/artifactPanel";
 import { decodeBool, usePersisted } from "../ui";
 import { CollectionsProvider } from "./collections";
 import styles from "./Layout.module.css";
@@ -63,50 +64,53 @@ export function Layout() {
   return (
     <CollectionsProvider>
       <UsageIndexProvider>
-        <div className={styles.frame} data-collapsed={collapsed || undefined}>
-          {/* The router owns the hash, so move focus by hand instead of following #main. */}
-          <a
-            href="#main"
-            className={styles.skip}
-            onClick={(ev) => {
-              ev.preventDefault();
-              document.getElementById("main")?.focus();
-            }}
-          >
-            Skip to content
-          </a>
-          <div className={styles.slot}>
-            <div className={styles.slotIn} inert={collapsed}>
-              <Sidebar
-                onShortcuts={() => setOverlay("shortcuts")}
-                onSearch={() => setOverlay("palette")}
-                onCollapse={() => setCollapsed(true)}
-              />
+        <ArtifactPanelProvider>
+          <div className={styles.frame} data-collapsed={collapsed || undefined}>
+            {/* The router owns the hash, so move focus by hand instead of following #main. */}
+            <a
+              href="#main"
+              className={styles.skip}
+              onClick={(ev) => {
+                ev.preventDefault();
+                document.getElementById("main")?.focus();
+              }}
+            >
+              Skip to content
+            </a>
+            <div className={styles.slot}>
+              <div className={styles.slotIn} inert={collapsed}>
+                <Sidebar
+                  onShortcuts={() => setOverlay("shortcuts")}
+                  onSearch={() => setOverlay("palette")}
+                  onCollapse={() => setCollapsed(true)}
+                />
+              </div>
+              {collapsed && (
+                <button
+                  type="button"
+                  className={styles.expand}
+                  aria-label="Show sidebar"
+                  title={`Show sidebar  ${sidebarShortcut()}`}
+                  onClick={() => setCollapsed(false)}
+                >
+                  <PanelLeftOpen size={16} aria-hidden="true" />
+                </button>
+              )}
             </div>
-            {collapsed && (
-              <button
-                type="button"
-                className={styles.expand}
-                aria-label="Show sidebar"
-                title={`Show sidebar  ${sidebarShortcut()}`}
-                onClick={() => setCollapsed(false)}
-              >
-                <PanelLeftOpen size={16} aria-hidden="true" />
-              </button>
+            <main id="main" tabIndex={-1} className={styles.main}>
+              <Outlet />
+            </main>
+            {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
+            {overlay === "palette" && (
+              <Palette
+                onClose={close}
+                onShortcuts={() => setOverlay("shortcuts")}
+              />
             )}
+            <NewCollectionHost />
+            <ArtifactPanelHost />
           </div>
-          <main id="main" tabIndex={-1} className={styles.main}>
-            <Outlet />
-          </main>
-          {overlay === "shortcuts" && <ShortcutsDialog onClose={close} />}
-          {overlay === "palette" && (
-            <Palette
-              onClose={close}
-              onShortcuts={() => setOverlay("shortcuts")}
-            />
-          )}
-          <NewCollectionHost />
-        </div>
+        </ArtifactPanelProvider>
       </UsageIndexProvider>
     </CollectionsProvider>
   );

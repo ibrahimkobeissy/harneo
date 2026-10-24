@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
+import { useArtifactPanelChanged } from "../../lib/artifactPanel";
 import { libraryAudits, libraryReaudit } from "../../lib/ipc";
 import {
   Button,
@@ -154,6 +155,8 @@ export function SecurityScreen() {
   const [running, setRunning] = useState(false);
   const [rerunResult, setRerunResult] = useState<Rerun | null>(null);
   const [filter, setFilter] = useState<ReachKey | null>(null);
+  const [rev, setRev] = useState(0);
+  useArtifactPanelChanged(() => setRev((n) => n + 1));
   const reachRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -171,7 +174,7 @@ export function SecurityScreen() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [rev]);
 
   async function rerun() {
     setRunning(true);
