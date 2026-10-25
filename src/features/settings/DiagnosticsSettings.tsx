@@ -12,7 +12,7 @@ const BUILDING_URL =
 
 /** Settings → Diagnostics: the opt-in switch for Sentry error reports. */
 export function DiagnosticsSettings() {
-  const [disabledByEnv, setDisabledByEnv] = useState(false);
+  const [dsnMissing, setDsnMissing] = useState(false);
   const [on, setOn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = useId();
@@ -23,7 +23,7 @@ export function DiagnosticsSettings() {
     diagnosticsStatus().then(
       (status) => {
         if (!live || !status) return;
-        setDisabledByEnv(status.disabledByEnv);
+        setDsnMissing(status.dsnMissing);
         setOn(status.switchOn);
       },
       () => undefined,
@@ -59,9 +59,9 @@ export function DiagnosticsSettings() {
           <div id={helpId} className={`${styles.sec} ${styles.measure}`}>
             <p className={styles.para}>
               Off by default. When on, crashes and errors in the app and the
-              harneo command are sent to the Harneo project in Sentry (or to the
-              DSN in HARNEO_SENTRY_DSN). Takes effect the next time Harneo
-              starts. Sent:
+              harneo command are sent to the Sentry project whose DSN is in the
+              HARNEO_SENTRY_DSN environment variable. Takes effect the next time
+              Harneo starts. Sent:
             </p>
             <ul className={styles.list}>
               <li>the error message (up to 500 characters) and stack trace</li>
@@ -76,11 +76,10 @@ export function DiagnosticsSettings() {
               audit evidence and Claude prompts are never attached. No
               performance data and no session recording.
             </p>
-            {disabledByEnv && (
+            {dsnMissing && (
               <p className={styles.para}>
-                Disabled: the HARNEO_SENTRY_DSN environment variable is set to
-                an empty value. Unset it, or set it to your own Sentry DSN, and
-                restart Harneo. See{" "}
+                Needs a Sentry project: set the HARNEO_SENTRY_DSN environment
+                variable to your project's DSN and restart Harneo. See{" "}
                 <button
                   type="button"
                   className={styles.link}
@@ -102,7 +101,7 @@ export function DiagnosticsSettings() {
         <Switch
           id={id}
           checked={on}
-          disabled={disabledByEnv}
+          disabled={dsnMissing}
           describedBy={helpId}
           onChange={(next) => void save(next)}
         />

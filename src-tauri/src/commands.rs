@@ -108,12 +108,12 @@ pub struct ReportingConfig {
     pub dsn: Option<String>,
 }
 
-/// What Settings → Diagnostics shows: whether `HARNEO_SENTRY_DSN` is set empty (reporting disabled), and the switch. Never the DSN.
+/// What Settings → Diagnostics shows: whether `HARNEO_SENTRY_DSN` is missing (reporting cannot run), and the switch. Never the DSN.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub struct DiagnosticsStatus {
-    pub disabled_by_env: bool,
+    pub dsn_missing: bool,
     pub switch_on: bool,
 }
 
@@ -137,7 +137,7 @@ pub fn error_reporting_config(state: State<'_, LibraryState>) -> Result<Reportin
 pub fn diagnostics_status(state: State<'_, LibraryState>) -> Result<DiagnosticsStatus, String> {
     let switch_on = state.with(|l| Ok(harneo_report::switch_on(l)))?;
     Ok(DiagnosticsStatus {
-        disabled_by_env: harneo_core::reporting::reporting_disabled_by_env(),
+        dsn_missing: harneo_report::dsn_from_env().is_none(),
         switch_on,
     })
 }

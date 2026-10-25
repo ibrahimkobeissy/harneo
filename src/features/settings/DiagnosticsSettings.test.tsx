@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { DiagnosticsSettings } from "./DiagnosticsSettings";
 
 function setup(
-  status: { disabledByEnv: boolean; switchOn: boolean },
+  status: { dsnMissing: boolean; switchOn: boolean },
   failSave = false,
 ) {
   const sets: { key: string; value: unknown }[] = [];
@@ -24,26 +24,26 @@ function setup(
 }
 
 describe("Settings: Diagnostics", () => {
-  it("is off and disabled, with instructions, when HARNEO_SENTRY_DSN is set empty", async () => {
-    setup({ disabledByEnv: true, switchOn: false });
+  it("is off and disabled, with instructions, when HARNEO_SENTRY_DSN is not set", async () => {
+    setup({ dsnMissing: true, switchOn: false });
     const sw = screen.getByRole("switch", {
       name: "Send error reports to Sentry",
     });
     expect(sw).toHaveAttribute("aria-checked", "false");
-    expect(await screen.findByText(/set to an empty value/)).toBeVisible();
+    expect(await screen.findByText(/Needs a Sentry project/)).toBeVisible();
     expect(sw).toBeDisabled();
     expect(screen.getByRole("button", { name: "BUILDING.md" })).toBeVisible();
     expect(screen.getByText(/never attached/)).toBeVisible();
   });
 
   it("is off by default and saves when switched on", async () => {
-    const sets = setup({ disabledByEnv: false, switchOn: false });
+    const sets = setup({ dsnMissing: false, switchOn: false });
     const sw = screen.getByRole("switch", {
       name: "Send error reports to Sentry",
     });
     await waitFor(() => expect(sw).toBeEnabled());
     expect(sw).toHaveAttribute("aria-checked", "false");
-    expect(screen.queryByText(/set to an empty value/)).toBeNull();
+    expect(screen.queryByText(/Needs a Sentry project/)).toBeNull();
     await userEvent.click(sw);
     await waitFor(() =>
       expect(sets).toEqual([{ key: "diagnostics.sentryReports", value: true }]),
@@ -52,7 +52,7 @@ describe("Settings: Diagnostics", () => {
   });
 
   it("undoes the switch and says so when saving fails", async () => {
-    setup({ disabledByEnv: false, switchOn: false }, true);
+    setup({ dsnMissing: false, switchOn: false }, true);
     const sw = screen.getByRole("switch", {
       name: "Send error reports to Sentry",
     });
@@ -63,7 +63,7 @@ describe("Settings: Diagnostics", () => {
   });
 
   it("reports a failure to open BUILDING.md", async () => {
-    setup({ disabledByEnv: true, switchOn: false });
+    setup({ dsnMissing: true, switchOn: false });
     await userEvent.click(
       await screen.findByRole("button", { name: "BUILDING.md" }),
     );

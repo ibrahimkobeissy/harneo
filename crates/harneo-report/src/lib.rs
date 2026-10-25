@@ -36,9 +36,16 @@ impl Side {
     }
 }
 
-/// The DSN to use: `HARNEO_SENTRY_DSN` if set (empty disables), else Harneo's default.
+/// The environment variable that holds the DSN.
+pub const DSN_ENV: &str = "HARNEO_SENTRY_DSN";
+
+/// The DSN in `HARNEO_SENTRY_DSN`, or `None` when it is unset or blank: there is no default.
 pub fn dsn_from_env() -> Option<String> {
-    harneo_core::reporting::sentry_dsn()
+    dsn_from(std::env::var(DSN_ENV).ok())
+}
+
+fn dsn_from(value: Option<String>) -> Option<String> {
+    value.map(|v| v.trim().to_owned()).filter(|v| !v.is_empty())
 }
 
 /// The DSN to report with, or `None` when reporting is off: both a DSN and the switch are needed.
@@ -223,6 +230,17 @@ mod tests {
     use super::*;
     use sentry::protocol::{Exception, Request};
     use sentry::test::with_captured_events_options;
+
+    #[test]
+    fn the_dsn_comes_only_from_the_environment_with_no_default() {
+        assert_eq!(dsn_from(None), None);
+        assert_eq!(dsn_from(Some(String::new())), None);
+        assert_eq!(dsn_from(Some("  ".into())), None);
+        assert_eq!(
+            dsn_from(Some(" https://x@y/1 ".into())).as_deref(),
+            Some("https://x@y/1")
+        );
+    }
 
     const FAKE_DSN: &str = "https://public@example.invalid/1";
 
