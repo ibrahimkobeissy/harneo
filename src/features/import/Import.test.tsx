@@ -664,8 +664,12 @@ describe("Import screen", () => {
       defaultTagColor("review"),
     );
     await u.click(screen.getByRole("button", { name: "Add a tag to alpha" }));
-    await u.type(screen.getByLabelText("New tag for alpha"), "Mine{Enter}");
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus());
+    await u.keyboard("Mine{Enter}");
     expect(screen.getByText("Mine")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Add a tag to alpha" }),
+    ).toHaveFocus();
     await u.click(screen.getByRole("button", { name: /^Import/ }));
     await screen.findByText(/Imported/);
     expect(
@@ -752,6 +756,45 @@ describe("Import screen", () => {
       name: "Fresh",
       color: "pink",
     });
+  });
+
+  it("a row's Add tag offers the palette and saves the chosen color", async () => {
+    const u = user();
+    const calls = setup({
+      libraryTags: [{ id: 5n, name: "second-brain", color: "teal", count: 3 }],
+    });
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Add a tag to alpha" }));
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus());
+    await u.keyboard("Fresh");
+    await u.click(screen.getByRole("radio", { name: "pink" }));
+    await u.click(screen.getByRole("option", { name: /Create/ }));
+    expect(screen.getByText("Fresh").closest("span")).toHaveAttribute(
+      "data-tint",
+      "pink",
+    );
+    await u.click(screen.getByRole("button", { name: "Add a tag to alpha" }));
+    await u.click(await screen.findByRole("option", { name: /second-brain/ }));
+    expect(screen.getAllByText("second-brain")).toHaveLength(1);
+    await u.click(screen.getByRole("button", { name: /^Import/ }));
+    await screen.findByText(/Imported/);
+    expect(
+      calls.filter((c) => c.cmd === "tag_create").map((c) => c.args),
+    ).toEqual([{ name: "Fresh", color: "pink" }]);
+  });
+
+  it("Escape closes a row's tag picker and returns focus to its button", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    const add = screen.getByRole("button", { name: "Add a tag to alpha" });
+    await u.click(add);
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus());
+    await u.keyboard("{Escape}");
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(add).toHaveFocus();
   });
 
   it("keeps the progress list valid: only list items inside the list", async () => {

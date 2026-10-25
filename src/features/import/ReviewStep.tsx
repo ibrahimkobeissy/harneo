@@ -1,4 +1,4 @@
-import { Plus, TriangleAlert, X } from "lucide-react";
+import { TriangleAlert, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { TagColor } from "../../bindings/TagColor";
@@ -16,63 +16,6 @@ import { defaultTagColor } from "./tagColor";
 
 /** Core's limit on a tag name (`MAX_NAME_CHARS`). */
 const MAX_TAG_CHARS = 40;
-
-/** A button that turns into a one-field form: Enter adds the tag, Escape cancels. */
-function AddTag({
-  artifact,
-  onAdd,
-}: {
-  artifact: string;
-  onAdd: (tag: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [text, setText] = useState("");
-  function commit() {
-    const name = text.trim();
-    if (name) onAdd(name);
-    setText("");
-    setOpen(false);
-  }
-  if (!open) {
-    return (
-      <button
-        type="button"
-        className={styles.addTag}
-        aria-label={`Add a tag to ${artifact}`}
-        onClick={() => setOpen(true)}
-      >
-        <Plus size={12} aria-hidden="true" />
-        Add tag
-      </button>
-    );
-  }
-  return (
-    <input
-      className={styles.tagInput}
-      aria-label={`New tag for ${artifact}`}
-      placeholder="tag name"
-      maxLength={MAX_TAG_CHARS}
-      value={text}
-      autoFocus
-      autoComplete="off"
-      spellCheck={false}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        const { key } = e;
-        if (key === "Enter") {
-          e.preventDefault();
-          commit();
-        } else if (key === "Escape") {
-          e.preventDefault();
-          e.stopPropagation();
-          setText("");
-          setOpen(false);
-        }
-      }}
-    />
-  );
-}
 
 /** Step 3: tags to accept or remove, and the secrets the library copy will not hold. */
 export function ReviewStep({
@@ -109,7 +52,7 @@ export function ReviewStep({
   onAddAll: (name: string, color: TagColor | null) => void;
   onRemoveAll: (name: string) => void;
   onRemoveTag: (id: string, tag: string) => void;
-  onAddTag: (id: string, tag: string) => void;
+  onAddTag: (id: string, tag: string, color: TagColor | null) => void;
 }) {
   // Existing library tags keep their color; a new name gets the one core will give it.
   const [list, setList] = useState<TagWithCount[]>([]);
@@ -211,9 +154,13 @@ export function ReviewStep({
                     </button>
                   </Tag>
                 ))}
-                <AddTag
-                  artifact={c.artifact.name}
-                  onAdd={(t) => onAddTag(c.id, t)}
+                <TagPicker
+                  existing={list}
+                  skip={new Set(own.map((t) => t.toLowerCase()))}
+                  maxChars={MAX_TAG_CHARS}
+                  label="Add tag"
+                  triggerLabel={`Add a tag to ${c.artifact.name}`}
+                  onPick={(name, color) => onAddTag(c.id, name, color)}
                 />
               </div>
             </div>

@@ -21,6 +21,7 @@ export function TagPicker({
   onPick,
   label = "Tag all",
   variant = "dashed",
+  triggerLabel,
 }: {
   existing: readonly TagWithCount[];
   /** Lowercased tag names already on every row; they are not offered again. */
@@ -32,6 +33,8 @@ export function TagPicker({
   label?: string;
   /** `toolbar` is a ghost toolbar button (Library); the default is the import step's dashed one. */
   variant?: "dashed" | "toolbar";
+  /** Accessible name of the button when it must say more than its text (e.g. which row). */
+  triggerLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -120,6 +123,7 @@ export function TagPicker({
           type="button"
           ref={trigger}
           className={styles.addTag}
+          aria-label={triggerLabel}
           aria-haspopup="listbox"
           aria-expanded={open}
           onClick={toggle}

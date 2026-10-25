@@ -523,15 +523,21 @@ export function ImportScreen() {
                 [id]: (prev[id] ?? []).filter((t) => t !== tag),
               }))
             }
-            onAddTag={(id, tag) =>
+            onAddTag={(id, tag, color) => {
+              if (color) {
+                setNewColors((prev) => ({
+                  ...prev,
+                  [tag.toLowerCase()]: color,
+                }));
+              }
               setTags((prev) => {
                 const own = prev[id] ?? [];
                 const dup = own.some(
                   (t) => t.toLowerCase() === tag.toLowerCase(),
                 );
                 return dup ? prev : { ...prev, [id]: [...own, tag] };
-              })
-            }
+              });
+            }}
           />
         </>
       )}
