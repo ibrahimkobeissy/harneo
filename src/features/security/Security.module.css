@@ -449,3 +449,11 @@
   color: var(--t2);
   font-size: var(--text-label);
 }
+
+.unconfirmed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+}

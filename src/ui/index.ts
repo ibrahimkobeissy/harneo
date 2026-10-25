@@ -44,3 +44,4 @@ export { Stepper } from "./Stepper";
 export { FileViewer, isMarkdown, languageOf } from "./FileViewer";
 export { Phase1Warning } from "./Phase1Warning";
 export { confirmationFailed, confirmationReason } from "./confirmFailure";
+export { ConfirmFailed } from "./ConfirmFailed";

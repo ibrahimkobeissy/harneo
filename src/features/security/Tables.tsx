@@ -1,10 +1,14 @@
 import { ChevronRight } from "lucide-react";
 import { Fragment, useState } from "react";
+import type { Confirmation } from "../../bindings/Confirmation";
 import type { Reach } from "../../bindings/Reach";
 import { OpenArtifactButton } from "../../lib/artifactPanel";
 import {
   AnyNote,
   Badge,
+  Button,
+  confirmationFailed,
+  confirmationReason,
   FindingTitle,
   hasAny,
   SeverityBadge,
@@ -44,7 +48,17 @@ function countsLabel(g: FindingGroup): string {
     .join(", ");
 }
 
-export function FindingsTable({ list }: { list: readonly Audited[] }) {
+export function FindingsTable({
+  list,
+  onConfirm,
+  asking,
+}: {
+  list: readonly Audited[];
+  /** Asks Claude to confirm this artifact's findings again. */
+  onConfirm: (id: string) => void;
+  /** Claude is already confirming. */
+  asking: boolean;
+}) {
   const [sort, onSort] = useSort<FindingCol>(
     { key: "severity", dir: "desc" },
     (c) => (c === "severity" ? "desc" : "asc"),
@@ -118,6 +132,22 @@ export function FindingsTable({ list }: { list: readonly Audited[] }) {
                         {" "}
                         <Badge tone="warn">pending</Badge>
                       </>
+                    )}
+                    {confirmationFailed(a.audit.confirmation) && (
+                      <span className={styles.unconfirmed}>
+                        <Badge tone="warn">not confirmed</Badge>
+                        <span className={styles.where}>
+                          {`Claude could not confirm: ${confirmationReason(a.audit.confirmation as Confirmation)}`}
+                        </span>
+                        <Button
+                          small
+                          disabled={asking}
+                          aria-label={`Confirm with Claude: ${a.name}`}
+                          onClick={() => onConfirm(a.id)}
+                        >
+                          Confirm with Claude
+                        </Button>
+                      </span>
                     )}
                   </td>
                   <td>{kindLabel[a.kind]}</td>

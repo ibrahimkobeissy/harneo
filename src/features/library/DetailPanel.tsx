@@ -22,6 +22,7 @@ import type { Links } from "../../bindings/Links";
 import type { UpdateStatus } from "../../bindings/UpdateStatus";
 import { Modal } from "../../app/Modal";
 import {
+  auditConfirm,
   collectionRemove,
   libraryDetail,
   libraryFind,
@@ -35,6 +36,7 @@ import {
   AnyNote,
   Badge,
   Button,
+  ConfirmFailed,
   FindingTitle,
   announce,
   hasAny,
@@ -250,7 +252,30 @@ const reachRows = [
 ] as const;
 
 /** Score, tier, findings by severity and what the artifact can reach, from its stored audit. */
-function TrustSection({ audit }: { audit: Audit | null }) {
+function TrustSection({
+  audit,
+  id,
+  onConfirmed,
+}: {
+  audit: Audit | null;
+  id: string;
+  /** Claude was asked again; the detail reloads. */
+  onConfirmed: () => void;
+}) {
+  const [asking, setAsking] = useState(false);
+  const [askError, setAskError] = useState<string | null>(null);
+  async function ask() {
+    setAsking(true);
+    setAskError(null);
+    try {
+      await auditConfirm([id]);
+    } catch (err) {
+      setAskError(String(err));
+    } finally {
+      setAsking(false);
+      onConfirmed();
+    }
+  }
   if (audit === null) {
     return (
       <section className={styles.sec} aria-labelledby="d-trust">
@@ -271,6 +296,12 @@ function TrustSection({ audit }: { audit: Audit | null }) {
         Trust
         <TrustMeter score={audit.score} tier={audit.tier} size="md" />
       </h3>
+      <ConfirmFailed
+        confirmation={audit.confirmation}
+        onRetry={() => void ask()}
+        busy={asking}
+        error={askError}
+      />
       {audit.findings.length === 0 ? (
         <p className={styles.muted}>No findings.</p>
       ) : (
@@ -698,7 +729,11 @@ export function DetailPanel({
                   onChanged={onUpdated}
                 />
               )}
-              <TrustSection audit={detail.audit} />
+              <TrustSection
+                audit={detail.audit}
+                id={id}
+                onConfirmed={() => setTick((n) => n + 1)}
+              />
               <BundleSection
                 key={`${id}:${linksRev}`}
                 artifactId={id}

@@ -14,6 +14,7 @@ import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import type { ArtifactAudit } from "../../bindings/ArtifactAudit";
 import { useArtifactPanelChanged } from "../../lib/artifactPanel";
 import {
+  auditConfirm,
   auditConfirmAll,
   auditConfirmSettingGet,
   claudeCliStatus,
@@ -231,11 +232,11 @@ export function SecurityScreen() {
     };
   }, []);
 
-  async function confirmNow() {
+  async function confirmNow(ids?: string[]) {
     setConfirming(true);
     setProgress({ done: 0, total: 0 });
     try {
-      await auditConfirmAll();
+      await (ids ? auditConfirm(ids) : auditConfirmAll());
       setAll(await libraryAudits());
       setError(null);
     } catch (e) {
@@ -514,7 +515,11 @@ export function SecurityScreen() {
 
       <h2 className={styles.h}>Findings by artifact</h2>
       {findingTotal > 0 ? (
-        <FindingsTable list={audited} />
+        <FindingsTable
+          list={audited}
+          onConfirm={(id) => void confirmNow([id])}
+          asking={working || running}
+        />
       ) : (
         <EmptyState icon={ShieldCheck} title="No findings">
           Nothing in the library triggered an audit rule.

@@ -1,6 +1,6 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
@@ -49,6 +49,7 @@ function setup(opts: {
   dismissed?: boolean;
 }) {
   const state = { confirmation: opts.confirmation ?? status("confirmed") };
+  const asked: string[][] = [];
   let releaseAll: () => void = () => undefined;
   mockIPC(
     (cmd, args) => {
@@ -73,6 +74,11 @@ function setup(opts: {
         };
         return [a];
       }
+      if (cmd === "audit_confirm") {
+        asked.push((args as { ids: string[] }).ids);
+        state.confirmation = status("confirmed");
+        return null;
+      }
       if (cmd === "audit_confirm_all")
         return new Promise<void>((resolve) => {
           releaseAll = () => {
@@ -94,7 +100,7 @@ function setup(opts: {
       </ArtifactPanelProvider>
     </MemoryRouter>,
   );
-  return { release: () => releaseAll() };
+  return { release: () => releaseAll(), asked };
 }
 
 const warning = /Phase 1 only\./;
@@ -163,5 +169,63 @@ describe("Security: phase 2", () => {
       screen.getByText(/It warns the reader against the attack\./),
     ).toBeVisible();
     expect(screen.getByText("1 in 1 artifact")).toBeVisible();
+  });
+
+  const limit: Confirmation = {
+    ...status("failed"),
+    detail: "Claude's usage limit is reached. Try again later.",
+    kind: "limit",
+  };
+
+  it("shows why a confirmation failed on the page, with a retry that asks for that artifact", async () => {
+    const user = userEvent.setup();
+    const { asked } = setup({ confirmation: limit });
+    expect(
+      await screen.findByText(
+        "Claude could not confirm: Claude's usage limit is reached. Try again later",
+      ),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Confirm with Claude: alpha" }),
+    );
+    await waitFor(() => expect(asked).toEqual([["id-alpha"]]));
+    await waitFor(() =>
+      expect(screen.queryByText(/Claude could not confirm/)).toBeNull(),
+    );
+  });
+
+  it("shows an unavailable CLI the same way", async () => {
+    setup({
+      confirmation: {
+        ...status("unavailable"),
+        detail: "the claude CLI is not installed, or is not on the PATH",
+      },
+    });
+    expect(
+      await screen.findByText(
+        /Claude could not confirm: the claude CLI is not installed/,
+      ),
+    ).toBeVisible();
+  });
+
+  it("shows the reason in the detail panel with a Confirm with Claude retry", async () => {
+    const user = userEvent.setup();
+    const { asked } = setup({ confirmation: limit });
+    await user.click(
+      (await screen.findAllByRole("button", { name: "alpha" }))[0]!,
+    );
+    const dialog = await screen.findByRole("dialog", { name: /details/ });
+    expect(
+      await within(dialog).findByText(
+        /Claude could not confirm the findings: Claude's usage limit is reached\. Try again later\. Findings are shown as the rules found them\./,
+      ),
+    ).toBeVisible();
+    await user.click(
+      within(dialog).getByRole("button", { name: "Confirm with Claude" }),
+    );
+    await waitFor(() => expect(asked).toEqual([["id-alpha"]]));
+    await waitFor(() =>
+      expect(within(dialog).queryByText(/could not confirm/)).toBeNull(),
+    );
   });
 });
