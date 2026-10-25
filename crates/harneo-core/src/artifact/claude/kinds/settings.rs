@@ -404,6 +404,7 @@ mod tests {
         let report = ScanReport {
             artifacts: vec![a.clone()],
             diagnostics: Vec::new(),
+            ..ScanReport::default()
         };
         for text in [
             format!("{a:?}"),

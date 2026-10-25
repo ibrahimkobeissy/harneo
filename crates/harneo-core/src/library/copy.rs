@@ -256,6 +256,8 @@ pub(crate) fn replaced_secret_keys(artifact: &Artifact) -> Vec<String> {
 /// `Bearer `-style scheme of the original header when the source still has it.
 fn mcp_definition(source_root: &Path, artifact: &Artifact) -> (Value, Vec<String>) {
     let mut definition = artifact.metadata.clone();
+    // Scan bookkeeping, not part of the server's own definition.
+    definition.remove("layoutBy");
     for field in ["env", "headers"] {
         if !definition.contains_key(field) {
             continue;

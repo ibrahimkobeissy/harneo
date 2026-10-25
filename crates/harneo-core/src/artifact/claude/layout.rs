@@ -136,6 +136,20 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
     });
 }
 
+/// Records which tier placed each artifact in `metadata.layoutBy`: plugins come from a manifest
+/// (plugin.json, marketplace.json or installed_plugins.json), everything else from a known
+/// folder convention.
+pub(crate) fn mark_layout_by(report: &mut ScanReport) {
+    for a in &mut report.artifacts {
+        let tier = if a.kind == ArtifactKind::Plugin {
+            "manifest"
+        } else {
+            "convention"
+        };
+        a.metadata.insert("layoutBy".into(), tier.into());
+    }
+}
+
 /// Marks what lies in a Claude-managed folder (only present when those were included).
 pub(crate) fn mark_managed_origins(report: &mut ScanReport) {
     for a in &mut report.artifacts {

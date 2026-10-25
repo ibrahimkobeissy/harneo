@@ -545,3 +545,118 @@ fn audit_of_a_scoped_plugin_reads_no_file_outside_the_scope() -> TestResult {
         .all(|p| !p.starts_with("docs/") && !p.starts_with("scripts/")));
     Ok(())
 }
+
+fn layout_by(a: &harneo_core::artifact::Artifact) -> Option<&str> {
+    a.metadata.get("layoutBy").and_then(|v| v.as_str())
+}
+
+#[test]
+fn agents_skills_pack_is_read_as_skills_by_convention() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, ".agents/skills/alpha/SKILL.md")?;
+    skill(r, ".agents/skills/beta/SKILL.md")?;
+    write(r, ".agents/other/notes.md", "# hidden, not a pack\n")?;
+    let report = scan(r)?;
+    assert_eq!(
+        summary(&report),
+        [
+            (ArtifactKind::Skill, ".agents/skills/alpha"),
+            (ArtifactKind::Skill, ".agents/skills/beta")
+        ]
+    );
+    assert!(report
+        .artifacts
+        .iter()
+        .all(|a| layout_by(a) == Some("convention")));
+    assert!(report.unplaced.is_empty());
+    Ok(())
+}
+
+#[test]
+fn manifest_repos_have_no_unplaced_files_and_plugins_are_layout_by_manifest() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/marketplace.json",
+        r#"{"name":"mk","owner":{"name":"o"},"plugins":[
+          {"name":"a","source":"./plugins/a"},{"name":"root","source":"./"}]}"#,
+    )?;
+    write(r, "plugins/a/.claude-plugin/plugin.json", r#"{"name":"a"}"#)?;
+    skill(r, "plugins/a/skills/s/SKILL.md")?;
+    write(r, "plugins/a/NOTES.md", "---\nname: stray\n---\nx")?;
+    write(r, "README.md", "readme")?;
+    write(r, "CHANGELOG.md", "log")?;
+    write(r, "docs/guide.md", "---\nname: g\n---\n")?;
+    write(r, "tests/case.md", "---\ndescription: t\n---\n")?;
+    write(r, ".github/PULL_REQUEST_TEMPLATE.md", "---\nname: x\n---\n")?;
+    let report = scan(r)?;
+    assert!(report.unplaced.is_empty(), "{:?}", report.unplaced);
+    assert!(report
+        .artifacts
+        .iter()
+        .filter(|a| a.kind == ArtifactKind::Plugin)
+        .all(|a| layout_by(a) == Some("manifest")));
+    Ok(())
+}
+
+#[test]
+fn a_prompts_only_repo_lists_only_the_prompts_as_unplaced() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, "prompts/review.md", "---\nname: review\n---\nBody")?;
+    write(
+        r,
+        "prompts/plain.md",
+        "No frontmatter, but a prompts folder.",
+    )?;
+    write(r, "tools/helper.md", "---\ndescription: helps\n---\nBody")?;
+    write(r, "notes/idea.md", "just prose")?;
+    write(r, "README.md", "# repo")?;
+    write(r, "LICENSE.md", "mit")?;
+    write(r, "docs/usage.md", "---\nname: u\n---\n")?;
+    let report = scan(r)?;
+    assert!(report.artifacts.is_empty());
+    // Nothing was found, so every Markdown file counts, except the never-counted ones.
+    assert_eq!(
+        report.unplaced,
+        [
+            "notes/idea.md",
+            "prompts/plain.md",
+            "prompts/review.md",
+            "tools/helper.md"
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn with_artifacts_found_only_likely_files_outside_them_are_unplaced() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, "skills/one/SKILL.md")?;
+    write(r, "skills/one/extra.md", "belongs to the skill")?;
+    write(r, "prompts/review.md", "---\nname: review\n---\nBody")?;
+    write(r, "tools/helper.md", "---\ndescription: helps\n---\nBody")?;
+    write(r, "notes/idea.md", "just prose")?;
+    write(r, "README.md", "# repo")?;
+    write(r, ".hidden/p.md", "---\nname: h\n---\n")?;
+    let report = scan(r)?;
+    assert_eq!(report.unplaced, ["prompts/review.md", "tools/helper.md"]);
+    Ok(())
+}
+
+#[test]
+fn unplaced_is_capped_with_an_overflow_count_and_is_deterministic() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    for i in 0..205 {
+        write(r, &format!("prompts/p{i:03}.md"), "---\nname: p\n---\n")?;
+    }
+    let first = scan(r)?;
+    assert_eq!(first.unplaced.len(), harneo_core::artifact::UNPLACED_CAP);
+    assert_eq!(first.unplaced_overflow, 5);
+    assert_eq!(first, scan(r)?);
+    Ok(())
+}

@@ -151,7 +151,19 @@ pub struct ScanReport {
     pub artifacts: Vec<Artifact>,
     /// Findings that belong to no single artifact (unreadable folders, oversized files...).
     pub diagnostics: Vec<Diagnostic>,
+    /// Paths of files that might be artifacts but lie outside every path a scan claimed,
+    /// sorted and capped at [`UNPLACED_CAP`]; the rest is counted in `unplaced_overflow`.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub unplaced: Vec<String>,
+    /// How many more unplaced paths there were beyond the cap.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub unplaced_overflow: u32,
 }
+
+/// The most unplaced paths one report lists.
+pub const UNPLACED_CAP: usize = 200;
 
 /// The limits that keep a scan of an untrusted folder cheap and safe.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]

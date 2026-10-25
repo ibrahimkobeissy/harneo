@@ -10,7 +10,8 @@ use crate::artifact::{rel_string, Artifact, ArtifactKind, Diagnostic, ScanReport
 
 const MANIFEST: &str = "SKILL.md";
 /// Where Claude Code looks for skills, relative to a project or `~/.claude`-like root.
-const SKILL_DIRS: [&str; 2] = ["skills", ".claude/skills"];
+/// `.agents/skills` is the cross-agent location of the same SKILL.md format.
+const SKILL_DIRS: [&str; 3] = ["skills", ".claude/skills", ".agents/skills"];
 
 /// Pure: reads one skill from its `SKILL.md` text. `folder` is the skill folder relative to the
 /// scan root, `files` everything inside it (relative to the root).

@@ -7,6 +7,7 @@ mod kinds;
 
 pub(crate) use kinds::plugin::github_repo;
 mod layout;
+mod unplaced;
 
 use std::path::{Path, PathBuf};
 
@@ -43,6 +44,8 @@ impl AgentAdapter for ClaudeAdapter {
         kinds::workflow::scan(&mut walker, &mut report);
         // Keep last: it removes what the kinds found inside a plugin.
         layout::scan(&mut walker, options, &mut report);
+        layout::mark_layout_by(&mut report);
+        unplaced::scan(&mut walker, options, &mut report);
         super::digest::fill(&mut walker, &mut report);
         layout::mark_managed_origins(&mut report);
         checks::run(&mut report);

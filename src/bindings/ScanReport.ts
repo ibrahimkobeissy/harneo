@@ -9,4 +9,13 @@ export type ScanReport = { artifacts: Array<Artifact>,
 /**
  * Findings that belong to no single artifact (unreadable folders, oversized files...).
  */
-diagnostics: Array<Diagnostic>, };
+diagnostics: Array<Diagnostic>, 
+/**
+ * Paths of files that might be artifacts but lie outside every path a scan claimed,
+ * sorted and capped at [`UNPLACED_CAP`]; the rest is counted in `unplaced_overflow`.
+ */
+unplaced: Array<string>, 
+/**
+ * How many more unplaced paths there were beyond the cap.
+ */
+unplacedOverflow: number, };

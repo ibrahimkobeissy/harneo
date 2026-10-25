@@ -75,6 +75,20 @@ fn render(report: &ScanReport) -> String {
         }
         out.push('\n');
     }
+    if !report.unplaced.is_empty() {
+        let _ = writeln!(
+            out,
+            "{} files Harneo couldn't place:",
+            report.unplaced.len() + report.unplaced_overflow as usize
+        );
+        for p in &report.unplaced {
+            let _ = writeln!(out, "  {p}");
+        }
+        if report.unplaced_overflow > 0 {
+            let _ = writeln!(out, "  ... and {} more", report.unplaced_overflow);
+        }
+        out.push('\n');
+    }
     out.push_str(&summary(report));
     out
 }
@@ -149,6 +163,7 @@ mod tests {
                 Path::new("skills/big/SKILL.md"),
                 "too big",
             )],
+            ..ScanReport::default()
         };
         let text = render(&report);
         assert!(text.contains("  reference: rule style (resolved)\n"));
@@ -157,6 +172,20 @@ mod tests {
             "  warning skill.missing-description: needs a description (skills/alpha/SKILL.md)\n"
         ));
         assert!(text.contains("root diagnostics:\n  error skill.file-too-large: too big"));
+        assert!(!text.contains("couldn't place"));
         assert!(text.ends_with("1 artifacts (1 skill); 1 errors, 1 warnings (1 at the root)\n"));
+    }
+
+    #[test]
+    fn render_lists_unplaced_paths_and_the_overflow() {
+        let report = ScanReport {
+            unplaced: vec!["prompts/a.md".into(), "prompts/b.md".into()],
+            unplaced_overflow: 3,
+            ..ScanReport::default()
+        };
+        let text = render(&report);
+        assert!(text.contains(
+            "5 files Harneo couldn't place:\n  prompts/a.md\n  prompts/b.md\n  ... and 3 more\n"
+        ));
     }
 }

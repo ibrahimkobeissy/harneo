@@ -279,6 +279,7 @@ mod tests {
         let report = ScanReport {
             artifacts: a,
             diagnostics: d,
+            ..ScanReport::default()
         };
         assert!(!format!("{report:?}").contains(SECRET));
         assert!(!serde_json::to_string(&report)

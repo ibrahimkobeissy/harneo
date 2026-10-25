@@ -114,6 +114,7 @@ mod tests {
         let mut r = ScanReport {
             artifacts,
             diagnostics: Vec::new(),
+            ..ScanReport::default()
         };
         run(&mut r);
         r
