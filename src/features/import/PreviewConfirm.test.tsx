@@ -76,10 +76,16 @@ const dismissed: Audit = {
     finding,
     reason: "It is JSX, not a credential.",
   })),
-  confirmation: { status: "confirmed", model: "haiku", at: null, detail: null },
+  confirmation: {
+    status: "confirmed",
+    model: "haiku",
+    at: null,
+    detail: null,
+    kind: null,
+  },
 };
 
-function setup(opts: { on?: boolean } = {}) {
+function setup(opts: { on?: boolean; confirmError?: string } = {}) {
   const calls: string[] = [];
   mockIPC(
     (cmd) => {
@@ -96,6 +102,7 @@ function setup(opts: { on?: boolean } = {}) {
         case "claude_cli_status":
           return { found: true, path: "/bin/claude", version: "2" };
         case "library_preview_confirm":
+          if (opts.confirmError) throw new Error(opts.confirmError);
           return new Promise<void>(() => undefined);
         default:
           return null;
@@ -128,6 +135,17 @@ function verdict(id: string, a: Audit, done: number) {
     }),
   );
 }
+
+const failedAudit: Audit = {
+  ...ticket.candidates[0]!.audit,
+  confirmation: {
+    status: "failed",
+    model: "haiku",
+    at: null,
+    detail: "Claude's usage limit is reached. Try again later.",
+    kind: "limit",
+  },
+};
 
 const started = (calls: string[]) =>
   waitFor(() => expect(calls).toContain("library_preview_confirm"));
@@ -232,5 +250,95 @@ describe("Import: phase 2 on the Choose step", () => {
     await u.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByText(/Phase 1 only\./)).toBeVisible();
     expect(calls).not.toContain("library_preview_confirm");
+  });
+
+  it("pauses on a failure with three choices and imports nothing until one is picked", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup();
+    await toChoose(u);
+    await started(calls);
+    await verdict("id-session-radar", failedAudit, 1);
+    expect(
+      await screen.findByText(
+        /Claude could not confirm the findings: Claude's usage limit is reached\. Try again later\. Findings are shown as the rules found them\./,
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Cancel import" })).toBeEnabled();
+    await u.click(
+      screen.getByRole("button", { name: "Continue without Claude" }),
+    );
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+    // Findings stay as the rules found them, marked as unconfirmed.
+    expect(
+      screen.getByText(/Findings are shown as the rules found them\./),
+    ).toBeVisible();
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByRole("button", { name: /Import \d artifacts?/ }),
+    ).toBeEnabled();
+  });
+
+  it("holds Import on the Review step while a failure waits for a choice", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup();
+    await toChoose(u);
+    await started(calls);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("button", { name: /Import 2 artifacts/ });
+    await verdict("id-session-radar", failedAudit, 1);
+    expect(
+      await screen.findByRole("button", { name: /Import \d artifacts?/ }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeVisible();
+  });
+
+  it("Cancel import leaves for the library", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup();
+    await toChoose(u);
+    await started(calls);
+    await verdict("id-session-radar", failedAudit, 1);
+    await u.click(await screen.findByRole("button", { name: "Cancel import" }));
+    await waitFor(() =>
+      expect(calls).toContain("library_preview_confirm_cancel"),
+    );
+    expect(screen.queryByText(/Found 3 artifacts/)).toBeNull();
+  });
+
+  it("Retry runs phase 2 again on the held preview and clears the pause when it succeeds", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup();
+    await toChoose(u);
+    await started(calls);
+    await verdict("id-session-radar", failedAudit, 1);
+    await u.click(await screen.findByRole("button", { name: "Retry" }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c === "library_preview_confirm")).toHaveLength(
+        2,
+      ),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Retrying…" }),
+    ).toBeDisabled();
+    await verdict("id-session-radar", dismissed, 1);
+    await waitFor(() =>
+      expect(screen.queryByText(/Claude could not confirm/)).toBeNull(),
+    );
+    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+  });
+
+  it("shows why the run itself failed instead of swallowing it", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup({ confirmError: "the library is busy" });
+    await toChoose(u);
+    await started(calls);
+    expect(
+      await screen.findByText(
+        /Claude could not confirm the findings: the library is busy\./,
+      ),
+    ).toBeVisible();
   });
 });

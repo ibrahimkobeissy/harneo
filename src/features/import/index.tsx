@@ -387,7 +387,7 @@ export function ImportScreen() {
       {step === 1 && (
         <Button
           variant="primary"
-          disabled={scanning || chosen.length === 0}
+          disabled={scanning || chosen.length === 0 || phase2.blocked}
           onClick={() => setStep(2)}
         >
           Continue
@@ -404,6 +404,7 @@ export function ImportScreen() {
           disabled={
             importing ||
             chosen.length === 0 ||
+            phase2.blocked ||
             detection.phase.kind === "running"
           }
           onClick={() => void runImport()}
@@ -453,6 +454,8 @@ export function ImportScreen() {
             preview={view}
             progress={phase2.progress}
             phase1Only={phase2.phase1Only}
+            phase2={phase2}
+            onCancelImport={() => void navigate("/library")}
             sourceName={shown}
             excluded={excluded}
             onExclude={exclude}
@@ -478,6 +481,8 @@ export function ImportScreen() {
             heldBack={heldBack}
             phase1Only={phase2.phase1Only}
             confirming={phase2.progress}
+            phase2={phase2}
+            onCancelImport={() => void navigate("/library")}
             detection={detection}
             proposals={proposals}
             names={names}

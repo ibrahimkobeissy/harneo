@@ -8,7 +8,8 @@ import {
   tierLabels,
   tierOrder,
 } from "../../ui";
-import { ConfirmingNote } from "./Phase2";
+import { ConfirmFailureCallout, ConfirmingNote } from "./Phase2";
+import type { PreviewConfirmation } from "./usePreviewConfirmation";
 import styles from "./Import.module.css";
 import { TierLabel } from "./trust";
 
@@ -22,6 +23,8 @@ export function AuditSummary({
   heldBack,
   phase1Only,
   confirming,
+  phase2,
+  onCancelImport,
   onReviewHeldBack,
 }: {
   chosen: Candidate[];
@@ -31,6 +34,8 @@ export function AuditSummary({
   phase1Only: { cliMissing: boolean } | null;
   /** Phase 2 progress while it runs in the background. */
   confirming: ConfirmProgress | null;
+  phase2: PreviewConfirmation;
+  onCancelImport: () => void;
   /** Goes back to Choose, where the held-back rows can be restored. */
   onReviewHeldBack: () => void;
 }) {
@@ -57,6 +62,7 @@ export function AuditSummary({
         </span>
       </h2>
       {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
+      <ConfirmFailureCallout phase2={phase2} onCancel={onCancelImport} />
       <ConfirmingNote progress={confirming} />
       {heldBack > 0 && (
         <p className={styles.held}>

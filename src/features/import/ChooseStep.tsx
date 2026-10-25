@@ -22,7 +22,8 @@ import {
   severityTone,
 } from "../../ui";
 import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
-import { ConfirmingNote, DismissedNote } from "./Phase2";
+import { ConfirmFailureCallout, ConfirmingNote, DismissedNote } from "./Phase2";
+import type { PreviewConfirmation } from "./usePreviewConfirmation";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
@@ -304,6 +305,8 @@ export function ChooseStep({
   refreshing,
   progress,
   phase1Only,
+  phase2,
+  onCancelImport,
 }: {
   preview: Preview;
   sourceName: string;
@@ -317,6 +320,10 @@ export function ChooseStep({
   progress: ConfirmProgress | null;
   /** Claude is not confirming findings; null when it is or it is not known yet. */
   phase1Only: { cliMissing: boolean } | null;
+  /** Phase 2's state, for the failure callout with its choices. */
+  phase2: PreviewConfirmation;
+  /** Leaves the import. */
+  onCancelImport: () => void;
 }) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const [copiesOpen, setCopiesOpen] = useState<ReadonlySet<string>>(new Set());
@@ -412,6 +419,7 @@ export function ChooseStep({
         included; take out what you do not want.
       </p>
       {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
+      <ConfirmFailureCallout phase2={phase2} onCancel={onCancelImport} />
       {note && (
         <div className={styles.callout} data-tone="neutral">
           <Info size={16} aria-hidden="true" />

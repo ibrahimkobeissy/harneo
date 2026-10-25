@@ -837,3 +837,13 @@ h3.subhead {
 .bar::-moz-progress-bar {
   background: var(--blue);
 }
+
+.noMargin {
+  margin: 0;
+}
+.failureActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}

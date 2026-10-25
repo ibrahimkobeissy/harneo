@@ -39,6 +39,7 @@ const status = (s: Confirmation["status"]): Confirmation => ({
   model: "haiku",
   at: null,
   detail: null,
+  kind: null,
 });
 
 function setup(opts: {

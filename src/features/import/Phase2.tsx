@@ -1,8 +1,9 @@
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, ShieldQuestion } from "lucide-react";
 import { useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
-import { FindingTitle } from "../../ui";
+import { Button, Callout, FindingTitle } from "../../ui";
+import type { PreviewConfirmation } from "./usePreviewConfirmation";
 import styles from "./Import.module.css";
 
 /** "Confirming N of M with Claude…" while the background run is going. */
@@ -56,5 +57,45 @@ export function DismissedNote({ candidate }: { candidate: Candidate }) {
         </ul>
       )}
     </span>
+  );
+}
+
+/**
+ * Phase 2 could not confirm some findings. Until the user picks Retry, Continue without
+ * Claude or Cancel import, the import waits. After Continue without Claude it stays as a note.
+ */
+export function ConfirmFailureCallout({
+  phase2,
+  onCancel,
+}: {
+  phase2: PreviewConfirmation;
+  onCancel: () => void;
+}) {
+  const { failure } = phase2;
+  if (!failure) return null;
+  const lead = `Claude could not confirm the findings: ${failure.reason}.`;
+  const tail = "Findings are shown as the rules found them.";
+  if (phase2.skipped) {
+    return (
+      <Callout tone="warn" icon={ShieldQuestion}>
+        <p className={styles.noMargin}>{`${lead} ${tail}`}</p>
+      </Callout>
+    );
+  }
+  return (
+    <Callout tone="bad" icon={ShieldQuestion}>
+      <p className={styles.noMargin}>{`${lead} ${tail}`}</p>
+      <div className={styles.failureActions}>
+        <Button small disabled={failure.retrying} onClick={phase2.retry}>
+          {failure.retrying ? "Retrying…" : "Retry"}
+        </Button>
+        <Button small onClick={phase2.skip}>
+          Continue without Claude
+        </Button>
+        <Button small variant="ghost" onClick={onCancel}>
+          Cancel import
+        </Button>
+      </div>
+    </Callout>
   );
 }
