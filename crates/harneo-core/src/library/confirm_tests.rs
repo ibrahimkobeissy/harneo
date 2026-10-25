@@ -179,18 +179,18 @@ fn a_threat_verdict_keeps_the_finding_critical() -> TestResult {
         s.library
             .audits()?
             .into_iter()
-            .find(|a| a.name == "sources")
+            .find(|a| a.name == "browser")
             .ok_or("none")?
             .id,
     ]))?;
-    let audit = s.audit_of("sources")?;
+    let audit = s.audit_of("browser")?;
     assert!(audit
         .findings
         .iter()
         .any(|f| f.rule == "prompt-injection" && f.severity == crate::audit::Severity::Critical));
     assert!(audit.dismissed.is_empty());
-    assert_eq!(s.status_of("sources")?, ConfirmStatus::Confirmed);
-    assert_eq!(s.status_of("browser")?, ConfirmStatus::Pending);
+    assert_eq!(s.status_of("browser")?, ConfirmStatus::Confirmed);
+    assert_eq!(s.status_of("sources")?, ConfirmStatus::Pending);
     Ok(())
 }
 
