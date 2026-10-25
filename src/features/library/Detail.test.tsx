@@ -1,8 +1,15 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import { item, page } from "../../test/library";
@@ -351,5 +358,87 @@ describe("detail panel files", () => {
     await user.keyboard("{Enter}");
     await user.click(within(tree).getByText("notes.md"));
     expect(await screen.findByText("hello")).toBeInTheDocument();
+  });
+});
+
+describe("detail panel width", () => {
+  const key = "harneo.detail.width";
+  const sep = () => screen.getByRole("separator", { name: "Resize details" });
+  const panel = () => screen.getByRole("dialog", { name: "alpha details" });
+  const open = async () => {
+    setup("/library?open=id-alpha");
+    await screen.findByRole("dialog", { name: "alpha details" });
+  };
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    vi.stubGlobal("innerWidth", 1600);
+    // jsdom has no pointer capture.
+    const proto = HTMLElement.prototype;
+    proto.setPointerCapture = vi.fn();
+    proto.releasePointerCapture = vi.fn();
+    proto.hasPointerCapture = vi.fn(() => true);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("exposes its value and limits", async () => {
+    await open();
+    expect(sep()).toHaveAttribute("aria-orientation", "vertical");
+    expect(sep()).toHaveAttribute("aria-valuenow", "460");
+    expect(sep()).toHaveAttribute("aria-valuemin", "460");
+    expect(sep()).toHaveAttribute("aria-valuemax", "960");
+    expect(sep()).toHaveAttribute("tabindex", "0");
+  });
+
+  it("grows with ArrowLeft, shrinks with ArrowRight, jumps with Home and End", async () => {
+    const user = userEvent.setup();
+    await open();
+    sep().focus();
+    await user.keyboard("{ArrowLeft}");
+    expect(sep()).toHaveAttribute("aria-valuenow", "476");
+    expect(panel().style.width).toBe("476px");
+    expect(window.localStorage.getItem(key)).toBe("476");
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    expect(sep()).toHaveAttribute("aria-valuenow", "460");
+    await user.keyboard("{End}");
+    expect(sep()).toHaveAttribute("aria-valuenow", "960");
+    await user.keyboard("{ArrowLeft}");
+    expect(sep()).toHaveAttribute("aria-valuenow", "960");
+    await user.keyboard("{Home}");
+    expect(sep()).toHaveAttribute("aria-valuenow", "460");
+  });
+
+  it("drags the left edge within the limits", async () => {
+    await open();
+    fireEvent.pointerDown(sep(), { pointerId: 1, clientX: 1140 });
+    fireEvent.pointerMove(sep(), { pointerId: 1, clientX: 1040 });
+    expect(sep()).toHaveAttribute("aria-valuenow", "560");
+    fireEvent.pointerMove(sep(), { pointerId: 1, clientX: 0 });
+    expect(sep()).toHaveAttribute("aria-valuenow", "960");
+    fireEvent.pointerMove(sep(), { pointerId: 1, clientX: 1600 });
+    expect(sep()).toHaveAttribute("aria-valuenow", "460");
+    fireEvent.pointerUp(sep(), { pointerId: 1 });
+  });
+
+  it("restores a remembered width and clamps it on a smaller window", async () => {
+    window.localStorage.setItem(key, "900");
+    await open();
+    expect(sep()).toHaveAttribute("aria-valuenow", "900");
+    act(() => {
+      vi.stubGlobal("innerWidth", 1000);
+      window.dispatchEvent(new Event("resize"));
+    });
+    expect(sep()).toHaveAttribute("aria-valuemax", "600");
+    expect(sep()).toHaveAttribute("aria-valuenow", "600");
+    expect(window.localStorage.getItem(key)).toBe("900");
+  });
+
+  it("resets on double-click", async () => {
+    const user = userEvent.setup();
+    await open();
+    sep().focus();
+    await user.keyboard("{End}");
+    await user.dblClick(sep());
+    expect(sep()).toHaveAttribute("aria-valuenow", "460");
   });
 });

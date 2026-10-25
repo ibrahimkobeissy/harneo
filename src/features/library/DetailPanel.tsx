@@ -42,6 +42,7 @@ import {
   severityLabels,
   severityOrder,
   FileTree,
+  Resizer,
   TrustMeter,
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
@@ -55,6 +56,8 @@ import { formatDate } from "./ItemMeta";
 import { KindChip } from "./KindChip";
 import { kinds } from "./kinds";
 import { ManualOnlySection, UsedInSection } from "./ProfileSections";
+import { useDetailWidth } from "./useDetailWidth";
+import { useNarrow } from "./useNarrow";
 import { TagsSection } from "./TagsSection";
 import { UsageSection } from "./UsageSection";
 
@@ -621,6 +624,9 @@ export function DetailPanel({
   }
 
   const name = detail?.artifact.name ?? "Artifact";
+  const narrow = useNarrow();
+  const size = useDetailWidth();
+  const [dragging, setDragging] = useState(false);
   return (
     <>
       <aside
@@ -629,7 +635,22 @@ export function DetailPanel({
         aria-label={`${name} details`}
         tabIndex={-1}
         className={styles.panel}
+        style={narrow ? undefined : { width: size.width }}
+        data-dragging={dragging || undefined}
       >
+        {!narrow && (
+          <Resizer
+            width={size.width}
+            min={size.min}
+            max={size.max}
+            grow={-1}
+            label="Resize details"
+            className={styles.resizer}
+            onWidth={size.setWidth}
+            onDragging={setDragging}
+            onReset={() => size.setWidth(size.min)}
+          />
+        )}
         <div className={styles.head}>
           {previousName !== null && (
             <button

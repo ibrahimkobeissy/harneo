@@ -311,3 +311,36 @@
 .dismissed[open] > summary {
   margin-bottom: var(--space-xs);
 }
+/* The drag handle straddles the panel's left edge; the line shows on hover, focus, drag. */
+.resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--space-xs));
+  width: var(--space-sm);
+  z-index: 5;
+  cursor: col-resize;
+  touch-action: none;
+}
+.resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--hairline-strong);
+  transform: translateX(-50%);
+  background: transparent;
+}
+.resizer:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.resizer:hover::after,
+.resizer:focus-visible::after,
+.panel[data-dragging] .resizer::after {
+  background: var(--blue);
+}
+.panel[data-dragging] {
+  user-select: none;
+}

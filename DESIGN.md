@@ -484,7 +484,7 @@ Tags draw from a palette of 14 colours, in picker order: cyan, sky, indigo, viol
 
 ## Layout
 
-A fixed 220px sidebar and a scrolling main view in a full-height grid. The Library adds a 228px filter column; the main column holds the title row (title, search 300px, cards/list switch, Import top right), a two-up insight row (health bar at 1.25fr, 8-week activity at 1fr), then a 3-column card grid. The filter column is sticky at the top of the view and scrolls on its own (capped at the viewport height, overscroll contained), so long tag and source lists never drag the grid. The card grid pages at 24 cards and the list view at 25 rows, with a pager below a hairline at the foot. Detail opens as a 460px drawer from the right over a scrim; the profile builder pairs a picker with a 420px sticky cart. The Security page runs a three-up row of panels (trust scores, findings, reach) above two bordered sortable tables.
+A fixed 220px sidebar and a scrolling main view in a full-height grid. The Library adds a 228px filter column; the main column holds the title row (title, search 300px, cards/list switch, Import top right), a two-up insight row (health bar at 1.25fr, 8-week activity at 1fr), then a 3-column card grid. The filter column is sticky at the top of the view and scrolls on its own (capped at the viewport height, overscroll contained), so long tag and source lists never drag the grid. The card grid pages at 24 cards and the list view at 25 rows, with a pager below a hairline at the foot. Detail opens as a drawer from the right over a scrim, 460px wide by default and resizable from its left edge up to 60% of the window (remembered); the profile builder pairs a picker with a 420px sticky cart. The Security page runs a three-up row of panels (trust scores, findings, reach) above two bordered sortable tables.
 
 Pages pad 20px 28px 48px and fill the main area at any width (no page cap); long prose caps itself at a readable measure in `ch` (callouts 80ch, empty-state text 36em). Gaps follow a 4/6/8/12/16/24 rhythm: 12px between cards and panels, 8px inside rows, 24px before flow footers. Density is desktop-tool dense: 32px controls, 26px small controls.
 
@@ -569,7 +569,7 @@ The Security page extends the same devices: a 10-bucket **trust histogram** colo
 Scaffold and refit previews are a split view: a mono file tree in the sidebar wash (new in green, replaced in amber, removed in red, labelled in Inter) beside a mono code pane with line numbers and diff washes. A replaced `CLAUDE.md` or `settings.json` that loses lines is a red-washed row listing the exact lost lines in red mono.
 
 ### Overlays
-Drawer (460px, slides 24px from the right over 0.22s on `cubic-bezier(0.16, 1, 0.3, 1)`), modals (560px or 900px wide, 12px corners), command palette (620px, 52px input, grouped results, blue-wash active row), and toasts (inverted ink, bottom right). All honour `prefers-reduced-motion`.
+Drawer (460px minimum, slides 24px from the right over 0.22s on `cubic-bezier(0.16, 1, 0.3, 1)`), modals (560px or 900px wide, 12px corners), command palette (620px, 52px input, grouped results, blue-wash active row), and toasts (inverted ink, bottom right). All honour `prefers-reduced-motion`.
 
 ## Do's and Don'ts
 
