@@ -129,7 +129,7 @@ pub(crate) fn fetch(
         }
         return Ok(Upstream::Scanned {
             commit: None,
-            artifacts: scan(root)?,
+            artifacts: scan(root, source)?,
         });
     }
     let url = source.location.as_str();
@@ -140,7 +140,7 @@ pub(crate) fn fetch(
     }
     let checkout = git::clone(config, library_root, url, branch).map_err(unreachable)?;
     let root = checkout_root(&checkout, source)?;
-    let artifacts = scan(&root)?;
+    let artifacts = scan(&root, source)?;
     let commit = checkout.commit.clone();
     session.keep(&source.id, checkout);
     Ok(Upstream::Scanned {
@@ -193,9 +193,17 @@ fn checkout_root(checkout: &Checkout, source: &SourceRecord) -> Result<PathBuf, 
     }
 }
 
-pub(crate) fn scan(root: &Path) -> Result<Vec<Artifact>, Failure> {
+/// Scans the source's folder as its import did: a git source passes its GitHub repo, so a
+/// marketplace entry naming that repo merges with its plugin folder the same way.
+pub(crate) fn scan(root: &Path, source: &SourceRecord) -> Result<Vec<Artifact>, Failure> {
+    let options = ScanOptions {
+        repo: (source.kind == "git")
+            .then(|| crate::artifact::github_repo(&source.location))
+            .flatten(),
+        ..ScanOptions::default()
+    };
     ClaudeAdapter
-        .scan(root, &ScanOptions::default())
+        .scan(root, &options)
         .map(|report| report.artifacts)
         .map_err(unreachable)
 }

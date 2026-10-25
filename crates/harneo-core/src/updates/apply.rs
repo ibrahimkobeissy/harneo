@@ -147,7 +147,7 @@ impl UpdateJob {
     pub(crate) fn run_with(&self, hooks: &dyn ImportHooks) -> Result<PreparedUpdate> {
         let located = remote::locate(&self.git, &self.session, &self.library_root, &self.source)
             .map_err(unavailable)?;
-        let scanned = remote::scan(&located.root).map_err(unavailable)?;
+        let scanned = remote::scan(&located.root, &self.source).map_err(unavailable)?;
         let mut artifact = scanned
             .into_iter()
             .find(|a| a.path == self.source_path)

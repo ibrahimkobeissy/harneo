@@ -268,12 +268,12 @@ fn entry_artifact(
         None
     };
     let is_local = local.is_some() || merged.is_some();
-    let mut artifact = match &local {
-        None if merged.is_some() => {
+    let mut artifact = match (&local, merged) {
+        (None, Some(plugin)) => {
             claimed.push(mfolder.to_path_buf());
-            merged.unwrap_or_else(|| remote_artifact(mfile, name.as_deref()))
+            plugin
         }
-        Some(s) => match resolve_reference(mfolder, s) {
+        (Some(s), _) => match resolve_reference(mfolder, s) {
             Ok(folder) => {
                 claimed.push(folder.clone());
                 local_plugin(walker, &folder, mfile, &mut extra_diag)
@@ -283,7 +283,7 @@ fn entry_artifact(
                 remote_artifact(mfile, name.as_deref())
             }
         },
-        None => remote_artifact(mfile, name.as_deref()),
+        (None, None) => remote_artifact(mfile, name.as_deref()),
     };
     if let Some(n) = &name {
         artifact.name.clone_from(n);
