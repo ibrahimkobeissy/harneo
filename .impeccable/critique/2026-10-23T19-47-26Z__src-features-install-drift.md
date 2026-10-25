@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 4
-target_identity: "file:/home/ibra/projects/harneo/src/features/projects"
+target_identity: "file:src/features/projects"
 timestamp: 2026-10-23T19-47-26Z
 slug: src-features-install-drift
 ---

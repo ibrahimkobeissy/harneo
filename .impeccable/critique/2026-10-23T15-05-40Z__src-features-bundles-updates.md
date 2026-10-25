@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 3
-target_identity: "file:/home/ibra/projects/harneo/src/features/import"
+target_identity: "file:src/features/import"
 timestamp: 2026-10-23T15-05-40Z
 slug: src-features-bundles-updates
 ---

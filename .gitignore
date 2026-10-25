@@ -5,3 +5,8 @@ dist/
 target/
 src-tauri/gen/schemas/
 coverage/
+# Local, personal or secret configuration: never committed.
+.env
+.env.*
+.claude/settings.local.json
+mise.local.toml

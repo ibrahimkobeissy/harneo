@@ -5,9 +5,9 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 2
-target_identity: "file:/home/ibra/projects/harneo/src/app/Layout.tsx"
+target_identity: "file:src/app/Layout.tsx"
 target_fingerprint: "sha256:6ca2fc5d64e9fde48ae74f43ab6088f6522e32d2e1470f3002e3ce944498e782"
-target_path: /home/ibra/projects/harneo/src/app/Layout.tsx
+target_path: src/app/Layout.tsx
 timestamp: 2026-10-21T20-02-30Z
 slug: src-app-layout-tsx
 ---

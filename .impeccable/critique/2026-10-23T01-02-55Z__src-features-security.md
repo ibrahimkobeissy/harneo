@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 3
-target_identity: "file:/home/ibra/projects/harneo/src/features/security"
+target_identity: "file:src/features/security"
 timestamp: 2026-10-23T01-02-55Z
 slug: src-features-security
 ---

@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 2
-target_identity: "file:/home/ibra/projects/harneo/src/features/library"
+target_identity: "file:src/features/library"
 timestamp: 2026-10-22T20-20-09Z
 slug: src-features-library
 ---

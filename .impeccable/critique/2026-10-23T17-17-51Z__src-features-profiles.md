@@ -5,7 +5,7 @@ max_score: 40
 na_heuristics: 
 p0_count: 0
 p1_count: 3
-target_identity: "file:/home/ibra/projects/harneo/src/features/profiles"
+target_identity: "file:src/features/profiles"
 timestamp: 2026-10-23T17-17-51Z
 slug: src-features-profiles
 ---
