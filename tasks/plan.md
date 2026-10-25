@@ -490,3 +490,7 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#179](https://github.com/ibrahimkobeissy/harneo/issues/179) Library detail panel: files as a collapsible tree
 - [#180](https://github.com/ibrahimkobeissy/harneo/issues/180) Library detail panel: resizable width
 - [#181](https://github.com/ibrahimkobeissy/harneo/issues/181) Library filters: collapsible groups, expand/collapse all, hide empty tags
+- [#182](https://github.com/ibrahimkobeissy/harneo/issues/182) Layout resolver tier 2: .agents/skills, layoutBy, unplaced files
+- [#183](https://github.com/ibrahimkobeissy/harneo/issues/183) Layout resolver tier 3: Claude proposes, Harneo validates
+- [#184](https://github.com/ibrahimkobeissy/harneo/issues/184) Layout resolver: store the layout, replay it on updates
+- [#185](https://github.com/ibrahimkobeissy/harneo/issues/185) Layout resolver screens

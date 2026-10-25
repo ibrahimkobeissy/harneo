@@ -96,6 +96,43 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 - promote to library, which needs the project registry from `install-engine`;
 - the `harneo` CLI commands for the library (`cli`).
 
+## Layout resolver
+
+> Decided by the user on 2026-10-25 after review 1 ([ADR-001](../docs/decisions/ADR-001-layout-resolver.md)). It changes how `preview(source)` decides what a source holds. Tickets are listed in `tasks/plan.md` under review 1.
+
+**Why.** No single template covers how people publish their work. A repo can be a plugin at its root (`addyosmani/agent-skills`), a marketplace pointing at `./` (`mattpocock/skills`) or at subfolders (`pbakaus/impeccable`, a mods repo), a pack of `skills/`, `.claude/skills/` or `.agents/skills/`, or prompts mixed in with docs. Review 1 found three failures of the old discovery: a plugin's whole repo stored as its files (191 files for `mattpocock/skills`), one plugin imported as two items, and plugins that could not be enabled at scaffold. A fixed scanner will always meet a repo it misreads, and Claude can read one the way a person would. But Claude's answer cannot be the source of truth: the repo is untrusted and can steer it, sending content to Claude is opt-in, and updates must read a source the same way every time.
+
+**Principle.** The manifest wins, conventions come next, and Claude only proposes. Whatever decided the layout, the result is validated mechanically, parsed by the normal kind parsers and audited as usual. The resolved layout is stored with the source, so later reads replay it without Claude.
+
+**The three tiers**, run in order for every source (git, local folder, `~/.claude`). A path claimed by a tier is never offered to a later one.
+1. **Manifests are authoritative.**
+   - `.claude-plugin/plugin.json`: the plugin's files are its manifest and its components. Components are the paths the manifest declares (`skills`, `commands`, `agents`, `hooks`, `mcpServers`, `outputStyles`, `lspServers`), or Claude Code's default folders when a field is absent. Files those components reference inside the plugin (`${CLAUDE_PLUGIN_ROOT}/…`) come too, and so do the root `README*` and `LICENSE*`. Nothing else in the plugin folder is listed, copied or audited. Check the field list against Claude Code's plugin reference when building.
+   - `.claude-plugin/marketplace.json`: each entry is one Plugin. An entry whose source is a local path, or a remote source naming the repo being imported, **merges** with the plugin folder it designates and gives it its marketplace (#171). An entry pointing to another repo stays a remote-only Plugin.
+   - `installed_plugins.json` in a `~/.claude`-like root, as today.
+2. **Known conventions, mechanical.** The shapes in `artifact-model`'s Discovery list: project and `~/.claude`-like children, pack folders at the root, and loose `SKILL.md` folders. Add `.agents/skills/<name>/SKILL.md`, the cross-agent location of the same open SKILL.md format, read as an ordinary Skill. Each artifact records which tier placed it (`metadata.layoutBy`: `manifest`, `convention` or `claude`).
+3. **Claude proposes, only for what is left.**
+   - **Unplaced files.** After tiers 1 and 2, the scan lists what might still be an artifact: Markdown files with YAML frontmatter holding `name` or `description`, and Markdown under folders named like a kind (`prompts/`, `agents/`, `commands/`, `rules/`…), outside every claimed path. Never counted: `README*`, `CHANGELOG*`, `LICENSE*`, `CONTRIBUTING*`, `.github/`, `.changeset/`, `docs/`, test folders. The scan returns them as `ScanReport.unplaced` (paths only). When nothing at all was found, the whole tree counts as unplaced.
+   - **When it asks.** With `unplaced` non-empty, the Choose step shows "N files Harneo couldn't place" with an **Ask Claude what's in this repo** button: an explicit per-use action. The Settings switch `import.layoutWithClaude` makes the call automatic. It is **off by default**, and its Settings row says what is sent and to whom (the opt-in rule).
+   - **What is sent.** The repo's file tree as paths only (capped at 2,000 paths, the unplaced ones first), the text of any manifests, and the first 40 lines of each unplaced Markdown file (frontmatter and opening), capped at 60 files. Secret-pattern files are listed by name only, never read. The untrusted text goes inside delimited blocks, as in audit phase 2, and text that addresses the reviewer is treated as a threat signal.
+   - **What comes back,** through `bundles/claude_cli.rs` with a JSON schema, no tools, no session and no settings: `{ "items": [{ "kind", "name", "path", "reason" }], "ignore": [{ "path", "reason" }] }`. `kind` is one of the 10 types; `path` is a file or folder relative to the root.
+   - **Validation.** Every item is checked: the path exists, stays inside the root, crosses no symlink, is not already claimed, and parses with that kind's parser. An item that fails is dropped with a `layout.rejected` diagnostic naming the reason. Claude cannot add files to an item beyond what the kind's parser collects, cannot claim a manifest-placed path, and cannot affect the audit. `ignore` entries only hide paths from the "unplaced" notice.
+   - **Failure.** A failed call (no CLI, a limit, an error, a timeout, an invalid answer) **pauses** the Choose step with the reason and three choices: **Retry**, **Continue with what was found** (tiers 1 and 2 only) and **Cancel import**. Nothing is imported until the user picks one.
+- **The layout map.** At import, the source stores the resolved layout: for each imported artifact, its kind, path, name and tier. That is the existing artifact record plus `layoutBy`, and the source gets a `layout_version`. Claude's `ignore` list is stored on the source too.
+  - **Replay.** `updates` and re-imports run tiers 1 and 2 again (they are deterministic) and replay the stored `claude` entries mechanically: same kind, same path, same parser. Claude is never called during an update.
+  - **Layout changed.** When a stored `claude` entry's path is gone or no longer parses, the artifact is flagged *layout changed* in the update check (like *removed*) with an **Ask Claude again** action. New unplaced files at a later check raise the same notice as at import.
+- **Choose step.** Each row shows how it was placed: "from plugin.json", "from marketplace.json", "recognised folder" or "suggested by Claude", with Claude's reason on hover or focus. Rows Claude suggested start ticked like the others; the audit's exclusion rules still apply.
+- **IPC.** `library_preview_layout(token)` runs tier 3 on a held preview and returns the updated candidates; `layout-progress` events while it runs; `import_layout_setting_get`/`_set`.
+- **Out of scope:** adapters for other agents' formats (Cursor rules, Codex `AGENTS.md`) beyond `.agents/skills`; Claude reading whole files; Claude placing anything inside a plugin.
+
+**Testing.** Core tests use the fake `claude` script, never the real CLI:
+- fixtures shaped like the four repos in review 1 resolve with tiers 1 and 2 alone and make no call;
+- an `.agents/skills` pack is read as Skills;
+- a prompts-only repo produces `unplaced`, and a fake answer turns it into Commands;
+- a fake answer with a path outside the root, a symlink, a claimed plugin path or an unparsable file has each item rejected with its reason;
+- a failing CLI gives the pause state and imports nothing;
+- an update replays a stored `claude` entry without calling the CLI, and flags *layout changed* when its path is removed;
+- the setting off makes no call unless the button is used.
+
 ## Tech Stack
 
 New dependencies. They are approved with this spec; any other still needs asking first.
@@ -222,4 +259,4 @@ The levels follow `app-shell.md`. This module adds:
 
 ## Open Questions
 
-None.
+1. **Other agents' layouts** (Cursor rules, Codex `AGENTS.md`): read only `.agents/skills` for now; the rest waits for a second adapter.

@@ -19,6 +19,8 @@ Tell the user when an artifact changed **at its source** since they imported it,
 5. **Automatic check** at app start when the last one is older than 24 h (Settings toggle, default on), in the background; plus **Check for updates** on demand. Network access is only through `git`.
 6. **Versions shown** are the plugin or package `version` when the artifact has one (`plugin.json`, `package.json`, frontmatter `version`), else short commits (`5e0b7aa → 9c1d2e3`), else "changed".
 
+7. **Layout replay (2026-10-25):** an update reads the source with the layout stored at import ([`library.md`](library.md#layout-resolver)) and never calls Claude. A stored `claude` entry whose path is gone or no longer parses is flagged *layout changed*, with an **Ask Claude again** action.
+
 ### Scope
 
 **Core (`harneo-core/src/updates/`)**

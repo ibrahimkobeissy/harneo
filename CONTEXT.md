@@ -84,6 +84,7 @@ flowchart LR
 
 1. **Import a local folder.** Point Harneo at a repo or at `~/.claude/`. It lists every artifact found, grouped by the 10 types, and the user ticks what to import.
 2. **Import from a git URL.** Paste e.g. `github.com/mattpocock/skills` and tick the artifacts you want. For each one Harneo stores the **URL, branch, subfolder and commit**.
+   - **Reading the repo's layout** (decided 2026-10-25): what a repo declares wins (`plugin.json`, `marketplace.json`), then known folders (`.claude/…`, `skills/`, `.agents/skills/`). Only for files left unplaced does Claude propose what they are; Harneo checks every proposal, and stores the layout so updates replay it without Claude.
 3. **AI dependency detection.** Claude reads each imported artifact and proposes **bundles**, e.g. "`grill-me` calls `grilling`" or "`/ship` uses 3 subagents". The user confirms or edits. It runs through the user's installed `claude` CLI, so there's no API key. Sending artifact text to Claude this way is the default.
 4. **Security audit on arrival.** Each artifact gets a **trust score** and its findings (prompt injection, credential theft, plaintext secrets, dangerous commands, supply-chain risk…). It also gets **permission transparency**: which files, network domains, shell commands and environment variables it can reach.
 
