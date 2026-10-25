@@ -661,6 +661,34 @@ fn settings_hits(file: &InputFile) -> Vec<Hit> {
     out
 }
 
+static CAVEAT: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\bonly\s+(?:in|when|if|for|on|with|inside)\b|\bif\s+you\s+(?:trust|are\s+sure|understand|know)\b|\bunless\b|\bwhen\s+you\s+trust\b|\btrusted\s+(?:local\s+)?(?:projects?|repos?|repositories|environments?|sandbox\w*)\b",
+    )
+    .ok()
+});
+
+static BYPASS_NAME: LazyLock<Option<Regex>> = LazyLock::new(|| {
+    Regex::new(r"(?i)--dangerously-skip-permissions|bypassPermissions|--no-verify\b").ok()
+});
+
+/// Lines of a Markdown file that name a bypass flag in prose with a condition ("only in trusted
+/// projects", "if you trust"): documentation with a caveat, medium instead of critical. A line in
+/// a fenced code block stays as it is, since that is what an agent copies and runs.
+fn caveated_lines(file: &InputFile) -> Vec<u32> {
+    let (Some(caveat), Some(name)) = (CAVEAT.as_ref(), BYPASS_NAME.as_ref()) else {
+        return Vec::new();
+    };
+    if !file.is_markdown() {
+        return Vec::new();
+    }
+    file.lines()
+        .filter(|l| !file.in_fenced(l.offset))
+        .filter(|l| caveat.is_match(l.text) && name.is_match(l.text))
+        .map(|l| l.number)
+        .collect()
+}
+
 /// Settings that switch permission prompts off, flags that skip checks, a frontmatter that grants
 /// every tool, and instructions to skip confirmation.
 pub(crate) struct SafetyBypass;
@@ -687,10 +715,14 @@ impl AuditRule for SafetyBypass {
             hits.sort_by_key(|h| h.number);
             // One finding per line: a line can match several patterns.
             hits.dedup_by_key(|h| h.number.filter(|_| h.number.is_some()));
-            out.extend(
-                hits.into_iter()
-                    .map(|h| finding(self, self.severity(), file, h)),
-            );
+            let caveated = caveated_lines(file);
+            out.extend(hits.into_iter().map(|h| {
+                let severity = match h.number {
+                    Some(n) if caveated.contains(&n) => Severity::Medium,
+                    _ => self.severity(),
+                };
+                finding(self, severity, file, h)
+            }));
         }
         out
     }
@@ -1052,6 +1084,24 @@ mod tests {
         ] {
             assert!(bypass(text).is_empty(), "{text}");
         }
+    }
+
+    #[test]
+    fn a_flag_named_in_prose_with_a_condition_is_medium_not_critical() {
+        let f = bypass(
+            "3. **Control permissions:** You can use the `--dangerously-skip-permissions` flag only in trusted local projects where you want to bypass manual tool approval prompts.",
+        );
+        assert_eq!(f.len(), 1);
+        assert_eq!(f[0].severity, Severity::Medium);
+        let f = bypass("If you trust the repo, run claude --dangerously-skip-permissions");
+        assert_eq!(f[0].severity, Severity::Medium);
+        // Runnable code, and prose without a condition, stay critical.
+        let f = bypass(
+            "```bash\nclaude --dangerously-skip-permissions # only in trusted projects\n```",
+        );
+        assert_eq!(f[0].severity, Severity::Critical);
+        let f = bypass("Run claude --dangerously-skip-permissions to go faster");
+        assert_eq!(f[0].severity, Severity::Critical);
     }
 
     #[test]
