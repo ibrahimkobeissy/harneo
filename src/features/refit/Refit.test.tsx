@@ -101,6 +101,7 @@ const plan = {
   kind: "refit",
   editedInProject: [],
   restored: [],
+  warnings: [],
   writes: [
     {
       path: "CLAUDE.md",
@@ -142,7 +143,23 @@ const plan = {
   ],
 };
 
+const pluginPlan = {
+  ...plan,
+  warnings: ["loose: not installable: no marketplace"],
+  writes: plan.writes.map((w) =>
+    w.path === "HARNESS.md"
+      ? {
+          ...w,
+          bytes: b64(
+            "# Harness\n\n## Plugins\n\nPlugins are not copied. `.claude/settings.json` enables them.\n",
+          ),
+        }
+      : w,
+  ),
+};
+
 interface Opts {
+  plugins?: boolean;
   comparison?: Comparison;
   compareError?: string;
   planError?: string;
@@ -195,7 +212,7 @@ function setup(opts: Opts = {}) {
         return opts.comparison ?? comparison();
       case "refit_plan":
         if (opts.planError) throw new Error(opts.planError);
-        return plan;
+        return opts.plugins ? pluginPlan : plan;
       case "install_apply":
         if (opts.applyError) throw new Error(opts.applyError);
         return {
@@ -247,6 +264,24 @@ async function toPreview() {
 }
 
 describe("Refit flow", () => {
+  it("explains that plugins are enabled, not copied, in Preview and Done", async () => {
+    setup({ plugins: true });
+    await toPreview();
+    expect(
+      screen.getByText("Plugins are not copied.", { selector: "b" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("enabledPlugins", { selector: "code" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("list", { name: "Plugins not enabled" }),
+    ).toHaveTextContent("loose: not installable: no marketplace");
+    await userEvent.click(screen.getByRole("button", { name: /Apply/ }));
+    expect(
+      await screen.findByText(/Plugins were not copied/),
+    ).toBeInTheDocument();
+  });
+
   it("lists registered projects and picks one", async () => {
     setup();
     const known = await screen.findByRole("button", {

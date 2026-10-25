@@ -4,6 +4,7 @@ import type { Plan } from "../../bindings/Plan";
 import type { RefitAction } from "../../bindings/RefitAction";
 import type { Row } from "../../bindings/Row";
 import { Callout, CodeView, FileTree, markOf } from "../../ui";
+import { PluginNotice } from "../projects/PluginNotice";
 import styles from "./Refit.module.css";
 import { baseName, criticalLosses, lossText, lossUnit } from "./summary";
 
@@ -84,6 +85,7 @@ export function PreviewStep({
           </ul>
         </Callout>
       )}
+      <PluginNotice plan={plan} />
       <div className={styles.split}>
         <FileTree
           label="Files to change"

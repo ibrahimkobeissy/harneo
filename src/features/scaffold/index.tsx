@@ -13,6 +13,7 @@ import {
   scaffoldPlan,
 } from "../../lib/ipc";
 import { Button, Callout, Screen, Stepper, WizardActions } from "../../ui";
+import { hasPlugins } from "../projects/PluginNotice";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";
@@ -269,11 +270,12 @@ export function ScaffoldScreen() {
       {step === 2 && plan && (
         <PreviewStep plan={plan} displayPath={path.trim()} error={applyError} />
       )}
-      {step === 3 && report && (
+      {step === 3 && report && plan && (
         <DoneStep
           folder={baseName(path)}
           profile={label}
           written={report.written}
+          plugins={hasPlugins(plan)}
           onOpen={() => void navigate(`/projects/${report.projectId}`)}
           onAgain={again}
         />

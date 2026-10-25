@@ -65,6 +65,7 @@ function plan(over: Partial<Plan> = {}): Plan {
     kind: "switch",
     editedInProject: [".claude/agents/old.md"],
     restored: [],
+    warnings: [],
     writes: [
       {
         path: ".claude/skills/new/SKILL.md",

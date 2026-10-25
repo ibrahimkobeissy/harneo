@@ -1,5 +1,6 @@
 import { CircleCheck, FolderGit2, FolderPlus } from "lucide-react";
 import { Button } from "../../ui";
+import { PluginsDone } from "../projects/PluginNotice";
 import styles from "./Scaffold.module.css";
 
 /** The success summary after the files are written. */
@@ -7,12 +8,15 @@ export function DoneStep({
   folder,
   profile,
   written,
+  plugins,
   onOpen,
   onAgain,
 }: {
   folder: string;
   profile: string;
   written: number;
+  /** The profile holds plugins, which are enabled in settings but never copied. */
+  plugins: boolean;
   onOpen: () => void;
   onAgain: () => void;
 }) {
@@ -29,6 +33,7 @@ export function DoneStep({
         <span className={styles.mono}>HARNESS.md</span>. The project is in your
         registry.
       </p>
+      {plugins && <PluginsDone />}
       <div className={styles.actions}>
         <Button onClick={onOpen}>
           <FolderGit2 size={14} aria-hidden="true" />

@@ -26,6 +26,7 @@ import {
   WizardActions,
 } from "../../ui";
 import { CompareStep } from "./CompareStep";
+import { hasPlugins } from "../projects/PluginNotice";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";
@@ -375,6 +376,7 @@ export function RefitScreen() {
           folder={baseName(path)}
           profile={flowLabel}
           backedUp={report.backedUp}
+          plugins={plan ? hasPlugins(plan) : false}
           backupFolder={report.backupFolder}
           projectId={String(report.projectId)}
           restoredCount={restoredCount}

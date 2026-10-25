@@ -85,6 +85,7 @@ function plan(): Plan {
     kind: "reapply",
     editedInProject: [],
     restored: [],
+    warnings: [],
   } as unknown as Plan;
 }
 

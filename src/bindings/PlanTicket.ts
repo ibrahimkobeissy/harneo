@@ -31,4 +31,9 @@ editedInProject: Array<string>,
  * Paths whose write puts back something that is not Harneo's content (a project's original
  * file): the manifest stops listing them once applied.
  */
-restored: Array<string>, };
+restored: Array<string>, 
+/**
+ * Things the user should know before applying, one line each: a plugin the profile holds
+ * that `settings.json` cannot enable ("name: not installable: no marketplace").
+ */
+warnings: Array<string>, };

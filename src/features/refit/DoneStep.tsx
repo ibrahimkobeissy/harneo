@@ -1,6 +1,7 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
 import { Link } from "react-router";
 import { Button } from "../../ui";
+import { PluginsDone } from "../projects/PluginNotice";
 import styles from "./Refit.module.css";
 
 /** The summary after the refit, with a way back to the originals. */
@@ -12,6 +13,7 @@ export function DoneStep({
   projectId,
   restoredCount,
   addedCount,
+  plugins,
   restoring,
   restored,
   confirming,
@@ -31,6 +33,8 @@ export function DoneStep({
   restoredCount: number;
   /** Files the refit added; a restore leaves them in place. */
   addedCount: number;
+  /** The profile holds plugins, which are enabled in settings but never copied. */
+  plugins: boolean;
   restoring: boolean;
   restored: boolean;
   confirming: boolean;
@@ -54,6 +58,7 @@ export function DoneStep({
         {backedUp} {originals} backed up. The project is in your registry with a
         fresh <span className={styles.mono}>HARNESS.md</span>.
       </p>
+      {plugins && <PluginsDone />}
       {backupFolder && (
         <p>
           Backup saved in <span className={styles.mono}>{backupFolder}</span>.
