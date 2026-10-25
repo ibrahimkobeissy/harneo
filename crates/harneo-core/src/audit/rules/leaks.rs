@@ -719,6 +719,40 @@ mod tests {
     }
 
     #[test]
+    fn review_one_false_positives_are_not_secrets() {
+        let lines = [
+            ("hooks/register.tsx", "const progress = atom({ plugin: 'session-radar', key: 'session-radar' } as const, { todos: [], tasks: [] })"),
+            ("scripts/floor-guard-reference-test.js", "      GIT_AUTHOR_NAME: 'Floor Guard Test',"),
+            (".agents/plugins/marketplace.json", "        \"authentication\": \"ON_INSTALL\""),
+            ("hooks/simplify-ignore-test.sh", "const secret = \"glob*chars? [and] \\\\backslashes\";"),
+        ];
+        for (path, line) in lines {
+            let text = format!("{line}\n");
+            assert!(
+                secrets(&text, path, ArtifactKind::Skill).is_empty(),
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn compound_secret_keys_with_credential_values_are_found() {
+        let value = ["Zk3mQ9", "xT7pLw2Vb8Nc4Rd5"].concat();
+        for (path, text) in [
+            ("a.ts", format!("const apiKey = \"{value}\";\n")),
+            ("a.sh", format!("AUTH_TOKEN={value}\n")),
+            ("a.sh", format!("API_KEY=\"{value}\"\n")),
+            ("a.py", format!("auth_token: \"{value}\"\n")),
+            (
+                "a.json",
+                "{\"password\": \"hunter2hunter2X9\"}\n".to_string(),
+            ),
+        ] {
+            assert_eq!(secrets(&text, path, ArtifactKind::Skill).len(), 1, "{text}");
+        }
+    }
+
+    #[test]
     fn url_query_keys_in_code_are_not_assignments() {
         let text = "const u = 'http://localhost:' + PORT + '/manual-edit-stash?token=' + TOKEN + '&pageUrl=' + encodeURIComponent(href);\n\
                     fetch(`/x?token=${TOKEN}&a=1`);\n";

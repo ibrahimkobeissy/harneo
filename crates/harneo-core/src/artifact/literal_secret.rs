@@ -2,38 +2,138 @@
 //! it only decides whether a value should have been a `${VAR}` placeholder. Callers report the
 //! key name and must never print, log or store the value.
 
-/// Words in a key name that suggest the value is a secret (compared upper-case).
-const SECRET_WORDS: [&str; 8] = [
-    "TOKEN",
-    "KEY",
-    "SECRET",
-    "PASSWORD",
-    "PASSWD",
-    "CREDENTIAL",
-    "AUTH",
-    "BEARER",
+/// Whole words in a key name that suggest the value is a secret (compared lower-case).
+const SECRET_WORDS: [&str; 12] = [
+    "token",
+    "tokens",
+    "secret",
+    "secrets",
+    "password",
+    "passwd",
+    "credential",
+    "credentials",
+    "auth",
+    "authorization",
+    "bearer",
+    "apikey",
 ];
+
+/// Words that make a value a likely secret even when it is a plain lower-case phrase
+/// (`DB_PASSWORD=correct-horse-battery`); the others also need mixed character classes.
+const STRONG_WORDS: [&str; 6] = [
+    "password",
+    "passwd",
+    "secret",
+    "secrets",
+    "credential",
+    "credentials",
+];
+
+/// Words that only count in a compound name (`apiKey`, `secret_key`), never alone.
+const COMPOUND_WORDS: [&str; 1] = ["key"];
+
+/// Splits a key into lower-case words: camelCase, snake_case, kebab-case, dots, `HTTPServer`.
+fn key_words(key: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut cur = String::new();
+    let chars: Vec<char> = key.chars().collect();
+    for (i, &c) in chars.iter().enumerate() {
+        if !c.is_ascii_alphanumeric() {
+            if !cur.is_empty() {
+                words.push(std::mem::take(&mut cur));
+            }
+            continue;
+        }
+        let prev = i.checked_sub(1).map(|p| chars[p]);
+        let next = chars.get(i + 1).copied();
+        let boundary = c.is_ascii_uppercase()
+            && prev.is_some_and(|p| {
+                p.is_ascii_lowercase()
+                    || p.is_ascii_digit()
+                    || (p.is_ascii_uppercase() && next.is_some_and(|n| n.is_ascii_lowercase()))
+            });
+        if boundary && !cur.is_empty() {
+            words.push(std::mem::take(&mut cur));
+        }
+        cur.push(c.to_ascii_lowercase());
+    }
+    if !cur.is_empty() {
+        words.push(cur);
+    }
+    words
+}
+
+/// `None` when the key name is not secret-sounding, else whether it is a strong word.
+fn secret_key_strength(key: &str) -> Option<bool> {
+    let words = key_words(key);
+    let strong = words.iter().any(|w| STRONG_WORDS.contains(&w.as_str()));
+    let weak = words.iter().any(|w| SECRET_WORDS.contains(&w.as_str()))
+        || (words.len() >= 2 && words.iter().any(|w| COMPOUND_WORDS.contains(&w.as_str())));
+    (strong || weak).then_some(strong)
+}
+
+/// Whether `value` could be a credential when only the key name suggested a secret: no
+/// whitespace, 12+ characters, not an enum constant, slug, path or plain URL, mixed classes.
+fn looks_like_credential(value: &str, strong_key: bool) -> bool {
+    if value.len() < 12 || value.contains(char::is_whitespace) {
+        return false;
+    }
+    let has_letter = value.chars().any(|c| c.is_ascii_alphabetic());
+    let has_digit = value.chars().any(|c| c.is_ascii_digit());
+    let upper_snake = !has_digit && value.chars().all(|c| c.is_ascii_uppercase() || c == '_');
+    let slug = value
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || matches!(c, '-' | '_' | '.'));
+    if upper_snake || (slug && !strong_key) {
+        return false;
+    }
+    if value.starts_with(['/', '~']) || value.starts_with("./") || value.starts_with("../") {
+        return false;
+    }
+    if value.contains("://") && !value.contains('@') {
+        return false;
+    }
+    let mixed_case = value.chars().any(|c| c.is_ascii_uppercase())
+        && value.chars().any(|c| c.is_ascii_lowercase());
+    strong_key || (has_letter && has_digit) || (mixed_case && entropy(value) >= 3.5)
+}
+
+/// Shannon entropy in bits per character.
+fn entropy(value: &str) -> f64 {
+    let mut counts = std::collections::HashMap::new();
+    for c in value.chars() {
+        *counts.entry(c).or_insert(0usize) += 1;
+    }
+    let n = value.chars().count() as f64;
+    counts
+        .values()
+        .map(|&c| {
+            let p = c as f64 / n;
+            -p * p.log2()
+        })
+        .sum()
+}
 
 /// What stands in for a value that was redacted before storing.
 pub const REDACTED: &str = "<redacted>";
 
 /// True when `value` is a literal secret rather than a placeholder: it is not a `${VAR}` or
-/// `$VAR` reference, and either the key name suggests a secret or the value has a known token
-/// format (`sk-`, `ghp_`, `github_pat_`, `xoxb-`/`xoxp-`, AWS access key ids).
+/// `$VAR` reference, and either the key name suggests a secret (whole words) and the value looks
+/// like a credential, or the value has a known token format (`sk-`, `ghp_`, `github_pat_`, `xoxb-`/`xoxp-`, AWS access key ids).
 pub fn is_literal_secret(key: &str, value: &str) -> bool {
     let value = value.trim();
     if value.is_empty() {
         return false;
     }
-    let key = key.to_ascii_uppercase();
-    let secret_key = SECRET_WORDS.iter().any(|w| key.contains(w));
+    let strength = secret_key_strength(key);
+    let secret_key = strength.is_some();
     if is_placeholder(value) {
         // A `${VAR:-default}` placeholder is only as safe as its default.
         return default_part(value).is_some_and(|d| {
             has_token_format(d) || (secret_key && d.len() >= 16 && !d.contains(char::is_whitespace))
         });
     }
-    secret_key || has_token_format(value)
+    strength.is_some_and(|strong| looks_like_credential(value, strong)) || has_token_format(value)
 }
 
 /// The default of a `${VAR:-default}` / `${VAR:=default}` / `${VAR-default}` reference.
@@ -116,6 +216,58 @@ mod tests {
                 "{key}"
             );
         }
+    }
+
+    #[test]
+    fn key_names_match_whole_words_only() {
+        let v = "Zk3mQ9xT7pLw2Vb8Nc4Rd5Hs";
+        for key in [
+            "apiKey",
+            "API_KEY",
+            "secretKey",
+            "privateKey",
+            "accessKey",
+            "auth_token",
+            "password",
+            "client-secret",
+            "db.password",
+        ] {
+            assert!(is_literal_secret(key, v), "{key}");
+        }
+        for key in [
+            "key",
+            "id",
+            "AUTHOR",
+            "GIT_AUTHOR_NAME",
+            "authentication",
+            "monkey",
+        ] {
+            assert!(!is_literal_secret(key, v), "{key}");
+        }
+    }
+
+    #[test]
+    fn a_key_name_alone_needs_a_credential_looking_value() {
+        assert!(is_literal_secret("password", "hunter2hunter2X9"));
+        assert!(!is_literal_secret("auth", "session-radar"));
+        for v in [
+            "ON_INSTALL",
+            "glob*chars? [and] \\backslashes",
+            "Floor Guard Test",
+            "short1",
+            "/usr/local/share/app",
+            "https://example.com/api",
+        ] {
+            assert!(!is_literal_secret("secret", v), "{v}");
+        }
+    }
+
+    #[test]
+    fn token_formats_trigger_under_the_bare_key_name() {
+        assert!(is_literal_secret(
+            "key",
+            &format!("{}_{}", "ghp", "fakefake1")
+        ));
     }
 
     #[test]
