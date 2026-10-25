@@ -479,3 +479,14 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#167](https://github.com/ibrahimkobeissy/harneo/issues/167) Audit: catch secret assignments written with spaces
 - [#168](https://github.com/ibrahimkobeissy/harneo/issues/168) Audit: catch secrets in Python annotated assignments and quoted-key JSON
 - [#169](https://github.com/ibrahimkobeissy/harneo/issues/169) Optional error reporting to Sentry (React and Rust)
+- [#171](https://github.com/ibrahimkobeissy/harneo/issues/171) Import: one Plugin per repo when its marketplace entry points to the same repo
+- [#172](https://github.com/ibrahimkobeissy/harneo/issues/172) Import: a plugin's files are its manifest and components, not its whole repo
+- [#173](https://github.com/ibrahimkobeissy/harneo/issues/173) Scaffold: enable git-imported plugins in settings.json, never drop one silently
+- [#174](https://github.com/ibrahimkobeissy/harneo/issues/174) Show why Claude could not confirm audit findings, with a retry
+- [#175](https://github.com/ibrahimkobeissy/harneo/issues/175) Audit: secret-named keys match whole words and need a credential-looking value
+- [#176](https://github.com/ibrahimkobeissy/harneo/issues/176) Audit: quoted, negated or caveated injection and bypass mentions are not Critical
+- [#177](https://github.com/ibrahimkobeissy/harneo/issues/177) Import Review: choose a color when adding a tag to one artifact
+- [#178](https://github.com/ibrahimkobeissy/harneo/issues/178) Screens stretch to the window width
+- [#179](https://github.com/ibrahimkobeissy/harneo/issues/179) Library detail panel: files as a collapsible tree
+- [#180](https://github.com/ibrahimkobeissy/harneo/issues/180) Library detail panel: resizable width
+- [#181](https://github.com/ibrahimkobeissy/harneo/issues/181) Library filters: collapsible groups, expand/collapse all, hide empty tags
