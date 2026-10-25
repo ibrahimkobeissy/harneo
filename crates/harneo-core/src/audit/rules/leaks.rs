@@ -65,6 +65,12 @@ static SHAPE_RES: LazyLock<Vec<(&'static str, Regex)>> = LazyLock::new(|| {
         .filter_map(|(family, p)| Regex::new(p).ok().map(|r| (*family, r)))
         .collect()
 });
+/// Whether `text` holds a known token shape (GitHub, Slack, Anthropic, OpenAI, AWS, Google,
+/// Stripe, JWT, PEM private key, bearer). For callers that must never ship such text elsewhere.
+pub fn contains_token_shape(text: &str) -> bool {
+    SHAPE_RES.iter().any(|(_, re)| re.is_match(text))
+}
+
 static URL_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(URL_USERINFO).ok());
 static ASSIGN_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(ASSIGNMENT).ok());
 static JSON_PAIR_RE: LazyLock<Option<Regex>> = LazyLock::new(|| Regex::new(JSON_PAIR).ok());
@@ -596,6 +602,15 @@ mod tests {
     use crate::artifact::ArtifactKind;
 
     const TAIL: &str = "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8";
+
+    #[test]
+    fn contains_token_shape_matches_shapes_only() {
+        assert!(contains_token_shape(&["x gh", "p_", TAIL].concat()));
+        assert!(contains_token_shape(
+            &["-----BEGIN RSA ", "PRIVATE KEY-----"].concat()
+        ));
+        assert!(!contains_token_shape("no secret here, /home/me/file.rs"));
+    }
 
     /// Fixture secrets, built at run time from fragments.
     fn families() -> Vec<(&'static str, String)> {

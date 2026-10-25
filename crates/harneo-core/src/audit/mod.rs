@@ -26,6 +26,7 @@ use ts_rs::TS;
 use crate::artifact::{Artifact, ScanOptions};
 pub use input::{AuditInput, FileRole, InputFile};
 pub use redact::redact;
+pub use rules::leaks::contains_token_shape;
 
 /// How serious a finding is; decides how many points it costs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]

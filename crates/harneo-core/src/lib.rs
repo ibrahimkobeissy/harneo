@@ -10,6 +10,7 @@ pub mod install;
 pub mod library;
 pub mod paths;
 pub mod profiles;
+pub mod reporting;
 pub mod updates;
 pub mod usage;
 

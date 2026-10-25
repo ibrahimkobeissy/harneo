@@ -73,9 +73,18 @@ enum Command {
 }
 
 fn main() -> ExitCode {
+    // Reporting follows the stored Settings switch and needs HARNEO_SENTRY_DSN; the library is
+    // not even opened when no DSN is set. The guard flushes pending events on exit.
+    let dsn = harneo_report::dsn_from_env();
+    let switch = dsn.is_some()
+        && profiles::open_library()
+            .map(|(library, _)| harneo_report::switch_on(&library))
+            .unwrap_or(false);
+    let _reporting = harneo_report::init(harneo_report::Side::Cli, dsn, switch);
     match run() {
         Ok(code) => code,
         Err(error) => {
+            harneo_report::capture(&format!("{error:#}"));
             eprintln!("harneo: {error:#}");
             ExitCode::FAILURE
         }

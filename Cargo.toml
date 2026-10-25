@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/harneo-core", "crates/harneo-cli", "src-tauri"]
+members = ["crates/harneo-core", "crates/harneo-cli", "crates/harneo-report", "src-tauri"]
 resolver = "2"
 
 [workspace.package]

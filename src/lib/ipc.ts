@@ -7,6 +7,8 @@ import type { Source } from "../bindings/Source";
 import type { ChangeScope } from "../bindings/ChangeScope";
 import type { WatchStatus } from "../bindings/WatchStatus";
 import type { AppInfo } from "../bindings/AppInfo";
+import type { DiagnosticsStatus } from "../bindings/DiagnosticsStatus";
+import type { ReportingConfig } from "../bindings/ReportingConfig";
 import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactConfirmation } from "../bindings/ArtifactConfirmation";
 import type { ConfirmProgress } from "../bindings/ConfirmProgress";
@@ -67,6 +69,16 @@ import type { TagWithCount } from "../bindings/TagWithCount";
 /** The only module that calls `invoke`: one typed wrapper per backend command. */
 export function appInfo(): Promise<AppInfo> {
   return invoke<AppInfo>("app_info");
+}
+
+/** Whether the webview should report errors; the DSN is present only when it should. */
+export function errorReportingConfig(): Promise<ReportingConfig> {
+  return invoke<ReportingConfig>("error_reporting_config");
+}
+
+/** Settings → Diagnostics: whether a DSN is configured, and the switch (never the DSN). */
+export function diagnosticsStatus(): Promise<DiagnosticsStatus> {
+  return invoke<DiagnosticsStatus>("diagnostics_status");
 }
 
 /** One page of the library: filtered, sorted, with its total and facet counts. */

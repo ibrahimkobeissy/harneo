@@ -98,6 +98,50 @@ pub fn app_info() -> Result<AppInfo, String> {
     })
 }
 
+/// What the webview needs to start its own error reporting. The DSN crosses only when
+/// reporting is on (a DSN in the environment and the Settings switch).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ReportingConfig {
+    pub enabled: bool,
+    pub dsn: Option<String>,
+}
+
+/// What Settings → Diagnostics shows: whether `HARNEO_SENTRY_DSN` is set empty (reporting disabled), and the switch. Never the DSN.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct DiagnosticsStatus {
+    pub disabled_by_env: bool,
+    pub switch_on: bool,
+}
+
+fn reporting_config_for(dsn: Option<String>, switch: bool) -> ReportingConfig {
+    let dsn = harneo_report::decide(dsn, switch);
+    ReportingConfig {
+        enabled: dsn.is_some(),
+        dsn,
+    }
+}
+
+/// Whether the webview should report errors, and with which DSN.
+#[tauri::command]
+pub fn error_reporting_config(state: State<'_, LibraryState>) -> Result<ReportingConfig, String> {
+    let switch = state.with(|l| Ok(harneo_report::switch_on(l)))?;
+    Ok(reporting_config_for(harneo_report::dsn_from_env(), switch))
+}
+
+/// The Diagnostics settings state.
+#[tauri::command]
+pub fn diagnostics_status(state: State<'_, LibraryState>) -> Result<DiagnosticsStatus, String> {
+    let switch_on = state.with(|l| Ok(harneo_report::switch_on(l)))?;
+    Ok(DiagnosticsStatus {
+        disabled_by_env: harneo_core::reporting::reporting_disabled_by_env(),
+        switch_on,
+    })
+}
+
 /// The library, opened once at startup. An open failure is kept as its message and handed to
 /// the UI by every library command, so the screen shows an error state instead of the app
 /// crashing.
@@ -1656,6 +1700,41 @@ mod tests {
         assert_eq!(info.version, harneo_core::version());
         let expected = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
         assert_eq!(info.data_dir, expected.to_string_lossy());
+        Ok(())
+    }
+
+    #[test]
+    fn the_dsn_crosses_to_the_webview_only_when_reporting_is_on() {
+        let dsn = Some("https://k@example.invalid/1".to_string());
+        let off = reporting_config_for(dsn.clone(), false);
+        assert!(!off.enabled && off.dsn.is_none());
+        let none = reporting_config_for(None, true);
+        assert!(!none.enabled && none.dsn.is_none());
+        let on = reporting_config_for(dsn.clone(), true);
+        assert!(on.enabled && on.dsn == dsn);
+    }
+
+    #[test]
+    fn diagnostics_commands_read_the_state() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let config = error_reporting_config(app.state::<LibraryState>())?;
+        assert!(!config.enabled && config.dsn.is_none());
+        let status = diagnostics_status(app.state::<LibraryState>())?;
+        assert!(!status.switch_on);
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostics_commands_follow_the_stored_switch() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let state = LibraryState::from_result(Ok(Library::open(dir.path())?));
+        let off = state.with(|l| Ok(harneo_report::switch_on(l)))?;
+        assert!(!off);
+        state
+            .with(|l| l.settings_set(harneo_report::SETTING_KEY, &serde_json::Value::Bool(true)))?;
+        assert!(state.with(|l| Ok(harneo_report::switch_on(l)))?);
         Ok(())
     }
 

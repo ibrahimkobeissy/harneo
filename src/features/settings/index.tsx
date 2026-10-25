@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react";
 import { AboutPanel } from "../../app/AboutPanel";
 import { Screen } from "../../ui";
 import { ClaudeSettings } from "./ClaudeSettings";
+import { DiagnosticsSettings } from "./DiagnosticsSettings";
 import { DangerZone } from "./DangerZone";
 import { Group } from "./Group";
 import styles from "./Settings.module.css";
@@ -23,6 +24,7 @@ export function SettingsScreen() {
           <UpdatesPanel />
           <LiveRescan />
         </Group>
+        <DiagnosticsSettings />
         <AboutPanel grouped dataFolder={false} />
         <DangerZone />
       </div>

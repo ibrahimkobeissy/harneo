@@ -4,13 +4,28 @@ mod commands;
 mod held;
 mod watch;
 
+/// Starts error reporting when the Settings switch is on and a DSN resolves (opt-in); the guard
+/// flushes pending events when it drops.
+fn start_reporting(library: &commands::LibraryState) -> Option<sentry::ClientInitGuard> {
+    let switch = library
+        .with(|l| Ok(harneo_report::switch_on(l)))
+        .unwrap_or(false);
+    harneo_report::init(
+        harneo_report::Side::RustApp,
+        harneo_report::dsn_from_env(),
+        switch,
+    )
+}
+
 /// Starts the app. A failure to start is reported and exits non-zero rather than panicking,
 /// since `unwrap`/`expect` are denied outside tests.
 pub fn run() {
+    let library = commands::LibraryState::open();
+    let _reporting = start_reporting(&library);
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(commands::LibraryState::open())
+        .manage(library)
         .manage(commands::UsageState::open())
         .manage(watch::WatchState::default())
         .manage(commands::PlanCache::default())
@@ -22,6 +37,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::app_info,
+            commands::error_reporting_config,
+            commands::diagnostics_status,
             commands::reset_harneo,
             commands::library_list,
             commands::library_detail,
@@ -128,5 +145,20 @@ pub fn run() {
     if let Err(err) = result {
         eprintln!("harneo: failed to start the app: {err}");
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_client_while_the_switch_is_off() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let library = commands::LibraryState::from_result(Ok(harneo_core::library::Library::open(
+            dir.path(),
+        )?));
+        assert!(start_reporting(&library).is_none());
+        Ok(())
     }
 }
