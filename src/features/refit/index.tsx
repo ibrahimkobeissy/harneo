@@ -24,9 +24,9 @@ import {
   Screen,
   Stepper,
   WizardActions,
+  hasPlugins,
 } from "../../ui";
 import { CompareStep } from "./CompareStep";
-import { hasPlugins } from "../projects/PluginNotice";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";

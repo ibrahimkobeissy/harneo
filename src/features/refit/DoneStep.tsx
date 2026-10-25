@@ -1,7 +1,6 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
 import { Link } from "react-router";
-import { Button } from "../../ui";
-import { PluginsDone } from "../projects/PluginNotice";
+import { Button, PluginsDone } from "../../ui";
 import styles from "./Refit.module.css";
 
 /** The summary after the refit, with a way back to the originals. */

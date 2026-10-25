@@ -1,6 +1,7 @@
 import { PackageOpen, TriangleAlert } from "lucide-react";
-import type { Plan } from "../../bindings/Plan";
-import { Callout, decodeText } from "../../ui";
+import type { Plan } from "../bindings/Plan";
+import { Callout } from "./Callout";
+import { decodeText } from "./CodeView";
 
 /** HARNESS.md carries this sentence whenever the profile holds a plugin. */
 const MARK = "Plugins are not copied.";

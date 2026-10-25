@@ -12,8 +12,14 @@ import {
   scaffoldCheck,
   scaffoldPlan,
 } from "../../lib/ipc";
-import { Button, Callout, Screen, Stepper, WizardActions } from "../../ui";
-import { hasPlugins } from "../projects/PluginNotice";
+import {
+  Button,
+  Callout,
+  Screen,
+  Stepper,
+  WizardActions,
+  hasPlugins,
+} from "../../ui";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
 import { PreviewStep } from "./PreviewStep";

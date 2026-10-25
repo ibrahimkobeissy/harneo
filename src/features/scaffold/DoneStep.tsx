@@ -1,6 +1,5 @@
 import { CircleCheck, FolderGit2, FolderPlus } from "lucide-react";
-import { Button } from "../../ui";
-import { PluginsDone } from "../projects/PluginNotice";
+import { Button, PluginsDone } from "../../ui";
 import styles from "./Scaffold.module.css";
 
 /** The success summary after the files are written. */
