@@ -73,9 +73,12 @@ fn secret_key_strength(key: &str) -> Option<bool> {
 }
 
 /// Whether `value` could be a credential when only the key name suggested a secret: no
-/// whitespace, 12+ characters, not an enum constant, slug, path or plain URL, mixed classes.
+/// whitespace, not an enum constant, path or plain URL; for a weak key also 12+ characters,
+/// not a slug and mixed classes. A strong key needs only 6 characters, so a short real
+/// password (`DB_PASSWORD=pass1234`) still counts and is replaced at import.
 fn looks_like_credential(value: &str, strong_key: bool) -> bool {
-    if value.len() < 12 || value.contains(char::is_whitespace) {
+    let min = if strong_key { 6 } else { 12 };
+    if value.len() < min || value.contains(char::is_whitespace) {
         return false;
     }
     let has_letter = value.chars().any(|c| c.is_ascii_alphabetic());
@@ -118,8 +121,9 @@ fn entropy(value: &str) -> f64 {
 pub const REDACTED: &str = "<redacted>";
 
 /// True when `value` is a literal secret rather than a placeholder: it is not a `${VAR}` or
-/// `$VAR` reference, and either the key name suggests a secret (whole words) and the value looks
-/// like a credential, or the value has a known token format (`sk-`, `ghp_`, `github_pat_`, `xoxb-`/`xoxp-`, AWS access key ids).
+/// `$VAR` reference, and either the key name suggests a secret (whole words) and the value
+/// looks like a credential, or the value has a known token format (`sk-`, `ghp_`,
+/// `github_pat_`, `xoxb-`/`xoxp-`, AWS access key ids).
 pub fn is_literal_secret(key: &str, value: &str) -> bool {
     let value = value.trim();
     if value.is_empty() {
@@ -254,7 +258,7 @@ mod tests {
             "ON_INSTALL",
             "glob*chars? [and] \\backslashes",
             "Floor Guard Test",
-            "short1",
+            "abc12",
             "/usr/local/share/app",
             "https://example.com/api",
         ] {
@@ -347,5 +351,16 @@ mod tests {
             &format!("AKIA{}", "0".repeat(15))
         ));
         assert!(!is_literal_secret("SOMETHING", "ask-fakefake1"));
+    }
+
+    #[test]
+    fn a_short_password_under_a_strong_key_still_counts() {
+        assert!(is_literal_secret("DB_PASSWORD", &["pass", "1234"].concat()));
+        assert!(is_literal_secret(
+            "client_secret",
+            &["chan", "geme"].concat()
+        ));
+        assert!(!is_literal_secret("DB_PASSWORD", "abc12"));
+        assert!(!is_literal_secret("apiKey", &["ab", "c123"].concat()));
     }
 }
