@@ -186,6 +186,8 @@ pub enum Error {
     ClaudeFailed {
         /// Claude's last error text, cut short; never the prompt.
         message: String,
+        /// What sort of failure, when it could be told.
+        kind: crate::bundles::FailureKind,
     },
     /// Claude answered with something that is not the JSON that was asked for, or too much of it.
     #[error("claude's answer could not be used: {message}")]

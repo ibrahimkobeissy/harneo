@@ -26,7 +26,7 @@ use super::{
     Finding, Tier,
 };
 use crate::artifact::ArtifactKind;
-use crate::bundles::{run_claude, ClaudeConfig};
+use crate::bundles::{run_claude, ClaudeConfig, FailureKind};
 use crate::error::Error;
 
 /// The settings key that turns phase 2 off (default: on).
@@ -213,6 +213,7 @@ pub fn resolve_cached(
             model: Some(model.to_owned()),
             at: Some(now),
             detail: None,
+            kind: None,
         }
     };
     settle(phase1, &verdicts, confirmation)
@@ -320,6 +321,38 @@ pub fn confirm(
     cache: &HashMap<String, Verdict>,
     now: i64,
 ) -> Confirmed {
+    confirm_unless_blocked(config, subject, phase1, cands, cache, now, None)
+}
+
+/// Why an earlier artifact in the same run failed at the account level (not logged in, a usage
+/// limit): `Claude` is not asked again, and what still needs it fails with the same reason.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Blocked {
+    pub detail: String,
+    pub kind: FailureKind,
+}
+
+/// The reason a result stopped the run, when it is an account-level failure.
+pub fn blocked_by(audit: &Audit) -> Option<Blocked> {
+    let c = audit.confirmation.as_ref()?;
+    let kind = c.kind.filter(|k| k.is_account_level())?;
+    (c.status == ConfirmStatus::Failed).then(|| Blocked {
+        detail: c.detail.clone().unwrap_or_default(),
+        kind,
+    })
+}
+
+/// [`confirm`] that does not call Claude when `blocked`: an artifact that still needs a verdict
+/// fails with the blocking reason; one that needs none is settled as usual.
+pub fn confirm_unless_blocked(
+    config: &ClaudeConfig,
+    subject: &Subject,
+    phase1: Audit,
+    cands: &[Candidate],
+    cache: &HashMap<String, Verdict>,
+    now: i64,
+    blocked: Option<&Blocked>,
+) -> Confirmed {
     let count = phase1.findings.len();
     let mut verdicts: Vec<Option<Verdict>> = cands
         .iter()
@@ -332,7 +365,14 @@ pub fn confirm(
     let mut fresh: Vec<(String, Verdict)> = Vec::new();
     let mut status = ConfirmStatus::Confirmed;
     let mut detail: Option<String> = None;
+    let mut kind: Option<FailureKind> = None;
     for batch in waiting.chunks(BATCH) {
+        if let Some(b) = blocked {
+            status = ConfirmStatus::Failed;
+            detail = Some(b.detail.clone());
+            kind = Some(b.kind);
+            break;
+        }
         let text = prompt(subject, &phase1.findings, cands, batch);
         match run_claude(config, &text, SCHEMA) {
             Ok(answer) => match parse(&answer, batch) {
@@ -345,6 +385,7 @@ pub fn confirm(
                 None => {
                     status = ConfirmStatus::Failed;
                     detail = Some("the answer has no verdicts".to_owned());
+                    kind = Some(FailureKind::Other);
                 }
             },
             Err(Error::ClaudeMissing) => {
@@ -354,8 +395,17 @@ pub fn confirm(
             }
             Err(error) => {
                 status = ConfirmStatus::Failed;
-                detail = Some(clip(&error.to_string(), DETAIL_CHARS));
-                break;
+                let (text, found) = match error {
+                    Error::ClaudeFailed { message, kind } => (message, kind),
+                    Error::ClaudeTimeout { .. } => (error.to_string(), FailureKind::Timeout),
+                    other => (other.to_string(), FailureKind::Other),
+                };
+                detail = Some(clip(&text, DETAIL_CHARS));
+                kind = Some(found);
+                // Another call would fail the same way: the account is the problem.
+                if found.is_account_level() {
+                    break;
+                }
             }
         }
     }
@@ -364,6 +414,7 @@ pub fn confirm(
         if missing > 0 {
             status = ConfirmStatus::Failed;
             detail = Some(format!("no usable verdict for {missing} finding(s)"));
+            kind = Some(FailureKind::Other);
         }
     }
     let confirmation = Confirmation {
@@ -371,6 +422,7 @@ pub fn confirm(
         model: Some(config.model.clone()),
         at: Some(now),
         detail,
+        kind,
     };
     Confirmed {
         audit: settle(phase1, &verdicts, confirmation),

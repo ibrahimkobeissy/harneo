@@ -179,6 +179,7 @@ fn run_with(
             Err(e) => {
                 return Err(Error::ClaudeFailed {
                     message: cut(&e.to_string(), MESSAGE_CHARS),
+                    kind: FailureKind::Other,
                 })
             }
         }
@@ -233,22 +234,135 @@ fn run_with(
     })
 }
 
-/// The last lines of claude's stderr, cut short.
-fn failure(stderr: &str, stdout: &str) -> Error {
-    let text = if stderr.trim().is_empty() {
-        stdout
-    } else {
-        stderr
-    };
-    let lines: Vec<&str> = text
-        .lines()
-        .map(str::trim)
-        .filter(|l| !l.is_empty())
-        .collect();
-    let tail = lines[lines.len().saturating_sub(2)..].join(" ");
-    Error::ClaudeFailed {
-        message: cut(&tail, MESSAGE_CHARS),
+/// Why a claude call failed, stored so screens need not read text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, rename_all = "snake_case")]
+pub enum FailureKind {
+    /// Claude is not signed in.
+    NotLoggedIn,
+    /// A usage or rate limit was reached.
+    Limit,
+    /// The chosen model is not available to this account.
+    ModelUnavailable,
+    /// The call ran past its time limit.
+    Timeout,
+    /// Anything else.
+    Other,
+}
+
+impl FailureKind {
+    /// Whether the account itself is the problem, so another call would fail the same way.
+    pub fn is_account_level(self) -> bool {
+        matches!(self, Self::NotLoggedIn | Self::Limit)
     }
+}
+
+/// Sorts a failure into a kind from claude's own words and the API status when it gave one.
+fn classify(text: &str, status: Option<&str>) -> FailureKind {
+    let t = text.to_lowercase();
+    let has = |needles: &[&str]| needles.iter().any(|n| t.contains(n));
+    if status == Some("401")
+        || has(&[
+            "not logged in",
+            "/login",
+            "invalid api key",
+            "authentication",
+            "unauthorized",
+        ])
+    {
+        FailureKind::NotLoggedIn
+    } else if status == Some("429")
+        || has(&[
+            "usage limit",
+            "hit your limit",
+            "rate limit",
+            "limit reached",
+            "quota",
+            "credit balance",
+            "too many requests",
+        ])
+    {
+        FailureKind::Limit
+    } else if status == Some("404")
+        || (t.contains("model")
+            && has(&["not found", "does not exist", "not available", "unavailable", "issue with"]))
+    {
+        FailureKind::ModelUnavailable
+    } else {
+        FailureKind::Other
+    }
+}
+
+/// The short sentence for a recognised kind.
+fn sentence(kind: FailureKind) -> Option<&'static str> {
+    match kind {
+        FailureKind::NotLoggedIn => {
+            Some("Claude is not logged in. Run `claude` in a terminal to sign in.")
+        }
+        FailureKind::Limit => Some("Claude's usage limit is reached. Try again later."),
+        FailureKind::ModelUnavailable => {
+            Some("The chosen model is not available. Pick another in Settings.")
+        }
+        FailureKind::Timeout | FailureKind::Other => None,
+    }
+}
+
+/// Claude's `--output-format json` envelope when it is one: its `result` text and API status.
+fn envelope(stdout: &str) -> Option<(String, Option<String>)> {
+    let Value::Object(map) = serde_json::from_str::<Value>(stdout.trim()).ok()? else {
+        return None;
+    };
+    let result = map
+        .get("result")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_owned();
+    let status = match map.get("api_error_status") {
+        Some(Value::Number(n)) => Some(n.to_string()),
+        Some(Value::String(s)) if !s.is_empty() => Some(s.clone()),
+        _ => None,
+    };
+    (!result.is_empty() || status.is_some()).then_some((result, status))
+}
+
+/// Why claude failed. A JSON envelope on stdout (its `result`, and the API status) comes
+/// first; otherwise the last lines of stderr, or of stdout when stderr is empty.
+fn failure(stderr: &str, stdout: &str) -> Error {
+    let (raw, status) = match envelope(stdout) {
+        Some((result, status)) => {
+            let mut raw = result;
+            if let Some(code) = &status {
+                if raw.is_empty() {
+                    raw = format!("API error {code}");
+                } else {
+                    raw = format!("{raw} (API error {code})");
+                }
+            }
+            (raw, status)
+        }
+        None => {
+            let text = if stderr.trim().is_empty() {
+                stdout
+            } else {
+                stderr
+            };
+            let lines: Vec<&str> = text
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty())
+                .collect();
+            (lines[lines.len().saturating_sub(2)..].join(" "), None)
+        }
+    };
+    let kind = classify(&raw, status.as_deref());
+    let message = match sentence(kind) {
+        Some(known) if raw.is_empty() => known.to_owned(),
+        Some(known) => cut(&format!("{known} ({raw})"), MESSAGE_CHARS),
+        None => cut(&raw, MESSAGE_CHARS),
+    };
+    Error::ClaudeFailed { message, kind }
 }
 
 /// The JSON a `--output-format json` run answered with: the structured output when there is
@@ -263,13 +377,7 @@ fn payload(stdout: &str) -> Result<Value> {
         return Err(bad("the answer is not a JSON object"));
     };
     if map.get("is_error").and_then(Value::as_bool) == Some(true) {
-        let reason = map
-            .get("result")
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        return Err(Error::ClaudeFailed {
-            message: cut(reason.trim(), MESSAGE_CHARS),
-        });
+        return Err(failure("", stdout));
     }
     if let Some(structured) = map.get("structured_output").filter(|v| v.is_object()) {
         return Ok(structured.clone());

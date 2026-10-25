@@ -181,20 +181,26 @@ impl ConfirmJob {
     ) -> Result<()> {
         let total = self.items.len();
         progress(0, total);
+        // Set once a call fails because of the account: no further call is made in this run.
+        let mut blocked: Option<confirm::Blocked> = None;
         for (done, item) in self.items.iter().enumerate() {
             if cancelled() {
                 return Ok(());
             }
             let at = records::now();
             let outcome = if self.enabled {
-                let found = confirm::confirm(
+                let found = confirm::confirm_unless_blocked(
                     &self.config,
                     &item.subject,
                     item.phase1.clone(),
                     &item.cands,
                     &item.cache,
                     at,
+                    blocked.as_ref(),
                 );
+                if blocked.is_none() {
+                    blocked = confirm::blocked_by(&found.audit);
+                }
                 ConfirmOutcome {
                     id: item.id.clone(),
                     audit: found.audit,

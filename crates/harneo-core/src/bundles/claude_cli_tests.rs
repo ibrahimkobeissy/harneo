@@ -116,7 +116,7 @@ fn a_failing_claude_reports_its_stderr_but_never_the_prompt() -> TestResult {
         "claude",
         &format!("cat >/dev/null\necho 'first' >&2\necho 'not logged in {long}' >&2\nexit 3"),
     )?;
-    let Err(Error::ClaudeFailed { message }) = run(&config(&program), "SECRET-PROMPT", "{}") else {
+    let Err(Error::ClaudeFailed { message, .. }) = run(&config(&program), "SECRET-PROMPT", "{}") else {
         return Err("expected ClaudeFailed".into());
     };
     assert!(message.contains("not logged in"));
@@ -134,10 +134,49 @@ fn an_error_envelope_is_a_failure() -> TestResult {
         r#"cat >/dev/null
 printf '%s' '{"is_error":true,"result":"Credit balance is too low"}'"#,
     )?;
-    let Err(Error::ClaudeFailed { message }) = run(&config(&program), "p", "{}") else {
+    let Err(Error::ClaudeFailed { message, .. }) = run(&config(&program), "p", "{}") else {
         return Err("expected ClaudeFailed".into());
     };
-    assert_eq!(message, "Credit balance is too low");
+    assert!(message.starts_with("Claude's usage limit is reached."), "{message}");
+    assert!(message.contains("Credit balance is too low"));
+    Ok(())
+}
+
+/// What a usage-limit failure looks like on stdout: a JSON envelope with a non-zero exit.
+const LIMIT_ENVELOPE: &str = r#"{"type":"result","is_error":true,"api_error_status":429,"duration_api_ms":0,"result":"Claude usage limit reached - resets 3pm"}"#;
+
+#[test]
+fn a_non_zero_exit_with_an_envelope_on_stdout_reports_its_result_not_raw_json() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let program = script(
+        dir.path(),
+        "claude",
+        &format!("cat >/dev/null\nprintf '%s' '{LIMIT_ENVELOPE}'\nexit 1"),
+    )?;
+    let Err(Error::ClaudeFailed { message, kind }) = run(&config(&program), "p", "{}") else {
+        return Err("expected ClaudeFailed".into());
+    };
+    assert_eq!(kind, FailureKind::Limit);
+    assert!(message.contains("limit reached - resets 3pm"), "{message}");
+    assert!(!message.contains("duration_api_ms"), "{message}");
+    Ok(())
+}
+
+#[test]
+fn failures_are_told_apart() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let cases = [
+        ("Invalid API key - please run /login", FailureKind::NotLoggedIn),
+        ("There's an issue with the selected model (x)", FailureKind::ModelUnavailable),
+        ("segmentation fault", FailureKind::Other),
+    ];
+    for (text, want) in cases {
+        let program = script(dir.path(), "claude", &format!("cat >/dev/null\necho '{text}' >&2\nexit 1"))?;
+        let Err(Error::ClaudeFailed { kind, .. }) = run(&config(&program), "p", "{}") else {
+            return Err("expected ClaudeFailed".into());
+        };
+        assert_eq!(kind, want, "{text}");
+    }
     Ok(())
 }
 

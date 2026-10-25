@@ -191,6 +191,10 @@ pub struct Confirmation {
     pub at: Option<i64>,
     /// Why a run was `unavailable` or `failed`, cut short.
     pub detail: Option<String>,
+    /// What sort of failure a `failed` run was; `None` for other statuses and for results stored
+    /// before this was kept.
+    #[serde(default)]
+    pub kind: Option<crate::bundles::FailureKind>,
 }
 
 impl Confirmation {
@@ -200,6 +204,7 @@ impl Confirmation {
             model: None,
             at: None,
             detail: None,
+            kind: None,
         }
     }
 }

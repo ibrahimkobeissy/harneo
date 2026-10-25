@@ -258,6 +258,65 @@ fn a_failing_cli_keeps_the_findings_and_says_why() -> TestResult {
     Ok(())
 }
 
+impl Setup {
+    /// A claude that counts its calls (`in-N.txt`) and then fails with `stderr`.
+    fn failing(&mut self, stderr: &str) -> io::Result<()> {
+        let d = self.bin.path().display();
+        let program = script(
+            self.bin.path(),
+            "claude",
+            &format!(
+                "n=$(ls '{d}' | grep -c '^in-')\ncat > \"{d}/in-$n.txt\"\necho '{stderr}' >&2\nexit 1"
+            ),
+        )?;
+        self.library.claude = config(&program);
+        Ok(())
+    }
+
+    fn confirmation_of(
+        &self,
+        name: &str,
+    ) -> std::result::Result<crate::audit::Confirmation, Box<dyn std::error::Error>> {
+        Ok(self.audit_of(name)?.confirmation.ok_or("no confirmation")?)
+    }
+}
+
+#[test]
+fn a_limit_stops_the_run_and_every_artifact_carries_the_reason() -> TestResult {
+    let mut s = setup()?;
+    s.failing("Claude usage limit reached")?;
+    s.library.confirm_now(&ConfirmScope::Pending)?;
+    assert_eq!(s.calls(), 1);
+    let first = s.confirmation_of(FLAGGED[0])?;
+    for name in FLAGGED {
+        let c = s.confirmation_of(name)?;
+        assert_eq!(c.status, ConfirmStatus::Failed, "{name}");
+        assert_eq!(c.kind, Some(crate::bundles::FailureKind::Limit), "{name}");
+        assert_eq!(c.detail, first.detail, "{name}");
+        assert!(!s.audit_of(name)?.findings.is_empty());
+    }
+    Ok(())
+}
+
+#[test]
+fn an_error_that_is_not_the_account_is_tried_again_for_the_next_artifact() -> TestResult {
+    let mut s = setup()?;
+    s.failing("segmentation fault")?;
+    s.library.confirm_now(&ConfirmScope::Pending)?;
+    assert_eq!(s.calls(), FLAGGED.len());
+    let c = s.confirmation_of("browser")?;
+    assert_eq!(c.kind, Some(crate::bundles::FailureKind::Other));
+    Ok(())
+}
+
+#[test]
+fn a_confirmation_stored_before_kinds_existed_still_loads() -> TestResult {
+    let old = r#"{"status":"failed","model":"haiku","at":5,"detail":"boom"}"#;
+    let c: crate::audit::Confirmation = serde_json::from_str(old)?;
+    assert_eq!(c.kind, None);
+    Ok(())
+}
+
 #[test]
 fn a_missing_cli_is_unavailable() -> TestResult {
     let mut s = setup()?;
