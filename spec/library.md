@@ -42,7 +42,7 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
   - The import review lists every replacement by key name.
   - The value is never written to the store, the index, logs or IPC.
   - JSON files rewritten this way are pretty-printed. All other files are copied byte for byte.
-- **How each type is stored.** An MCP server becomes `server.json`, holding `{ "<name>": { …definition } }`, so one server is one item, as `CONTEXT.md` §2 says. A plugin is copied whole. Every other type copies the files the scan listed for it. For a skill, that includes its scripts. For Settings, it includes its hook and status-line scripts.
+- **How each type is stored.** An MCP server becomes `server.json`, holding `{ "<name>": { …definition } }`, so one server is one item, as `CONTEXT.md` §2 says. A plugin is copied as its manifest and components (tier 1 of the layout resolver; fields read are listed in `plugin_scope.rs`), never its whole repo. Every other type copies the files the scan listed for it. For a skill, that includes its scripts. For Settings, it includes its hook and status-line scripts.
 - **Tags:**
   - create, rename, recolor and delete them; each has a name and a color from `DESIGN.md`'s tag palette;
   - add and remove them on artifacts.

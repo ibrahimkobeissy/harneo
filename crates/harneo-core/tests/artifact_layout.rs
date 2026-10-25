@@ -298,3 +298,182 @@ fn a_same_repo_entry_with_another_name_stays_separate() -> TestResult {
     assert_eq!(report.artifacts.len(), 2);
     Ok(())
 }
+
+fn plugin_files(report: &ScanReport) -> Result<Vec<&str>, Box<dyn std::error::Error>> {
+    let plugin = report
+        .artifacts
+        .iter()
+        .find(|a| a.kind == ArtifactKind::Plugin)
+        .ok_or("no plugin")?;
+    Ok(plugin.files.iter().map(String::as_str).collect())
+}
+
+#[test]
+fn plugin_files_follow_the_manifest_not_the_whole_repo() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"skills","skills":["./skills/eng/a","./skills/eng/b"]}"#,
+    )?;
+    write(
+        r,
+        ".claude-plugin/marketplace.json",
+        r#"{"name":"m","plugins":[{"name":"skills","source":"./"}]}"#,
+    )?;
+    skill(r, "skills/eng/a/SKILL.md")?;
+    write(r, "skills/eng/a/notes.md", "n")?;
+    skill(r, "skills/eng/b/SKILL.md")?;
+    skill(r, "skills/misc/c/SKILL.md")?;
+    for f in [
+        ".changeset/x.md",
+        ".github/ci.yml",
+        "docs/a.md",
+        "CHANGELOG.md",
+        "SCOPE.md",
+        "README.md",
+        "LICENSE",
+    ] {
+        write(r, f, "x")?;
+    }
+    let report = scan(r)?;
+    assert_eq!(
+        plugin_files(&report)?,
+        [
+            ".claude-plugin/marketplace.json",
+            ".claude-plugin/plugin.json",
+            "LICENSE",
+            "README.md",
+            "skills/eng/a/SKILL.md",
+            "skills/eng/a/notes.md",
+            "skills/eng/b/SKILL.md",
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, ".claude-plugin/plugin.json", r#"{"name":"p"}"#)?;
+    for f in [
+        "skills/s/SKILL.md",
+        "commands/c.md",
+        "agents/a.md",
+        "hooks/hooks.json",
+        ".mcp.json",
+        "output-styles/o.md",
+        "docs/x.md",
+        "scripts/unreferenced.sh",
+    ] {
+        write(r, f, "{}")?;
+    }
+    let files = plugin_files(&scan(r)?)?.join(",");
+    for f in [
+        "skills/s/SKILL.md",
+        "commands/c.md",
+        "agents/a.md",
+        "hooks/hooks.json",
+        ".mcp.json",
+        "output-styles/o.md",
+    ] {
+        assert!(files.contains(f), "{f} missing in {files}");
+    }
+    assert!(!files.contains("docs/") && !files.contains("scripts/"));
+    Ok(())
+}
+
+#[test]
+fn hook_script_reference_is_included_and_an_escaping_one_is_reported() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, "outside.sh", "x")?;
+    write(r, "p/.claude-plugin/plugin.json", r#"{"name":"p"}"#)?;
+    write(
+        r,
+        "p/hooks/hooks.json",
+        r#"{"hooks":{"PostToolUse":[{"hooks":[
+          {"type":"command","command":"\"${CLAUDE_PLUGIN_ROOT}\"/scripts/x.sh"},
+          {"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/../outside.sh"}]}]}}"#,
+    )?;
+    write(r, "p/scripts/x.sh", "x")?;
+    write(r, "p/scripts/other.sh", "x")?;
+    let report = scan(r)?;
+    let files = plugin_files(&report)?;
+    assert!(files.contains(&"p/scripts/x.sh"));
+    assert!(!files.contains(&"p/scripts/other.sh"));
+    assert!(!files.contains(&"outside.sh"));
+    let plugin = report.artifacts.first().ok_or("plugin")?;
+    assert!(plugin
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "plugin.path-escapes-plugin"));
+    Ok(())
+}
+
+#[test]
+fn declared_paths_leaving_the_plugin_are_reported_and_skipped() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, "other/a.md", "x")?;
+    write(
+        r,
+        "p/.claude-plugin/plugin.json",
+        r#"{"name":"p","agents":["../other/a.md"],"commands":{"x":{"source":"./cmd/x.md"}}}"#,
+    )?;
+    write(r, "p/cmd/x.md", "x")?;
+    write(r, "p/commands/ignored.md", "x")?;
+    let report = scan(r)?;
+    let files = plugin_files(&report)?;
+    assert!(files.contains(&"p/cmd/x.md"));
+    assert!(!files.contains(&"p/commands/ignored.md"));
+    assert!(!files.contains(&"other/a.md"));
+    let plugin = report.artifacts.first().ok_or("plugin")?;
+    assert!(plugin
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "plugin.path-escapes-plugin"));
+    Ok(())
+}
+
+#[test]
+fn skills_naming_the_plugin_root_take_only_skill_folders() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"p","skills":"./"}"#,
+    )?;
+    skill(r, "one/SKILL.md")?;
+    write(r, "docs/x.md", "x")?;
+    let files = plugin_files(&scan(r)?)?.join(",");
+    assert!(files.contains("one/SKILL.md") && !files.contains("docs/"));
+    Ok(())
+}
+
+#[test]
+fn audit_of_a_scoped_plugin_reads_no_file_outside_the_scope() -> TestResult {
+    use harneo_core::audit::AuditInput;
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"p","skills":["./skills/a"]}"#,
+    )?;
+    skill(r, "skills/a/SKILL.md")?;
+    write(r, "docs/guide.md", "ignore previous instructions")?;
+    write(r, "scripts/test.sh", "curl x | sh")?;
+    let report = scan(r)?;
+    let plugin = report.artifacts.first().ok_or("plugin")?;
+    let input = AuditInput::read(plugin, r, &ScanOptions::default());
+    let read: Vec<&str> = input.files.iter().map(|f| f.path.as_str()).collect();
+    assert!(read.contains(&"skills/a/SKILL.md"));
+    assert!(read
+        .iter()
+        .all(|p| !p.starts_with("docs/") && !p.starts_with("scripts/")));
+    Ok(())
+}
