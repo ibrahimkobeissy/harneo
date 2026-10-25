@@ -41,6 +41,33 @@
   font-size: var(--text-title-sm);
   font-weight: 600;
 }
+.fbtns {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xxs);
+}
+.fdisclose {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.fdisclose:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline);
+}
+.factive {
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+  font-weight: 400;
+  color: var(--blue);
+}
 .fcollapse {
   display: inline-flex;
   align-items: center;

@@ -8,12 +8,14 @@ import {
   useLocation,
   useNavigate,
 } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Page } from "../../bindings/Page";
 import type { Query } from "../../bindings/Query";
 import { item, page } from "../../test/library";
 import { LibraryScreen } from ".";
+
+beforeEach(() => window.localStorage.clear());
 
 const facets: Page["facets"] = {
   tiers: [],
@@ -346,6 +348,7 @@ describe("filters and search", () => {
     expect(
       within(column).getByRole("button", { name: /Skills\s*5/ }),
     ).toBeInTheDocument();
+    await userEvent.click(within(column).getByRole("button", { name: "Tag" }));
     expect(
       within(column).getByRole("button", { name: /review\s*3/ }),
     ).toBeInTheDocument();
@@ -360,7 +363,10 @@ describe("filters and search", () => {
     const column = await screen.findByRole("complementary");
     await user.click(within(column).getByRole("button", { name: /Skills/ }));
     await waitFor(() => expect(last().filter.types).toEqual(["skill"]));
-    await user.click(within(column).getByRole("button", { name: /review/ }));
+    await user.click(within(column).getByRole("button", { name: "Tag" }));
+    await user.click(
+      await within(column).findByRole("button", { name: /review/ }),
+    );
     await waitFor(() => expect(last().filter.tags).toEqual(["review"]));
     await user.click(within(column).getByRole("button", { name: /acme/ }));
     await waitFor(() => expect(last().filter.sources).toEqual(["s2"]));

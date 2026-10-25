@@ -132,6 +132,12 @@ describe("tags in the detail panel", () => {
     const user = userEvent.setup();
     const { calls } = setup([rust, web]);
     const p = await panel();
+    await user.click(
+      within(screen.getByRole("complementary", { name: "Filters" })).getByRole(
+        "button",
+        { name: "Tag" },
+      ),
+    );
     await user.click(await within(p).findByRole("button", { name: "Add tag" }));
     const list = await screen.findByRole("listbox");
     expect(within(list).getByText("rust")).toBeInTheDocument();

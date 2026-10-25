@@ -199,7 +199,9 @@ describe("trust in the library", () => {
     const user = userEvent.setup();
     const queries = setup("/library?view=list");
     await screen.findByText("alpha");
-    await user.click(screen.getByRole("button", { name: "Trust" }));
+    await user.click(
+      within(screen.getByRole("table")).getByRole("button", { name: "Trust" }),
+    );
     await waitFor(() => {
       expect(queries.at(-1)?.sort).toBe("trust");
       expect(queries.at(-1)?.descending).toBe(true);
