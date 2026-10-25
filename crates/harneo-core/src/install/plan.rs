@@ -102,6 +102,10 @@ pub struct Plan {
     /// file): the manifest stops listing them once applied.
     #[serde(default)]
     pub restored: Vec<String>,
+    /// Things the user should know before applying, one line each: a plugin the profile holds
+    /// that `settings.json` cannot enable ("name: not installable: no marketplace").
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 mod optional_bytes {
@@ -393,6 +397,7 @@ impl Library {
                 mode: None,
             })
             .collect();
+        let warnings = self.plugin_warnings(&view.spec)?;
         let plan = Plan {
             target: canonical.display().to_string(),
             profile_id,
@@ -404,6 +409,7 @@ impl Library {
             kind: PlanKind::Scaffold,
             edited_in_project: Vec::new(),
             restored: Vec::new(),
+            warnings,
         };
         check_plan(&plan)?;
         Ok(plan)

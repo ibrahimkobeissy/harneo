@@ -69,6 +69,7 @@ impl Library {
         edited.sort();
         restored.sort();
         Ok(Plan {
+            warnings: Vec::new(),
             target: project.path,
             profile_id: project.profile_id,
             reason: format!(

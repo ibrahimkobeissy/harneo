@@ -398,3 +398,125 @@ fn rendered_files_round_trip_through_json_as_base64() -> TestResult {
     assert_eq!(serde_json::from_value::<RenderedFile>(json)?, file);
     Ok(())
 }
+
+const MARKET: &str = "{\"name\":\"claude-mods\",\"plugins\":[\
+{\"name\":\"session-radar\",\"source\":\"./plugins/session-radar\"},\
+{\"name\":\"waiting-bell\",\"source\":\"./plugins/waiting-bell\"}]}\n";
+
+fn mods_project() -> std::result::Result<Lib, Box<dyn std::error::Error>> {
+    import(&[
+        (".claude-plugin/marketplace.json", MARKET),
+        (
+            "plugins/session-radar/.claude-plugin/plugin.json",
+            "{\"name\":\"session-radar\"}\n",
+        ),
+        (
+            "plugins/waiting-bell/.claude-plugin/plugin.json",
+            "{\"name\":\"waiting-bell\"}\n",
+        ),
+        (
+            "plugins/loose/.claude-plugin/plugin.json",
+            "{\"name\":\"loose\"}\n",
+        ),
+    ])
+}
+
+fn plugin_spec(lib: &Lib, names: &[&str]) -> std::result::Result<ProfileSpec, String> {
+    let items = names
+        .iter()
+        .map(|n| lib.id(ArtifactKind::Plugin, n))
+        .collect::<std::result::Result<_, _>>()?;
+    Ok(ProfileSpec {
+        items,
+        ..ProfileSpec::default()
+    })
+}
+
+fn assert_mods_enabled(lib: &Lib) -> TestResult {
+    let spec = plugin_spec(lib, &["session-radar", "waiting-bell"])?;
+    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
+    assert_eq!(json["enabledPlugins"]["session-radar@claude-mods"], true);
+    assert_eq!(json["enabledPlugins"]["waiting-bell@claude-mods"], true);
+    assert_eq!(
+        json["extraKnownMarketplaces"]["claude-mods"]["source"],
+        serde_json::json!({"source": "github", "repo": "ibrahimkobeissy/claude-mods"})
+    );
+    let harness = lib.text(&rendered, "HARNESS.md")?;
+    assert!(harness.contains("Plugins are not copied."));
+    assert!(!harness.contains("Not enabled"));
+    assert!(lib.library.plugin_warnings(&spec)?.is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_local_import_takes_the_repo_from_the_folders_git_remote() -> TestResult {
+    let src = tempfile::tempdir()?;
+    write(src.path(), ".claude-plugin/marketplace.json", MARKET)?;
+    for p in ["session-radar", "waiting-bell"] {
+        write(
+            src.path(),
+            &format!("plugins/{p}/.claude-plugin/plugin.json"),
+            &format!("{{\"name\":\"{p}\"}}\n"),
+        )?;
+    }
+    write(
+        src.path(),
+        ".git/config",
+        "[remote \"origin\"]\n\turl = https://github.com/ibrahimkobeissy/claude-mods.git\n",
+    )?;
+    let data = tempfile::tempdir()?;
+    let mut library = Library::open(data.path())?;
+    let preview = library.preview(&Source::Local {
+        path: src.path().to_path_buf(),
+    })?;
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&preview, &ids, &TagChoices::new())?;
+    let lib = Lib {
+        _data: data,
+        _src: src,
+        library,
+    };
+    assert_mods_enabled(&lib)
+}
+
+#[test]
+fn a_record_stored_as_own_with_a_github_source_renders_the_same_way() -> TestResult {
+    let lib = mods_project()?;
+    let conn = &lib.library.store.conn;
+    let json: String = conn.query_row(
+        "SELECT artifact FROM artifacts WHERE name = 'session-radar'",
+        [],
+        |r| r.get(0),
+    )?;
+    let stored: crate::artifact::Artifact = serde_json::from_str(&json)?;
+    assert_eq!(stored.origin, Origin::Own);
+    assert_eq!(stored.metadata["marketplace"], "claude-mods");
+    conn.execute(
+        "UPDATE sources SET kind = 'git', location = 'https://github.com/ibrahimkobeissy/claude-mods'",
+        [],
+    )?;
+    assert_mods_enabled(&lib)
+}
+
+#[test]
+fn a_plugin_that_cannot_be_enabled_is_reported_never_dropped() -> TestResult {
+    let lib = mods_project()?;
+    // No git remote: the marketplace plugins have no repo, and `loose` has no marketplace.
+    let spec = plugin_spec(&lib, &["session-radar", "loose"])?;
+    let warnings = lib.library.plugin_warnings(&spec)?;
+    assert_eq!(
+        warnings,
+        [
+            "session-radar: not installable: marketplace claude-mods has no known GitHub repo",
+            "loose: not installable: no marketplace"
+        ]
+    );
+    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let harness = lib.text(&rendered, "HARNESS.md")?;
+    assert!(harness.contains("### Not enabled"));
+    assert!(harness.contains("- loose: not installable: no marketplace"));
+    let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
+    assert!(json.get("enabledPlugins").is_none());
+    Ok(())
+}

@@ -182,6 +182,7 @@ impl Library {
             format!("Switch to {} v{}", view.name, view.version)
         };
         Ok(Plan {
+            warnings: self.plugin_warnings(&view.spec)?,
             target: project.path,
             profile_id,
             reason,

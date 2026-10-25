@@ -13,7 +13,9 @@ use ts_rs::TS;
 
 use crate::artifact::{Artifact, ArtifactKind, Origin};
 use crate::error::{Error, Result};
-use crate::library::{is_executable, safe_join, ArtifactId, Library};
+use crate::library::{
+    derive_plugin_origin, is_executable, records, safe_join, ArtifactId, Library,
+};
 use crate::profiles::layout::{load, placed};
 use crate::profiles::{Generated, PathFrom, ProfileSpec, Resolved, ResolvedItem};
 
@@ -161,8 +163,30 @@ fn update_object(
     root.insert(key.to_owned(), Value::Object(map));
 }
 
+/// Why `plugin` cannot be enabled from `settings.json`, or `None` when it can: it needs a
+/// marketplace and, unless that is Anthropic's own, the GitHub repo that marketplace lives in.
+pub(crate) fn not_installable(plugin: &Artifact) -> Option<String> {
+    match &plugin.origin {
+        Origin::Marketplace { official: true, .. } | Origin::Marketplace { repo: Some(_), .. } => {
+            None
+        }
+        Origin::Marketplace { name, .. } => Some(format!(
+            "not installable: marketplace {name} has no known GitHub repo"
+        )),
+        _ => Some(
+            match plugin.metadata.get("marketplace").and_then(Value::as_str) {
+                Some(name) => {
+                    format!("not installable: marketplace {name} has no known GitHub repo")
+                }
+                None => "not installable: no marketplace".to_owned(),
+            },
+        ),
+    }
+}
+
 /// The template's settings (or `{}`) with the plugins enabled. With no plugins the template's
-/// bytes are returned untouched.
+/// bytes are returned untouched. A plugin that cannot be enabled is left out here; the caller
+/// reports it (see [`not_installable`]).
 fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec<u8>> {
     if plugins.is_empty() {
         if let Some(bytes) = template {
@@ -179,7 +203,7 @@ fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec
     let Value::Object(map) = &mut root else {
         return Err(unreadable());
     };
-    for plugin in plugins {
+    for plugin in plugins.iter().filter(|p| not_installable(p).is_none()) {
         let Origin::Marketplace {
             name: market,
             repo,
@@ -199,6 +223,17 @@ fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec
         }
     }
     pretty(&root)
+}
+
+/// Said in `HARNESS.md` and by the scaffold and refit screens.
+pub(crate) const PLUGINS_NOTE: &str = "Plugins are not copied. `.claude/settings.json` enables them; Claude Code offers to install them the first time you open this project and trust the folder.";
+
+/// `name: reason` for every plugin that cannot be enabled.
+fn warnings_of(plugins: &[Artifact]) -> Vec<String> {
+    plugins
+        .iter()
+        .filter_map(|p| not_installable(p).map(|why| format!("{}: {why}", p.name)))
+        .collect()
 }
 
 fn kind_label(kind: ArtifactKind) -> &'static str {
@@ -258,16 +293,7 @@ impl Library {
     ) -> Result<Rendered> {
         let layout = self.layout(spec)?;
         let resolved = self.resolve(spec)?;
-        let mut plugins = Vec::new();
-        for item in resolved
-            .artifacts
-            .iter()
-            .filter(|i| i.kind == ArtifactKind::Plugin)
-        {
-            if let Some(a) = load(&self.store.conn, &item.id)? {
-                plugins.push(a);
-            }
-        }
+        let plugins = self.plugins_of(&resolved)?;
         let mut files = Vec::new();
         for planned in &layout.paths {
             let (bytes, executable) = match &planned.from {
@@ -291,7 +317,14 @@ impl Library {
                 executable,
             });
         }
-        let harness = self.harness_md(&resolved, &layout.paths, profile_name, version, date)?;
+        let harness = self.harness_md(
+            &resolved,
+            &layout.paths,
+            &plugins,
+            profile_name,
+            version,
+            date,
+        )?;
         files.push(RenderedFile {
             path: "HARNESS.md".to_owned(),
             bytes: harness.into_bytes(),
@@ -302,6 +335,34 @@ impl Library {
         });
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(Rendered { files })
+    }
+
+    /// The profile's plugins as stored, with the marketplace origin derived from the source for
+    /// records imported before imports set it.
+    fn plugins_of(&self, resolved: &Resolved) -> Result<Vec<Artifact>> {
+        let mut plugins = Vec::new();
+        for item in resolved
+            .artifacts
+            .iter()
+            .filter(|i| i.kind == ArtifactKind::Plugin)
+        {
+            if let Some(mut a) = records::load(&self.store.conn, &item.id)?.map(|d| {
+                let s = d.provenance.source;
+                (d.artifact, s)
+            }) {
+                if let Some(origin) = derive_plugin_origin(&a.0, &a.1.kind, &a.1.location) {
+                    a.0.origin = origin;
+                }
+                plugins.push(a.0);
+            }
+        }
+        Ok(plugins)
+    }
+
+    /// One warning per plugin of the profile that its `settings.json` cannot enable.
+    pub fn plugin_warnings(&self, spec: &ProfileSpec) -> Result<Vec<String>> {
+        let resolved = self.resolve(spec)?;
+        Ok(warnings_of(&self.plugins_of(&resolved)?))
     }
 
     fn artifact_bytes(
@@ -376,6 +437,7 @@ impl Library {
         &self,
         resolved: &Resolved,
         paths: &[crate::profiles::PlannedPath],
+        plugins: &[Artifact],
         profile_name: &str,
         version: u32,
         date: &str,
@@ -404,6 +466,16 @@ impl Library {
                 source,
                 why
             ));
+        }
+        if !plugins.is_empty() {
+            out.push_str(&format!("\n## Plugins\n\n{PLUGINS_NOTE}\n"));
+            let missing = warnings_of(plugins);
+            if !missing.is_empty() {
+                out.push_str("\n### Not enabled\n\n");
+                for line in missing {
+                    out.push_str(&format!("- {line}\n"));
+                }
+            }
         }
         out.push_str("\n## Files\n\n");
         let mut listed: Vec<&str> = paths.iter().map(|p| p.path.as_str()).collect();

@@ -371,6 +371,7 @@ impl Library {
             .iter()
             .filter(|w| matches!(w.action, WriteAction::Replace | WriteAction::Delete))
             .count();
+        let warnings = self.plugin_warnings(&self.profile(profile_id, version)?.spec)?;
         let plan = Plan {
             target: comparison.target,
             profile_id,
@@ -385,6 +386,7 @@ impl Library {
             kind: PlanKind::Refit,
             edited_in_project: Vec::new(),
             restored: Vec::new(),
+            warnings,
         };
         check_plan(&plan)?;
         Ok(plan)

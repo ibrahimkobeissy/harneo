@@ -399,6 +399,7 @@ impl Library {
             .filter(|w| w.action == WriteAction::Replace)
             .count();
         Ok(Plan {
+            warnings: Vec::new(),
             target: project.path,
             profile_id: project.profile_id,
             reason: format!(

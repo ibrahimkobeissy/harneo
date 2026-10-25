@@ -32,6 +32,7 @@ mod git_tests;
 pub mod ids;
 #[cfg(test)]
 mod import_tests;
+mod origin;
 mod query;
 #[cfg(test)]
 mod query_tests;
@@ -69,6 +70,7 @@ pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
 pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
+pub(crate) use origin::derive_plugin_origin;
 pub(crate) use query::source_label;
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
@@ -304,7 +306,16 @@ impl Library {
             repo: git_repo.or_else(|| options.repo.clone()),
             ..options.clone()
         };
-        let report = ClaudeAdapter.scan(root, options)?;
+        let mut report = ClaudeAdapter.scan(root, options)?;
+        let (kind, location) = match source {
+            Source::Git { url, .. } => ("git", url.as_str()),
+            Source::Local { path } => ("local", path.to_str().unwrap_or_default()),
+        };
+        for artifact in &mut report.artifacts {
+            if let Some(origin) = origin::derive_plugin_origin(artifact, kind, location) {
+                artifact.origin = origin;
+            }
+        }
         let ids: Vec<String> = report
             .artifacts
             .iter()
