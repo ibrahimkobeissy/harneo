@@ -615,40 +615,6 @@ button.row:disabled:hover {
   margin-top: 1px;
   color: var(--t3);
 }
-.addTag {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xxs);
-  height: 22px;
-  padding: 0 var(--space-sm);
-  border: var(--hairline) dashed var(--line2);
-  border-radius: var(--radius-xs);
-  background: none;
-  color: var(--t2);
-  font: inherit;
-  font-size: var(--text-label);
-  cursor: pointer;
-}
-.addTag:hover {
-  background: var(--sunk);
-  color: var(--t1);
-}
-.tagInput {
-  height: 22px;
-  width: 130px;
-  border: var(--hairline) solid var(--line);
-  border-radius: var(--radius-xs);
-  background: var(--raised);
-  color: var(--t1);
-  padding: 0 var(--space-sm);
-  font: inherit;
-  font-size: var(--text-label);
-}
-.tagInput:focus {
-  outline: none;
-  border-color: var(--blue);
-  box-shadow: 0 0 0 3px var(--blue-ring);
-}
 .bulk button[aria-pressed="true"] {
   background: var(--blue-soft);
   border-color: var(--blue);
