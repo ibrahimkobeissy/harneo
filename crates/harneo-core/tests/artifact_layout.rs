@@ -220,3 +220,81 @@ fn loose_skills_respect_the_depth_limit() -> TestResult {
     assert_eq!(summary(&shallow), [(ArtifactKind::Skill, "one")]);
     Ok(())
 }
+
+fn same_repo_fixture(r: &Path, entry_repo: &str, manifest: &str) -> std::io::Result<()> {
+    write(
+        r,
+        ".claude-plugin/marketplace.json",
+        &format!(
+            r#"{{"name":"addy-agent-skills","plugins":[
+              {{"name":"agent-skills","source":{{"source":"github","repo":"{entry_repo}"}}}}]}}"#
+        ),
+    )?;
+    write(r, ".claude-plugin/plugin.json", manifest)?;
+    skill(r, "skills/s/SKILL.md")
+}
+
+fn scan_repo(root: &Path, repo: Option<&str>) -> Result<ScanReport, harneo_core::Error> {
+    let options = ScanOptions {
+        repo: repo.map(str::to_owned),
+        ..ScanOptions::default()
+    };
+    ClaudeAdapter.scan(root, &options)
+}
+
+#[test]
+fn a_github_entry_naming_the_imported_repo_merges_with_the_root_plugin() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    same_repo_fixture(
+        dir.path(),
+        "addyosmani/agent-skills",
+        r#"{"name":"agent-skills","version":"1"}"#,
+    )?;
+    let report = scan_repo(dir.path(), Some("addyosmani/agent-skills"))?;
+    assert_eq!(report.artifacts.len(), 1);
+    let p = &report.artifacts[0];
+    assert_eq!(p.name, "agent-skills");
+    assert_eq!(p.path, "");
+    assert!(p.files.contains(&"skills/s/SKILL.md".to_owned()));
+    assert_eq!(p.metadata["marketplace"], "addy-agent-skills");
+    assert_eq!(p.metadata["source"]["repo"], "addyosmani/agent-skills");
+    assert_eq!(p.metadata["version"], "1");
+    Ok(())
+}
+
+#[test]
+fn the_plugins_own_repository_field_also_identifies_the_repo() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    same_repo_fixture(
+        dir.path(),
+        "addyosmani/agent-skills",
+        r#"{"name":"agent-skills","repository":"https://github.com/AddyOsmani/agent-skills.git"}"#,
+    )?;
+    let report = scan_repo(dir.path(), None)?;
+    assert_eq!(report.artifacts.len(), 1);
+    assert_eq!(
+        report.artifacts[0].metadata["marketplace"],
+        "addy-agent-skills"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_github_entry_for_another_repo_stays_a_separate_remote_plugin() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    same_repo_fixture(dir.path(), "someone/else", r#"{"name":"agent-skills"}"#)?;
+    let report = scan_repo(dir.path(), Some("addyosmani/agent-skills"))?;
+    let mut paths: Vec<_> = report.artifacts.iter().map(|a| a.path.as_str()).collect();
+    paths.sort_unstable();
+    assert_eq!(paths, ["", ".claude-plugin/marketplace.json#agent-skills"]);
+    Ok(())
+}
+
+#[test]
+fn a_same_repo_entry_with_another_name_stays_separate() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    same_repo_fixture(dir.path(), "o/r", r#"{"name":"other-name"}"#)?;
+    let report = scan_repo(dir.path(), Some("o/r"))?;
+    assert_eq!(report.artifacts.len(), 2);
+    Ok(())
+}

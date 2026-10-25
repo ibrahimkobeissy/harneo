@@ -23,4 +23,9 @@ skipDirs: Array<string>,
 /**
  * Also enter Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
  */
-includeManaged: boolean, };
+includeManaged: boolean, 
+/**
+ * The GitHub `owner/repo` being scanned, when known (a git import). A marketplace entry
+ * whose source names this repo is the plugin folder itself, not a separate remote plugin.
+ */
+repo: string | null, };

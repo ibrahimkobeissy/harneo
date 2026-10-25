@@ -4,6 +4,8 @@
 mod checks;
 mod installed;
 mod kinds;
+
+pub(crate) use kinds::plugin::github_repo;
 mod layout;
 
 use std::path::{Path, PathBuf};

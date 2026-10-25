@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use adapter::AgentAdapter;
+pub(crate) use claude::github_repo;
 pub use claude::ClaudeAdapter;
 
 /// The 10 artifact types of `CONTEXT.md` §2.
@@ -167,6 +168,10 @@ pub struct ScanOptions {
     pub skip_dirs: Vec<String>,
     /// Also enter Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
     pub include_managed: bool,
+    /// The GitHub `owner/repo` being scanned, when known (a git import). A marketplace entry
+    /// whose source names this repo is the plugin folder itself, not a separate remote plugin.
+    #[serde(default)]
+    pub repo: Option<String>,
 }
 
 impl Default for ScanOptions {
@@ -177,6 +182,7 @@ impl Default for ScanOptions {
             max_loose_skill_depth: 4,
             skip_dirs: vec![".git".into(), "node_modules".into(), "target".into()],
             include_managed: false,
+            repo: None,
         }
     }
 }

@@ -136,6 +136,7 @@ pub(crate) fn parse_marketplace(file: &Path, contents: &str) -> Result<Marketpla
 pub(crate) fn scan_marketplace(
     walker: &mut Walker,
     folder: &Path,
+    repo: Option<&str>,
     claimed: &mut Vec<PathBuf>,
     report: &mut ScanReport,
 ) {
@@ -149,8 +150,13 @@ pub(crate) fn scan_marketplace(
         Err(d) => report.diagnostics.push(d),
         Ok((market, entries)) => {
             for entry in entries {
-                let artifact =
-                    entry_artifact(walker, folder, &file, market.as_deref(), entry, claimed);
+                let ctx = Ctx {
+                    mfolder: folder,
+                    mfile: &file,
+                    market: market.as_deref(),
+                    repo,
+                };
+                let artifact = entry_artifact(walker, &ctx, entry, claimed);
                 report.artifacts.push(artifact);
             }
         }
@@ -158,14 +164,91 @@ pub(crate) fn scan_marketplace(
     report.diagnostics.extend(diagnostics);
 }
 
+/// Where a marketplace entry is read from.
+struct Ctx<'a> {
+    mfolder: &'a Path,
+    mfile: &'a Path,
+    market: Option<&'a str>,
+    /// The GitHub `owner/repo` being imported, when known.
+    repo: Option<&'a str>,
+}
+
+/// `owner/repo` (lowercase) of a GitHub URL in any common spelling: `github.com/o/r`,
+/// `https://github.com/o/r(.git)`, `git@github.com:o/r.git`, `ssh://git@github.com/o/r`.
+/// Also accepts a bare `owner/repo`, which is how a `github` source writes it.
+pub(crate) fn github_repo(input: &str) -> Option<String> {
+    let s = input.trim().trim_end_matches('/');
+    let s = s.strip_suffix(".git").unwrap_or(s);
+    let path = match s.find("github.com") {
+        Some(i) => s[i + "github.com".len()..].trim_start_matches([':', '/']),
+        None if s.contains("://") || s.contains('@') || s.contains(':') => return None,
+        None => s,
+    };
+    let mut parts = path.split('/');
+    let (owner, name) = (parts.next()?, parts.next()?);
+    let bare = !s.contains("github.com");
+    if owner.is_empty() || name.is_empty() || (bare && parts.next().is_some()) {
+        return None;
+    }
+    Some(format!("{owner}/{name}").to_lowercase())
+}
+
+/// The repo a marketplace entry's remote source names (no sub-path), if it is on GitHub.
+fn remote_repo(source: &Value) -> Option<String> {
+    let obj = source.as_object()?;
+    if obj.contains_key("path") {
+        return None;
+    }
+    match obj.get("source")?.as_str()? {
+        "github" => github_repo(obj.get("repo")?.as_str()?),
+        "url" | "git" => github_repo(obj.get("url")?.as_str()?),
+        _ => None,
+    }
+}
+
+/// The GitHub repos a plugin's own `repository` / `homepage` fields name.
+fn declared_repos(plugin: &Artifact) -> Vec<String> {
+    let url = |v: &Value| match v {
+        Value::String(s) => github_repo(s),
+        Value::Object(o) => o.get("url").and_then(Value::as_str).and_then(github_repo),
+        _ => None,
+    };
+    ["repository", "homepage"]
+        .iter()
+        .filter_map(|k| plugin.metadata.get(*k).and_then(url))
+        .collect()
+}
+
+/// The plugin folder a remote entry designates when it names the repo being imported: the
+/// plugin at the marketplace's own folder, with the same name.
+fn same_repo_plugin(
+    walker: &mut Walker,
+    ctx: &Ctx<'_>,
+    source: &Value,
+    name: Option<&str>,
+) -> Option<Artifact> {
+    let target = remote_repo(source)?;
+    if !walker.exists(&manifest_path(ctx.mfolder)) {
+        return None;
+    }
+    let plugin = read_plugin(walker, ctx.mfolder);
+    let same_repo = ctx.repo.is_some_and(|r| r.eq_ignore_ascii_case(&target))
+        || declared_repos(&plugin).contains(&target);
+    (same_repo && name == Some(plugin.name.as_str())).then_some(plugin)
+}
+
 fn entry_artifact(
     walker: &mut Walker,
-    mfolder: &Path,
-    mfile: &Path,
-    market: Option<&str>,
+    ctx: &Ctx<'_>,
     mut entry: Map<String, Value>,
     claimed: &mut Vec<PathBuf>,
 ) -> Artifact {
+    let Ctx {
+        mfolder,
+        mfile,
+        market,
+        ..
+    } = *ctx;
     let name = text(entry.remove("name"));
     let description = text(entry.remove("description"));
     let source = entry.remove("source").unwrap_or(Value::Null);
@@ -179,7 +262,17 @@ fn entry_artifact(
     }
 
     let local = source.as_str().map(str::to_owned);
+    let merged = if local.is_none() {
+        same_repo_plugin(walker, ctx, &source, name.as_deref())
+    } else {
+        None
+    };
+    let is_local = local.is_some() || merged.is_some();
     let mut artifact = match &local {
+        None if merged.is_some() => {
+            claimed.push(mfolder.to_path_buf());
+            merged.unwrap_or_else(|| remote_artifact(mfile, name.as_deref()))
+        }
         Some(s) => match resolve_reference(mfolder, s) {
             Ok(folder) => {
                 claimed.push(folder.clone());
@@ -205,7 +298,7 @@ fn entry_artifact(
     for (k, v) in entry {
         artifact.metadata.entry(k).or_insert(v);
     }
-    if local.is_none() {
+    if !is_local {
         artifact.path = format!("{}#{}", artifact.path, artifact.name);
     }
     artifact.diagnostics.extend(extra_diag);

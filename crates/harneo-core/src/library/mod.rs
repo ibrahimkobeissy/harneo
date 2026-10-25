@@ -296,6 +296,14 @@ impl Library {
         root: &Path,
         options: &ScanOptions,
     ) -> Result<Preview> {
+        let git_repo = match source {
+            Source::Git { url, .. } => crate::artifact::github_repo(url),
+            Source::Local { .. } => None,
+        };
+        let options = &ScanOptions {
+            repo: git_repo.or_else(|| options.repo.clone()),
+            ..options.clone()
+        };
         let report = ClaudeAdapter.scan(root, options)?;
         let ids: Vec<String> = report
             .artifacts

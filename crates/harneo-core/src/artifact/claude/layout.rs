@@ -100,7 +100,13 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
 
     let mut claimed = Vec::new();
     for folder in &found.marketplaces {
-        plugin::scan_marketplace(walker, folder, &mut claimed, report);
+        plugin::scan_marketplace(
+            walker,
+            folder,
+            options.repo.as_deref(),
+            &mut claimed,
+            report,
+        );
     }
     for folder in found.plugins.iter().filter(|f| !claimed.contains(f)) {
         plugin::scan_plugin(walker, folder, report);
