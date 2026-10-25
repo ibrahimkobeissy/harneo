@@ -4,7 +4,6 @@ import {
   CircleAlert,
   CircleArrowUp,
   ExternalLink,
-  FileText,
   FolderMinus,
   Trash2,
   TriangleAlert,
@@ -42,6 +41,7 @@ import {
   hasAny,
   severityLabels,
   severityOrder,
+  FileTree,
   TrustMeter,
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
@@ -749,29 +749,25 @@ export function DetailPanel({
               <SourceSection detail={detail} update={update} />
               <section className={styles.sec} aria-labelledby="d-files">
                 <h3 id="d-files">Files ({detail.files.length})</h3>
-                <ul className={styles.files}>
-                  {detail.files.map((f) => (
-                    <li key={f} className={styles.mono}>
-                      <button
-                        type="button"
-                        className={styles.fileLink}
-                        onClick={() => setViewing(f)}
-                      >
-                        <FileText size={13} aria-hidden="true" />
-                        {f}
-                      </button>
-                      <button
-                        type="button"
-                        className={styles.fileOpen}
-                        aria-label={`Open ${f} in editor`}
-                        title="Open in editor"
-                        onClick={() => void openFile(f)}
-                      >
-                        <ExternalLink size={12} aria-hidden="true" />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                <FileTree
+                  label="Files"
+                  files={detail.files.map((path) => ({ path }))}
+                  selected={null}
+                  defaultCollapsed
+                  showCounts
+                  onSelect={setViewing}
+                  action={(f) => (
+                    <button
+                      type="button"
+                      className={styles.fileOpen}
+                      aria-label={`Open ${f} in editor`}
+                      title="Open in editor"
+                      onClick={() => void openFile(f)}
+                    >
+                      <ExternalLink size={12} aria-hidden="true" />
+                    </button>
+                  )}
+                />
               </section>
               <Diagnostics diagnostics={detail.artifact.diagnostics} />
               <References

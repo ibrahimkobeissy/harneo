@@ -1,5 +1,5 @@
 import { File, Folder } from "lucide-react";
-import { useRef, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import type { WriteAction } from "../bindings/WriteAction";
 import styles from "./FileTree.module.css";
 
@@ -64,6 +64,12 @@ interface Row {
   isDir: boolean;
 }
 
+function countFiles(dir: Dir): number {
+  let n = dir.files.length;
+  for (const d of dir.dirs.values()) n += countFiles(d);
+  return n;
+}
+
 function sorted(dir: Dir) {
   return {
     dirs: [...dir.dirs.values()].sort((a, b) => byName(a.name, b.name)),
@@ -74,7 +80,7 @@ function sorted(dir: Dir) {
 /** The rows a reader can reach: the children of a collapsed folder are left out. */
 function visibleRows(
   dir: Dir,
-  collapsed: ReadonlySet<string>,
+  isCollapsed: (id: string) => boolean,
   prefix = "",
   parent: string | null = null,
 ): Row[] {
@@ -83,8 +89,8 @@ function visibleRows(
   for (const d of dirs) {
     const id = `${prefix}${d.name}/`;
     rows.push({ id, parent, isDir: true });
-    if (!collapsed.has(id)) {
-      rows.push(...visibleRows(d, collapsed, id, id));
+    if (!isCollapsed(id)) {
+      rows.push(...visibleRows(d, isCollapsed, id, id));
     }
   }
   for (const { file } of files) {
@@ -99,7 +105,9 @@ interface LevelProps {
   prefix: string;
   selected: string | null;
   active: string | null;
-  collapsed: ReadonlySet<string>;
+  isCollapsed: (id: string) => boolean;
+  showCounts: boolean;
+  action?: (path: string) => ReactNode;
   onSelect: (path: string) => void;
   onToggle: (id: string) => void;
   onFocusRow: (id: string) => void;
@@ -107,13 +115,13 @@ interface LevelProps {
 }
 
 function Level(props: LevelProps) {
-  const { dir, depth, prefix, selected, active, collapsed } = props;
+  const { dir, depth, prefix, selected, active, isCollapsed } = props;
   const { dirs, files } = sorted(dir);
   return (
     <ul className={styles.list} role={depth === 0 ? "presentation" : "group"}>
       {dirs.map((d) => {
         const id = `${prefix}${d.name}/`;
-        const open = !collapsed.has(id);
+        const open = !isCollapsed(id);
         return (
           <li key={`d:${id}`} role="presentation">
             <div
@@ -130,6 +138,9 @@ function Level(props: LevelProps) {
             >
               <Folder size={14} aria-hidden="true" />
               <span className={styles.name}>{d.name}/</span>
+              {props.showCounts && (
+                <span className={styles.count}>{countFiles(d)}</span>
+              )}
             </div>
             {open && <Level {...props} dir={d} depth={depth + 1} prefix={id} />}
           </li>
@@ -158,6 +169,15 @@ function Level(props: LevelProps) {
                 {file.markText ?? file.mark}
               </span>
             )}
+            {props.action && (
+              <span
+                className={styles.action}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                {props.action(file.path)}
+              </span>
+            )}
           </div>
         </li>
       ))}
@@ -175,17 +195,28 @@ export function FileTree({
   selected,
   onSelect,
   label = "Files",
+  defaultCollapsed = false,
+  showCounts = false,
+  action,
 }: {
   files: readonly TreeFile[];
   selected: string | null;
   onSelect: (path: string) => void;
   label?: string;
+  /** Folders start collapsed instead of expanded. */
+  defaultCollapsed?: boolean;
+  /** Show the number of files under each folder. */
+  showCounts?: boolean;
+  /** Per-file controls shown at the end of a file row (clicks and keys stay off the row). */
+  action?: (path: string) => ReactNode;
 }) {
   const root = build(files);
-  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  // Folders the reader flipped away from the default.
+  const [flipped, setFlipped] = useState<ReadonlySet<string>>(new Set());
+  const isCollapsed = (id: string) => defaultCollapsed !== flipped.has(id);
   const [focused, setFocused] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const rows = visibleRows(root, collapsed);
+  const rows = visibleRows(root, isCollapsed);
   // The one tab stop: the focused row, else the selected file, else the first row.
   const reachable = (id: string | null) => rows.some((r) => r.id === id);
   const active = reachable(focused)
@@ -203,7 +234,7 @@ export function FileTree({
   }
 
   function toggle(id: string) {
-    setCollapsed((prev) => {
+    setFlipped((prev) => {
       const next = new Set(prev);
       if (!next.delete(id)) next.add(id);
       return next;
@@ -217,7 +248,7 @@ export function FileTree({
     const go = (to: Row | undefined) => {
       if (to) focusRow(to.id);
     };
-    const open = row.isDir && !collapsed.has(id);
+    const open = row.isDir && !isCollapsed(id);
     switch (event.key) {
       case "ArrowDown":
         go(rows[at + 1]);
@@ -259,7 +290,9 @@ export function FileTree({
           prefix=""
           selected={selected}
           active={active}
-          collapsed={collapsed}
+          isCollapsed={isCollapsed}
+          showCounts={showCounts}
+          action={action}
           onSelect={onSelect}
           onToggle={toggle}
           onFocusRow={setFocused}

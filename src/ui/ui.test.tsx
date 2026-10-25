@@ -3,7 +3,17 @@ import userEvent from "@testing-library/user-event";
 import { Layers } from "lucide-react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
-import { Badge, Button, EmptyState, Kbd, NavItem, Panel, Screen, Tag } from ".";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  FileTree,
+  Kbd,
+  NavItem,
+  Panel,
+  Screen,
+  Tag,
+} from ".";
 
 describe("Button", () => {
   it("renders a named button that is type=button by default", async () => {
@@ -143,5 +153,41 @@ describe("Screen", () => {
     expect(head).toContainElement(screen.getByText("toolbar"));
     expect(body).toContainElement(screen.getByText("content"));
     expect(body).not.toContainElement(head as HTMLElement);
+  });
+});
+
+describe("FileTree collapsible options", () => {
+  const files = [{ path: "a/b/x.md" }, { path: "a/y.md" }, { path: "root.md" }];
+
+  it("starts collapsed with folder counts, keeping root files visible", async () => {
+    const onSelect = vi.fn();
+    render(
+      <FileTree
+        files={files}
+        selected={null}
+        onSelect={onSelect}
+        defaultCollapsed
+        showCounts
+        action={(p) => <button type="button">act {p}</button>}
+      />,
+    );
+    const folder = screen.getByRole("treeitem", { name: /^a\// });
+    expect(folder).toHaveAttribute("aria-expanded", "false");
+    expect(folder).toHaveTextContent("2");
+    expect(screen.queryByText("y.md")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "act root.md" }));
+    expect(onSelect).not.toHaveBeenCalled();
+    await userEvent.click(folder);
+    expect(screen.getByText("y.md")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("y.md"));
+    expect(onSelect).toHaveBeenCalledWith("a/y.md");
+  });
+
+  it("stays expanded without counts by default", () => {
+    render(<FileTree files={files} selected={null} onSelect={() => {}} />);
+    expect(screen.getByText("y.md")).toBeInTheDocument();
+    expect(
+      screen.getByRole("treeitem", { name: /^a\// }),
+    ).not.toHaveTextContent(/\d/);
   });
 });

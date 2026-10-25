@@ -66,3 +66,17 @@
 .mark[data-mark="kept"] {
   color: var(--t3);
 }
+.count {
+  margin-left: auto;
+  padding-left: var(--space-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-label-quiet);
+  color: var(--t3);
+}
+.action {
+  margin-left: auto;
+  display: inline-flex;
+}
+.mark + .action {
+  margin-left: var(--space-sm);
+}

@@ -122,7 +122,9 @@ describe("detail panel", () => {
     expect(screen.getByTestId("search")).toHaveTextContent("open=id-alpha");
     expect(within(panel).getByText("About alpha")).toBeInTheDocument();
     expect(within(panel).getByText("/home/me/kit")).toBeInTheDocument();
-    expect(within(panel).getByText("alpha/notes.md")).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("treeitem", { name: /alpha\// }),
+    ).toBeInTheDocument();
     expect(
       within(panel).getByText("skill.bad-frontmatter"),
     ).toBeInTheDocument();
@@ -266,7 +268,8 @@ describe("detail panel files", () => {
         </Routes>
       </MemoryRouter>,
     );
-    const row = await screen.findByRole("button", { name: "alpha/SKILL.md" });
+    await user.click(await screen.findByRole("treeitem", { name: /alpha\// }));
+    const row = screen.getByRole("treeitem", { name: "SKILL.md" });
     await user.click(row);
     expect(
       await screen.findByRole("dialog", { name: "alpha/SKILL.md" }),
@@ -305,6 +308,7 @@ describe("detail panel files", () => {
         </Routes>
       </MemoryRouter>,
     );
+    await user.click(await screen.findByRole("treeitem", { name: /alpha\// }));
     await user.click(
       await screen.findByRole("button", {
         name: "Open alpha/SKILL.md in editor",
@@ -315,5 +319,37 @@ describe("detail panel files", () => {
       screen.getByRole("button", { name: "Open alpha/notes.md in editor" }),
     );
     expect(await screen.findByRole("alert")).toHaveTextContent("nope");
+  });
+
+  it("lists files as a tree, folders collapsed with counts, and opens a file in the viewer", async () => {
+    const user = userEvent.setup();
+    mockIPC((cmd) => {
+      if (cmd === "library_list") return page([item("alpha")]);
+      if (cmd === "library_detail") return alpha;
+      if (cmd === "library_read_file") return { kind: "text", text: "hello" };
+      if (cmd === "tags_list" || cmd === "artifact_tags") return [];
+      return undefined;
+    });
+    render(
+      <MemoryRouter initialEntries={["/library?open=id-alpha"]}>
+        <Routes>
+          <Route path="/library" element={<LibraryScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const tree = await screen.findByRole("tree", { name: "Files" });
+    const folder = within(tree).getByRole("treeitem", { name: /alpha\// });
+    expect(folder).toHaveAttribute("aria-expanded", "false");
+    expect(folder).toHaveTextContent("2");
+    expect(within(tree).queryByText("SKILL.md")).not.toBeInTheDocument();
+    folder.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(folder).toHaveAttribute("aria-expanded", "true");
+    expect(within(tree).getByText("SKILL.md")).toBeInTheDocument();
+    await user.keyboard("{ArrowLeft}");
+    expect(folder).toHaveAttribute("aria-expanded", "false");
+    await user.keyboard("{Enter}");
+    await user.click(within(tree).getByText("notes.md"));
+    expect(await screen.findByText("hello")).toBeInTheDocument();
   });
 });
