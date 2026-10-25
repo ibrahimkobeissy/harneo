@@ -179,6 +179,7 @@
   border-color: var(--red);
 }
 .hint {
+  max-width: 80ch;
   color: var(--t3);
   font-size: var(--text-label);
 }
@@ -393,6 +394,7 @@ button.row:disabled:hover {
   margin: 0;
 }
 .result p {
+  max-width: 80ch;
   margin: 0;
   color: var(--t2);
 }

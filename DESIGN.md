@@ -486,7 +486,7 @@ Tags draw from a palette of 14 colours, in picker order: cyan, sky, indigo, viol
 
 A fixed 220px sidebar and a scrolling main view in a full-height grid. The Library adds a 228px filter column; the main column holds the title row (title, search 300px, cards/list switch, Import top right), a two-up insight row (health bar at 1.25fr, 8-week activity at 1fr), then a 3-column card grid. The filter column is sticky at the top of the view and scrolls on its own (capped at the viewport height, overscroll contained), so long tag and source lists never drag the grid. The card grid pages at 24 cards and the list view at 25 rows, with a pager below a hairline at the foot. Detail opens as a 460px drawer from the right over a scrim; the profile builder pairs a picker with a 420px sticky cart. The Security page runs a three-up row of panels (trust scores, findings, reach) above two bordered sortable tables.
 
-Pages pad 20px 28px 48px and cap at 1400px (narrow flows at 1040px). Gaps follow a 4/6/8/12/16/24 rhythm: 12px between cards and panels, 8px inside rows, 24px before flow footers. Density is desktop-tool dense: 32px controls, 26px small controls.
+Pages pad 20px 28px 48px and fill the main area at any width (no page cap); long prose caps itself at a readable measure in `ch` (callouts 80ch, empty-state text 36em). Gaps follow a 4/6/8/12/16/24 rhythm: 12px between cards and panels, 8px inside rows, 24px before flow footers. Density is desktop-tool dense: 32px controls, 26px small controls.
 
 Responsive behaviour targets a half-screen window (~960px):
 - **At 1180px and below:** card grids drop to 2 columns, the filter column stops being sticky and becomes a full-height overlay sheet behind a Filters button, the cart narrows to 360px.

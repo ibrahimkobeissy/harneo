@@ -7,7 +7,6 @@ import styles from "./Screen.module.css";
  */
 export function Screen({
   title,
-  narrow = false,
   crumb,
   icon,
   badge,
@@ -17,8 +16,6 @@ export function Screen({
   children,
 }: {
   title: string;
-  /** Narrow flows (settings, forms) cap at 1040px, per DESIGN.md. */
-  narrow?: boolean;
   /** A back link above the title. */
   crumb?: ReactNode;
   /** Decoration before the title text (hidden from assistive tech by the caller). */
@@ -34,7 +31,7 @@ export function Screen({
   children: ReactNode;
 }) {
   const id = `${title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-title`;
-  const cap = narrow ? `${styles.in} ${styles.narrow}` : styles.in;
+  const cap = styles.in;
   return (
     <section className={styles.page} aria-labelledby={id}>
       <div className={styles.head} data-screen-head="">

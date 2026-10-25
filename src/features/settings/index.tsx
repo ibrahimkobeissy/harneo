@@ -12,7 +12,7 @@ import { UsageSettings } from "./UsageSettings";
 
 export function SettingsScreen() {
   return (
-    <Screen title="Settings" narrow>
+    <Screen title="Settings">
       <div className={styles.page}>
         <UsageSettings />
         <ClaudeSettings />

@@ -301,7 +301,6 @@ export function RefitScreen() {
   return (
     <Screen
       title="Refit project"
-      narrow={step < 2}
       crumb={crumb}
       toolbar={<Stepper steps={steps} at={step} />}
       foot={foot}

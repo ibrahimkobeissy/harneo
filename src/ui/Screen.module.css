@@ -23,11 +23,9 @@
   background: var(--bg);
   border-top: var(--hairline) solid var(--line);
 }
+/* No page cap: screens fill the main area. Long prose caps itself in ch (Callout, EmptyState). */
 .in {
-  max-width: var(--size-page-max);
-}
-.narrow {
-  max-width: var(--size-page-narrow);
+  min-width: 0;
 }
 .row {
   display: flex;

@@ -110,6 +110,7 @@
   color: var(--t2);
 }
 .hint {
+  max-width: 80ch;
   display: flex;
   align-items: center;
   gap: var(--space-sm);

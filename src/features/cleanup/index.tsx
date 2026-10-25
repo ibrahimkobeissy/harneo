@@ -287,7 +287,7 @@ export function CleanupScreen() {
       0;
 
   return (
-    <Screen title="Cleanup" narrow>
+    <Screen title="Cleanup">
       <p className={styles.sub}>
         Keep the harness lean: what&apos;s risky, stale or never used.
       </p>

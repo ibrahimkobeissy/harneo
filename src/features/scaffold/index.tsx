@@ -227,7 +227,6 @@ export function ScaffoldScreen() {
   return (
     <Screen
       title="Scaffold project"
-      narrow
       crumb={crumb}
       toolbar={<Stepper steps={steps} at={step} />}
       foot={foot}

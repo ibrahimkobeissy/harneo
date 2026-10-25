@@ -353,7 +353,7 @@ export function ImportScreen() {
       (preview?.candidates ?? []).map((c) => [c.id, c.artifact.name]),
     );
     return (
-      <Screen title={title} narrow>
+      <Screen title={title}>
         <Done report={report} names={names} />
       </Screen>
     );
@@ -421,7 +421,6 @@ export function ImportScreen() {
   return (
     <Screen
       title={title}
-      narrow
       crumb={crumb}
       toolbar={<Stepper at={step} />}
       foot={foot}
