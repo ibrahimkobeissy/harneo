@@ -86,25 +86,22 @@ pub(super) fn scoped_files(
     let mut referencing: Vec<Value> = Vec::new();
     for (field, default) in MERGED {
         scope.files.insert(folder.join(default));
-        match metadata.get(field) {
-            Some(value) => {
-                for reference in paths_of(value) {
-                    add_path(
-                        walker,
-                        folder,
-                        &manifest,
-                        &reference,
-                        false,
-                        &mut scope,
-                        diagnostics,
-                    );
-                    if let Ok(p) = resolve_reference(folder, &reference) {
-                        referencing.push(Value::String(rel_string(&p)));
-                    }
+        if let Some(value) = metadata.get(field) {
+            for reference in paths_of(value) {
+                add_path(
+                    walker,
+                    folder,
+                    &manifest,
+                    &reference,
+                    false,
+                    &mut scope,
+                    diagnostics,
+                );
+                if let Ok(p) = resolve_reference(folder, &reference) {
+                    referencing.push(Value::String(rel_string(&p)));
                 }
-                referencing.push(inline_of(value));
             }
-            None => {}
+            referencing.push(inline_of(value));
         }
         referencing.push(Value::String(rel_string(&folder.join(default))));
     }
