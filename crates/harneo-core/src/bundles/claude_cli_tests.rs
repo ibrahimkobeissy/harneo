@@ -116,7 +116,8 @@ fn a_failing_claude_reports_its_stderr_but_never_the_prompt() -> TestResult {
         "claude",
         &format!("cat >/dev/null\necho 'first' >&2\necho 'not logged in {long}' >&2\nexit 3"),
     )?;
-    let Err(Error::ClaudeFailed { message, .. }) = run(&config(&program), "SECRET-PROMPT", "{}") else {
+    let Err(Error::ClaudeFailed { message, .. }) = run(&config(&program), "SECRET-PROMPT", "{}")
+    else {
         return Err("expected ClaudeFailed".into());
     };
     assert!(message.contains("not logged in"));
@@ -137,7 +138,10 @@ printf '%s' '{"is_error":true,"result":"Credit balance is too low"}'"#,
     let Err(Error::ClaudeFailed { message, .. }) = run(&config(&program), "p", "{}") else {
         return Err("expected ClaudeFailed".into());
     };
-    assert!(message.starts_with("Claude's usage limit is reached."), "{message}");
+    assert!(
+        message.starts_with("Claude's usage limit is reached."),
+        "{message}"
+    );
     assert!(message.contains("Credit balance is too low"));
     Ok(())
 }
@@ -166,12 +170,22 @@ fn a_non_zero_exit_with_an_envelope_on_stdout_reports_its_result_not_raw_json() 
 fn failures_are_told_apart() -> TestResult {
     let dir = tempfile::tempdir()?;
     let cases = [
-        ("Invalid API key - please run /login", FailureKind::NotLoggedIn),
-        ("There's an issue with the selected model (x)", FailureKind::ModelUnavailable),
+        (
+            "Invalid API key - please run /login",
+            FailureKind::NotLoggedIn,
+        ),
+        (
+            "There is an issue with the selected model (x)",
+            FailureKind::ModelUnavailable,
+        ),
         ("segmentation fault", FailureKind::Other),
     ];
     for (text, want) in cases {
-        let program = script(dir.path(), "claude", &format!("cat >/dev/null\necho '{text}' >&2\nexit 1"))?;
+        let program = script(
+            dir.path(),
+            "claude",
+            &format!("cat >/dev/null\necho '{text}' >&2\nexit 1"),
+        )?;
         let Err(Error::ClaudeFailed { kind, .. }) = run(&config(&program), "p", "{}") else {
             return Err("expected ClaudeFailed".into());
         };

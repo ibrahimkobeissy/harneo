@@ -286,7 +286,13 @@ fn classify(text: &str, status: Option<&str>) -> FailureKind {
         FailureKind::Limit
     } else if status == Some("404")
         || (t.contains("model")
-            && has(&["not found", "does not exist", "not available", "unavailable", "issue with"]))
+            && has(&[
+                "not found",
+                "does not exist",
+                "not available",
+                "unavailable",
+                "issue with",
+            ]))
     {
         FailureKind::ModelUnavailable
     } else {
