@@ -386,6 +386,74 @@ fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
 }
 
 #[test]
+fn plugin_scope_follows_how_claude_code_combines_each_key() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"p","skills":["./extra"],"commands":["./cmds/a.md"],
+           "experimental":{"monitors":"./mon.json"}}"#,
+    )?;
+    write(
+        r,
+        "mon.json",
+        r#"[{"name":"m","command":"\"${CLAUDE_PLUGIN_ROOT}\"/scripts/poll.sh","description":"d"}]"#,
+    )?;
+    for f in [
+        "skills/kept/SKILL.md",
+        "skills/group/nested/SKILL.md",
+        "extra/x/SKILL.md",
+        "cmds/a.md",
+        "commands/ignored.md",
+        "monitors/monitors.json",
+        "scripts/poll.sh",
+        "bin/tool",
+        "settings.json",
+        "workflows/w.js",
+    ] {
+        write(r, f, "{}")?;
+    }
+    let files = plugin_files(&scan(r)?)?.join(",");
+    // `skills` adds to the default folder; `commands` and monitors replace theirs.
+    for f in [
+        "skills/kept/SKILL.md",
+        "extra/x/SKILL.md",
+        "cmds/a.md",
+        "mon.json",
+        "scripts/poll.sh",
+        "bin/tool",
+        "settings.json",
+        "workflows/w.js",
+    ] {
+        assert!(files.contains(f), "{f} missing in {files}");
+    }
+    for f in [
+        "skills/group/nested/SKILL.md",
+        "commands/ignored.md",
+        "monitors/monitors.json",
+    ] {
+        assert!(!files.contains(f), "{f} should be out of scope: {files}");
+    }
+    Ok(())
+}
+
+#[test]
+fn a_root_skill_plugin_keeps_its_whole_folder() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, ".claude-plugin/plugin.json", r#"{"name":"p"}"#)?;
+    write(r, "SKILL.md", "---\nname: p\ndescription: d\n---\n")?;
+    write(r, "reference/notes.md", "x")?;
+    let files = plugin_files(&scan(r)?)?.join(",");
+    assert!(
+        files.contains("SKILL.md") && files.contains("reference/notes.md"),
+        "{files}"
+    );
+    Ok(())
+}
+
+#[test]
 fn hook_script_reference_is_included_and_an_escaping_one_is_reported() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();

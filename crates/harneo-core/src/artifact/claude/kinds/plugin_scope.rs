@@ -5,12 +5,21 @@
 //! declares or Claude Code's default folders hold, the files those components reference through
 //! `${CLAUDE_PLUGIN_ROOT}`, and the root `README*` and `LICENSE*`. Nothing else in the folder.
 //!
-//! Manifest fields read (checked against Claude Code's plugin reference, 2026-10-25): `skills`,
-//! `commands`, `agents`, `hooks`, `mcpServers`, `lspServers`, `outputStyles`; each a `./`-relative
-//! path or an array of them, `commands` also an object map whose entries have a `source`, and
-//! `hooks`, `mcpServers` and `lspServers` also inline objects. A present `skills`, `commands`,
-//! `agents` or `outputStyles` field is used instead of its default folder; the default
-//! `hooks/hooks.json`, `.mcp.json` and `.lsp.json` are always read, as Claude Code merges them.
+//! Manifest fields read, combined with their defaults as Claude Code's plugin reference says
+//! ("How each key combines with its default location", checked 2026-10-25):
+//! - **replace** the default: `commands` (`commands/`), `agents` (`agents/`), `outputStyles`
+//!   (`output-styles/`), `workflows` (`workflows/`), `experimental.themes` (`themes/`) and
+//!   `experimental.monitors` (`monitors/monitors.json`); the top-level `themes` and `monitors`
+//!   spellings still load, so they count too;
+//! - **add to** the default: `skills` (`skills/` is always scanned as well);
+//! - **merge** with the default file: `hooks` (`hooks/hooks.json`), `mcpServers` (`.mcp.json`),
+//!   `lspServers` (`.lsp.json`).
+//!
+//! Each is a `./`-relative path or an array of them; `commands` also an object map whose entries
+//! have a `source`; `hooks`, `mcpServers`, `lspServers` and monitors also inline config, searched
+//! for `${CLAUDE_PLUGIN_ROOT}` references. Always in scope as well: `bin/` (put on Claude's
+//! `PATH`) and the root `settings.json`. A plugin whose root holds `SKILL.md`, with no `skills/`
+//! and no `skills` key, is one skill: its whole folder is in scope.
 //!
 //! Diagnostic code: `plugin.path-escapes-plugin`.
 
@@ -25,12 +34,13 @@ use crate::artifact::{rel_string, Diagnostic};
 
 const ROOT_VAR: &str = "${CLAUDE_PLUGIN_ROOT}";
 
-/// (manifest field, default location when the field is absent).
-const REPLACED: [(&str, &str); 4] = [
-    ("skills", "skills"),
+/// (manifest field, default location used only when the field is absent).
+const REPLACED: [(&str, &str); 5] = [
     ("commands", "commands"),
     ("agents", "agents"),
     ("outputStyles", "output-styles"),
+    ("workflows", "workflows"),
+    ("themes", "themes"),
 ];
 
 /// (manifest field, default file that is always read as well).
@@ -39,6 +49,23 @@ const MERGED: [(&str, &str); 3] = [
     ("mcpServers", ".mcp.json"),
     ("lspServers", ".lsp.json"),
 ];
+
+/// Always in scope when present: executables on Claude's `PATH`, and the plugin's settings.
+const ALWAYS: [&str; 2] = ["bin", "settings.json"];
+
+/// The monitors file used when no monitors are declared.
+const MONITORS: &str = "monitors/monitors.json";
+
+/// A component field, under `experimental` (its documented place) or at the top level.
+fn component<'a>(metadata: &'a Map<String, Value>, field: &str) -> Option<&'a Value> {
+    match field {
+        "themes" | "monitors" => metadata
+            .get("experimental")
+            .and_then(|e| e.get(field))
+            .or_else(|| metadata.get(field)),
+        _ => metadata.get(field),
+    }
+}
 
 /// What the scope collects: whole folders and single files, relative to the scan root.
 #[derive(Default)]
@@ -64,7 +91,7 @@ pub(super) fn scoped_files(
     scope.files.insert(marketplace_path(folder));
 
     for (field, default) in REPLACED {
-        match metadata.get(field) {
+        match component(metadata, field) {
             Some(value) => {
                 for reference in paths_of(value) {
                     add_path(
@@ -72,7 +99,7 @@ pub(super) fn scoped_files(
                         folder,
                         &manifest,
                         &reference,
-                        field == "skills",
+                        false,
                         &mut scope,
                         diagnostics,
                     );
@@ -83,7 +110,58 @@ pub(super) fn scoped_files(
             }
         }
     }
+    // `skills` adds to the default folder, which is always scanned.
+    let skills_dir = folder.join("skills");
+    let declared_skills = metadata.get("skills");
+    if declared_skills.is_none()
+        && !walker.is_dir(&skills_dir)
+        && walker.exists(&folder.join("SKILL.md"))
+    {
+        // A root SKILL.md with no `skills/` and no `skills` key: the plugin is one skill.
+        scope.dirs.insert(folder.to_path_buf());
+    }
+    if walker.is_dir(&skills_dir) {
+        add_skill_dir(walker, folder, &skills_dir, &mut scope);
+    }
+    for reference in declared_skills.map(paths_of).unwrap_or_default() {
+        add_path(
+            walker,
+            folder,
+            &manifest,
+            &reference,
+            true,
+            &mut scope,
+            diagnostics,
+        );
+    }
+    for name in ALWAYS {
+        scope.dirs.insert(folder.join(name));
+        scope.files.insert(folder.join(name));
+    }
     let mut referencing: Vec<Value> = Vec::new();
+    match component(metadata, "monitors") {
+        Some(value) => {
+            for reference in paths_of(value) {
+                add_path(
+                    walker,
+                    folder,
+                    &manifest,
+                    &reference,
+                    false,
+                    &mut scope,
+                    diagnostics,
+                );
+                if let Ok(p) = resolve_reference(folder, &reference) {
+                    referencing.push(Value::String(rel_string(&p)));
+                }
+            }
+            referencing.push(inline_of(value));
+        }
+        None => {
+            scope.files.insert(folder.join(MONITORS));
+            referencing.push(Value::String(rel_string(&folder.join(MONITORS))));
+        }
+    }
     for (field, default) in MERGED {
         scope.files.insert(folder.join(default));
         if let Some(value) = metadata.get(field) {
@@ -161,7 +239,7 @@ fn inline_of(value: &Value) -> Value {
 }
 
 /// Adds one declared path to the scope, or reports it when it leaves the plugin folder. With
-/// `skills`, a path naming the plugin root adds only its skill folders, never the whole root.
+/// `skills`, a directory is read as Claude Code scans skills ([`add_skill_dir`]).
 fn add_path(
     walker: &Walker,
     folder: &Path,
@@ -174,17 +252,28 @@ fn add_path(
     let Some(target) = contained(folder, manifest, reference, diagnostics) else {
         return;
     };
-    if skills && target == folder {
-        scope.files.insert(folder.join("SKILL.md"));
-        for sub in walker.list_dirs(folder) {
-            if walker.exists(&sub.join("SKILL.md")) {
-                scope.dirs.insert(sub);
-            }
-        }
+    if skills && walker.is_dir(&target) {
+        add_skill_dir(walker, folder, &target, scope);
     } else if walker.is_dir(&target) {
         scope.dirs.insert(target);
     } else {
         scope.files.insert(target);
+    }
+}
+
+/// A skills directory as Claude Code scans it: one folder holding `SKILL.md` directly, or a
+/// directory of `<name>/SKILL.md` folders. The plugin root itself only ever adds its skill
+/// folders and its own `SKILL.md`, never the whole root.
+fn add_skill_dir(walker: &Walker, folder: &Path, dir: &Path, scope: &mut Scope) {
+    if dir != folder && walker.exists(&dir.join("SKILL.md")) {
+        scope.dirs.insert(dir.to_path_buf());
+        return;
+    }
+    scope.files.insert(dir.join("SKILL.md"));
+    for sub in walker.list_dirs(dir) {
+        if walker.exists(&sub.join("SKILL.md")) {
+            scope.dirs.insert(sub);
+        }
     }
 }
 
