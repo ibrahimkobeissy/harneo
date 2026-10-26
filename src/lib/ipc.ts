@@ -13,6 +13,7 @@ import type { ArtifactAudit } from "../bindings/ArtifactAudit";
 import type { ArtifactConfirmation } from "../bindings/ArtifactConfirmation";
 import type { ConfirmProgress } from "../bindings/ConfirmProgress";
 import type { PreviewConfirmEvent } from "../bindings/PreviewConfirmEvent";
+import type { LayoutEvent } from "../bindings/LayoutEvent";
 import type { ArtifactDetail } from "../bindings/ArtifactDetail";
 import type { FileView } from "../bindings/FileView";
 import type { ArtifactKind } from "../bindings/ArtifactKind";
@@ -189,6 +190,30 @@ export function onPreviewConfirmProgress(
   return listen<PreviewConfirmEvent>("preview-confirm-progress", (event) =>
     handler(event.payload),
   );
+}
+
+/** Asks Claude to place the held preview's unplaced files (whatever the setting says); resolves with the updated preview. */
+export function libraryPreviewLayout(token: string): Promise<PreviewTicket> {
+  return invoke<PreviewTicket>("library_preview_layout", { token });
+}
+
+/** Calls `handler` as a layout run moves through its stages; resolves with the stop function. */
+export function onLayoutProgress(
+  handler: (event: LayoutEvent) => void,
+): Promise<UnlistenFn> {
+  return listen<LayoutEvent>("layout-progress", (event) =>
+    handler(event.payload),
+  );
+}
+
+/** Whether the layout runs on its own after a scan (Settings; off by default). */
+export function importLayoutSettingGet(): Promise<boolean> {
+  return invoke<boolean>("import_layout_setting_get", {});
+}
+
+/** Turns the automatic layout run on or off. */
+export function importLayoutSettingSet(enabled: boolean): Promise<void> {
+  return invoke<void>("import_layout_setting_set", { enabled });
 }
 
 // --- Import flow -----------------------------------------------------------------------

@@ -15,8 +15,8 @@ use harneo_core::install::{
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
-    Filter, ImportReport, Library, Page, Preview, Query, ReauditReport, RemovalPlan, Source, Tag,
-    TagColor, TagWithCount,
+    Filter, ImportReport, LayoutStage, Library, Page, Preview, Query, ReauditReport, RemovalPlan,
+    Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
@@ -883,6 +883,81 @@ pub async fn library_preview_confirm(app: AppHandle, token: String) -> Result<()
 #[tauri::command]
 pub fn library_preview_confirm_cancel(token: String) {
     cancel_preview_confirm_token(&token);
+}
+
+// --- Layout resolver, tier 3 --------------------------------------------------------------
+
+/// Event name for tier 3 progress; the payload is `LayoutEvent`.
+const LAYOUT_PROGRESS_EVENT: &str = "layout-progress";
+
+/// Where a tier 3 run over a held preview is.
+#[derive(Debug, Clone, Serialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct LayoutEvent {
+    pub token: String,
+    pub stage: LayoutStage,
+}
+
+/// Asks Claude to place the preview's unplaced files, checks the answer and swaps the checked
+/// preview in under the same token. Claude is asked without holding the library. On any
+/// failure the held preview is left as it was.
+fn run_preview_layout<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    token: &str,
+) -> Result<PreviewTicket, String> {
+    let emit = |stage: LayoutStage| {
+        let _ = app.emit(
+            LAYOUT_PROGRESS_EVENT,
+            LayoutEvent {
+                token: token.to_owned(),
+                stage,
+            },
+        );
+    };
+    let held = app.state::<PreviewCache>();
+    let state = app.state::<LibraryState>();
+    emit(LayoutStage::Reading);
+    let preview = held.get(token)?;
+    let job = state.with(|library| library.prepare_preview_layout(&preview))?;
+    let proposal = job.run(&emit).map_err(|e| e.to_string())?;
+    emit(LayoutStage::Checking);
+    let next = state.with(|library| library.apply_preview_layout(&preview, &proposal))?;
+    held.restore(token, next.clone());
+    emit(LayoutStage::Done);
+    Ok(PreviewTicket {
+        token: token.to_owned(),
+        preview: next,
+    })
+}
+
+/// Runs tier 3 of the layout resolver on the held preview, whatever the
+/// `import.layoutWithClaude` setting says (that setting only makes the window ask on its own).
+/// Returns the updated preview; follow `layout-progress` events meanwhile.
+#[tauri::command]
+pub async fn library_preview_layout(
+    app: AppHandle,
+    token: String,
+) -> Result<PreviewTicket, String> {
+    tauri::async_runtime::spawn_blocking(move || run_preview_layout(&app, &token))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Whether tier 3 runs on its own after a scan (the `import.layoutWithClaude` setting; off by
+/// default).
+#[tauri::command]
+pub fn import_layout_setting_get(state: State<'_, LibraryState>) -> Result<bool, String> {
+    state.with(|library| library.layout_enabled())
+}
+
+/// Turns tier 3's automatic run on or off.
+#[tauri::command]
+pub fn import_layout_setting_set(
+    state: State<'_, LibraryState>,
+    enabled: bool,
+) -> Result<(), String> {
+    state.with(|library| library.set_layout_enabled(enabled))
 }
 
 /// The phase 2 status of every artifact.
@@ -2125,6 +2200,71 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         let audits = state.with(|l| l.audits())?;
         let audit = audits[0].audit.as_ref().ok_or("not audited")?;
         assert!(audit.findings.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn a_held_preview_gets_its_layout_by_token_and_a_failure_leaves_it_alone(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use std::os::unix::fs::PermissionsExt;
+        let data = tempfile::tempdir()?;
+        let bin = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join("prompts"))?;
+        std::fs::write(
+            source.path().join("prompts/review.md"),
+            "Review the diff.\n",
+        )?;
+        let mut library = Library::open(data.path())?;
+        let program = bin.path().join("claude");
+        let write_claude = |body: &str| -> std::io::Result<()> {
+            std::fs::write(&program, format!("#!/bin/sh\ncat > \"$0.in\"\n{body}\n"))?;
+            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))
+        };
+        write_claude("exit 1")?;
+        library.use_claude(ClaudeConfig {
+            program: program.clone().into(),
+            ..ClaudeConfig::default()
+        });
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(library)));
+        app.manage(PreviewCache::default());
+        let handle = app.handle();
+        let state = app.state::<LibraryState>();
+        assert!(!state.with(|l| l.layout_enabled())?);
+        let ticket = preview_held(
+            handle,
+            &Source::Local {
+                path: source.path().to_path_buf(),
+            },
+            &ScanOptions::default(),
+        )?;
+        assert!(ticket.preview.candidates.is_empty());
+        assert!(
+            !bin.path().join("claude.in").exists(),
+            "a scan asks nothing"
+        );
+
+        // A forged token is refused; a failing CLI changes nothing.
+        assert!(run_preview_layout(handle, "forged").is_err());
+        assert!(run_preview_layout(handle, &ticket.token).is_err());
+        assert_eq!(
+            app.state::<PreviewCache>().get(&ticket.token)?,
+            ticket.preview
+        );
+
+        write_claude(
+            "printf '{\"is_error\":false,\"structured_output\":{\"items\":[{\"kind\":\"command\",\"name\":\"review\",\"path\":\"prompts/review.md\",\"reason\":\"a prompt\"}],\"ignore\":[]}}'",
+        )?;
+        let got = run_preview_layout(handle, &ticket.token)?;
+        assert_eq!(got.token, ticket.token);
+        assert_eq!(got.preview.candidates.len(), 1);
+        assert!(got.preview.unplaced.is_empty());
+        let held = app.state::<PreviewCache>().get(&ticket.token)?;
+        assert_eq!(held, got.preview, "the held preview is the checked one");
+
+        state.with(|l| l.set_layout_enabled(true))?;
+        assert!(state.with(|l| l.layout_enabled())?);
         Ok(())
     }
 

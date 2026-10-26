@@ -59,6 +59,9 @@ const ticket = {
   token: "tok",
   source: { kind: "local", path: "/work/shop" },
   diagnostics: [],
+  unplaced: [],
+  unplacedOverflow: 0,
+  layoutIgnored: [],
   candidates: [
     cand("session-radar", audit(10, "dangerous", [flagged, flagged])),
     cand("wild", audit(70, "review", [{ ...flagged, severity: "medium" }])),

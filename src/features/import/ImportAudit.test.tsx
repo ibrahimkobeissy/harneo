@@ -67,6 +67,9 @@ function cand(
 const preview = (extra: Candidate[] = []): Preview => ({
   source: { kind: "local", path: "/home/me/.claude" },
   diagnostics: [],
+  unplaced: [],
+  unplacedOverflow: 0,
+  layoutIgnored: [],
   candidates: [
     cand("calm", "trusted", 100),
     cand(

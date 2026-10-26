@@ -41,6 +41,9 @@ function candidate(name: string): Candidate {
 const preview: Preview = {
   source: { kind: "local", path: "/home/me/.claude" },
   diagnostics: [],
+  unplaced: [],
+  unplacedOverflow: 0,
+  layoutIgnored: [],
   candidates: ["lead", "helper", "other"].map(candidate),
 };
 

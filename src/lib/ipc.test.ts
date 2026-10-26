@@ -69,6 +69,24 @@ describe("audit phase 2 wrappers", () => {
     ]);
   });
 
+  it("the layout wrappers send their commands and hand layout events on", async () => {
+    const calls = record(true);
+    expect(await ipc.libraryPreviewLayout("tok")).toBe(true);
+    expect(await ipc.importLayoutSettingGet()).toBe(true);
+    await ipc.importLayoutSettingSet(true);
+    expect(calls).toEqual([
+      { cmd: "library_preview_layout", args: { token: "tok" } },
+      { cmd: "import_layout_setting_get", args: {} },
+      { cmd: "import_layout_setting_set", args: { enabled: true } },
+    ]);
+    clearMocks();
+    mockIPC(() => null, { shouldMockEvents: true });
+    const seen: unknown[] = [];
+    await ipc.onLayoutProgress((e) => seen.push(e));
+    await emit("layout-progress", { token: "tok", stage: "asking" });
+    expect(seen).toEqual([{ token: "tok", stage: "asking" }]);
+  });
+
   it("onAuditConfirmProgress hands the event payload to the handler", async () => {
     mockIPC(() => null, { shouldMockEvents: true });
     const seen: unknown[] = [];

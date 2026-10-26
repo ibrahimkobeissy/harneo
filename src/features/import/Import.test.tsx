@@ -48,6 +48,9 @@ function candidate(
 const preview: Preview = {
   source: { kind: "local", path: "/home/me/.claude" },
   diagnostics: [],
+  unplaced: [],
+  unplacedOverflow: 0,
+  layoutIgnored: [],
   candidates: [
     candidate("alpha", { suggestedTags: ["review", "docs"] }),
     candidate("beta", { alreadyInLibrary: true }),

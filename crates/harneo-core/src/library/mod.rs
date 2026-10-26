@@ -73,6 +73,7 @@ pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
 pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
+pub use layout_claude::{IgnoredPath, LayoutJob, LayoutStage, Proposal};
 pub(crate) use origin::derive_plugin_origin;
 pub(crate) use query::source_label;
 pub use query::{
