@@ -66,8 +66,26 @@ static STEERING: LazyLock<Option<Regex>> = LazyLock::new(|| {
 
 /// True when `text` tries to steer a reviewer: a threat signal on its own, wherever the text
 /// is meant to be read by Claude (the audit's findings, the layout resolver's files).
+///
+/// A bare `auditor` or `reviewer` joined into a name or path (`code-reviewer`, `agents/reviewer.md`,
+/// `security_auditor`) names something rather than addresses the reader, so it does not count;
+/// every other match, and the phrases, always do.
 pub(crate) fn addresses_reviewer(text: &str) -> bool {
-    STEERING.as_ref().is_some_and(|re| re.is_match(text))
+    STEERING.as_ref().is_some_and(|re| {
+        re.find_iter(text)
+            .any(|m| !joined_name(text, m.start(), m.end()))
+    })
+}
+
+/// Whether the match at `start..end` is the single word `auditor` or `reviewer` glued to a
+/// neighbour by `-`, `_`, `/` or `.`.
+fn joined_name(text: &str, start: usize, end: usize) -> bool {
+    let word = text[start..end].to_ascii_lowercase();
+    if word != "auditor" && word != "reviewer" {
+        return false;
+    }
+    let glue = |c: Option<char>| matches!(c, Some('-' | '_' | '/' | '.'));
+    glue(text[..start].chars().next_back()) || glue(text[end..].chars().next())
 }
 
 /// What Claude is told about the artifact.
