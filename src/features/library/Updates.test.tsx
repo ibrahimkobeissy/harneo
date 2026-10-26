@@ -88,13 +88,17 @@ function report(
   };
 }
 
-function setup(path: string, localEdits = false) {
+function setup(
+  path: string,
+  localEdits = false,
+  state: UpdateStatus["state"] = "outdated",
+) {
   const calls: string[] = [];
   const queries: Query[] = [];
   const settings: Record<string, unknown> = {};
   let outdated = true;
   const status: UpdateStatus = {
-    state: "outdated",
+    state,
     fromVersion: "3.4.0",
     toVersion: "3.4.1",
     localEdits,
@@ -209,6 +213,17 @@ describe("updates in the library", () => {
     expect(screen.queryByText("→ 3.4.1")).not.toBeInTheDocument();
     expect(screen.queryByText("changed")).not.toBeInTheDocument();
     expect(screen.getByText("Update")).toBeInTheDocument();
+  });
+
+  it("shows a layout change at the source like a removal, with no update offered", async () => {
+    setup("/library?open=id-release", false, "layoutChanged");
+    const panel = await screen.findByRole("dialog", {
+      name: "release details",
+    });
+    expect(
+      await within(panel).findByText("Layout changed at source"),
+    ).toBeInTheDocument();
+    expect(within(panel).queryByText(/Update available/)).toBeNull();
   });
 
   it("filters to outdated artifacts with the Outdated value of the Status group", async () => {

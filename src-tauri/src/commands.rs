@@ -944,6 +944,32 @@ pub async fn library_preview_layout(
         .map_err(|e| e.to_string())?
 }
 
+/// *Ask Claude again*, step one: scans a source already in the library afresh (a git source in
+/// a new clone), with the layout stored at import replayed, and keeps the preview under a new
+/// token. Entries that no longer replay come back as `layout.changed` diagnostics. Step two is
+/// `library_preview_layout` on that token, so a failed call can be retried on the same preview.
+#[tauri::command]
+pub async fn library_preview_stored(
+    app: AppHandle,
+    source_id: String,
+) -> Result<PreviewTicket, String> {
+    tauri::async_runtime::spawn_blocking(move || preview_stored_held(&app, &source_id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Scans the stored source and keeps the preview under a new token.
+fn preview_stored_held<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    source_id: &str,
+) -> Result<PreviewTicket, String> {
+    let preview = app
+        .state::<LibraryState>()
+        .with(|library| library.preview_stored_source(source_id))?;
+    let token = app.state::<PreviewCache>().put(preview.clone())?;
+    Ok(PreviewTicket { token, preview })
+}
+
 /// Whether tier 3 runs on its own after a scan (the `import.layoutWithClaude` setting; off by
 /// default).
 #[tauri::command]
@@ -2265,6 +2291,23 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
 
         state.with(|l| l.set_layout_enabled(true))?;
         assert!(state.with(|l| l.layout_enabled())?);
+
+        // Ask Claude again: import, lose the path upstream, and scan the stored source.
+        let id = got.preview.candidates[0].id.clone();
+        state.with_mut(|l| l.import(&got.preview, &[id], &HashMap::new()))?;
+        std::fs::remove_file(source.path().join("prompts/review.md"))?;
+        std::fs::write(source.path().join("prompts/other.md"), "Something else.\n")?;
+        let key = harneo_core::library::ids::local_source_key(source.path())?;
+        let source_id = harneo_core::library::ids::source_id(&key);
+        assert!(preview_stored_held(handle, "nope").is_err());
+        let again = preview_stored_held(handle, &source_id)?;
+        assert_eq!(again.preview.unplaced, ["prompts/other.md"]);
+        assert!(again
+            .preview
+            .diagnostics
+            .iter()
+            .any(|d| d.code == "layout.changed"));
+        assert_eq!(app.state::<PreviewCache>().get(&again.token)?, again.preview);
         Ok(())
     }
 

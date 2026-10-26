@@ -61,6 +61,7 @@ pub fn run() {
             commands::library_preview_confirm,
             commands::library_preview_confirm_cancel,
             commands::library_preview_layout,
+            commands::library_preview_stored,
             commands::import_layout_setting_get,
             commands::import_layout_setting_set,
             commands::tags_list,

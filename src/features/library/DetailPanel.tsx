@@ -236,6 +236,11 @@ function SourceSection({
             <Badge tone="bad">Removed at source</Badge>
           </Row>
         )}
+        {update !== null && update.state === "layoutChanged" && (
+          <Row label="Upstream">
+            <Badge tone="bad">Layout changed at source</Badge>
+          </Row>
+        )}
         <Row label="Path">
           <span className={styles.mono}>{sourcePath}</span>
         </Row>

@@ -72,10 +72,12 @@ describe("audit phase 2 wrappers", () => {
   it("the layout wrappers send their commands and hand layout events on", async () => {
     const calls = record(true);
     expect(await ipc.libraryPreviewLayout("tok")).toBe(true);
+    expect(await ipc.libraryPreviewStored("src")).toBe(true);
     expect(await ipc.importLayoutSettingGet()).toBe(true);
     await ipc.importLayoutSettingSet(true);
     expect(calls).toEqual([
       { cmd: "library_preview_layout", args: { token: "tok" } },
+      { cmd: "library_preview_stored", args: { sourceId: "src" } },
       { cmd: "import_layout_setting_get", args: {} },
       { cmd: "import_layout_setting_set", args: { enabled: true } },
     ]);

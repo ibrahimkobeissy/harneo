@@ -197,6 +197,11 @@ export function libraryPreviewLayout(token: string): Promise<PreviewTicket> {
   return invoke<PreviewTicket>("library_preview_layout", { token });
 }
 
+/** Ask Claude again, step one: scans a library source afresh with its stored layout replayed and holds the preview; then call `libraryPreviewLayout` with the token. */
+export function libraryPreviewStored(sourceId: string): Promise<PreviewTicket> {
+  return invoke<PreviewTicket>("library_preview_stored", { sourceId });
+}
+
 /** Calls `handler` as a layout run moves through its stages; resolves with the stop function. */
 export function onLayoutProgress(
   handler: (event: LayoutEvent) => void,
