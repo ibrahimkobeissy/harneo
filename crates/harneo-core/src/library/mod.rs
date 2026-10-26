@@ -32,6 +32,9 @@ mod git_tests;
 pub mod ids;
 #[cfg(test)]
 mod import_tests;
+pub(crate) mod layout_claude;
+#[cfg(test)]
+mod layout_claude_tests;
 mod origin;
 mod query;
 #[cfg(test)]
@@ -128,6 +131,19 @@ pub struct Preview {
     pub candidates: Vec<Candidate>,
     /// The scan's findings that belong to no single artifact.
     pub diagnostics: Vec<Diagnostic>,
+    /// Files that might be artifacts but lie outside every path tiers 1 and 2 claimed (paths
+    /// only, capped by the scan). Tier 3 may place or hide them.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub unplaced: Vec<String>,
+    /// How many more unplaced paths there were beyond the scan's cap.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub unplaced_overflow: u32,
+    /// Paths Claude said to ignore in tier 3: they no longer count as unplaced.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub layout_ignored: Vec<layout_claude::IgnoredPath>,
 }
 
 /// What an import did.
@@ -316,16 +332,34 @@ impl Library {
                 artifact.origin = origin;
             }
         }
-        let ids: Vec<String> = report
-            .artifacts
+        let candidates = self.candidates_of(identity, root, report.artifacts)?;
+        let candidates = copies::collapse_copies(root, candidates);
+        Ok(Preview {
+            source: source.clone(),
+            candidates,
+            diagnostics: report.diagnostics,
+            unplaced: report.unplaced,
+            unplaced_overflow: report.unplaced_overflow,
+            layout_ignored: Vec::new(),
+        })
+    }
+
+    /// Candidates for scanned `artifacts` of the source named `identity`: each gets its stable
+    /// id, whether it is already in the library, and its audit.
+    pub(crate) fn candidates_of(
+        &self,
+        identity: &str,
+        root: &Path,
+        artifacts: Vec<Artifact>,
+    ) -> Result<Vec<Candidate>> {
+        let ids: Vec<String> = artifacts
             .iter()
             .map(|a| ids::artifact_id(identity, &a.path))
             .collect();
         let id_refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let known = records::existing(&self.store.conn, &id_refs)?;
         let scan_options = ScanOptions::default();
-        let candidates: Vec<Candidate> = report
-            .artifacts
+        Ok(artifacts
             .into_iter()
             .zip(ids)
             .map(|(artifact, id)| Candidate {
@@ -337,13 +371,7 @@ impl Library {
                 id,
                 artifact,
             })
-            .collect();
-        let candidates = copies::collapse_copies(root, candidates);
-        Ok(Preview {
-            source: source.clone(),
-            candidates,
-            diagnostics: report.diagnostics,
-        })
+            .collect())
     }
 
     /// Copies the selected candidates into the library. Each must be in `preview`; ones already

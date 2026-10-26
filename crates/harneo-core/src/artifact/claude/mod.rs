@@ -7,7 +7,10 @@ mod kinds;
 
 pub(crate) use kinds::plugin::github_repo;
 mod layout;
+mod proposed;
 mod unplaced;
+
+pub(crate) use proposed::{check_path, parse_proposed};
 
 use std::path::{Path, PathBuf};
 

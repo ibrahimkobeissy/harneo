@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 pub use adapter::AgentAdapter;
-pub(crate) use claude::github_repo;
 pub use claude::ClaudeAdapter;
+pub(crate) use claude::{check_path, github_repo, parse_proposed};
 
 /// The 10 artifact types of `CONTEXT.md` §2.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]

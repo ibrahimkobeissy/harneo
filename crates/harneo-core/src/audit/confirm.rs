@@ -64,6 +64,12 @@ static STEERING: LazyLock<Option<Regex>> = LazyLock::new(|| {
     .ok()
 });
 
+/// True when `text` tries to steer a reviewer: a threat signal on its own, wherever the text
+/// is meant to be read by Claude (the audit's findings, the layout resolver's files).
+pub(crate) fn addresses_reviewer(text: &str) -> bool {
+    STEERING.as_ref().is_some_and(|re| re.is_match(text))
+}
+
 /// What Claude is told about the artifact.
 #[derive(Debug, Clone)]
 pub struct Subject {
@@ -102,7 +108,7 @@ fn clip(text: &str, max: usize) -> String {
     text.chars().take(max).collect()
 }
 
-fn sha_hex(parts: &[&str]) -> String {
+pub(crate) fn sha_hex(parts: &[&str]) -> String {
     let mut hasher = Sha256::new();
     for part in parts {
         hasher.update((part.len() as u64).to_le_bytes());
@@ -148,9 +154,7 @@ pub fn candidates_keyed(
                 // A finding about a file as a whole: its evidence is all there is.
                 _ => (String::new(), finding.evidence.clone()),
             };
-            let steering = STEERING
-                .as_ref()
-                .is_some_and(|re| re.is_match(&context) || re.is_match(&finding.evidence));
+            let steering = addresses_reviewer(&context) || addresses_reviewer(&finding.evidence);
             Candidate {
                 key: sha_hex(&[
                     PROMPT_VERSION,
