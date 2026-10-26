@@ -18,6 +18,7 @@ use ts_rs::TS;
 
 use super::diff::{diff_dirs, FileDiff};
 use super::remote::{self, Failure, Session};
+use crate::library::layout_claude::{StoredClaude, StoredLayout};
 use super::{copy_digest, record_copy_digest, IMPORTED_COMMIT};
 use crate::artifact::{Artifact, ScanOptions};
 use crate::audit::{self, Audit};
@@ -90,6 +91,8 @@ pub struct UpdateJob {
     id: String,
     source: SourceRecord,
     source_path: String,
+    /// The artifact's own entry when Claude placed it, replayed to find it again.
+    layout: StoredLayout,
     versions: (Option<String>, Option<String>),
     /// *Update all*: leave the copy alone if it turns out to be edited.
     protect_edits: bool,
@@ -127,6 +130,18 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     }
 }
 
+/// An artifact flagged removed or layout-changed has nothing to update from.
+fn refuse_gone(state: &str) -> Result<()> {
+    let message = match state {
+        "removed" => "it is removed at its source",
+        "layout_changed" => "its place in the source changed; ask Claude again",
+        _ => return Ok(()),
+    };
+    Err(Error::Update {
+        message: message.to_owned(),
+    })
+}
+
 fn unavailable(failure: Failure) -> Error {
     Error::Update {
         message: match failure {
@@ -147,8 +162,10 @@ impl UpdateJob {
     pub(crate) fn run_with(&self, hooks: &dyn ImportHooks) -> Result<PreparedUpdate> {
         let located = remote::locate(&self.git, &self.session, &self.library_root, &self.source)
             .map_err(unavailable)?;
-        let scanned = remote::scan(&located.root, &self.source).map_err(unavailable)?;
+        let scanned = remote::scan(&located.root, &self.source, &self.layout)
+            .map_err(unavailable)?;
         let mut artifact = scanned
+            .artifacts
             .into_iter()
             .find(|a| a.path == self.source_path)
             .ok_or_else(|| Error::Update {
@@ -239,11 +256,7 @@ impl Library {
         let detail = records::load(&self.store.conn, id)?
             .ok_or_else(|| Error::NotInLibrary { id: id.to_owned() })?;
         let (state, from, to) = self.flagged(id)?;
-        if state == "removed" {
-            return Err(Error::Update {
-                message: "it is removed at its source".to_owned(),
-            });
-        }
+        refuse_gone(&state)?;
         let current = self.store.artifacts_dir().join(id);
         let seen = Seen {
             state,
@@ -254,6 +267,12 @@ impl Library {
                 None
             },
         };
+        let layout = StoredLayout {
+            claude: StoredClaude::of(&detail.artifact, &detail.provenance.source_path)
+                .into_iter()
+                .collect(),
+            ignore: Vec::new(),
+        };
         Ok(UpdateJob {
             git: self.git.clone(),
             session: Arc::clone(&self.session),
@@ -262,6 +281,7 @@ impl Library {
             id: id.to_owned(),
             source: detail.provenance.source,
             source_path: detail.provenance.source_path,
+            layout,
             versions: (from, to),
             protect_edits,
             seen,
@@ -348,11 +368,7 @@ impl Library {
     /// *Keep mine*: the flag stays off until the upstream version changes again.
     fn keep_mine(&self, id: &str) -> Result<UpdateReport> {
         let (state, from, to) = self.flagged(id)?;
-        if state == "removed" {
-            return Err(Error::Update {
-                message: "it is removed at its source".to_owned(),
-            });
-        }
+        refuse_gone(&state)?;
         self.store.conn.execute(
             "UPDATE upstream SET state = 'skipped' WHERE artifact_id = ?1",
             params![id],

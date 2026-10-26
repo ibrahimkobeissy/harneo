@@ -61,7 +61,9 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions};
+use crate::artifact::{
+    AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions, ScanReport,
+};
 use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
@@ -324,6 +326,8 @@ impl Library {
             ..options.clone()
         };
         let mut report = ClaudeAdapter.scan(root, options)?;
+        // A source imported before replays what Claude placed in it, without asking again.
+        let lost = self.replay_stored_layout(identity, root, &mut report)?;
         let (kind, location) = match source {
             Source::Git { url, .. } => ("git", url.as_str()),
             Source::Local { path } => ("local", path.to_str().unwrap_or_default()),
@@ -333,16 +337,37 @@ impl Library {
                 artifact.origin = origin;
             }
         }
+        let mut diagnostics = report.diagnostics;
+        for path in lost {
+            diagnostics.push(Diagnostic::warning(
+                "layout.changed",
+                Path::new(&path),
+                "Claude placed an artifact here when this source was imported, but the path is \
+gone or no longer parses",
+            ));
+        }
         let candidates = self.candidates_of(identity, root, report.artifacts)?;
         let candidates = copies::collapse_copies(root, candidates);
         Ok(Preview {
             source: source.clone(),
             candidates,
-            diagnostics: report.diagnostics,
+            diagnostics,
             unplaced: report.unplaced,
             unplaced_overflow: report.unplaced_overflow,
             layout_ignored: Vec::new(),
         })
+    }
+
+    /// Replays what Claude placed in the source named `identity` when it was imported, over a
+    /// fresh scan of tiers 1 and 2. Returns the stored paths that could not be replayed.
+    fn replay_stored_layout(
+        &self,
+        identity: &str,
+        root: &Path,
+        report: &mut ScanReport,
+    ) -> Result<Vec<String>> {
+        let layout = records::stored_layout(&self.store.conn, &ids::source_id(identity))?;
+        Ok(layout.replay(root, report))
     }
 
     /// Candidates for scanned `artifacts` of the source named `identity`: each gets its stable
@@ -499,6 +524,7 @@ impl Library {
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
             records::insert_source(&tx, &source_id, &preview.source, commit)?;
+            records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
             let now = records::now();
             for candidate in &fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);

@@ -288,8 +288,34 @@ UPDATE artifacts SET
     WHERE findings IS NOT NULL;
 ";
 
+/// Version 9: the layout resolver's stored layout. `sources.layout_version` is 0 for a source
+/// imported before the resolver and the resolver's version after; `layout_ignore` is the JSON
+/// list of paths Claude said are not artifacts. Each artifact's `layoutBy` and `layoutReason`
+/// live in its stored `artifact` JSON; a row without them counts as placed by a convention
+/// (a manifest for a plugin). `upstream` gains the `layout_changed` state, and SQLite cannot
+/// alter a CHECK, so the table is rebuilt with its rows.
+const V9: &str = "
+ALTER TABLE sources ADD COLUMN layout_version INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE sources ADD COLUMN layout_ignore  TEXT;
+
+CREATE TABLE upstream_new (
+    artifact_id     TEXT PRIMARY KEY REFERENCES artifacts(id) ON DELETE CASCADE,
+    state           TEXT NOT NULL
+        CHECK (state IN ('outdated', 'removed', 'skipped', 'layout_changed')),
+    upstream_digest TEXT,
+    upstream_commit TEXT,
+    from_version    TEXT,
+    to_version      TEXT,
+    checked_at      INTEGER NOT NULL
+) STRICT;
+INSERT INTO upstream_new SELECT * FROM upstream;
+DROP TABLE upstream;
+ALTER TABLE upstream_new RENAME TO upstream;
+CREATE INDEX upstream_state ON upstream(state);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -621,6 +647,66 @@ mod tests {
         assert_eq!(status("b").as_deref(), Some("confirmed"));
         assert_eq!(status("c"), None, "never audited stays so");
         assert_eq!(count(&store, "audit_verdicts"), 0);
+    }
+
+    /// A version 8 database migrates to version 9: sources get a layout version of 0 and no
+    /// ignore list, upstream rows survive the rebuild, and `layout_changed` becomes valid.
+    #[test]
+    fn a_v8_database_migrates_to_the_stored_layout() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v8 db");
+            for sql in [V1, V2, V3, V4, V5, V6, V7, V8] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location) VALUES ('s', 'local', '/x');
+                 INSERT INTO artifacts (id, source_id, kind, name, source_path, imported_at, artifact)
+                 VALUES ('a', 's', 'skill', 'a', 'a', 1, '{}');
+                 INSERT INTO upstream (artifact_id, state, from_version, checked_at)
+                 VALUES ('a', 'removed', '1.0', 7);
+                 PRAGMA user_version = 8;",
+            )
+            .expect("v8 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let source: (i64, Option<String>) = store
+            .conn
+            .query_row(
+                "SELECT layout_version, layout_ignore FROM sources",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .expect("source survives");
+        assert_eq!(source, (0, None));
+        let kept: (String, Option<String>, i64) = store
+            .conn
+            .query_row(
+                "SELECT state, from_version, checked_at FROM upstream WHERE artifact_id = 'a'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+            )
+            .expect("upstream row survives");
+        assert_eq!(kept, ("removed".to_owned(), Some("1.0".to_owned()), 7));
+        store
+            .conn
+            .execute(
+                "UPDATE upstream SET state = 'layout_changed' WHERE artifact_id = 'a'",
+                [],
+            )
+            .expect("the new state is valid");
+        assert!(store
+            .conn
+            .execute("UPDATE upstream SET state = 'bogus' WHERE artifact_id = 'a'", [])
+            .is_err());
+        store
+            .conn
+            .execute("DELETE FROM artifacts WHERE id = 'a'", [])
+            .expect("delete");
+        assert_eq!(count(&store, "upstream"), 0, "upstream still goes with its artifact");
     }
 
     #[test]

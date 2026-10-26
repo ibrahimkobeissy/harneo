@@ -2,6 +2,7 @@ use std::path::Path;
 
 use super::remote::{fetch, locate, Failure, Session};
 use crate::library::git::GitConfig;
+use crate::library::layout_claude::StoredLayout;
 use crate::library::SourceRecord;
 
 fn record(kind: &str, location: &str, branch: Option<&str>) -> SourceRecord {
@@ -26,7 +27,14 @@ fn config() -> GitConfig {
 fn why(source: &SourceRecord) -> String {
     let session = Session::default();
     let root = Path::new("/nonexistent-harneo-root");
-    let fetched = fetch(&config(), &session, root, source, None);
+    let fetched = fetch(
+        &config(),
+        &session,
+        root,
+        source,
+        None,
+        &StoredLayout::default(),
+    );
     let located = locate(&config(), &session, root, source);
     match (fetched, located) {
         (Err(Failure::Unreachable(a)), Err(Failure::Unreachable(b))) => {

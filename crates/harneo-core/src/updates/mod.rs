@@ -20,6 +20,8 @@ pub(crate) mod diff;
 mod diff_tests;
 pub(crate) mod remote;
 #[cfg(test)]
+mod layout_tests;
+#[cfg(test)]
 mod remote_tests;
 #[cfg(test)]
 mod status_tests;
@@ -39,6 +41,7 @@ use ts_rs::TS;
 
 use crate::artifact::Artifact;
 use crate::error::{Error, Result};
+use crate::library::layout_claude::StoredClaude;
 use crate::library::records::{self, SourceRecord};
 use crate::library::{Library, LibraryItem};
 pub(crate) use apply::backup_copy;
@@ -80,6 +83,10 @@ pub enum SourceResult {
         outdated: u32,
         /// Artifacts of the library that are gone from the source.
         removed: u32,
+        /// Artifacts Claude placed whose path is gone or no longer parses, so the layout needs
+        /// asking again.
+        #[serde(rename = "layoutChanged")]
+        layout_changed: u32,
         /// Artifacts in the source that are not in the library.
         #[serde(rename = "newUpstream")]
         new_upstream: u32,
@@ -98,6 +105,11 @@ pub struct SourceCheck {
     /// The library's id for the source.
     pub id: String,
     pub result: SourceResult,
+    /// Files no tier placed (and the stored layout does not ignore), for the "couldn't place"
+    /// notice. Empty when the source was not rescanned.
+    pub unplaced: Vec<String>,
+    /// How many more unplaced files there were beyond those listed.
+    pub unplaced_overflow: u32,
 }
 
 /// The outcome of [`Library::check_updates`], one entry per source looked at.
@@ -119,6 +131,9 @@ pub enum UpstreamState {
     Removed,
     /// The user kept their copy for the current upstream version: no flag until it changes again.
     Skipped,
+    /// A path Claude placed is gone or no longer parses: shown like removed, with *Ask Claude
+    /// again*. Stored as `layout_changed`.
+    LayoutChanged,
 }
 
 impl UpstreamState {
@@ -127,6 +142,7 @@ impl UpstreamState {
             Self::Outdated => "outdated",
             Self::Removed => "removed",
             Self::Skipped => "skipped",
+            Self::LayoutChanged => "layout_changed",
         }
     }
 
@@ -134,6 +150,7 @@ impl UpstreamState {
         match text {
             "removed" => Self::Removed,
             "skipped" => Self::Skipped,
+            "layout_changed" => Self::LayoutChanged,
             _ => Self::Outdated,
         }
     }
@@ -184,12 +201,17 @@ enum Verdict {
     Current,
     Outdated(Box<Artifact>),
     Removed,
+    /// Claude placed it and its path no longer replays.
+    LayoutChanged,
 }
 
 /// An artifact is outdated only when its own files changed upstream: the repo moving is not
 /// enough. A copy with no recorded digest cannot be judged and counts as current.
 fn classify(stored: &Stored, upstream: Option<&Artifact>) -> Verdict {
     match upstream {
+        None if StoredClaude::of(&stored.artifact, &stored.source_path).is_some() => {
+            Verdict::LayoutChanged
+        }
         None => Verdict::Removed,
         Some(a) => match (stored.digest.as_deref(), a.digest.as_deref()) {
             (Some(was), Some(now)) if was != now => Verdict::Outdated(Box::new(a.clone())),
@@ -402,7 +424,7 @@ impl Library {
     }
 }
 
-fn source_rows(
+pub(crate) fn source_rows(
     conn: &Connection,
     only: Option<&str>,
 ) -> Result<Vec<(SourceRecord, Option<String>)>> {
@@ -514,13 +536,18 @@ fn result_from_table(
         )?;
         Ok(u32::try_from(n).unwrap_or(u32::MAX))
     };
-    let (outdated, removed) = (count("outdated")?, count("removed")?);
-    if outdated + removed + new_upstream == 0 {
+    let (outdated, removed, layout_changed) = (
+        count("outdated")?,
+        count("removed")?,
+        count("layout_changed")?,
+    );
+    if outdated + removed + layout_changed + new_upstream == 0 {
         return Ok(SourceResult::Current);
     }
     Ok(SourceResult::Changed {
         outdated,
         removed,
+        layout_changed,
         new_upstream,
     })
 }

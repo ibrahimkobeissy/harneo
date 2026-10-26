@@ -352,6 +352,7 @@ fn a_check_in_three_steps_matches_the_one_call() -> TestResult {
         SourceResult::Changed {
             outdated: 1,
             removed: 0,
+            layout_changed: 0,
             new_upstream: 0
         }
     );

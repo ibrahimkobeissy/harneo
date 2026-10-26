@@ -10,6 +10,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, ScanOptions};
 use crate::error::Error;
 use crate::library::git::{self, Checkout, GitConfig};
+use crate::library::layout_claude::StoredLayout;
 use crate::library::{git_subfolder, Source, SourceRecord};
 
 /// Clones the update check made, kept for the session by source id so *Update* can copy from
@@ -109,17 +110,19 @@ pub(crate) enum Upstream {
     /// A fresh scan of the source's root. `commit` is the cloned commit of a git source.
     Scanned {
         commit: Option<String>,
-        artifacts: Vec<Artifact>,
+        scanned: Scanned,
     },
 }
 
-/// Looks at `source`, whose last seen remote commit is `known` (git only).
+/// Looks at `source`, whose last seen remote commit is `known` (git only). `layout` is what was
+/// stored when Claude placed some of its artifacts; it is replayed on the scan.
 pub(crate) fn fetch(
     config: &GitConfig,
     session: &Session,
     library_root: &Path,
     source: &SourceRecord,
     known: Option<&str>,
+    layout: &StoredLayout,
 ) -> Result<Upstream, Failure> {
     check_source(source)?;
     if source.kind == "local" {
@@ -129,7 +132,7 @@ pub(crate) fn fetch(
         }
         return Ok(Upstream::Scanned {
             commit: None,
-            artifacts: scan(root, source)?,
+            scanned: scan(root, source, layout)?,
         });
     }
     let url = source.location.as_str();
@@ -140,12 +143,12 @@ pub(crate) fn fetch(
     }
     let checkout = git::clone(config, library_root, url, branch).map_err(unreachable)?;
     let root = checkout_root(&checkout, source)?;
-    let artifacts = scan(&root, source)?;
+    let scanned = scan(&root, source, layout)?;
     let commit = checkout.commit.clone();
     session.keep(&source.id, checkout);
     Ok(Upstream::Scanned {
         commit: Some(commit),
-        artifacts,
+        scanned,
     })
 }
 
@@ -193,19 +196,37 @@ fn checkout_root(checkout: &Checkout, source: &SourceRecord) -> Result<PathBuf, 
     }
 }
 
+/// What a scan of a source found, with its stored layout replayed.
+#[derive(Debug)]
+pub(crate) struct Scanned {
+    pub artifacts: Vec<Artifact>,
+    /// Files no tier placed and the stored layout does not ignore, capped as a scan caps them.
+    pub unplaced: Vec<String>,
+    pub unplaced_overflow: u32,
+}
+
 /// Scans the source's folder as its import did: a git source passes its GitHub repo, so a
-/// marketplace entry naming that repo merges with its plugin folder the same way.
-pub(crate) fn scan(root: &Path, source: &SourceRecord) -> Result<Vec<Artifact>, Failure> {
+/// marketplace entry naming that repo merges with its plugin folder the same way. Tiers 1 and 2
+/// run again, then the stored `claude` entries are replayed; Claude is not called.
+pub(crate) fn scan(
+    root: &Path,
+    source: &SourceRecord,
+    layout: &StoredLayout,
+) -> Result<Scanned, Failure> {
     let options = ScanOptions {
         repo: (source.kind == "git")
             .then(|| crate::artifact::github_repo(&source.location))
             .flatten(),
         ..ScanOptions::default()
     };
-    ClaudeAdapter
-        .scan(root, &options)
-        .map(|report| report.artifacts)
-        .map_err(unreachable)
+    let mut report = ClaudeAdapter.scan(root, &options).map_err(unreachable)?;
+    // Entries that no longer replay are simply absent: the check flags them as layout changed.
+    layout.replay(root, &mut report);
+    Ok(Scanned {
+        artifacts: report.artifacts,
+        unplaced: report.unplaced,
+        unplaced_overflow: report.unplaced_overflow,
+    })
 }
 
 fn unreachable(error: Error) -> Failure {

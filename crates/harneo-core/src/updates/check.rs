@@ -9,6 +9,7 @@ use std::sync::Arc;
 use rusqlite::params;
 
 use super::remote::{self, Failure, Session, Upstream};
+use crate::library::layout_claude::StoredLayout;
 use super::*;
 use crate::library::git::GitConfig;
 
@@ -27,6 +28,8 @@ struct SourceWork {
     source: SourceRecord,
     remote_commit: Option<String>,
     stored: Vec<Stored>,
+    /// What Claude placed and ignored when the source was imported, replayed on each scan.
+    layout: StoredLayout,
 }
 
 /// What looking at the sources found, ready to be written by [`Library::finish_check`].
@@ -50,6 +53,8 @@ enum Found {
         commit: Option<String>,
         judgements: Vec<Judgement>,
         new_upstream: u32,
+        unplaced: Vec<String>,
+        unplaced_overflow: u32,
         /// The source's seen commit moves only when every artifact of it was judged; after a
         /// one-artifact check the others must still be looked at next time.
         advance: bool,
@@ -74,6 +79,9 @@ enum Judged {
         to: Option<String>,
     },
     Removed {
+        from: Option<String>,
+    },
+    LayoutChanged {
         from: Option<String>,
     },
 }
@@ -115,15 +123,21 @@ impl CheckJob {
             .remote_commit
             .as_deref()
             .or(source.commit_sha.as_deref());
-        let upstream =
-            match remote::fetch(&self.git, &self.session, &self.library_root, source, known) {
-                Ok(upstream) => upstream,
-                Err(Failure::Missing) => return Found::Missing,
-                Err(Failure::Unreachable(reason)) => return Found::Unreachable(reason),
-            };
+        let upstream = match remote::fetch(
+            &self.git,
+            &self.session,
+            &self.library_root,
+            source,
+            known,
+            &work.layout,
+        ) {
+            Ok(upstream) => upstream,
+            Err(Failure::Missing) => return Found::Missing,
+            Err(Failure::Unreachable(reason)) => return Found::Unreachable(reason),
+        };
         let (commit, scanned) = match upstream {
             Upstream::Unchanged => return Found::Unchanged,
-            Upstream::Scanned { commit, artifacts } => (commit, artifacts),
+            Upstream::Scanned { commit, scanned } => (commit, scanned),
         };
         let mut judgements = Vec::new();
         for item in work
@@ -131,7 +145,7 @@ impl CheckJob {
             .iter()
             .filter(|s| self.only.as_deref().is_none_or(|id| s.id == id))
         {
-            let found = scanned.iter().find(|a| a.path == item.source_path);
+            let found = scanned.artifacts.iter().find(|a| a.path == item.source_path);
             let from_commit = imported_commit(&item.artifact, source);
             let what = match classify(item, found) {
                 Verdict::Current => Judged::Current,
@@ -151,6 +165,9 @@ impl CheckJob {
                 Verdict::Removed => Judged::Removed {
                     from: versions(&item.artifact, None, None, None).0,
                 },
+                Verdict::LayoutChanged => Judged::LayoutChanged {
+                    from: versions(&item.artifact, None, None, None).0,
+                },
             };
             judgements.push(Judgement {
                 id: item.id.clone(),
@@ -160,6 +177,7 @@ impl CheckJob {
         }
         let known_paths: Vec<&str> = work.stored.iter().map(|s| s.source_path.as_str()).collect();
         let new_upstream = scanned
+            .artifacts
             .iter()
             .filter(|a| !known_paths.contains(&a.path.as_str()))
             .count();
@@ -167,6 +185,8 @@ impl CheckJob {
             commit,
             judgements,
             new_upstream: u32::try_from(new_upstream).unwrap_or(u32::MAX),
+            unplaced: scanned.unplaced,
+            unplaced_overflow: scanned.unplaced_overflow,
             advance: self.only.is_none(),
         }
     }
@@ -202,10 +222,12 @@ impl Library {
         for (source, remote_commit) in source_rows(conn, source_filter.as_deref())? {
             let stored = stored_of_source(conn, &source.id)?;
             self.backfill_copy_digests(&stored)?;
+            let layout = records::stored_layout(conn, &source.id)?;
             sources.push(SourceWork {
                 source,
                 remote_commit,
                 stored,
+                layout,
             });
         }
         Ok(CheckJob {
@@ -222,10 +244,20 @@ impl Library {
     pub fn finish_check(&self, outcome: CheckOutcome) -> Result<CheckReport> {
         let mut report = CheckReport::default();
         for source in outcome.sources {
+            let (unplaced, unplaced_overflow) = match &source.found {
+                Found::Scanned {
+                    unplaced,
+                    unplaced_overflow,
+                    ..
+                } => (unplaced.clone(), *unplaced_overflow),
+                _ => (Vec::new(), 0),
+            };
             let result = self.store_source(&source.id, source.found)?;
             report.sources.push(SourceCheck {
                 id: source.id,
                 result,
+                unplaced,
+                unplaced_overflow,
             });
         }
         Ok(report)
@@ -249,6 +281,7 @@ impl Library {
                 judgements,
                 new_upstream,
                 advance,
+                ..
             } => (commit, judgements, new_upstream, advance),
         };
         let tx = conn.unchecked_transaction()?;
@@ -293,6 +326,18 @@ impl Library {
                         )?;
                     }
                 }
+                Judged::LayoutChanged { from } => write_row(
+                    &tx,
+                    &NewRow {
+                        id,
+                        state: UpstreamState::LayoutChanged,
+                        upstream_digest: None,
+                        upstream_commit: &commit,
+                        from_version: from,
+                        to_version: None,
+                        checked_at: now,
+                    },
+                )?,
                 Judged::Removed { from } => write_row(
                     &tx,
                     &NewRow {

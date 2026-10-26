@@ -8,4 +8,13 @@ export type SourceCheck = {
 /**
  * The library's id for the source.
  */
-id: string, result: SourceResult, };
+id: string, result: SourceResult, 
+/**
+ * Files no tier placed (and the stored layout does not ignore), for the "couldn't place"
+ * notice. Empty when the source was not rescanned.
+ */
+unplaced: Array<string>, 
+/**
+ * How many more unplaced files there were beyond those listed.
+ */
+unplacedOverflow: number, };

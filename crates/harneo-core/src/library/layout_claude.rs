@@ -24,10 +24,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
-use super::{Candidate, Library, Preview};
+use super::{Candidate, Library, Preview, Source};
 use crate::artifact::walk::{is_secret_name, Walker};
 use crate::artifact::{
-    check_path, parse_proposed, Artifact, ArtifactKind, Diagnostic, ScanOptions,
+    check_path, parse_proposed, Artifact, ArtifactKind, Diagnostic, ScanOptions, ScanReport,
 };
 use crate::audit::confirm::{addresses_reviewer, sha_hex};
 use crate::audit::redact;
@@ -300,20 +300,25 @@ struct Claimed {
 
 impl Claimed {
     fn of(candidates: &[Candidate]) -> Self {
-        let mut files = HashSet::new();
-        let mut folders = Vec::new();
+        let mut claimed = Self {
+            files: HashSet::new(),
+            folders: Vec::new(),
+        };
         for c in candidates {
-            let a = &c.artifact;
-            let own = a.path.split('#').next().unwrap_or_default();
-            files.insert(own.to_owned());
-            files.extend(a.files.iter().cloned());
-            let whole = matches!(a.kind, ArtifactKind::Plugin | ArtifactKind::Skill);
-            if whole && !a.path.contains('#') {
-                folders.push(PathBuf::from(&a.path));
-                folders.extend(c.copies.iter().map(PathBuf::from));
-            }
+            claimed.add(&c.artifact, &c.copies);
         }
-        Self { files, folders }
+        claimed
+    }
+
+    fn add(&mut self, a: &Artifact, copies: &[String]) {
+        let own = a.path.split('#').next().unwrap_or_default();
+        self.files.insert(own.to_owned());
+        self.files.extend(a.files.iter().cloned());
+        let whole = matches!(a.kind, ArtifactKind::Plugin | ArtifactKind::Skill);
+        if whole && !a.path.contains('#') {
+            self.folders.push(PathBuf::from(&a.path));
+            self.folders.extend(copies.iter().map(PathBuf::from));
+        }
     }
 
     fn holds(&self, path: &str) -> bool {
@@ -362,6 +367,103 @@ fn accept(
         "layoutReason".into(),
         tidy(&item.reason, REASON_CHARS).into(),
     );
+    Ok(artifact)
+}
+
+/// The layout stored with a source: the `claude` entries to replay and the paths Claude said
+/// are not artifacts. Updates and re-imports replay it; Claude is never called to do so.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct StoredLayout {
+    pub claude: Vec<StoredClaude>,
+    pub ignore: Vec<String>,
+}
+
+/// One artifact Claude placed: its kind and path, and the reason it gave.
+#[derive(Debug, Clone)]
+pub(crate) struct StoredClaude {
+    pub kind: ArtifactKind,
+    pub path: String,
+    pub reason: Option<String>,
+}
+
+impl StoredClaude {
+    /// The entry for a stored artifact, when Claude placed it.
+    pub(crate) fn of(artifact: &Artifact, source_path: &str) -> Option<Self> {
+        if artifact.metadata.get("layoutBy").and_then(Value::as_str) != Some("claude") {
+            return None;
+        }
+        Some(Self {
+            kind: artifact.kind,
+            path: source_path.to_owned(),
+            reason: artifact
+                .metadata
+                .get("layoutReason")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+        })
+    }
+}
+
+impl StoredLayout {
+    /// Runs the part of the layout that needs no Claude over a fresh scan of tiers 1 and 2:
+    /// each stored `claude` entry is read again with its kind's parser, added to the report and
+    /// marked as placed by Claude; paths Claude said to ignore leave `unplaced`. Returns the
+    /// paths of the entries that could not be replayed (gone, no longer parsing, or now claimed
+    /// by a manifest or a known folder). A path tiers 1 and 2 now place themselves counts as
+    /// replayed.
+    pub(crate) fn replay(&self, root: &Path, report: &mut ScanReport) -> Vec<String> {
+        let mut claimed = Claimed {
+            files: HashSet::new(),
+            folders: Vec::new(),
+        };
+        for a in &report.artifacts {
+            claimed.add(a, &[]);
+        }
+        let mut lost = Vec::new();
+        for entry in &self.claude {
+            if report.artifacts.iter().any(|a| a.path == entry.path) {
+                continue;
+            }
+            match replay_one(root, &claimed, entry) {
+                Ok(artifact) => {
+                    claimed.add(&artifact, &[]);
+                    report.artifacts.push(artifact);
+                }
+                Err(_) => lost.push(entry.path.clone()),
+            }
+        }
+        report.artifacts.sort_by(|a, b| a.path.cmp(&b.path));
+        let placed: Vec<&Artifact> = report.artifacts.iter().collect();
+        report.unplaced.retain(|u| {
+            !self.ignore.iter().any(|i| within(u, i))
+                && !placed
+                    .iter()
+                    .any(|a| a.files.contains(u) || within(u, &a.path))
+        });
+        lost
+    }
+}
+
+fn replay_one(
+    root: &Path,
+    claimed: &Claimed,
+    entry: &StoredClaude,
+) -> std::result::Result<Artifact, String> {
+    let rel = check_path(root, &entry.path)?;
+    let shown = crate::artifact::rel_string(&rel);
+    if claimed.holds(&shown) {
+        return Err("the path is already claimed by a manifest or a known folder".to_owned());
+    }
+    let mut artifact = parse_proposed(root, entry.kind, &rel)?;
+    if let Some(file) = artifact.files.iter().find(|f| claimed.holds(f)) {
+        return Err(format!("it would take `{file}`, which is already claimed"));
+    }
+    artifact.metadata.insert("layoutBy".into(), "claude".into());
+    if let Some(reason) = &entry.reason {
+        artifact
+            .metadata
+            .insert("layoutReason".into(), reason.clone().into());
+    }
     Ok(artifact)
 }
 
@@ -466,6 +568,36 @@ impl Library {
                 .sort_by(|a, b| a.artifact.path.cmp(&b.artifact.path));
             Ok(next)
         })
+    }
+
+    /// Scans a source already in the library again, with the stored layout replayed, for
+    /// *Ask Claude again*: a git source is cloned afresh and the clone stays for `import`, like
+    /// any preview. Entries that no longer replay show as `layout.changed` diagnostics. Run
+    /// [`Self::preview_layout`] (or the app's three steps) on the result to ask Claude.
+    pub fn preview_stored_source(&self, source_id: &str) -> Result<Preview> {
+        let record = crate::updates::source_rows(&self.store.conn, Some(source_id))?
+            .into_iter()
+            .next()
+            .map(|(record, _)| record)
+            .ok_or_else(|| Error::NotInLibrary {
+                id: source_id.to_owned(),
+            })?;
+        let source = match record.kind.as_str() {
+            "local" => Source::Local {
+                path: PathBuf::from(&record.location),
+            },
+            "git" => Source::parse_git(
+                &record.location,
+                record.branch.as_deref(),
+                record.subfolder.as_deref(),
+            )?,
+            _ => {
+                return Err(Error::Update {
+                    message: "its recorded source is not one Harneo can read".to_owned(),
+                })
+            }
+        };
+        self.preview(&source)
     }
 
     /// Runs tier 3 over `preview` now, holding the library: prepare, ask, check. The app does

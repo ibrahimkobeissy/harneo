@@ -13,6 +13,11 @@ outdated: number,
  */
 removed: number, 
 /**
+ * Artifacts Claude placed whose path is gone or no longer parses, so the layout needs
+ * asking again.
+ */
+layoutChanged: number, 
+/**
  * Artifacts in the source that are not in the library.
  */
 newUpstream: number, } | { "type": "unreachable", reason: string, } | { "type": "missing" };

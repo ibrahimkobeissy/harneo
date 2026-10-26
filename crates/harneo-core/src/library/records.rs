@@ -7,6 +7,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+use super::layout_claude::{IgnoredPath, StoredClaude, StoredLayout};
 use super::source::Source;
 use crate::artifact::Artifact;
 use crate::audit::{Audit, ConfirmStatus, Confirmation, DismissedFinding, Reach, Tier};
@@ -123,6 +124,74 @@ pub(crate) fn insert_source(
         }
     }
     Ok(())
+}
+
+/// The layout version this build stores with a source (0 means imported before the resolver).
+pub(crate) const LAYOUT_VERSION: i64 = 1;
+
+/// Stores the resolved layout on the source: its version, and the paths Claude said are not
+/// artifacts, added to those already stored.
+pub(crate) fn store_layout(
+    conn: &Connection,
+    source_id: &str,
+    ignored: &[IgnoredPath],
+) -> Result<()> {
+    let stored: Option<String> = conn
+        .query_row(
+            "SELECT layout_ignore FROM sources WHERE id = ?1",
+            params![source_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    let mut all: Vec<IgnoredPath> = stored
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_default();
+    for entry in ignored {
+        if !all.iter().any(|e| e.path == entry.path) {
+            all.push(entry.clone());
+        }
+    }
+    let json = (!all.is_empty())
+        .then(|| serde_json::to_string(&all))
+        .transpose()?;
+    conn.execute(
+        "UPDATE sources SET layout_version = ?2, layout_ignore = ?3 WHERE id = ?1",
+        params![source_id, LAYOUT_VERSION, json],
+    )?;
+    Ok(())
+}
+
+/// The layout stored with a source: its artifacts Claude placed, and the paths Claude ignored.
+/// A row without `layoutBy` was placed by a convention or a manifest and replays as tiers 1
+/// and 2 do.
+pub(crate) fn stored_layout(conn: &Connection, source_id: &str) -> Result<StoredLayout> {
+    let mut stmt = conn.prepare("SELECT source_path, artifact FROM artifacts WHERE source_id = ?1")?;
+    let rows = stmt.query_map(params![source_id], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
+    })?;
+    let mut claude = Vec::new();
+    for row in rows {
+        let (path, json) = row?;
+        if let Ok(artifact) = serde_json::from_str::<Artifact>(&json) {
+            claude.extend(StoredClaude::of(&artifact, &path));
+        }
+    }
+    let ignore: Option<String> = conn
+        .query_row(
+            "SELECT layout_ignore FROM sources WHERE id = ?1",
+            params![source_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    let ignore = ignore
+        .and_then(|json| serde_json::from_str::<Vec<IgnoredPath>>(&json).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|i| i.path)
+        .collect();
+    Ok(StoredLayout { claude, ignore })
 }
 
 pub(crate) fn insert_artifact(
