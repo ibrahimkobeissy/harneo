@@ -34,7 +34,7 @@ struct Entry {
     id: String,
     name: String,
     kind: String,
-    /// `outdated` or `removed`.
+    /// `outdated`, `removed` or `layout_changed`.
     state: String,
     from_version: Option<String>,
     to_version: Option<String>,
@@ -165,6 +165,7 @@ fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<(Vec<Entr
         let state = match status.state {
             UpstreamState::Outdated => "outdated",
             UpstreamState::Removed => "removed",
+            UpstreamState::LayoutChanged => "layout_changed",
             UpstreamState::Skipped => continue,
         };
         let entry = Entry {
@@ -215,7 +216,12 @@ fn render_check(check: &CheckOutput) -> String {
         );
     }
     for e in &check.removed {
-        let _ = writeln!(out, "{} ({})  removed upstream", e.name, e.kind);
+        let what = if e.state == "layout_changed" {
+            "layout changed upstream"
+        } else {
+            "removed upstream"
+        };
+        let _ = writeln!(out, "{} ({})  {what}", e.name, e.kind);
     }
     render_errors(&mut out, &check.errors);
     let _ = writeln!(
@@ -420,7 +426,12 @@ mod tests {
                 entry(true, Some("1.0"), Some("1.1")),
                 entry(false, None, None),
             ],
-            removed: vec![entry(false, None, None)],
+            removed: vec![entry(false, None, None), {
+                let mut moved = entry(false, None, None);
+                moved.name = "moved".into();
+                moved.state = "layout_changed".into();
+                moved
+            }],
             errors: vec![SourceError {
                 id: "s1".into(),
                 label: "me/repo".into(),
@@ -431,8 +442,9 @@ mod tests {
         assert!(text.contains("plan (skill)  1.0 → 1.1  [local edits]\n"));
         assert!(text.contains("plan (skill)  changed\n"));
         assert!(text.contains("plan (skill)  removed upstream\n"));
+        assert!(text.contains("moved (skill)  layout changed upstream\n"));
         assert!(text.contains("source me/repo (s1): unreachable: offline\n"));
-        assert!(text.ends_with("2 outdated, 1 removed upstream, 1 source error\n"));
+        assert!(text.ends_with("2 outdated, 2 removed upstream, 1 source error\n"));
     }
 
     fn item_result(outcome: &str, message: Option<&str>) -> ItemResult {

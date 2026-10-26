@@ -87,7 +87,11 @@ fn prompt(kind: &str, path: &str) -> serde_json::Value {
 fn imported() -> std::result::Result<Setup, Box<dyn std::error::Error>> {
     let base = tempfile::tempdir()?;
     let repo = base.path().join("repo");
-    write(&repo, "agents/a.md", "---\nname: a\ndescription: a\n---\none\n")?;
+    write(
+        &repo,
+        "agents/a.md",
+        "---\nname: a\ndescription: a\n---\none\n",
+    )?;
     write(&repo, "prompts/review.md", "Review the diff.\n")?;
     write(&repo, "prompts/ship.md", "Ship it.\n")?;
     write(&repo, "prompts/scratch.md", "scratch\n")?;
@@ -168,8 +172,11 @@ fn a_claude_path_removed_upstream_is_layout_changed_and_cannot_be_updated() -> T
     );
     let status = s.library.update_status(&ship)?.expect("flagged");
     assert_eq!(status.state, UpstreamState::LayoutChanged);
-    let refused = s.library.prepare_update(&ship).err().expect("refused");
-    assert!(refused.to_string().contains("ask Claude again"), "{refused}");
+    let refused = s.library.prepare_update(&ship).expect_err("refused");
+    assert!(
+        refused.to_string().contains("ask Claude again"),
+        "{refused}"
+    );
     let kept = s.library.update(&ship, UpdateChoice::KeepMine).err();
     assert!(kept.is_some());
     // The other prompt still replays.
@@ -197,7 +204,8 @@ fn rows_without_a_stored_layout_update_as_before() -> TestResult {
     let s = imported()?;
     let agent = s.id_of("agents/a.md")?;
     // As a row imported before the migration: no `layoutBy` in the stored record.
-    for id in [&agent] {
+    {
+        let id = &agent;
         let json: String = s.library.store.conn.query_row(
             "SELECT artifact FROM artifacts WHERE id = ?1",
             [id],
@@ -212,12 +220,16 @@ fn rows_without_a_stored_layout_update_as_before() -> TestResult {
             rusqlite::params![id, value.to_string()],
         )?;
     }
-    s.library
-        .store
-        .conn
-        .execute("UPDATE sources SET layout_version = 0, layout_ignore = NULL", [])?;
+    s.library.store.conn.execute(
+        "UPDATE sources SET layout_version = 0, layout_ignore = NULL",
+        [],
+    )?;
 
-    write(&s.repo, "agents/a.md", "---\nname: a\ndescription: a\n---\ntwo\n")?;
+    write(
+        &s.repo,
+        "agents/a.md",
+        "---\nname: a\ndescription: a\n---\ntwo\n",
+    )?;
     let report = s.check()?;
     assert_eq!(
         report.sources[0].result,

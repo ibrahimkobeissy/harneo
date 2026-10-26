@@ -18,9 +18,9 @@ mod check;
 pub(crate) mod diff;
 #[cfg(test)]
 mod diff_tests;
-pub(crate) mod remote;
 #[cfg(test)]
 mod layout_tests;
+pub(crate) mod remote;
 #[cfg(test)]
 mod remote_tests;
 #[cfg(test)]

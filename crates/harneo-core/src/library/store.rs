@@ -700,13 +700,20 @@ mod tests {
             .expect("the new state is valid");
         assert!(store
             .conn
-            .execute("UPDATE upstream SET state = 'bogus' WHERE artifact_id = 'a'", [])
+            .execute(
+                "UPDATE upstream SET state = 'bogus' WHERE artifact_id = 'a'",
+                []
+            )
             .is_err());
         store
             .conn
             .execute("DELETE FROM artifacts WHERE id = 'a'", [])
             .expect("delete");
-        assert_eq!(count(&store, "upstream"), 0, "upstream still goes with its artifact");
+        assert_eq!(
+            count(&store, "upstream"),
+            0,
+            "upstream still goes with its artifact"
+        );
     }
 
     #[test]

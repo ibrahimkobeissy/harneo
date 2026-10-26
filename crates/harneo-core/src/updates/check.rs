@@ -9,9 +9,9 @@ use std::sync::Arc;
 use rusqlite::params;
 
 use super::remote::{self, Failure, Session, Upstream};
-use crate::library::layout_claude::StoredLayout;
 use super::*;
 use crate::library::git::GitConfig;
+use crate::library::layout_claude::StoredLayout;
 
 /// What the check needs, read from the library. Owns everything, so it can leave the lock.
 #[derive(Debug)]
@@ -145,7 +145,10 @@ impl CheckJob {
             .iter()
             .filter(|s| self.only.as_deref().is_none_or(|id| s.id == id))
         {
-            let found = scanned.artifacts.iter().find(|a| a.path == item.source_path);
+            let found = scanned
+                .artifacts
+                .iter()
+                .find(|a| a.path == item.source_path);
             let from_commit = imported_commit(&item.artifact, source);
             let what = match classify(item, found) {
                 Verdict::Current => Judged::Current,

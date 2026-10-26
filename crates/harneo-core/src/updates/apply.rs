@@ -18,12 +18,12 @@ use ts_rs::TS;
 
 use super::diff::{diff_dirs, FileDiff};
 use super::remote::{self, Failure, Session};
-use crate::library::layout_claude::{StoredClaude, StoredLayout};
 use super::{copy_digest, record_copy_digest, IMPORTED_COMMIT};
 use crate::artifact::{Artifact, ScanOptions};
 use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 use crate::library::git::GitConfig;
+use crate::library::layout_claude::{StoredClaude, StoredLayout};
 use crate::library::records::{self, SourceRecord};
 use crate::library::{copy_artifact, ImportHooks, Library, NoHooks};
 
@@ -162,8 +162,8 @@ impl UpdateJob {
     pub(crate) fn run_with(&self, hooks: &dyn ImportHooks) -> Result<PreparedUpdate> {
         let located = remote::locate(&self.git, &self.session, &self.library_root, &self.source)
             .map_err(unavailable)?;
-        let scanned = remote::scan(&located.root, &self.source, &self.layout)
-            .map_err(unavailable)?;
+        let scanned =
+            remote::scan(&located.root, &self.source, &self.layout).map_err(unavailable)?;
         let mut artifact = scanned
             .artifacts
             .into_iter()

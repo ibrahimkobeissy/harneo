@@ -166,7 +166,8 @@ pub(crate) fn store_layout(
 /// A row without `layoutBy` was placed by a convention or a manifest and replays as tiers 1
 /// and 2 do.
 pub(crate) fn stored_layout(conn: &Connection, source_id: &str) -> Result<StoredLayout> {
-    let mut stmt = conn.prepare("SELECT source_path, artifact FROM artifacts WHERE source_id = ?1")?;
+    let mut stmt =
+        conn.prepare("SELECT source_path, artifact FROM artifacts WHERE source_id = ?1")?;
     let rows = stmt.query_map(params![source_id], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?))
     })?;

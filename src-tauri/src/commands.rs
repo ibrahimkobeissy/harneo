@@ -2307,7 +2307,10 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
             .diagnostics
             .iter()
             .any(|d| d.code == "layout.changed"));
-        assert_eq!(app.state::<PreviewCache>().get(&again.token)?, again.preview);
+        assert_eq!(
+            app.state::<PreviewCache>().get(&again.token)?,
+            again.preview
+        );
         Ok(())
     }
 

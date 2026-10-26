@@ -61,9 +61,7 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::artifact::{
-    AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions, ScanReport,
-};
+use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions, ScanReport};
 use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
