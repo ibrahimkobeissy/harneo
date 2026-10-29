@@ -8,6 +8,23 @@ export interface SourceProblem {
   reason: string;
 }
 
+/** Files a source's last check could not place, by the library's id for the source. */
+export interface SourceUnplaced {
+  id: string;
+  paths: string[];
+  overflow: number;
+}
+
+function unplacedOf(report: CheckReport): SourceUnplaced[] {
+  return report.sources
+    .filter((s) => (s.unplaced?.length ?? 0) + (s.unplacedOverflow ?? 0) > 0)
+    .map((s) => ({
+      id: s.id,
+      paths: s.unplaced ?? [],
+      overflow: s.unplacedOverflow ?? 0,
+    }));
+}
+
 function problemsOf(report: CheckReport): SourceProblem[] {
   return report.sources.flatMap((s): SourceProblem[] => {
     if (s.result.type === "unreachable")
@@ -27,6 +44,7 @@ export function useUpdateCheck(onChecked: () => void) {
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const [checking, setChecking] = useState(false);
   const [problems, setProblems] = useState<SourceProblem[]>([]);
+  const [unplaced, setUnplaced] = useState<SourceUnplaced[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const notify = useRef(onChecked);
   useEffect(() => {
@@ -44,6 +62,7 @@ export function useUpdateCheck(onChecked: () => void) {
     function onEvent(event: Event) {
       if (!(event instanceof CustomEvent)) return;
       setProblems(problemsOf(event.detail as CheckReport));
+      setUnplaced(unplacedOf(event.detail as CheckReport));
       setLastCheck(new Date());
       notify.current();
     }
@@ -70,6 +89,7 @@ export function useUpdateCheck(onChecked: () => void) {
     lastCheck,
     checking,
     problems,
+    unplaced,
     failure,
     check,
     dismiss: () => {

@@ -7,6 +7,7 @@ import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { FileDiff } from "../../bindings/FileDiff";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { Query } from "../../bindings/Query";
+import type { SourceCheck } from "../../bindings/SourceCheck";
 import type { UpdateReport } from "../../bindings/UpdateReport";
 import type { UpdateStatus } from "../../bindings/UpdateStatus";
 import { item, page } from "../../test/library";
@@ -96,6 +97,14 @@ function setup(
   path: string,
   localEdits = false,
   state: UpdateStatus["state"] = "outdated",
+  checked: SourceCheck[] = [
+    {
+      id: "s1",
+      result: { type: "unreachable", reason: "offline" },
+      unplaced: [],
+      unplacedOverflow: 0,
+    },
+  ],
 ) {
   const calls: string[] = [];
   const queries: Query[] = [];
@@ -185,11 +194,7 @@ function setup(
         ];
       case "updates_check":
         calls.push("check");
-        return {
-          sources: [
-            { id: "s1", result: { type: "unreachable", reason: "offline" } },
-          ],
-        };
+        return { sources: checked };
       case "settings_get":
         return settings[String(key)] ?? null;
       case "settings_set":
@@ -269,6 +274,40 @@ describe("updates in the library", () => {
       screen.getByRole("button", { name: "Dismiss the update errors" }),
     );
     expect(screen.queryByText("acme/pack: offline")).toBeNull();
+  });
+
+  it("shows the files a check could not place, on demand, and asks Claude only on click", async () => {
+    const user = userEvent.setup();
+    const { calls } = setup("/library", false, "outdated", [
+      {
+        id: "s1",
+        result: { type: "current" },
+        unplaced: ["docs/a.md", "docs/b.md"],
+        unplacedOverflow: 3,
+      },
+      {
+        id: "s2",
+        result: { type: "current" },
+        unplaced: [],
+        unplacedOverflow: 0,
+      },
+    ]);
+    await screen.findByText("Update 3.4.1");
+    expect(screen.queryByText(/couldn't place/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(
+      await screen.findByText("5 files Harneo couldn't place"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/couldn't place/)).toHaveLength(1);
+    expect(screen.queryByText("docs/a.md")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Show the paths" }));
+    expect(screen.getByText("docs/a.md")).toBeInTheDocument();
+    expect(screen.getByText("and 3 more")).toBeInTheDocument();
+    expect(calls).not.toContain("layout");
+    await user.click(
+      screen.getByRole("button", { name: "Ask Claude what's in this repo" }),
+    );
+    expect(screen.getByTestId("import-search")).toHaveTextContent("?again=s1");
   });
 
   it("updates an unedited artifact from the drawer callout", async () => {

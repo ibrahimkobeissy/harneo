@@ -284,6 +284,22 @@
   color: var(--t3);
   font-size: var(--text-label);
 }
+.linkButton {
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.plainItem {
+  font-family: inherit;
+}
 .checkBar {
   margin-bottom: var(--space-md);
 }

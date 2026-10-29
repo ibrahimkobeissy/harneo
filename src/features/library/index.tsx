@@ -68,7 +68,7 @@ import { ResultsToolbar } from "./ResultsToolbar";
 import { SearchBox } from "./SearchBox";
 import { useNarrow } from "./useNarrow";
 import { UpdateAllDialog } from "./UpdateDialogs";
-import { UpdateProblems, UpdatesControls } from "./UpdatesBar";
+import { UnplacedNotices, UpdateProblems, UpdatesControls } from "./UpdatesBar";
 import { useUpdateCheck } from "./useUpdateCheck";
 import { Welcome } from "./Welcome";
 
@@ -398,7 +398,16 @@ export function LibraryScreen({
         />
       )}
       {page && !collection && (
-        <UpdateProblems check={check} sources={page.facets.sources} />
+        <>
+          <UpdateProblems check={check} sources={page.facets.sources} />
+          <UnplacedNotices
+            check={check}
+            sources={page.facets.sources}
+            onAsk={(id) =>
+              void navigate(`/import?again=${encodeURIComponent(id)}`)
+            }
+          />
+        </>
       )}
       {page && (
         <div className={styles.toolbar}>
