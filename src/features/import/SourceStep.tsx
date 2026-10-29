@@ -89,6 +89,11 @@ export function SourceStep({
   const pathError = pathFailure?.message ?? null;
   return (
     <>
+      {failure?.field === "source" && (
+        <div className={styles.field}>
+          <FieldError id="source-error" text={failure.message} />
+        </div>
+      )}
       <div className={styles.choices}>
         {choices.map(({ id, icon: Icon, title, text }) => (
           <button
@@ -106,7 +111,7 @@ export function SourceStep({
           </button>
         ))}
       </div>
-      {form.choice === "claude" && failure && (
+      {form.choice === "claude" && failure && failure.field !== "source" && (
         <div className={styles.field}>
           <FieldError
             id="claude-error"

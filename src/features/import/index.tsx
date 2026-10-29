@@ -159,7 +159,7 @@ export function ImportScreen() {
       },
       (error: unknown) => {
         if (id !== scanId.current) return;
-        setFailure({ field: "path", message: messageOf(error) });
+        setFailure({ field: "source", message: messageOf(error) });
         setScanning(false);
         setStep(0);
       },

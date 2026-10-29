@@ -1,5 +1,6 @@
 /** Which input an error belongs under on the Source step. */
-export type ErrorField = "url" | "path";
+/** `source` is a stored source that could not be replayed: shown above the choices. */
+export type ErrorField = "url" | "path" | "source";
 
 export interface ImportFailure {
   field: ErrorField;

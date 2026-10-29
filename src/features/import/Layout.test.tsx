@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PreviewTicket } from "../../bindings/PreviewTicket";
+import { SourceStep } from "./SourceStep";
 import { ImportScreen } from ".";
 import { placementOf } from "./placement";
 
@@ -376,5 +377,60 @@ describe("Import: Ask Claude again", () => {
     );
     expect(await screen.findByText(/source is gone/)).toBeVisible();
     expect(within(document.body).queryByText(/Found/)).toBeNull();
+  });
+
+  it("shows that reason whichever source choice is selected", async () => {
+    mockIPC(
+      (cmd) => {
+        if (cmd === "library_preview_stored") throw new Error("source is gone");
+        return null;
+      },
+      { shouldMockEvents: true },
+    );
+    render(
+      <MemoryRouter initialEntries={["/import?again=src-1&path=/tmp/x"]}>
+        <Routes>
+          <Route path="/import" element={<ImportScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByText(/source is gone/)).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent(/source is gone/);
+  });
+
+  it("shows a stored-source failure with the git choice selected", () => {
+    render(
+      <SourceStep
+        form={{ choice: "git", url: "", path: "" }}
+        failure={{ field: "source", message: "source is gone" }}
+        onChange={() => {}}
+        onBrowse={() => {}}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(/source is gone/);
+  });
+
+  it("shows the reason with the ~/.claude choice selected", async () => {
+    mockIPC(
+      (cmd) => {
+        if (cmd === "library_preview_stored") throw new Error("source is gone");
+        return null;
+      },
+      { shouldMockEvents: true },
+    );
+    render(
+      <MemoryRouter initialEntries={["/import?again=src-1"]}>
+        <Routes>
+          <Route path="/import" element={<ImportScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /source is gone/,
+    );
+    expect(screen.getByRole("button", { name: /~\/\.claude/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });
