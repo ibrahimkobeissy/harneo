@@ -87,6 +87,7 @@ interface Opts {
   first?: PreviewTicket;
   layout?: () => PreviewTicket | Promise<PreviewTicket>;
   auto?: boolean;
+  confirm?: boolean;
   url?: string;
 }
 
@@ -107,7 +108,9 @@ function setup(opts: Opts = {}) {
         case "tags_list":
           return [];
         case "audit_confirm_setting_get":
-          return false;
+          return opts.confirm ?? false;
+        case "claude_cli_status":
+          return { found: true };
         case "import_layout_setting_get":
           return opts.auto ?? false;
         case "library_preview_layout":
@@ -210,6 +213,22 @@ describe("Import: the unplaced notice", () => {
     expect(args.library_preview_layout).toEqual({ token: "tok" });
     expect(screen.getByText("review")).toBeVisible();
     expect(screen.queryByText(/couldn't place/)).toBeNull();
+  });
+
+  it("sends the rows Claude placed through phase 2 too", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup({ first: unplacedTicket, confirm: true });
+    await toChoose(u);
+    await waitFor(() => expect(calls).toContain("library_preview_confirm"));
+    await u.click(
+      screen.getByRole("button", { name: "Ask Claude what's in this repo" }),
+    );
+    await screen.findByText("suggested by Claude");
+    await waitFor(() =>
+      expect(calls.filter((c) => c === "library_preview_confirm")).toHaveLength(
+        2,
+      ),
+    );
   });
 
   it("shows progress while it runs", async () => {

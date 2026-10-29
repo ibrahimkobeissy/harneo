@@ -215,7 +215,13 @@ export function ImportScreen() {
         : null,
     [preview, verdicts],
   );
-  const phase2 = usePreviewConfirmation(preview?.token ?? null, onVerdict);
+  // Rows Claude placed get the same phase 2 as the rest: each layout run starts a new round.
+  const [layoutRound, setLayoutRound] = useState(0);
+  const phase2 = usePreviewConfirmation(
+    preview?.token ?? null,
+    onVerdict,
+    layoutRound,
+  );
 
   /** Claude placed more files: new rows join the list; the user's choices on the rest stand. */
   function onLayout(found: PreviewTicket) {
@@ -225,6 +231,7 @@ export function ImportScreen() {
     for (const id of fresh) autoExcluded.current.add(id);
     setExcluded((prev) => new Set([...prev, ...fresh]));
     setPreview(found);
+    setLayoutRound((n) => n + 1);
     setTags((prev) => ({
       ...Object.fromEntries(
         found.candidates.map((c) => [c.id, c.suggestedTags]),

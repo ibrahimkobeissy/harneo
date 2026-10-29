@@ -45,11 +45,13 @@ function messageOf(error: unknown): string {
  * Phase 2 over the held preview, in the background: once a preview exists and Claude can
  * confirm, the backend judges the flagged candidates and `onVerdict` receives each one's
  * audit as it arrives. Leaving the import, or a newer preview, stops the run. A candidate
- * Claude could not confirm is reported through `failure`, with a retry.
+ * Claude could not confirm is reported through `failure`, with a retry. A new `round` on the
+ * same token (Claude placed more rows) runs it again; verdicts already given are reused.
  */
 export function usePreviewConfirmation(
   token: string | null,
   onVerdict: (id: string, audit: Audit) => void,
+  round = 0,
 ): PreviewConfirmation {
   const [progress, setProgress] = useState<ConfirmProgress | null>(null);
   const [phase1Only, setPhase1Only] =
@@ -128,7 +130,7 @@ export function usePreviewConfirmation(
       setProgress(null);
       void libraryPreviewConfirmCancel(token).catch(() => undefined);
     };
-  }, [token]);
+  }, [token, round]);
 
   const retry = useCallback(() => {
     const run = start.current;
