@@ -11,6 +11,7 @@ import {
   libraryImport,
   linkReject,
   libraryPreview,
+  libraryPreviewStored,
   pickFolder,
   tagCreate,
   tagsList,
@@ -31,6 +32,7 @@ import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
 import { useDetection } from "./useDetection";
+import { useLayoutRun } from "./useLayoutRun";
 import { usePreviewConfirmation } from "./usePreviewConfirmation";
 
 /** What the user sees for the chosen source, in messages and the scan title. */
@@ -58,6 +60,13 @@ async function toSource(form: SourceForm): Promise<Source> {
   return { kind: "local", path: expanded };
 }
 
+/** The form a scanned source would have been typed as. */
+function formOf(source: Source): SourceForm {
+  return source.kind === "git"
+    ? { choice: "git", url: source.url, path: "" }
+    : { choice: "folder", url: "", path: source.path };
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
@@ -69,7 +78,12 @@ export function ImportScreen() {
   const firstRun =
     (location.state as { firstRun?: boolean } | null)?.firstRun === true;
 
-  const [step, setStep] = useState(0);
+  // `?again=<source id>` is Ask Claude again: the source's stored layout is replayed and
+  // Claude is asked about it, whatever the setting says.
+  const [again] = useState(() =>
+    new URLSearchParams(location.search).get("again"),
+  );
+  const [step, setStep] = useState(again ? 1 : 0);
   // `?path=` presets the folder source (the project page's "Import from this project").
   const presetPath = new URLSearchParams(location.search).get("path");
   // `?select=<candidate id>` (with `path`) imports just that artifact: the Drift tab's
@@ -81,7 +95,7 @@ export function ImportScreen() {
     path: presetPath ?? "",
   });
   const [failure, setFailure] = useState<ImportFailure | null>(null);
-  const [scanning, setScanning] = useState(false);
+  const [scanning, setScanning] = useState(again !== null);
   const [preview, setPreview] = useState<PreviewTicket | null>(null);
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
@@ -106,6 +120,52 @@ export function ImportScreen() {
     form.choice === "claude" ||
     (form.choice === "git" ? form.url.trim() : form.path.trim()) !== "";
 
+  /** Takes a fresh preview in: everything included except what the audit holds back. */
+  function adopt(found: PreviewTicket, key: string) {
+    setPreview(found);
+    setScannedKey(key);
+    const only = preselect.current;
+    preselect.current = null;
+    setVerdicts({});
+    const picked = only && found.candidates.some((c) => c.id === only);
+    const auto = picked ? [] : criticalIds(found.candidates);
+    autoExcluded.current = new Set(auto);
+    setExcluded(
+      picked
+        ? new Set(
+            found.candidates.filter((c) => c.id !== only).map((c) => c.id),
+          )
+        : new Set(auto),
+    );
+    setTags(
+      Object.fromEntries(found.candidates.map((c) => [c.id, c.suggestedTags])),
+    );
+  }
+
+  // Ask Claude again: scan the stored source once, then the layout run starts by itself.
+  const againStarted = useRef(false);
+  useEffect(() => {
+    const sourceId = again;
+    if (!sourceId || againStarted.current) return;
+    againStarted.current = true;
+    const id = ++scanId.current;
+    libraryPreviewStored(sourceId).then(
+      (found) => {
+        if (id !== scanId.current) return;
+        const next = formOf(found.source);
+        setForm(next);
+        adopt(found, sourceKey(next));
+        setScanning(false);
+      },
+      (error: unknown) => {
+        if (id !== scanId.current) return;
+        setFailure({ field: "path", message: messageOf(error) });
+        setScanning(false);
+        setStep(0);
+      },
+    );
+  }, [again]);
+
   async function scan() {
     const key = sourceKey(form);
     if (preview && key === scannedKey) {
@@ -124,26 +184,7 @@ export function ImportScreen() {
         setStep(0);
         return;
       }
-      setPreview(found);
-      setScannedKey(key);
-      const only = preselect.current;
-      preselect.current = null;
-      setVerdicts({});
-      const picked = only && found.candidates.some((c) => c.id === only);
-      const auto = picked ? [] : criticalIds(found.candidates);
-      autoExcluded.current = new Set(auto);
-      setExcluded(
-        picked
-          ? new Set(
-              found.candidates.filter((c) => c.id !== only).map((c) => c.id),
-            )
-          : new Set(auto),
-      );
-      setTags(
-        Object.fromEntries(
-          found.candidates.map((c) => [c.id, c.suggestedTags]),
-        ),
-      );
+      adopt(found, key);
     } catch (error) {
       if (id !== scanId.current) return;
       setFailure(describeFailure(messageOf(error), field, shown));
@@ -175,6 +216,23 @@ export function ImportScreen() {
     [preview, verdicts],
   );
   const phase2 = usePreviewConfirmation(preview?.token ?? null, onVerdict);
+
+  /** Claude placed more files: new rows join the list; the user's choices on the rest stand. */
+  function onLayout(found: PreviewTicket) {
+    if (!preview) return;
+    const seen = new Set(preview.candidates.map((c) => c.id));
+    const fresh = criticalIds(found.candidates.filter((c) => !seen.has(c.id)));
+    for (const id of fresh) autoExcluded.current.add(id);
+    setExcluded((prev) => new Set([...prev, ...fresh]));
+    setPreview(found);
+    setTags((prev) => ({
+      ...Object.fromEntries(
+        found.candidates.map((c) => [c.id, c.suggestedTags]),
+      ),
+      ...prev,
+    }));
+  }
+  const layout = useLayoutRun(preview, again !== null, onLayout);
 
   function onVerdict(id: string, audit: Audit) {
     setVerdicts((prev) => ({ ...prev, [id]: audit }));
@@ -387,7 +445,13 @@ export function ImportScreen() {
       {step === 1 && (
         <Button
           variant="primary"
-          disabled={scanning || chosen.length === 0 || phase2.blocked}
+          disabled={
+            scanning ||
+            chosen.length === 0 ||
+            phase2.blocked ||
+            layout.blocked ||
+            layout.stage !== null
+          }
           onClick={() => setStep(2)}
         >
           Continue
@@ -405,6 +469,7 @@ export function ImportScreen() {
             importing ||
             chosen.length === 0 ||
             phase2.blocked ||
+            layout.blocked ||
             detection.phase.kind === "running"
           }
           onClick={() => void runImport()}
@@ -454,6 +519,7 @@ export function ImportScreen() {
             progress={phase2.progress}
             phase1Only={phase2.phase1Only}
             phase2={phase2}
+            layout={layout}
             onCancelImport={() => void navigate("/library")}
             sourceName={shown}
             excluded={excluded}

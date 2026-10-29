@@ -27,6 +27,8 @@ import type { PreviewConfirmation } from "./usePreviewConfirmation";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
+import { LayoutNotes, PlacementLabel } from "./Layout";
+import type { LayoutRun } from "./useLayoutRun";
 import styles from "./Import.module.css";
 
 /** Candidates grouped by kind, in the order kinds first appear. */
@@ -306,6 +308,7 @@ export function ChooseStep({
   progress,
   phase1Only,
   phase2,
+  layout,
   onCancelImport,
 }: {
   preview: Preview;
@@ -322,6 +325,8 @@ export function ChooseStep({
   phase1Only: { cliMissing: boolean } | null;
   /** Phase 2's state, for the failure callout with its choices. */
   phase2: PreviewConfirmation;
+  /** The layout resolver's tier 3 run: progress, failure pause and the unplaced notice. */
+  layout: LayoutRun;
   /** Leaves the import. */
   onCancelImport: () => void;
 }) {
@@ -420,6 +425,7 @@ export function ChooseStep({
       </p>
       {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
       <ConfirmFailureCallout phase2={phase2} onCancel={onCancelImport} />
+      <LayoutNotes preview={preview} run={layout} onCancel={onCancelImport} />
       {note && (
         <div className={styles.callout} data-tone="neutral">
           <Info size={16} aria-hidden="true" />
@@ -550,6 +556,7 @@ export function ChooseStep({
                             <span className={styles.origin}>
                               {originLabel(c.artifact.origin)}
                             </span>
+                            <PlacementLabel candidate={c} />
                             <TierLabel candidate={c} />
                             {c.alreadyInLibrary && (
                               <Badge>Already in library</Badge>
@@ -640,6 +647,7 @@ export function ChooseStep({
                           <span className={styles.origin}>
                             {kindPlurals[c.artifact.kind]}
                           </span>
+                          <PlacementLabel candidate={c} />
                           <TierLabel candidate={c} />
                         </span>
                         {criticalRule(c) && (

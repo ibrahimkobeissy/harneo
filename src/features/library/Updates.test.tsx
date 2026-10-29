@@ -72,6 +72,10 @@ function Probe() {
   return <span data-testid="search">{useLocation().search}</span>;
 }
 
+function ImportProbe() {
+  return <span data-testid="import-search">{useLocation().search}</span>;
+}
+
 function report(
   id: string,
   outcome: UpdateReport["outcome"],
@@ -200,6 +204,7 @@ function setup(
       <Probe />
       <Routes>
         <Route path="/library" element={<LibraryScreen />} />
+        <Route path="/import" element={<ImportProbe />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -224,6 +229,13 @@ describe("updates in the library", () => {
       await within(panel).findByText("Layout changed at source"),
     ).toBeInTheDocument();
     expect(within(panel).queryByText(/Update available/)).toBeNull();
+    await userEvent
+      .setup()
+      .click(within(panel).getByRole("button", { name: "Ask Claude again" }));
+    // Ask Claude again goes to the import wizard on the stored source.
+    expect(await screen.findByTestId("import-search")).toHaveTextContent(
+      "?again=s1",
+    );
   });
 
   it("filters to outdated artifacts with the Outdated value of the Status group", async () => {

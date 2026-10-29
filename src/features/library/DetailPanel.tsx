@@ -11,7 +11,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type { Collection } from "../../bindings/Collection";
 import type { ArtifactDetail } from "../../bindings/ArtifactDetail";
 import type { Audit } from "../../bindings/Audit";
@@ -188,6 +188,7 @@ function SourceSection({
   update: UpdateStatus | null;
 }) {
   const { source, sourcePath, importedAt } = detail.provenance;
+  const navigate = useNavigate();
   const imported = formatDate(importedAt);
   return (
     <section className={styles.sec} aria-labelledby="d-source">
@@ -238,7 +239,15 @@ function SourceSection({
         )}
         {update !== null && update.state === "layoutChanged" && (
           <Row label="Upstream">
-            <Badge tone="bad">Layout changed at source</Badge>
+            <Badge tone="bad">Layout changed at source</Badge>{" "}
+            <Button
+              small
+              onClick={() =>
+                void navigate(`/import?again=${encodeURIComponent(source.id)}`)
+              }
+            >
+              Ask Claude again
+            </Button>
           </Row>
         )}
         <Row label="Path">

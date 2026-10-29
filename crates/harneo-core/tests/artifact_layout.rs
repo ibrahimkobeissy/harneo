@@ -115,6 +115,7 @@ fn marketplace_gives_one_plugin_per_entry() -> TestResult {
     assert_eq!(local.metadata["version"], "1.0.0");
     assert_eq!(local.metadata["source"], "./plugins/a");
     assert_eq!(local.metadata["marketplace"], "mk");
+    assert_eq!(local.metadata["layoutManifest"], "marketplace.json");
     assert!(local
         .files
         .contains(&"plugins/a/skills/s/SKILL.md".to_owned()));
@@ -598,6 +599,22 @@ fn manifest_repos_have_no_unplaced_files_and_plugins_are_layout_by_manifest() ->
         .iter()
         .filter(|a| a.kind == ArtifactKind::Plugin)
         .all(|a| layout_by(a) == Some("manifest")));
+    Ok(())
+}
+
+#[test]
+fn a_plugin_without_a_marketplace_is_laid_out_by_its_plugin_json() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, ".claude-plugin/plugin.json", r#"{"name":"solo"}"#)?;
+    skill(r, "skills/s/SKILL.md")?;
+    let report = scan(r)?;
+    let plugin = report
+        .artifacts
+        .iter()
+        .find(|a| a.kind == ArtifactKind::Plugin)
+        .ok_or("plugin")?;
+    assert_eq!(plugin.metadata["layoutManifest"], "plugin.json");
     Ok(())
 }
 

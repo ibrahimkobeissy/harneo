@@ -815,3 +815,32 @@ h3.subhead {
   gap: var(--space-sm);
   margin-top: var(--space-sm);
 }
+
+/* Layout resolver: placement labels and their reason */
+.placed {
+  position: relative;
+  display: inline-block;
+}
+.reasoned {
+  text-decoration: underline dotted;
+  cursor: help;
+}
+.reasoned:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: 2px;
+}
+.tip {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  margin-top: var(--space-xxs);
+  width: max-content;
+  max-width: 320px;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t1);
+  font-size: var(--text-label);
+}

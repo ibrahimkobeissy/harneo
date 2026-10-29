@@ -5,6 +5,8 @@ import {
   auditConfirmSettingGet,
   auditConfirmSettingSet,
   claudeCliStatus,
+  importLayoutSettingGet,
+  importLayoutSettingSet,
   openExternal,
   settingsGet,
   settingsSet,
@@ -33,7 +35,10 @@ export function ClaudeSettings() {
   const [model, setModel] = useState("haiku");
   const [atImport, setAtImport] = useState(false);
   const [confirm, setConfirm] = useState(true);
+  const [layout, setLayout] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const layoutId = useId();
+  const layoutHelpId = useId();
   const confirmId = useId();
   const confirmHelpId = useId();
   const modelId = useId();
@@ -74,10 +79,28 @@ export function ClaudeSettings() {
       },
       () => undefined,
     );
+    importLayoutSettingGet().then(
+      (value) => {
+        if (live && typeof value === "boolean") setLayout(value);
+      },
+      () => undefined,
+    );
     return () => {
       live = false;
     };
   }, []);
+
+  async function saveLayout(next: boolean) {
+    setError(null);
+    setLayout(next);
+    try {
+      await importLayoutSettingSet(next);
+      announce("Setting saved");
+    } catch (err) {
+      setLayout(!next);
+      setError(String(err));
+    }
+  }
 
   async function saveConfirm(next: boolean) {
     setError(null);
@@ -255,6 +278,41 @@ export function ClaudeSettings() {
             setAtImport(next);
             void save(AT_IMPORT_KEY, next, () => setAtImport(!next));
           }}
+        />
+      </div>
+      <div className={styles.row}>
+        <div className={styles.grow}>
+          <label htmlFor={layoutId}>
+            <b>Ask Claude about repo layouts at import</b>
+          </label>
+          <div id={layoutHelpId} className={`${styles.sec} ${styles.measure}`}>
+            <p className={styles.para}>
+              Off by default. When on, an import that leaves files Harneo
+              couldn&apos;t place sends these to Claude through your own claude
+              CLI, using your Claude plan:
+            </p>
+            <ul className={styles.list}>
+              <li>the repo&apos;s file paths (up to 2,000)</li>
+              <li>the text of its manifests</li>
+              <li>
+                the first 40 lines of each Markdown file Harneo couldn&apos;t
+                place (up to 60 files)
+              </li>
+            </ul>
+            <p className={styles.para}>
+              Files that look like secrets are listed by name only. When off,
+              the Choose step offers Ask Claude what&apos;s in this repo for
+              that import.
+              {notFound && " Needs the Claude CLI."}
+            </p>
+          </div>
+        </div>
+        <Switch
+          id={layoutId}
+          checked={layout}
+          disabled={notFound}
+          describedBy={layoutHelpId}
+          onChange={(next) => void saveLayout(next)}
         />
       </div>
       {error && (

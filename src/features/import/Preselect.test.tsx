@@ -43,6 +43,9 @@ function setup(search: string) {
       return {
         source: { kind: "local", path: "/work/shop" },
         diagnostics: [],
+        unplaced: [],
+        unplacedOverflow: 0,
+        layoutIgnored: [],
         candidates: [candidate("alpha"), candidate("beta")],
       };
     }

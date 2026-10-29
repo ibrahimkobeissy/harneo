@@ -147,6 +147,17 @@ pub(crate) fn mark_layout_by(report: &mut ScanReport) {
             "convention"
         };
         a.metadata.insert("layoutBy".into(), tier.into());
+        if a.kind == ArtifactKind::Plugin {
+            // Which manifest named it: a marketplace entry, else the plugin's own plugin.json
+            // (an installed plugin is read from its folder's plugin.json).
+            let manifest =
+                if a.metadata.contains_key("marketplace") || a.path.contains("marketplace.json") {
+                    "marketplace.json"
+                } else {
+                    "plugin.json"
+                };
+            a.metadata.insert("layoutManifest".into(), manifest.into());
+        }
     }
 }
 
