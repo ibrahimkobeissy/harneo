@@ -262,7 +262,8 @@ impl Library {
             });
         }
         let preview = self.scan_candidates(&resolved, &identity, &root, options)?;
-        if preview.candidates.is_empty() {
+        // Unplaced files alone are still worth a preview: they are what tier 3 asks Claude about.
+        if preview.candidates.is_empty() && preview.unplaced.is_empty() {
             return Err(Error::NothingFound {
                 source_name: source::redact(url),
             });

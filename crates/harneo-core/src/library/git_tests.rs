@@ -208,6 +208,21 @@ fn a_repo_without_artifacts_is_reported_and_leaves_no_clone() -> TestResult {
 }
 
 #[test]
+fn a_repo_with_only_unplaced_files_is_previewed_for_claude() -> TestResult {
+    let f = fixture()?;
+    let repo = tempfile::tempdir()?;
+    git(repo.path(), &["init", "-q", "-b", "main"])?;
+    write(repo.path(), "prompts/review.md", "Review the diff.\n")?;
+    git(repo.path(), &["add", "-A"])?;
+    git(repo.path(), &["commit", "-q", "-m", "x"])?;
+    let source = Source::parse_git(&format!("file://{}", repo.path().display()), None, None)?;
+    let preview = f.library.preview(&source)?;
+    assert!(preview.candidates.is_empty());
+    assert_eq!(preview.unplaced, ["prompts/review.md"]);
+    Ok(())
+}
+
+#[test]
 fn an_unreachable_repo_is_reported_and_leaves_no_clone() -> TestResult {
     let f = fixture()?;
     let source = Source::parse_git("file:///definitely/not/here", None, None)?;
