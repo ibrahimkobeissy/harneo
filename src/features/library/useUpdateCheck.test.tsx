@@ -14,8 +14,18 @@ describe("useUpdateCheck", () => {
         new CustomEvent(CHECKED_EVENT, {
           detail: {
             sources: [
-              { id: "s1", result: { type: "missing" } },
-              { id: "s2", result: { type: "unchanged" } },
+              {
+                id: "s1",
+                result: { type: "missing" },
+                unplaced: [],
+                unplacedOverflow: 0,
+              },
+              {
+                id: "s2",
+                result: { type: "unchanged" },
+                unplaced: [],
+                unplacedOverflow: 0,
+              },
             ],
           },
         }),

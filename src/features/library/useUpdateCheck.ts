@@ -17,11 +17,11 @@ export interface SourceUnplaced {
 
 function unplacedOf(report: CheckReport): SourceUnplaced[] {
   return report.sources
-    .filter((s) => (s.unplaced?.length ?? 0) + (s.unplacedOverflow ?? 0) > 0)
+    .filter((s) => s.unplaced.length + s.unplacedOverflow > 0)
     .map((s) => ({
       id: s.id,
-      paths: s.unplaced ?? [],
-      overflow: s.unplacedOverflow ?? 0,
+      paths: s.unplaced,
+      overflow: s.unplacedOverflow,
     }));
 }
 
