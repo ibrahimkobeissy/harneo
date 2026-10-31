@@ -6,7 +6,7 @@ import type { TagWithCount } from "../../bindings/TagWithCount";
 import { tagsList } from "../../lib/ipc";
 import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import type { PreviewConfirmation } from "./usePreviewConfirmation";
-import { Tag, TagPicker } from "../../ui";
+import { Button, Tag, TagPicker } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
 import { DetectionSection } from "./DetectionSection";
@@ -26,6 +26,7 @@ export function ReviewStep({
   onAddTag,
   onAddAll,
   onRemoveAll,
+  onClearTags,
   heldBack,
   phase1Only,
   confirming,
@@ -51,6 +52,8 @@ export function ReviewStep({
   colors: Readonly<Record<string, TagColor>>;
   onAddAll: (name: string, color: TagColor | null) => void;
   onRemoveAll: (name: string) => void;
+  /** Takes every tag off every artifact being imported. */
+  onClearTags: () => void;
   onRemoveTag: (id: string, tag: string) => void;
   onAddTag: (id: string, tag: string, color: TagColor | null) => void;
 }) {
@@ -112,6 +115,15 @@ export function ReviewStep({
           maxChars={MAX_TAG_CHARS}
           onPick={onAddAll}
         />
+        <Button
+          small
+          variant="ghost"
+          disabled={chosen.every((c) => (tags[c.id] ?? []).length === 0)}
+          onClick={onClearTags}
+        >
+          <X size={14} aria-hidden="true" />
+          Remove all tags
+        </Button>
         {common.length > 0 && (
           <span className={styles.bulkLabel}>On every artifact:</span>
         )}

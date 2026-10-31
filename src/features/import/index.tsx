@@ -591,6 +591,13 @@ export function ImportScreen() {
                 return next;
               })
             }
+            onClearTags={() =>
+              setTags((prev) => {
+                const next = { ...prev };
+                for (const c of chosen) next[c.id] = [];
+                return next;
+              })
+            }
             onRemoveTag={(id, tag) =>
               setTags((prev) => ({
                 ...prev,

@@ -735,6 +735,20 @@ describe("Import screen", () => {
     expect(screen.getByText("review")).toBeInTheDocument();
   });
 
+  it("Remove all tags takes every tag off every row, then turns off", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Tag all" }));
+    await u.type(screen.getByRole("combobox"), "shared{Enter}");
+    const clear = screen.getByRole("button", { name: "Remove all tags" });
+    await u.click(clear);
+    expect(screen.queryByText("shared")).not.toBeInTheDocument();
+    expect(screen.queryByText("review")).not.toBeInTheDocument();
+    expect(clear).toBeDisabled();
+  });
+
   it("creates a new Tag all tag with the chosen color before importing", async () => {
     const u = user();
     const calls = setup({});
