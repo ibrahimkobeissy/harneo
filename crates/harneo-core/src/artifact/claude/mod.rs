@@ -49,6 +49,7 @@ impl AgentAdapter for ClaudeAdapter {
         layout::scan(&mut walker, options, &mut report);
         layout::mark_layout_by(&mut report);
         unplaced::scan(&mut walker, options, &mut report);
+        layout::drop_duplicate_marketplace_roots(&mut walker, &mut report);
         super::digest::fill(&mut walker, &mut report);
         layout::mark_managed_origins(&mut report);
         checks::run(&mut report);

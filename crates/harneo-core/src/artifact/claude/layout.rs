@@ -136,6 +136,40 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
     });
 }
 
+/// A `plugin.json` in a marketplace's own folder, named like an entry that marketplace publishes
+/// from another folder, is the same plugin listed twice (e.g. the author's working copy at the
+/// repo root, the entry pointing at `./plugin`). Only the entry, what Claude Code installs, is
+/// kept. Call after `unplaced::scan`: the folder still counts as a plugin folder until then,
+/// so its own files are neither listed as artifacts nor reported as unplaced.
+pub(crate) fn drop_duplicate_marketplace_roots(walker: &mut Walker, report: &mut ScanReport) {
+    let roots: Vec<String> = report
+        .artifacts
+        .iter()
+        .filter(|a| a.kind == ArtifactKind::Plugin && !a.metadata.contains_key("marketplace"))
+        .map(|a| a.path.clone())
+        .filter(|p| walker.exists(&plugin::marketplace_path(Path::new(p))))
+        .collect();
+    let published: Vec<(String, String)> = report
+        .artifacts
+        .iter()
+        .filter(|a| {
+            a.kind == ArtifactKind::Plugin
+                && a.metadata.contains_key("marketplace")
+                && !a.path.contains('#')
+        })
+        .map(|a| (a.name.clone(), a.path.clone()))
+        .collect();
+    report.artifacts.retain(|a| {
+        let duplicate = a.kind == ArtifactKind::Plugin
+            && !a.metadata.contains_key("marketplace")
+            && roots.contains(&a.path)
+            && published
+                .iter()
+                .any(|(name, path)| name == &a.name && path != &a.path);
+        !duplicate
+    });
+}
+
 /// Records which tier placed each artifact in `metadata.layoutBy`: plugins come from a manifest
 /// (plugin.json, marketplace.json or installed_plugins.json), everything else from a known
 /// folder convention.

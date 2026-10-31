@@ -677,3 +677,48 @@ fn unplaced_is_capped_with_an_overflow_count_and_is_deterministic() -> TestResul
     assert_eq!(first, scan(r)?);
     Ok(())
 }
+
+/// impeccable's shape: a root plugin.json (the author's working copy) and a marketplace that
+/// publishes the same plugin from `./plugin`. One plugin, the marketplace's; the root's own
+/// files stay hidden and are not reported as unplaced.
+#[test]
+fn a_root_plugin_published_from_another_folder_is_listed_once() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"tool","skills":"./.claude/skills/"}"#,
+    )?;
+    write(
+        r,
+        ".claude-plugin/marketplace.json",
+        r#"{"name":"m","plugins":[{"name":"tool","source":"./plugin"}]}"#,
+    )?;
+    write(r, "plugin/.claude-plugin/plugin.json", r#"{"name":"tool"}"#)?;
+    skill(r, "plugin/skills/tool/SKILL.md")?;
+    skill(r, ".claude/skills/tool/SKILL.md")?;
+    write(r, "CLAUDE.md", "# working notes\n")?;
+    write(r, "DESIGN.md", "# design\n")?;
+    let report = scan(r)?;
+    assert_eq!(summary(&report), [(ArtifactKind::Plugin, "plugin")]);
+    assert_eq!(report.artifacts[0].metadata["marketplace"], "m");
+    assert!(report.unplaced.is_empty(), "{:?}", report.unplaced);
+    Ok(())
+}
+
+/// A marketplace whose entry is its own folder (`source: "./"`) keeps that one plugin.
+#[test]
+fn a_marketplace_publishing_its_own_folder_keeps_its_plugin() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    write(r, ".claude-plugin/plugin.json", r#"{"name":"tool"}"#)?;
+    write(
+        r,
+        ".claude-plugin/marketplace.json",
+        r#"{"name":"m","plugins":[{"name":"tool","source":"./"}]}"#,
+    )?;
+    let report = scan(r)?;
+    assert_eq!(summary(&report), [(ArtifactKind::Plugin, "")]);
+    Ok(())
+}
