@@ -11,6 +11,14 @@ import { ArtifactPanelHost } from "../../app/ArtifactPanelHost";
 import { minimalDetail } from "../../test/artifactDetail";
 import { CleanupScreen } from ".";
 
+/** The local day 70 days ago, which always reads "2 months ago", whatever today is. */
+function seventyDaysAgo(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 70);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function item(over: Partial<CleanupItem>): CleanupItem {
   return {
     id: "a1",
@@ -147,6 +155,7 @@ describe("Cleanup groups", () => {
   });
 
   it("lists every group with counts", async () => {
+    const lastUsed = seventyDaysAgo();
     setup({
       weeks: 6,
       data: {
@@ -162,7 +171,7 @@ describe("Cleanup groups", () => {
             id: "u1",
             name: "webperf",
             profiles: used,
-            lastUsed: "2026-08-01",
+            lastUsed,
           }),
           item({ id: "u2", name: "orphan" }),
         ],
@@ -184,7 +193,7 @@ describe("Cleanup groups", () => {
     expect(screen.getByText("not used yet")).toBeVisible();
     expect(screen.getByText("last used 2 months ago")).toHaveAttribute(
       "title",
-      "2026-08-01",
+      lastUsed,
     );
     expect(screen.getByText(/Not a problem in itself/)).toBeVisible();
     expect(screen.getByText("2 copies")).toBeVisible();
