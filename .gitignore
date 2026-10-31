@@ -10,3 +10,4 @@ coverage/
 .env.*
 .claude/settings.local.json
 mise.local.toml
+start.sh
