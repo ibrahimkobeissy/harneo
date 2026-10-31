@@ -24,6 +24,8 @@ export interface PreviewConfirmation {
   skipped: boolean;
   /** A failure that still needs a choice: the import waits. */
   blocked: boolean;
+  /** Claude is confirming and nothing has failed: the Choose step's list and Continue wait. */
+  checking: boolean;
   /** Runs phase 2 again on the held preview. */
   retry: () => void;
   /** Goes on without Claude: the findings stay as the rules found them. */
@@ -150,6 +152,7 @@ export function usePreviewConfirmation(
     failure,
     skipped,
     blocked: failure !== null && !skipped,
+    checking: progress !== null && failure === null,
     retry,
     skip,
   };

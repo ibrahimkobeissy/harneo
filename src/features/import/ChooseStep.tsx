@@ -306,6 +306,7 @@ export function ChooseStep({
   onIncludeManaged,
   refreshing,
   progress,
+  checking,
   phase1Only,
   phase2,
   layout,
@@ -321,6 +322,8 @@ export function ChooseStep({
   refreshing: boolean;
   /** Phase 2 progress while Claude confirms the flagged candidates in the background. */
   progress: ConfirmProgress | null;
+  /** Claude is confirming and nothing failed: the list is locked until it finishes. */
+  checking: boolean;
   /** Claude is not confirming findings; null when it is or it is not known yet. */
   phase1Only: { cliMissing: boolean } | null;
   /** Phase 2's state, for the failure callout with its choices. */
@@ -426,159 +429,257 @@ export function ChooseStep({
       {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
       <ConfirmFailureCallout phase2={phase2} onCancel={onCancelImport} />
       <LayoutNotes preview={preview} run={layout} onCancel={onCancelImport} />
-      {note && (
-        <div className={styles.callout} data-tone="neutral">
-          <Info size={16} aria-hidden="true" />
-          <p>{note}</p>
-          <Button small disabled={refreshing} onClick={onIncludeManaged}>
-            Include them
+      {checking && (
+        <ConfirmingNote
+          progress={progress}
+          hint="You can change the list once Claude has finished."
+        />
+      )}
+      {/* While Claude confirms findings, the choices wait: its verdicts can still move rows. */}
+      <div inert={checking} className={checking ? styles.locked : undefined}>
+        {note && (
+          <div className={styles.callout} data-tone="neutral">
+            <Info size={16} aria-hidden="true" />
+            <p>{note}</p>
+            <Button small disabled={refreshing} onClick={onIncludeManaged}>
+              Include them
+            </Button>
+          </div>
+        )}
+        <div className={styles.bulk}>
+          <Button
+            small
+            disabled={excluded.size === 0}
+            onClick={() => restoreMany(all.filter((c) => excluded.has(c.id)))}
+          >
+            Restore all
+          </Button>
+          <Button
+            small
+            disabled={toImport === 0}
+            onClick={() => onExclude(freeIds)}
+          >
+            Exclude all
+          </Button>
+          {claude.length > 0 && (
+            <Button small onClick={() => onExclude(claude)}>
+              Exclude Claude-provided
+            </Button>
+          )}
+          {riskyIds.length > 0 && (
+            <Button
+              small
+              aria-pressed={riskyOut}
+              disabled={riskyOut && riskyBack.length === 0}
+              onClick={() =>
+                riskyOut
+                  ? onRestore(riskyBack.map((c) => c.id))
+                  : onExclude(riskyIds.map((c) => c.id))
+              }
+            >
+              Exclude Risky and Dangerous
+            </Button>
+          )}
+          {withErrors.length > 0 && (
+            <Button
+              small
+              aria-pressed={errorsOut}
+              onClick={() =>
+                errorsOut ? onRestore(withErrors) : onExclude(withErrors)
+              }
+            >
+              Exclude rows with errors
+            </Button>
+          )}
+          <span className={styles.grow} />
+          <Button small variant="ghost" onClick={() => setEvery(false)}>
+            Expand all
+          </Button>
+          <Button small variant="ghost" onClick={() => setEvery(true)}>
+            Collapse all
           </Button>
         </div>
-      )}
-      <div className={styles.bulk}>
-        <Button
-          small
-          disabled={excluded.size === 0}
-          onClick={() => restoreMany(all.filter((c) => excluded.has(c.id)))}
-        >
-          Restore all
-        </Button>
-        <Button
-          small
-          disabled={toImport === 0}
-          onClick={() => onExclude(freeIds)}
-        >
-          Exclude all
-        </Button>
-        {claude.length > 0 && (
-          <Button small onClick={() => onExclude(claude)}>
-            Exclude Claude-provided
-          </Button>
-        )}
-        {riskyIds.length > 0 && (
-          <Button
-            small
-            aria-pressed={riskyOut}
-            disabled={riskyOut && riskyBack.length === 0}
-            onClick={() =>
-              riskyOut
-                ? onRestore(riskyBack.map((c) => c.id))
-                : onExclude(riskyIds.map((c) => c.id))
-            }
-          >
-            Exclude Risky and Dangerous
-          </Button>
-        )}
-        {withErrors.length > 0 && (
-          <Button
-            small
-            aria-pressed={errorsOut}
-            onClick={() =>
-              errorsOut ? onRestore(withErrors) : onExclude(withErrors)
-            }
-          >
-            Exclude rows with errors
-          </Button>
-        )}
-        <span className={styles.grow} />
-        <Button small variant="ghost" onClick={() => setEvery(false)}>
-          Expand all
-        </Button>
-        <Button small variant="ghost" onClick={() => setEvery(true)}>
-          Collapse all
-        </Button>
-      </div>
-      <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
-        {toImport} to import, {excluded.size} excluded
-      </p>
-      <ConfirmingNote progress={progress} />
-      {skipNote && (
-        <p className={styles.reason} role="status">
-          {skipNote}
+        <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
+          {toImport} to import, {excluded.size} excluded
         </p>
-      )}
-      {groups.map(([kind, everyone]) => {
-        const list = everyone.filter((c) => !excluded.has(c.id));
-        if (list.length === 0) return null;
-        const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
-        const back = everyone.filter((c) => excluded.has(c.id));
-        const label = kindPlurals[kind];
-        const shut = isCollapsed(kind, everyone.length);
-        return (
+        {skipNote && (
+          <p className={styles.reason} role="status">
+            {skipNote}
+          </p>
+        )}
+        {groups.map(([kind, everyone]) => {
+          const list = everyone.filter((c) => !excluded.has(c.id));
+          if (list.length === 0) return null;
+          const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
+          const back = everyone.filter((c) => excluded.has(c.id));
+          const label = kindPlurals[kind];
+          const shut = isCollapsed(kind, everyone.length);
+          return (
+            <section
+              key={kind}
+              className={styles.group}
+              aria-label={`${label}, ${list.length}`}
+            >
+              <header className={styles.ghead}>
+                <button
+                  type="button"
+                  className={styles.toggle}
+                  aria-expanded={!shut}
+                  aria-label={`${shut ? "Expand" : "Collapse"} ${label}`}
+                  onClick={() => setCollapsed(kind, !shut)}
+                >
+                  <ChevronRight
+                    size={14}
+                    aria-hidden="true"
+                    data-open={!shut}
+                  />
+                  <span>{label}</span>
+                  <span className={styles.count}>{list.length}</span>
+                </button>
+                <span className={styles.grow} />
+                {back.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    small
+                    onClick={() => restoreMany(back)}
+                    aria-label={`Restore all ${label}`}
+                  >
+                    Restore all
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  small
+                  disabled={ids.length === 0}
+                  onClick={() => onExclude(ids)}
+                  aria-label={`Exclude all ${label}`}
+                >
+                  Exclude all
+                </Button>
+              </header>
+              {!shut &&
+                list.map((c) => {
+                  const open = opened.has(c.id);
+                  return (
+                    <div key={c.id} className={styles.item}>
+                      <div className={styles.line1}>
+                        <div className={styles.pick}>
+                          <span className={styles.grow}>
+                            <span className={styles.title}>
+                              <b>{c.artifact.name}</b>
+                              <span className={styles.origin}>
+                                {originLabel(c.artifact.origin)}
+                              </span>
+                              <PlacementLabel candidate={c} />
+                              <TierLabel candidate={c} />
+                              {c.alreadyInLibrary && (
+                                <Badge>Already in library</Badge>
+                              )}
+                              <Copies
+                                candidate={c}
+                                open={copiesOpen.has(c.id)}
+                                onToggle={() => flipCopies(c.id)}
+                              />
+                            </span>
+                            <span className={`${styles.line} ${styles.block}`}>
+                              <span className={styles.mono}>
+                                {c.artifact.path}
+                              </span>
+                            </span>
+                            {c.artifact.description && (
+                              <span
+                                className={`${styles.desc} ${styles.block}`}
+                              >
+                                {c.artifact.description}
+                              </span>
+                            )}
+                            <DismissedNote candidate={c} />
+                            {copiesOpen.has(c.id) && <CopyList candidate={c} />}
+                          </span>
+                        </div>
+                        <Findings
+                          candidate={c}
+                          open={open}
+                          onToggle={() => flip(c.id)}
+                        />
+                        {c.alreadyInLibrary ? (
+                          <span className={styles.xslot} />
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.x}
+                            data-xid={c.id}
+                            aria-label={`Exclude ${c.artifact.name}`}
+                            onClick={() => excludeOne(c.id)}
+                          >
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                      {open && <Details candidate={c} />}
+                    </div>
+                  );
+                })}
+            </section>
+          );
+        })}
+        {gone.length > 0 && (
           <section
-            key={kind}
             className={styles.group}
-            aria-label={`${label}, ${list.length}`}
+            aria-label={`Excluded, ${gone.length}`}
           >
             <header className={styles.ghead}>
               <button
                 type="button"
                 className={styles.toggle}
-                aria-expanded={!shut}
-                aria-label={`${shut ? "Expand" : "Collapse"} ${label}`}
-                onClick={() => setCollapsed(kind, !shut)}
+                aria-expanded={!isCollapsed(EXCLUDED, gone.length)}
+                aria-label={`${isCollapsed(EXCLUDED, gone.length) ? "Expand" : "Collapse"} Excluded`}
+                onClick={() =>
+                  setCollapsed(EXCLUDED, !isCollapsed(EXCLUDED, gone.length))
+                }
               >
-                <ChevronRight size={14} aria-hidden="true" data-open={!shut} />
-                <span>{label}</span>
-                <span className={styles.count}>{list.length}</span>
+                <ChevronRight
+                  size={14}
+                  aria-hidden="true"
+                  data-open={!isCollapsed(EXCLUDED, gone.length)}
+                />
+                <span>Excluded</span>
+                <span className={styles.count}>({gone.length})</span>
               </button>
-              <span className={styles.grow} />
-              {back.length > 0 && (
-                <Button
-                  variant="ghost"
-                  small
-                  onClick={() => restoreMany(back)}
-                  aria-label={`Restore all ${label}`}
-                >
-                  Restore all
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                small
-                disabled={ids.length === 0}
-                onClick={() => onExclude(ids)}
-                aria-label={`Exclude all ${label}`}
-              >
-                Exclude all
-              </Button>
             </header>
-            {!shut &&
-              list.map((c) => {
+            {!isCollapsed(EXCLUDED, gone.length) &&
+              gone.map((c) => {
                 const open = opened.has(c.id);
                 return (
                   <div key={c.id} className={styles.item}>
                     <div className={styles.line1}>
-                      <div className={styles.pick}>
+                      <div className={styles.pick} data-excluded="true">
                         <span className={styles.grow}>
                           <span className={styles.title}>
                             <b>{c.artifact.name}</b>
                             <span className={styles.origin}>
                               {originLabel(c.artifact.origin)}
                             </span>
+                            <span className={styles.origin}>
+                              {kindPlurals[c.artifact.kind]}
+                            </span>
                             <PlacementLabel candidate={c} />
                             <TierLabel candidate={c} />
-                            {c.alreadyInLibrary && (
-                              <Badge>Already in library</Badge>
-                            )}
-                            <Copies
-                              candidate={c}
-                              open={copiesOpen.has(c.id)}
-                              onToggle={() => flipCopies(c.id)}
-                            />
                           </span>
+                          {criticalRule(c) && (
+                            <span
+                              className={`${styles.reason} ${styles.block}`}
+                            >
+                              Critical finding:{" "}
+                              <FindingTitle rule={criticalRule(c) ?? ""} />
+                            </span>
+                          )}
                           <span className={`${styles.line} ${styles.block}`}>
                             <span className={styles.mono}>
                               {c.artifact.path}
                             </span>
                           </span>
-                          {c.artifact.description && (
-                            <span className={`${styles.desc} ${styles.block}`}>
-                              {c.artifact.description}
-                            </span>
-                          )}
                           <DismissedNote candidate={c} />
-                          {copiesOpen.has(c.id) && <CopyList candidate={c} />}
                         </span>
                       </div>
                       <Findings
@@ -586,121 +687,41 @@ export function ChooseStep({
                         open={open}
                         onToggle={() => flip(c.id)}
                       />
-                      {c.alreadyInLibrary ? (
-                        <span className={styles.xslot} />
-                      ) : (
-                        <button
-                          type="button"
-                          className={styles.x}
-                          data-xid={c.id}
-                          aria-label={`Exclude ${c.artifact.name}`}
-                          onClick={() => excludeOne(c.id)}
-                        >
-                          <X size={14} aria-hidden="true" />
-                        </button>
-                      )}
+                      <Button
+                        small
+                        variant="ghost"
+                        data-rid={c.id}
+                        aria-label={`Restore ${c.artifact.name}`}
+                        onClick={() => {
+                          if (criticalRule(c) === null) {
+                            onRestore([c.id]);
+                          } else {
+                            refocusRestore.current = c.id;
+                            setConfirming(c.id);
+                          }
+                        }}
+                      >
+                        Restore
+                      </Button>
                     </div>
+                    {confirming === c.id && (
+                      <RestoreConfirm
+                        candidate={c}
+                        onKeep={() => setConfirming(null)}
+                        onRestore={() => {
+                          refocusRestore.current = null;
+                          setConfirming(null);
+                          onRestore([c.id]);
+                        }}
+                      />
+                    )}
                     {open && <Details candidate={c} />}
                   </div>
                 );
               })}
           </section>
-        );
-      })}
-      {gone.length > 0 && (
-        <section
-          className={styles.group}
-          aria-label={`Excluded, ${gone.length}`}
-        >
-          <header className={styles.ghead}>
-            <button
-              type="button"
-              className={styles.toggle}
-              aria-expanded={!isCollapsed(EXCLUDED, gone.length)}
-              aria-label={`${isCollapsed(EXCLUDED, gone.length) ? "Expand" : "Collapse"} Excluded`}
-              onClick={() =>
-                setCollapsed(EXCLUDED, !isCollapsed(EXCLUDED, gone.length))
-              }
-            >
-              <ChevronRight
-                size={14}
-                aria-hidden="true"
-                data-open={!isCollapsed(EXCLUDED, gone.length)}
-              />
-              <span>Excluded</span>
-              <span className={styles.count}>({gone.length})</span>
-            </button>
-          </header>
-          {!isCollapsed(EXCLUDED, gone.length) &&
-            gone.map((c) => {
-              const open = opened.has(c.id);
-              return (
-                <div key={c.id} className={styles.item}>
-                  <div className={styles.line1}>
-                    <div className={styles.pick} data-excluded="true">
-                      <span className={styles.grow}>
-                        <span className={styles.title}>
-                          <b>{c.artifact.name}</b>
-                          <span className={styles.origin}>
-                            {originLabel(c.artifact.origin)}
-                          </span>
-                          <span className={styles.origin}>
-                            {kindPlurals[c.artifact.kind]}
-                          </span>
-                          <PlacementLabel candidate={c} />
-                          <TierLabel candidate={c} />
-                        </span>
-                        {criticalRule(c) && (
-                          <span className={`${styles.reason} ${styles.block}`}>
-                            Critical finding:{" "}
-                            <FindingTitle rule={criticalRule(c) ?? ""} />
-                          </span>
-                        )}
-                        <span className={`${styles.line} ${styles.block}`}>
-                          <span className={styles.mono}>{c.artifact.path}</span>
-                        </span>
-                        <DismissedNote candidate={c} />
-                      </span>
-                    </div>
-                    <Findings
-                      candidate={c}
-                      open={open}
-                      onToggle={() => flip(c.id)}
-                    />
-                    <Button
-                      small
-                      variant="ghost"
-                      data-rid={c.id}
-                      aria-label={`Restore ${c.artifact.name}`}
-                      onClick={() => {
-                        if (criticalRule(c) === null) {
-                          onRestore([c.id]);
-                        } else {
-                          refocusRestore.current = c.id;
-                          setConfirming(c.id);
-                        }
-                      }}
-                    >
-                      Restore
-                    </Button>
-                  </div>
-                  {confirming === c.id && (
-                    <RestoreConfirm
-                      candidate={c}
-                      onKeep={() => setConfirming(null)}
-                      onRestore={() => {
-                        refocusRestore.current = null;
-                        setConfirming(null);
-                        onRestore([c.id]);
-                      }}
-                    />
-                  )}
-                  {open && <Details candidate={c} />}
-                </div>
-              );
-            })}
-        </section>
-      )}
+        )}
+      </div>
     </>
   );
 }

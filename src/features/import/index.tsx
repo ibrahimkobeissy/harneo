@@ -455,6 +455,7 @@ export function ImportScreen() {
           disabled={
             scanning ||
             chosen.length === 0 ||
+            phase2.checking ||
             phase2.blocked ||
             layout.blocked ||
             layout.stage !== null
@@ -524,6 +525,7 @@ export function ImportScreen() {
           <ChooseStep
             preview={view}
             progress={phase2.progress}
+            checking={phase2.checking}
             phase1Only={phase2.phase1Only}
             phase2={phase2}
             layout={layout}

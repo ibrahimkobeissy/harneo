@@ -90,6 +90,8 @@ const dismissed: Audit = {
 
 function setup(opts: { on?: boolean; confirmError?: string } = {}) {
   const calls: string[] = [];
+  // Phase 2 runs until `finish` ends them, as a real run ends after its last candidate.
+  const running: (() => void)[] = [];
   mockIPC(
     (cmd) => {
       calls.push(cmd);
@@ -106,7 +108,7 @@ function setup(opts: { on?: boolean; confirmError?: string } = {}) {
           return { found: true, path: "/bin/claude", version: "2" };
         case "library_preview_confirm":
           if (opts.confirmError) throw new Error(opts.confirmError);
-          return new Promise<void>(() => undefined);
+          return new Promise<void>((done) => running.push(done));
         default:
           return null;
       }
@@ -120,7 +122,11 @@ function setup(opts: { on?: boolean; confirmError?: string } = {}) {
       </Routes>
     </MemoryRouter>,
   );
-  return { calls, view };
+  const finish = () =>
+    act(() => {
+      for (const done of running.splice(0)) done();
+    });
+  return { calls, view, finish };
 }
 
 async function toChoose(u: ReturnType<typeof userEvent.setup>) {
@@ -171,8 +177,11 @@ describe("Import: phase 2 on the Choose step", () => {
     expect(
       await screen.findByText("Confirming 1 of 2 with Claude…"),
     ).toBeVisible();
-    // The user is not blocked meanwhile.
-    expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    // The choices wait for Claude: the list is inert and Continue is off.
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    expect(
+      screen.getByText("2 to import, 1 excluded").closest("[inert]"),
+    ).not.toBeNull();
 
     await verdict("id-session-radar", dismissed, 1);
     expect(await screen.findByText("3 to import, 0 excluded")).toBeVisible();
@@ -313,7 +322,7 @@ describe("Import: phase 2 on the Choose step", () => {
 
   it("Retry runs phase 2 again on the held preview and clears the pause when it succeeds", async () => {
     const u = userEvent.setup();
-    const { calls } = setup();
+    const { calls, finish } = setup();
     await toChoose(u);
     await started(calls);
     await verdict("id-session-radar", failedAudit, 1);
@@ -330,7 +339,11 @@ describe("Import: phase 2 on the Choose step", () => {
     await waitFor(() =>
       expect(screen.queryByText(/Claude could not confirm/)).toBeNull(),
     );
+    // The retried run is still going: the choices wait for it to end.
+    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    await finish();
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
+    expect(screen.queryByText(/with Claude…/)).toBeNull();
   });
 
   it("shows why the run itself failed instead of swallowing it", async () => {

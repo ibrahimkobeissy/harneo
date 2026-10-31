@@ -9,14 +9,21 @@ import styles from "./Import.module.css";
 /** "Confirming N of M with Claude…" while the background run is going. */
 export function ConfirmingNote({
   progress,
+  hint,
 }: {
   progress: ConfirmProgress | null;
+  /** What waits meanwhile, after the count. */
+  hint?: string;
 }) {
   if (progress === null) return null;
   return (
-    <p className={`${styles.muted} ${styles.counter}`} role="status">
-      {`Confirming ${Math.min(progress.done + 1, progress.total)} of ${progress.total} with Claude…`}
-    </p>
+    <div className={styles.confirming} role="status">
+      <span className={styles.spinner} aria-hidden="true" />
+      <span>
+        <b>{`Confirming ${Math.min(progress.done + 1, progress.total)} of ${progress.total} with Claude…`}</b>{" "}
+        {hint && <span className={styles.muted}>{hint}</span>}
+      </span>
+    </div>
   );
 }
 
