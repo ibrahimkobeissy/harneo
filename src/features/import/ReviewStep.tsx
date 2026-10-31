@@ -10,6 +10,7 @@ import { Button, Tag, TagPicker } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
 import { DetectionSection } from "./DetectionSection";
+import { LargeFilesChoice } from "./LargeFiles";
 import type { DetectionControl } from "./useDetection";
 import type { ProposalState } from "../../ui";
 import { defaultTagColor } from "./tagColor";
@@ -27,6 +28,8 @@ export function ReviewStep({
   onAddAll,
   onRemoveAll,
   onClearTags,
+  largeFiles,
+  onLargeFiles,
   heldBack,
   phase1Only,
   confirming,
@@ -54,6 +57,9 @@ export function ReviewStep({
   onRemoveAll: (name: string) => void;
   /** Takes every tag off every artifact being imported. */
   onClearTags: () => void;
+  /** The import's "Copy large files too" switch, also on the Choose step. */
+  largeFiles: boolean;
+  onLargeFiles: (on: boolean) => void;
   onRemoveTag: (id: string, tag: string) => void;
   onAddTag: (id: string, tag: string, color: TagColor | null) => void;
 }) {
@@ -85,6 +91,11 @@ export function ReviewStep({
   const withSecrets = chosen.filter((c) => c.replacedSecretKeys.length > 0);
   return (
     <>
+      <LargeFilesChoice
+        candidates={chosen}
+        on={largeFiles}
+        onChange={onLargeFiles}
+      />
       <AuditSummary
         chosen={chosen}
         heldBack={heldBack}

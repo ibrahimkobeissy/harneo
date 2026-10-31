@@ -347,11 +347,16 @@ describe("Import screen", () => {
       }),
     });
     await toChoose(u);
-    const box = screen.getByRole("checkbox", { name: /Copy large files too/ });
-    expect(box).not.toBeChecked();
-    expect(screen.getByText(/2 files over 1 MiB in 1 artifact/)).toBeVisible();
-    await u.click(box);
+    const box = () =>
+      screen.getByRole("checkbox", { name: /Copy large files too/ });
+    expect(box()).not.toBeChecked();
+    expect(screen.getByText(/2 files over 1 MiB in alpha/)).toBeVisible();
+    // Asked again on Review, next to Import, where the choice is made last.
     await u.click(screen.getByRole("button", { name: "Continue" }));
+    expect(box()).not.toBeChecked();
+    expect(screen.getByText(/Off: they will not be copied/)).toBeVisible();
+    await u.click(box());
+    expect(screen.getByText(/They will be copied/)).toBeVisible();
     await u.click(
       screen.getByRole("button", { name: /^Import \d+ artifacts?$/ }),
     );

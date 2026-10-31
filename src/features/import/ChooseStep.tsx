@@ -2,7 +2,6 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
-  FileWarning,
   Info,
   ShieldAlert,
   TriangleAlert,
@@ -23,6 +22,7 @@ import {
   severityTone,
 } from "../../ui";
 import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
+import { LargeFilesChoice } from "./LargeFiles";
 import { ConfirmFailureCallout, ConfirmingNote, DismissedNote } from "./Phase2";
 import type { PreviewConfirmation } from "./usePreviewConfirmation";
 import { kindPlurals } from "./kindLabels";
@@ -382,12 +382,6 @@ export function ChooseStep({
   // Rows with a critical finding come back one by one, through their confirm.
   const riskyBack = riskyIds.filter((c) => criticalRule(c) === null);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
-  // Files over 1 MiB in what is being imported: the audit never reads them.
-  const withLarge = free.filter(
-    (c) => !excluded.has(c.id) && c.audit.unaudited.length > 0,
-  );
-  const large = withLarge.flatMap((c) => c.audit.unaudited);
-  const largeOwners = withLarge.length;
   const gone = all.filter((c) => excluded.has(c.id));
   const note = managedNote(preview.diagnostics);
 
@@ -458,28 +452,11 @@ export function ChooseStep({
             </Button>
           </div>
         )}
-        {large.length > 0 && (
-          <div className={styles.callout} data-tone="neutral">
-            <FileWarning size={16} aria-hidden="true" />
-            <div>
-              <label className={styles.check}>
-                <input
-                  type="checkbox"
-                  checked={largeFiles}
-                  onChange={(e) => onLargeFiles(e.target.checked)}
-                />
-                <span>
-                  <b>Copy large files too</b>{" "}
-                  {`${plural(large.length, "file")} over 1 MiB in ${plural(largeOwners, "artifact")}`}
-                </span>
-              </label>
-              <p className={styles.sec}>
-                Left out by default. When copied (up to 100 MiB each), they are
-                not security audited and are listed as such on the artifact.
-              </p>
-            </div>
-          </div>
-        )}
+        <LargeFilesChoice
+          candidates={free.filter((c) => !excluded.has(c.id))}
+          on={largeFiles}
+          onChange={onLargeFiles}
+        />
         <div className={styles.bulk}>
           <Button
             small

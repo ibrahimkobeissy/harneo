@@ -566,6 +566,8 @@ export function ImportScreen() {
             proposals={proposals}
             names={names}
             onReviewHeldBack={() => setStep(1)}
+            largeFiles={largeFiles}
+            onLargeFiles={setLargeFiles}
             onAddAll={(name, color) => {
               if (color) {
                 setNewColors((prev) => ({
