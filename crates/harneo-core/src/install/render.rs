@@ -226,7 +226,7 @@ fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec
 }
 
 /// Said in `HARNESS.md` and by the scaffold and refit screens.
-pub(crate) const PLUGINS_NOTE: &str = "Plugins are not copied. `.claude/settings.json` enables them; Claude Code offers to install them the first time you open this project and trust the folder.";
+pub(crate) const PLUGINS_NOTE: &str = "Plugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them, and Harneo installs them for this project through the `claude` CLI when it scaffolds or refits it. Anyone else who opens the project is offered them by Claude Code when trusting the folder.";
 
 /// `name: reason` for every plugin that cannot be enabled.
 fn warnings_of(plugins: &[Artifact]) -> Vec<String> {

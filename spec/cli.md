@@ -22,7 +22,7 @@ Give terminals and scripts the three everyday actions without opening the app, o
 
 **CLI (`crates/harneo-cli/src/`)**
 - `harneo profiles [--json]`: name, version, artifact count, projects.
-- `harneo scaffold --profile <name|id> [--version N] <path> [--dry-run] [--yes] [--json]`: plan (each file with *new*), confirm, apply, then "Scaffolded <path> with <profile> vN: N files, registered."
+- `harneo scaffold --profile <name|id> [--version N] <path> [--dry-run] [--yes] [--json] [--no-plugins]`: plan (each file with *new*), confirm, apply, then "Scaffolded <path> with <profile> vN: N files, registered.", then installs the profile's plugins from their marketplaces and prints one `plugin <id> installed | already installed | NOT installed: <why>` line each (`spec/install-engine.md` 4b); `--no-plugins` skips that.
 - `harneo status [<path>] [--json] [--exit-code]`: without a path, every registered project with profile, version, and *In sync* / *Drift · N files* / *Profile vN available* / *Library has newer copies* / *Missing*; with a path, that project's drifted files with their change and `+N −M`.
 - `harneo update [--check] [<artifact name|id>…] [--json]`: `--check` runs the check and lists outdated (from → to, local edits) and per-source errors; without `--check`, checks then updates every outdated artifact without local edits (or only the named ones), listing skipped ones.
 - Human output follows `scan`/`audit` (`render()` building a string, plain text, no colour when not a TTY); `--json` prints the core types pretty-printed.

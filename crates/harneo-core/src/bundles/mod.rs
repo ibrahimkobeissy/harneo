@@ -17,6 +17,7 @@ mod detect_tests;
 mod links_tests;
 
 pub(crate) use claude_cli::run as run_claude;
+pub(crate) use claude_cli::run_subcommand;
 pub use claude_cli::{cli_status, ClaudeConfig, CliStatus, FailureKind, DEFAULT_MODEL};
 pub(crate) use detect::{model_of, store_accepted};
 pub use detect::{

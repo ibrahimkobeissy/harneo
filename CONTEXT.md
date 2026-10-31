@@ -166,7 +166,7 @@ flowchart LR
 | In-app editor · AI-assisted authoring | ❌ | Edit artifacts in your own editor |
 | Enable / disable switch | ❌ | |
 | Marketplace browsing | ❌ | Import by URL instead |
-| Plugins | ✅ kept whole | Enabled from their marketplace, never unpacked |
+| Plugins | ✅ kept whole | Enabled from their marketplace, never unpacked; Harneo installs them from that marketplace after Scaffold or Refit (2026-10-31) |
 | Distribution | Source only | Users clone and build for their own OS. The maintainer builds and uses Linux only. No installers, no code signing |
 | Build-from-source guide | ✅ | `BUILDING.md`: prerequisites per OS (Rust, Node, Tauri system packages: WebKitGTK on Linux, WebView2 on Windows, Xcode tools on macOS), then the build and run commands |
 

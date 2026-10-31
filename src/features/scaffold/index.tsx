@@ -281,6 +281,7 @@ export function ScaffoldScreen() {
           profile={label}
           written={report.written}
           plugins={hasPlugins(plan)}
+          projectId={report.projectId}
           onOpen={() => void navigate(`/projects/${report.projectId}`)}
           onAgain={again}
         />

@@ -122,10 +122,21 @@ pub fn cli_status(config: &ClaudeConfig) -> CliStatus {
     }
 }
 
-struct Run {
-    success: bool,
-    stdout: String,
-    stderr: String,
+pub(crate) struct Run {
+    pub(crate) success: bool,
+    pub(crate) stdout: String,
+    pub(crate) stderr: String,
+}
+
+/// Runs a `claude` management subcommand (`plugin …`) in `cwd`, or in an empty scratch folder
+/// when `None`. No model is called and nothing is sent to Claude.
+pub(crate) fn run_subcommand(
+    config: &ClaudeConfig,
+    args: &[&str],
+    cwd: Option<&Path>,
+    timeout: Duration,
+) -> Result<Run> {
+    run_in(config, args, None, timeout, cwd)
 }
 
 fn read_all(file: &mut File, limit: u64) -> std::io::Result<String> {
@@ -143,6 +154,18 @@ fn run_with(
     stdin: Option<&str>,
     timeout: Duration,
 ) -> Result<Run> {
+    run_in(config, args, stdin, timeout, None)
+}
+
+/// [`run_with`] with `cwd` as the working directory instead of an empty scratch folder: only
+/// for `claude plugin …` management commands, which never call a model.
+fn run_in(
+    config: &ClaudeConfig,
+    args: &[&str],
+    stdin: Option<&str>,
+    timeout: Duration,
+    cwd: Option<&Path>,
+) -> Result<Run> {
     let mut stdout = tempfile::tempfile().map_err(io_error)?;
     let mut stderr = tempfile::tempfile().map_err(io_error)?;
     let scratch = match &config.scratch {
@@ -155,7 +178,7 @@ fn run_with(
     let mut command = Command::new(&config.program);
     command
         .args(args)
-        .current_dir(scratch.path())
+        .current_dir(cwd.unwrap_or(scratch.path()))
         .stdin(if stdin.is_some() {
             Stdio::piped()
         } else {

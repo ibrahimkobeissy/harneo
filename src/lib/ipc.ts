@@ -63,6 +63,7 @@ import type { Project } from "../bindings/Project";
 import type { ProjectDrift } from "../bindings/ProjectDrift";
 import type { PromoteReport } from "../bindings/PromoteReport";
 import type { ProjectFile } from "../bindings/ProjectFile";
+import type { PluginInstall } from "../bindings/PluginInstall";
 import type { Tag } from "../bindings/Tag";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
@@ -742,6 +743,23 @@ export function projectsRemoved(): Promise<Project[]> {
 /** One project. */
 export function projectGet(id: bigint): Promise<Project> {
   return invoke<Project>("project_get", { id: Number(id) });
+}
+
+/**
+ * Installs the plugins a registered project's settings enable, from their own marketplaces,
+ * through the user's `claude` CLI. No model is called. Resolves with one result per plugin.
+ */
+export function projectPluginsInstall(id: bigint): Promise<PluginInstall[]> {
+  return invoke<PluginInstall[]>("project_plugins_install", { id: Number(id) });
+}
+
+/** Calls `handler` with each plugin's result as it lands; resolves with the stop function. */
+export function onPluginsInstallProgress(
+  handler: (result: PluginInstall) => void,
+): Promise<UnlistenFn> {
+  return listen<PluginInstall>("plugins-install-progress", (event) =>
+    handler(event.payload),
+  );
 }
 
 /** The files Harneo wrote into a project. */

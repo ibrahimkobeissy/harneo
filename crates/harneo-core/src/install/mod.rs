@@ -22,6 +22,9 @@ mod hardening_tests;
 mod plan;
 #[cfg(test)]
 mod plan_tests;
+mod plugins;
+#[cfg(test)]
+mod plugins_tests;
 mod registry;
 #[cfg(test)]
 mod registry_tests;
@@ -43,6 +46,9 @@ pub(crate) use backup::write_atomic;
 pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
 pub use plan::{Plan, PlanKind, Write, WriteAction};
+pub use plugins::{
+    install_plugins, targets as plugin_targets, PluginInstall, PluginInstallStatus, PluginTarget,
+};
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
 pub(crate) use render::with_harness_import;

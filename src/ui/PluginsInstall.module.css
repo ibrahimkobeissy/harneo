@@ -1,0 +1,79 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 40rem;
+  text-align: left;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 600;
+}
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+}
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+}
+.row + .row {
+  border-top: var(--hairline) solid var(--line);
+}
+.row > svg,
+.row > .spinner {
+  flex: none;
+  margin-top: 2px;
+}
+.name {
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+.state {
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.why {
+  display: block;
+  color: var(--red);
+  font-size: var(--text-label);
+  overflow-wrap: anywhere;
+}
+.ok {
+  color: var(--green);
+}
+.bad {
+  color: var(--red);
+}
+.note {
+  margin: 0;
+  color: var(--t2);
+  font-size: var(--text-label);
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: var(--hairline-strong) solid var(--line2);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

@@ -65,7 +65,7 @@ const pluginPlan = {
       ? {
           ...w,
           bytes: b64(
-            "# Harness\n\n## Plugins\n\nPlugins are not copied. `.claude/settings.json` enables them.\n",
+            "# Harness\n\n## Plugins\n\nPlugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them.\n",
           ),
         }
       : w,
@@ -93,6 +93,23 @@ function setup(opts: Opts = {}) {
   mockIPC((cmd, args) => {
     calls.push({ cmd, args });
     switch (cmd) {
+      case "project_plugins_install":
+        return [
+          {
+            id: "brag@brag",
+            name: "brag",
+            marketplace: "brag",
+            status: "installed",
+            message: null,
+          },
+          {
+            id: "gone@nowhere",
+            name: "gone",
+            marketplace: "nowhere",
+            status: "failed",
+            message: "its marketplace could not be added: not found",
+          },
+        ];
       case "profiles_list":
         if (opts.listError) throw new Error(opts.listError);
         return opts.profiles ?? [summary(1, "Web")];
@@ -194,10 +211,13 @@ describe("Scaffold flow", () => {
   });
 
   it("explains that plugins are enabled, not copied, and lists the ones that cannot be", async () => {
-    setup({ plugins: true });
+    const calls = setup({ plugins: true });
     await toPreview();
     expect(
-      await screen.findByText("Plugins are not copied.", { selector: "b" }),
+      await screen.findByText(
+        "Plugins are not copied: they install from their own marketplace.",
+        { selector: "b" },
+      ),
     ).toBeInTheDocument();
     expect(
       screen.getByText("enabledPlugins", { selector: "code" }),
@@ -208,9 +228,21 @@ describe("Scaffold flow", () => {
     await userEvent.click(
       screen.getByRole("button", { name: "Write 3 files" }),
     );
+    // Done installs the plugins at once and shows each result, with a Retry for a failure.
+    const plugins = await screen.findByRole("region", { name: "Plugins" });
     expect(
-      await screen.findByText(/Plugins were not copied/),
-    ).toBeInTheDocument();
+      await within(plugins).findByText("installed for this project"),
+    ).toBeVisible();
+    expect(
+      within(plugins).getByText(/its marketplace could not be added/),
+    ).toBeVisible();
+    expect(within(plugins).getByText("1 plugin not installed")).toBeVisible();
+    expect(
+      within(plugins).getByRole("button", { name: "Retry" }),
+    ).toBeEnabled();
+    expect(
+      calls.filter((c) => c.cmd === "project_plugins_install"),
+    ).toHaveLength(1);
   });
 
   it("says nothing about plugins when the profile has none", async () => {
@@ -218,7 +250,10 @@ describe("Scaffold flow", () => {
     await toPreview();
     await screen.findByText(/Dry run/);
     expect(
-      screen.queryByText("Plugins are not copied.", { selector: "b" }),
+      screen.queryByText(
+        "Plugins are not copied: they install from their own marketplace.",
+        { selector: "b" },
+      ),
     ).toBeNull();
   });
 

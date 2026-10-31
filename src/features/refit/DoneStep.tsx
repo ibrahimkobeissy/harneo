@@ -1,6 +1,6 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
 import { Link } from "react-router";
-import { Button, PluginsDone } from "../../ui";
+import { Button, PluginsInstall } from "../../ui";
 import styles from "./Refit.module.css";
 
 /** The summary after the refit, with a way back to the originals. */
@@ -57,7 +57,7 @@ export function DoneStep({
         {backedUp} {originals} backed up. The project is in your registry with a
         fresh <span className={styles.mono}>HARNESS.md</span>.
       </p>
-      {plugins && <PluginsDone />}
+      {plugins && <PluginsInstall projectId={BigInt(projectId)} />}
       {backupFolder && (
         <p>
           Backup saved in <span className={styles.mono}>{backupFolder}</span>.

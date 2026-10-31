@@ -443,7 +443,7 @@ fn assert_mods_enabled(lib: &Lib) -> TestResult {
         serde_json::json!({"source": "github", "repo": "ibrahimkobeissy/claude-mods"})
     );
     let harness = lib.text(&rendered, "HARNESS.md")?;
-    assert!(harness.contains("Plugins are not copied."));
+    assert!(harness.contains("Plugins are not copied: they install from their own marketplace."));
     assert!(!harness.contains("Not enabled"));
     assert!(lib.library.plugin_warnings(&spec)?.is_empty());
     Ok(())

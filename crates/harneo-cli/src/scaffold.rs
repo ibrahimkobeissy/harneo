@@ -7,7 +7,10 @@ use std::process::ExitCode;
 
 use anyhow::{anyhow, Context};
 use clap::Args;
-use harneo_core::install::{ApplyReport, Plan, WriteAction};
+use harneo_core::bundles::ClaudeConfig;
+use harneo_core::install::{
+    install_plugins, ApplyReport, Plan, PluginInstall, PluginInstallStatus, WriteAction,
+};
 use harneo_core::library::Library;
 use harneo_core::profiles::ProfileId;
 use harneo_core::Error;
@@ -34,12 +37,16 @@ pub struct ScaffoldArgs {
     /// Print the plan (and the result) as JSON.
     #[arg(long)]
     pub json: bool,
+    /// Do not install the profile's plugins afterwards (they stay enabled in the settings).
+    #[arg(long)]
+    pub no_plugins: bool,
 }
 
 #[derive(Serialize)]
 struct Applied<'a> {
     plan: &'a Plan,
     report: &'a ApplyReport,
+    plugins: &'a [PluginInstall],
 }
 
 /// The profile named `wanted` (ignoring case), or else the one with that numeric id.
@@ -117,10 +124,17 @@ pub fn run(
         }
     }
     let report = library.apply(&plan)?;
+    // The plugins the settings enable are installed from their own marketplaces.
+    let plugins = if args.no_plugins {
+        Vec::new()
+    } else {
+        install_plugins(&ClaudeConfig::default(), &args.path, |_| {})?
+    };
     if args.json {
         let text = serde_json::to_string_pretty(&Applied {
             plan: &plan,
             report: &report,
+            plugins: &plugins,
         })?;
         writeln!(out, "{text}")?;
     } else {
@@ -132,14 +146,51 @@ pub fn run(
             plan.profile_version,
             plan.writes.len()
         )?;
+        out.write_all(render_plugins(&plugins).as_bytes())?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// One line per plugin: installed, already there, or why not.
+fn render_plugins(plugins: &[PluginInstall]) -> String {
+    let mut text = String::new();
+    for p in plugins {
+        let state = match p.status {
+            PluginInstallStatus::Installed => "installed".to_owned(),
+            PluginInstallStatus::AlreadyInstalled => "already installed".to_owned(),
+            PluginInstallStatus::Failed => format!(
+                "NOT installed: {}",
+                p.message.as_deref().unwrap_or("unknown reason")
+            ),
+        };
+        let _ = writeln!(text, "  plugin  {}  {state}", p.id);
+    }
+    text
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use harneo_core::install::Write as PlanWrite;
+
+    #[test]
+    fn render_plugins_says_what_happened_to_each() {
+        let p = |id: &str, status, message: Option<&str>| PluginInstall {
+            id: id.into(),
+            name: id.into(),
+            marketplace: "m".into(),
+            status,
+            message: message.map(Into::into),
+        };
+        assert_eq!(
+            render_plugins(&[
+                p("a@m", PluginInstallStatus::Installed, None),
+                p("b@m", PluginInstallStatus::AlreadyInstalled, None),
+                p("c@m", PluginInstallStatus::Failed, Some("offline")),
+            ]),
+            "  plugin  a@m  installed\n  plugin  b@m  already installed\n  plugin  c@m  NOT installed: offline\n"
+        );
+    }
 
     #[test]
     fn render_lists_each_file_with_its_action_and_a_summary() {

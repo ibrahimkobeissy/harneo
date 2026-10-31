@@ -1,6 +1,7 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Mutex;
 
 use harneo_core::artifact::{ArtifactKind, ScanOptions};
@@ -11,7 +12,8 @@ use harneo_core::bundles::{
 };
 use harneo_core::drift::{AddedPreview, DriftReport, ProjectDrift, PromoteReport};
 use harneo_core::install::{
-    ApplyReport, Backup, Comparison, InstalledFile, Plan, Project, ProjectFile, RefitAction,
+    install_plugins, ApplyReport, Backup, Comparison, InstalledFile, Plan, PluginInstall, Project,
+    ProjectFile, RefitAction,
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
@@ -1542,6 +1544,34 @@ pub fn projects_removed(state: State<'_, LibraryState>) -> Result<Vec<Project>, 
 #[tauri::command]
 pub fn project_get(state: State<'_, LibraryState>, id: i64) -> Result<Project, String> {
     state.with(|library| library.project(id))
+}
+
+/// Event name for plugin install progress; the payload is one `PluginInstall`.
+const PLUGINS_INSTALL_EVENT: &str = "plugins-install-progress";
+
+/// Installs the plugins a registered project's `.claude/settings.json` enables, from their own
+/// marketplaces, through the user's `claude` CLI (no model is called). Only a project Harneo
+/// registered can be named; each result is also sent as a `plugins-install-progress` event.
+#[tauri::command]
+pub async fn project_plugins_install(
+    app: AppHandle,
+    id: i64,
+) -> Result<Vec<PluginInstall>, String> {
+    let project = app
+        .state::<LibraryState>()
+        .with(|library| library.project(id))?;
+    tauri::async_runtime::spawn_blocking(move || {
+        install_plugins(
+            &ClaudeConfig::default(),
+            Path::new(&project.path),
+            |result| {
+                let _ = app.emit(PLUGINS_INSTALL_EVENT, result);
+            },
+        )
+        .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 /// The manifest of a project: the files Harneo wrote.
