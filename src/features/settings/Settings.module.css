@@ -251,6 +251,30 @@
   align-items: center;
   gap: var(--space-sm);
 }
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.input {
+  width: 100%;
+  height: var(--size-control);
+  padding: 0 var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+.input:disabled {
+  background: var(--sunk);
+  color: var(--t2);
+}
 .dfoot {
   display: flex;
   justify-content: flex-end;

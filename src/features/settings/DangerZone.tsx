@@ -118,17 +118,20 @@ function ResetDialog({
               original files.
             </p>
           )}
-          <label htmlFor={inputId}>
-            Type <b>{CONFIRM_WORD}</b> to confirm
-          </label>
-          <input
-            id={inputId}
-            value={typed}
-            disabled={busy}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(e) => setTyped(e.target.value)}
-          />
+          <div className={styles.field}>
+            <label htmlFor={inputId}>
+              Type <b>{CONFIRM_WORD}</b> to confirm
+            </label>
+            <input
+              id={inputId}
+              className={styles.input}
+              value={typed}
+              disabled={busy}
+              autoComplete="off"
+              spellCheck={false}
+              onChange={(e) => setTyped(e.target.value)}
+            />
+          </div>
           {error && (
             <p role="alert" className={styles.error}>
               {error}
