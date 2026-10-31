@@ -69,7 +69,8 @@ pub use collections::{Collection, CollectionKind};
 pub use confirm::{
     ArtifactConfirmation, ConfirmJob, ConfirmOutcome, ConfirmProgress, ConfirmScope,
 };
-pub(crate) use copy::{copy_artifact, ImportHooks, NoHooks};
+pub use copy::LARGE_FILE_CEILING;
+pub(crate) use copy::{copy_artifact, copy_limit, ImportHooks, NoHooks};
 pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
 pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
@@ -424,7 +425,21 @@ gone or no longer parses",
         tags: &TagChoices,
         links: &[crate::bundles::AcceptedLink],
     ) -> Result<ImportReport> {
-        self.import_inner(preview, selection, tags, links, &NoHooks)
+        self.import_inner(preview, selection, tags, links, false, &NoHooks)
+    }
+
+    /// [`Self::import_with_links`] that, with `large_files`, also copies files over the scan's
+    /// 1 MiB limit, up to [`LARGE_FILE_CEILING`] each. They are listed as not audited, and the
+    /// choice is kept on the source so updates copy them too.
+    pub fn import_with_options(
+        &mut self,
+        preview: &Preview,
+        selection: &[ArtifactId],
+        tags: &TagChoices,
+        links: &[crate::bundles::AcceptedLink],
+        large_files: bool,
+    ) -> Result<ImportReport> {
+        self.import_inner(preview, selection, tags, links, large_files, &NoHooks)
     }
 
     fn import_with(
@@ -434,7 +449,7 @@ gone or no longer parses",
         tag_choices: &TagChoices,
         hooks: &dyn ImportHooks,
     ) -> Result<ImportReport> {
-        self.import_inner(preview, selection, tag_choices, &[], hooks)
+        self.import_inner(preview, selection, tag_choices, &[], false, hooks)
     }
 
     fn import_inner(
@@ -443,6 +458,7 @@ gone or no longer parses",
         selection: &[ArtifactId],
         tag_choices: &TagChoices,
         links: &[crate::bundles::AcceptedLink],
+        large_files: bool,
         hooks: &dyn ImportHooks,
     ) -> Result<ImportReport> {
         tags::validate_choices(tag_choices)?;
@@ -495,7 +511,7 @@ gone or no longer parses",
         // The stored audit is computed here, from the files about to be copied; the preview's
         // `audit` came back over IPC and is never trusted.
         let audit_options = ScanOptions::default();
-        let audits: HashMap<&str, Audit> = fresh
+        let mut audits: HashMap<&str, Audit> = fresh
             .iter()
             .map(|c| {
                 (
@@ -512,7 +528,20 @@ gone or no longer parses",
         for candidate in &fresh {
             let dir = staging.path().join(&candidate.id);
             fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
-            let copied = copy_artifact(root, &candidate.artifact, &candidate.id, &dir, hooks)?;
+            let copied = copy_artifact(
+                root,
+                &candidate.artifact,
+                &candidate.id,
+                &dir,
+                hooks,
+                copy_limit(large_files),
+            )?;
+            // Only what was copied can be "not audited": a file left out is not in the library.
+            if let Some(audit) = audits.get_mut(candidate.id.as_str()) {
+                audit
+                    .unaudited
+                    .retain(|f| !copied.skipped.iter().any(|s| &s.file == f));
+            }
             report.skipped_files.extend(copied.skipped);
             replaced.insert(candidate.id.clone(), copied.replaced_secret_keys);
         }
@@ -523,6 +552,13 @@ gone or no longer parses",
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
             records::insert_source(&tx, &source_id, &preview.source, commit)?;
+            if large_files {
+                // Kept once chosen: a later import without it does not drop files on update.
+                tx.execute(
+                    "UPDATE sources SET large_files = 1 WHERE id = ?1",
+                    rusqlite::params![source_id],
+                )?;
+            }
             records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
             let now = records::now();
             for candidate in &fresh {

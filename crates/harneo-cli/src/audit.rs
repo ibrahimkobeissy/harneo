@@ -212,6 +212,7 @@ mod tests {
                     network: vec!["x".into()],
                     ..Reach::default()
                 },
+                unaudited: Vec::new(),
                 dismissed: Vec::new(),
                 confirmation: None,
             },
@@ -250,6 +251,7 @@ mod tests {
                 tier: Tier::Trusted,
                 findings: Vec::new(),
                 reach: Reach::default(),
+                unaudited: Vec::new(),
                 dismissed: vec![DismissedFinding {
                     finding,
                     reason: "it only warns".into(),

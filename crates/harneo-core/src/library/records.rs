@@ -208,8 +208,8 @@ pub(crate) fn insert_artifact(
         "INSERT INTO artifacts
             (id, source_id, kind, name, description, source_path, digest, imported_at, artifact,
              replaced_secret_keys, trust_score, tier, findings, reach, audited_at, dismissed,
-             confirmation)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+             confirmation, unaudited)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
         params![
             id,
             source_id,
@@ -230,6 +230,7 @@ pub(crate) fn insert_artifact(
             imported_at,
             serde_json::to_string(&audit.dismissed)?,
             serde_json::to_string(&confirmation_of(conn, audit, imported_at)?)?,
+            serde_json::to_string(&audit.unaudited)?,
         ],
     )?;
     Ok(())
@@ -276,7 +277,7 @@ fn confirmation_of(conn: &Connection, audit: &Audit, at: i64) -> Result<Confirma
 pub(crate) fn update_audit(conn: &Connection, id: &str, audit: &Audit, at: i64) -> Result<bool> {
     let changed = conn.execute(
         "UPDATE artifacts SET trust_score = ?2, tier = ?3, findings = ?4, reach = ?5,
-                audited_at = ?6, dismissed = ?7, confirmation = ?8 WHERE id = ?1",
+                audited_at = ?6, dismissed = ?7, confirmation = ?8, unaudited = ?9 WHERE id = ?1",
         params![
             id,
             audit.score,
@@ -286,6 +287,7 @@ pub(crate) fn update_audit(conn: &Connection, id: &str, audit: &Audit, at: i64) 
             at,
             serde_json::to_string(&audit.dismissed)?,
             serde_json::to_string(&confirmation_of(conn, audit, at)?)?,
+            serde_json::to_string(&audit.unaudited)?,
         ],
     )?;
     Ok(changed > 0)
@@ -301,10 +303,12 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
         Option<i64>,
         Option<String>,
         Option<String>,
+        Option<String>,
     );
     let row: Option<Row> = conn
         .query_row(
-            "SELECT trust_score, tier, findings, reach, audited_at, dismissed, confirmation
+            "SELECT trust_score, tier, findings, reach, audited_at, dismissed, confirmation,
+                    unaudited
              FROM artifacts WHERE id = ?1",
             params![id],
             |r| {
@@ -316,6 +320,7 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
                     r.get(4)?,
                     r.get(5)?,
                     r.get(6)?,
+                    r.get(7)?,
                 ))
             },
         )
@@ -328,6 +333,7 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
         Some(at),
         dismissed,
         confirmation,
+        unaudited,
     )) = row
     else {
         return Ok(None);
@@ -346,6 +352,10 @@ pub(crate) fn load_audit(conn: &Connection, id: &str) -> Result<Option<(Audit, i
             confirmation: confirmation
                 .map(|c| serde_json::from_str::<Confirmation>(&c))
                 .transpose()?,
+            unaudited: unaudited
+                .map(|u| serde_json::from_str::<Vec<String>>(&u))
+                .transpose()?
+                .unwrap_or_default(),
         },
         at,
     )))

@@ -45,6 +45,7 @@ const audit: Audit = {
     env: ["API_NAME"],
     protects: 2,
   },
+  unaudited: [],
   dismissed: [],
   confirmation: null,
 };

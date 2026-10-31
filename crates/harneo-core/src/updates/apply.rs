@@ -25,7 +25,7 @@ use crate::error::{Error, Result};
 use crate::library::git::GitConfig;
 use crate::library::layout_claude::{StoredClaude, StoredLayout};
 use crate::library::records::{self, SourceRecord};
-use crate::library::{copy_artifact, ImportHooks, Library, NoHooks};
+use crate::library::{copy_artifact, copy_limit, ImportHooks, Library, NoHooks};
 
 /// What the user chose for an update.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -91,6 +91,8 @@ pub struct UpdateJob {
     id: String,
     source: SourceRecord,
     source_path: String,
+    /// The source's import opted in to large files: the update copies them too.
+    large_files: bool,
     /// The artifact's own entry when Claude placed it, replayed to find it again.
     layout: StoredLayout,
     versions: (Option<String>, Option<String>),
@@ -177,8 +179,18 @@ impl UpdateJob {
             .map_err(|e| io_error(&self.library_root, e))?;
         let staged = staging.path().join(&self.id);
         fs::create_dir(&staged).map_err(|e| io_error(&staged, e))?;
-        let copied = copy_artifact(&located.root, &artifact, &self.id, &staged, hooks)?;
-        let audit = audit::audit(&artifact, &located.root, &ScanOptions::default());
+        let copied = copy_artifact(
+            &located.root,
+            &artifact,
+            &self.id,
+            &staged,
+            hooks,
+            copy_limit(self.large_files),
+        )?;
+        let mut audit = audit::audit(&artifact, &located.root, &ScanOptions::default());
+        audit
+            .unaudited
+            .retain(|f| !copied.skipped.iter().any(|s| &s.file == f));
         if let Some(commit) = &located.commit {
             artifact.metadata.insert(
                 IMPORTED_COMMIT.to_owned(),
@@ -273,6 +285,11 @@ impl Library {
                 .collect(),
             ignore: Vec::new(),
         };
+        let large_files: bool = self.store.conn.query_row(
+            "SELECT large_files FROM sources WHERE id = ?1",
+            rusqlite::params![detail.provenance.source.id],
+            |r| r.get(0),
+        )?;
         Ok(UpdateJob {
             git: self.git.clone(),
             session: Arc::clone(&self.session),
@@ -281,6 +298,7 @@ impl Library {
             id: id.to_owned(),
             source: detail.provenance.source,
             source_path: detail.provenance.source_path,
+            large_files,
             layout,
             versions: (from, to),
             protect_edits,

@@ -858,3 +858,9 @@ h3.subhead {
   color: var(--t1);
   font-size: var(--text-label);
 }
+.check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  cursor: pointer;
+}

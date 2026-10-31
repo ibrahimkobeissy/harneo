@@ -355,6 +355,7 @@ fn settle_recomputes_the_score_from_the_kept_findings_only() {
         reach: super::Reach::default(),
         dismissed: Vec::new(),
         confirmation: None,
+        unaudited: Vec::new(),
     };
     let drop = Verdict {
         threat: false,

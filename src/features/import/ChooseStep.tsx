@@ -2,6 +2,7 @@ import {
   ChevronDown,
   ChevronRight,
   CircleAlert,
+  FileWarning,
   Info,
   ShieldAlert,
   TriangleAlert,
@@ -305,6 +306,8 @@ export function ChooseStep({
   onRestore,
   onIncludeManaged,
   refreshing,
+  largeFiles,
+  onLargeFiles,
   progress,
   checking,
   phase1Only,
@@ -320,6 +323,9 @@ export function ChooseStep({
   /** Re-previews with the Claude-managed folders included. */
   onIncludeManaged: () => void;
   refreshing: boolean;
+  /** Files over 1 MiB are copied too (up to 100 MiB each), not audited. */
+  largeFiles: boolean;
+  onLargeFiles: (on: boolean) => void;
   /** Phase 2 progress while Claude confirms the flagged candidates in the background. */
   progress: ConfirmProgress | null;
   /** Claude is confirming and nothing failed: the list is locked until it finishes. */
@@ -376,6 +382,12 @@ export function ChooseStep({
   // Rows with a critical finding come back one by one, through their confirm.
   const riskyBack = riskyIds.filter((c) => criticalRule(c) === null);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
+  // Files over 1 MiB in what is being imported: the audit never reads them.
+  const withLarge = free.filter(
+    (c) => !excluded.has(c.id) && c.audit.unaudited.length > 0,
+  );
+  const large = withLarge.flatMap((c) => c.audit.unaudited);
+  const largeOwners = withLarge.length;
   const gone = all.filter((c) => excluded.has(c.id));
   const note = managedNote(preview.diagnostics);
 
@@ -444,6 +456,28 @@ export function ChooseStep({
             <Button small disabled={refreshing} onClick={onIncludeManaged}>
               Include them
             </Button>
+          </div>
+        )}
+        {large.length > 0 && (
+          <div className={styles.callout} data-tone="neutral">
+            <FileWarning size={16} aria-hidden="true" />
+            <div>
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  checked={largeFiles}
+                  onChange={(e) => onLargeFiles(e.target.checked)}
+                />
+                <span>
+                  <b>Copy large files too</b>{" "}
+                  {`${plural(large.length, "file")} over 1 MiB in ${plural(largeOwners, "artifact")}`}
+                </span>
+              </label>
+              <p className={styles.sec}>
+                Left out by default. When copied (up to 100 MiB each), they are
+                not security audited and are listed as such on the artifact.
+              </p>
+            </div>
           </div>
         )}
         <div className={styles.bulk}>

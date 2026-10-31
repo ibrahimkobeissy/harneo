@@ -27,4 +27,8 @@ dismissed: Array<DismissedFinding>,
  * Where phase 2 (Claude's confirmation) stands; `None` for a phase 1 result that was never
  * stored (an import preview).
  */
-confirmation: Confirmation | null, };
+confirmation: Confirmation | null, 
+/**
+ * Files over the per-file limit, copied but never read by any rule: not audited.
+ */
+unaudited: Array<string>, };

@@ -166,6 +166,8 @@ pub struct AuditInput {
     pub files: Vec<InputFile>,
     /// Why the others were not (symlink, secret name, too large, not text...). Not findings.
     pub unread: Vec<Diagnostic>,
+    /// The artifact's regular files over the per-file limit, binary or not: no rule read them.
+    pub oversize: Vec<String>,
     /// Reach inference, computed once per input (see [`AuditInput::trace`]).
     trace: OnceLock<super::reach::Trace>,
 }
@@ -212,10 +214,18 @@ impl AuditInput {
                 text,
             ));
         }
+        let mut oversize = Vec::new();
         for rel in &artifact.files {
-            if (artifact.kind == ArtifactKind::Mcp && rel == definition_file)
-                || !stays_inside(rel)
-                || is_binary_name(rel)
+            if !stays_inside(rel) {
+                continue;
+            }
+            // Never follows a symlink: only a regular file's own size counts.
+            if std::fs::symlink_metadata(root.join(rel))
+                .is_ok_and(|m| m.file_type().is_file() && m.len() > options.max_file_bytes as u64)
+            {
+                oversize.push(rel.clone());
+            }
+            if (artifact.kind == ArtifactKind::Mcp && rel == definition_file) || is_binary_name(rel)
             {
                 continue;
             }
@@ -232,6 +242,7 @@ impl AuditInput {
             metadata: artifact.metadata.clone(),
             files,
             unread,
+            oversize,
             trace: OnceLock::new(),
         }
     }
@@ -266,6 +277,7 @@ impl AuditInput {
                 .map(|(p, t)| InputFile::new(p, classify(&artifact, p), (*t).to_owned()))
                 .collect(),
             unread: Vec::new(),
+            oversize: Vec::new(),
             trace: OnceLock::new(),
         }
     }

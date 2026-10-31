@@ -242,21 +242,24 @@ export function libraryPreview(
 
 /**
  * Copies the ticked artifacts of a preview into the library, with the tags chosen for each and
- * the accepted bundle links as `[from, to, reason]`.
+ * the accepted bundle links as `[from, to, reason]`. With `largeFiles`, files over 1 MiB are
+ * copied too (up to 100 MiB each), listed as not audited.
  */
 export function libraryImport(
   preview: PreviewTicket,
   selection: string[],
   tags: Record<string, string[]>,
   links: [string, string, string][] = [],
+  largeFiles = false,
 ): Promise<ImportReport> {
-  // Without accepted links the argument is left out (the backend reads it as none).
-  return invoke<ImportReport>(
-    "library_import",
-    links.length > 0
-      ? { token: preview.token, selection, tags, links }
-      : { token: preview.token, selection, tags },
-  );
+  // Optional arguments are left out when unused (the backend reads them as none / off).
+  return invoke<ImportReport>("library_import", {
+    token: preview.token,
+    selection,
+    tags,
+    ...(links.length > 0 ? { links } : {}),
+    ...(largeFiles ? { largeFiles } : {}),
+  });
 }
 
 /** The native folder picker: the chosen path, or `null` when the user cancels. */

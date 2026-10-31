@@ -30,6 +30,7 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 - **Import is two steps:**
   1. `preview(source)` scans and returns candidates. Each candidate is an `Artifact`, its id, whether it is **already in the library** (shown unticked and skipped), the secret keys that will be replaced, and suggested tags. The scan's diagnostics come too.
   2. `import(preview, selection, tags)` copies the ticked artifacts and writes the index.
+  - **Large files** (decided 2026-10-31): files over the scan's 1 MiB limit are left out and reported as "too large", unless the user ticks *Copy large files too* on the Choose step (one switch per import, off by default). Then they are copied up to 100 MiB each; bigger ones are still left out. No rule reads a file over 1 MiB, so the audit lists them as `unaudited` ("Not audited: over 1 MiB" on the artifact). The choice is kept on the source (`sources.large_files`), so updates copy them too.
   - Each artifact is copied into a temporary folder and renamed into place. The index is written in one transaction. A failed import leaves no half-copied artifact and no index row.
 - **Git URLs** use the user's own `git` command:
   - a shallow clone of the branch (`--depth 1`) into a temporary folder in the data dir;

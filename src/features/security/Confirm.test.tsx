@@ -27,6 +27,7 @@ function audit(confirmation: Confirmation | null, dismissed = false): Audit {
     tier: "risky",
     findings: [{ ...finding, rule: "rce" }],
     reach: { files: [], network: [], shell: [], env: [], protects: 0 },
+    unaudited: [],
     dismissed: dismissed
       ? [{ finding, reason: "It warns the reader against the attack." }]
       : [],

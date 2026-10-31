@@ -8,7 +8,7 @@ const reasons: Record<SkipReason, string> = {
   notRegularFile: "not a regular file (link or special file)",
   secretFile: "looks like a secret file",
   localFile: "a local-only file",
-  tooLarge: "too large",
+  tooLarge: "too large (over 1 MiB, or 100 MiB with large files on)",
 };
 
 function plural(n: number, word: string): string {

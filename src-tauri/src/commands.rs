@@ -378,11 +378,13 @@ pub async fn library_import(
     selection: Vec<String>,
     tags: HashMap<String, Vec<String>>,
     links: Option<Vec<(String, String, String)>>,
+    large_files: Option<bool>,
 ) -> Result<ImportReport, String> {
     let links = links.unwrap_or_default();
+    let large_files = large_files.unwrap_or(false);
     let report = tauri::async_runtime::spawn_blocking({
         let app = app.clone();
-        move || import_held(&app, &token, &selection, &tags, &links)
+        move || import_held(&app, &token, &selection, &tags, &links, large_files)
     })
     .await
     .map_err(|e| e.to_string())??;
@@ -398,14 +400,15 @@ fn import_held<R: tauri::Runtime>(
     selection: &[String],
     tags: &HashMap<String, Vec<String>>,
     links: &[(String, String, String)],
+    large_files: bool,
 ) -> Result<ImportReport, String> {
     let previews = app.state::<PreviewCache>();
     let preview = previews.get(token)?;
     // Going ahead ends the preview's own phase 2 run; the library run takes over from the cache.
     cancel_preview_confirm_token(token);
-    let report = app
-        .state::<LibraryState>()
-        .with_mut(|library| library.import_with_links(&preview, selection, tags, links))?;
+    let report = app.state::<LibraryState>().with_mut(|library| {
+        library.import_with_options(&preview, selection, tags, links, large_files)
+    })?;
     previews.discard(token);
     Ok(report)
 }
@@ -2219,7 +2222,7 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
 
         // The import and the run after it ask nothing more: the verdicts are cached.
         let ids = vec![again.preview.candidates[0].id.clone()];
-        import_held(handle, &again.token, &ids, &HashMap::new(), &[])?;
+        import_held(handle, &again.token, &ids, &HashMap::new(), &[], false)?;
         tauri::async_runtime::block_on(spawn_confirm_pending(handle))?;
         assert!(!bin.path().join("claude.in").exists());
         let state = app.state::<LibraryState>();
@@ -2339,7 +2342,7 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         })?;
         let ids = vec![preview.candidates[0].id.clone()];
         let token = app.state::<PreviewCache>().put(preview)?;
-        import_held(handle, &token, &ids, &HashMap::new(), &[])?;
+        import_held(handle, &token, &ids, &HashMap::new(), &[], false)?;
 
         // The import is done and Claude was never asked: the artifact waits as `pending`.
         let status = || state.with(|l| l.confirmations());
@@ -2401,7 +2404,7 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         // A token the backend never issued is refused, for plans and for previews.
         assert!(apply_held(handle, "00000000000000000000000000000000").is_err());
         let none = HashMap::new();
-        assert!(import_held(handle, "forged", &[], &none, &[]).is_err());
+        assert!(import_held(handle, "forged", &[], &none, &[], false).is_err());
 
         // A held preview imports once the user's choices come back, then is gone.
         let preview = app.state::<LibraryState>().with(|l| {
@@ -2411,8 +2414,11 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         })?;
         let ids = vec![preview.candidates[0].id.clone()];
         let token = app.state::<PreviewCache>().put(preview)?;
-        assert_eq!(import_held(handle, &token, &ids, &none, &[])?.imported, ids);
-        assert!(import_held(handle, &token, &ids, &none, &[]).is_err());
+        assert_eq!(
+            import_held(handle, &token, &ids, &none, &[], false)?.imported,
+            ids
+        );
+        assert!(import_held(handle, &token, &ids, &none, &[], false).is_err());
 
         // The backend refuses detection without consent, before anything is read for Claude.
         let held_preview = app

@@ -384,6 +384,18 @@ function TrustSection({
           </ul>
         </details>
       )}
+      {audit.unaudited.length > 0 && (
+        <details className={styles.dismissed}>
+          <summary>Not audited: over 1 MiB ({audit.unaudited.length})</summary>
+          <ul className={styles.diags}>
+            {audit.unaudited.map((file) => (
+              <li key={file} className={`${styles.mono} ${styles.file}`}>
+                {file}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {audit.reach.protects > 0 && (
         <p className={styles.muted}>
           Protects {audit.reach.protects} credential{" "}

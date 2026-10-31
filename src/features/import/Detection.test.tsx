@@ -32,6 +32,7 @@ function candidate(name: string): Candidate {
       tier: "trusted",
       findings: [],
       reach: { files: [], network: [], shell: [], env: [], protects: 0 },
+      unaudited: [],
       dismissed: [],
       confirmation: null,
     },

@@ -54,6 +54,7 @@ function entry(
               }),
             ),
             reach: { ...none, ...over.reach },
+            unaudited: [],
             dismissed: [],
             confirmation: null,
           },

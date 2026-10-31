@@ -38,6 +38,7 @@ function candidate(
       tier: "trusted",
       findings: [],
       reach: { files: [], network: [], shell: [], env: [], protects: 0 },
+      unaudited: [],
       dismissed: [],
       confirmation: null,
     },
@@ -324,6 +325,39 @@ describe("Import screen", () => {
     expect(screen.getByText(/looks like a secret file/)).toBeInTheDocument();
     await u.click(screen.getByRole("link", { name: /Open the Library/ }));
     expect(screen.getByText("Library page: ?source=src1")).toBeInTheDocument();
+  });
+
+  it("offers to copy large files and sends the choice with the import", async () => {
+    const u = user();
+    const calls = setup({
+      preview: () => ({
+        ...preview,
+        token: "tok-1",
+        candidates: preview.candidates.map((c) =>
+          c.artifact.name === "alpha"
+            ? {
+                ...c,
+                audit: {
+                  ...c.audit,
+                  unaudited: ["skills/alpha/a.mp3", "skills/alpha/b.mp3"],
+                },
+              }
+            : c,
+        ),
+      }),
+    });
+    await toChoose(u);
+    const box = screen.getByRole("checkbox", { name: /Copy large files too/ });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/2 files over 1 MiB in 1 artifact/)).toBeVisible();
+    await u.click(box);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(
+      screen.getByRole("button", { name: /^Import \d+ artifacts?$/ }),
+    );
+    await screen.findByText(/^Imported/);
+    const call = calls.find((c) => c.cmd === "library_import");
+    expect(call?.args).toMatchObject({ largeFiles: true });
   });
 
   it("shows the already-in-library count after an import", async () => {

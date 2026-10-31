@@ -552,3 +552,96 @@ fn remove_checks_the_id_before_touching_the_disk() -> TestResult {
     assert_eq!(stored_folders(&s.data)?, before);
     Ok(())
 }
+
+/// A skill with a 2 MiB binary and a file just over the large-file ceiling (sparse, never read).
+fn with_large_files(root: &Path) -> io::Result<()> {
+    fs::create_dir_all(root.join("skills/notes/assets"))?;
+    fs::write(
+        root.join("skills/notes/assets/song.mp3"),
+        vec![0u8; 2 * 1024 * 1024],
+    )?;
+    fs::File::create(root.join("skills/notes/assets/huge.bin"))?.set_len(LARGE_FILE_CEILING + 1)
+}
+
+#[test]
+fn large_files_are_skipped_unless_the_import_opts_in() -> TestResult {
+    let mut s = setup()?;
+    with_large_files(s.source_dir.path())?;
+    let preview = s.library.preview(&s.source)?;
+    let skill = preview
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == ArtifactKind::Skill)
+        .ok_or("skill")?;
+    // The preview already says which files the audit cannot read.
+    assert_eq!(
+        skill.audit.unaudited,
+        [
+            "skills/notes/assets/huge.bin",
+            "skills/notes/assets/song.mp3"
+        ]
+    );
+    let report = s.library.import(
+        &preview,
+        std::slice::from_ref(&skill.id),
+        &TagChoices::new(),
+    )?;
+    let skipped: Vec<&str> = report
+        .skipped_files
+        .iter()
+        .map(|f| f.file.as_str())
+        .collect();
+    assert_eq!(
+        skipped,
+        [
+            "skills/notes/assets/huge.bin",
+            "skills/notes/assets/song.mp3"
+        ]
+    );
+    let (audit, _) = records::load_audit(&s.library.store.conn, &skill.id)?.ok_or("audit")?;
+    assert!(audit.unaudited.is_empty(), "nothing large was copied");
+    Ok(())
+}
+
+#[test]
+fn opting_in_copies_large_files_up_to_the_ceiling_marks_them_unaudited_and_remembers_it(
+) -> TestResult {
+    let mut s = setup()?;
+    with_large_files(s.source_dir.path())?;
+    let preview = s.library.preview(&s.source)?;
+    let skill = preview
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == ArtifactKind::Skill)
+        .ok_or("skill")?;
+    let report = s.library.import_with_options(
+        &preview,
+        std::slice::from_ref(&skill.id),
+        &TagChoices::new(),
+        &[],
+        true,
+    )?;
+    let skipped: Vec<(&str, SkipReason)> = report
+        .skipped_files
+        .iter()
+        .map(|f| (f.file.as_str(), f.reason))
+        .collect();
+    assert_eq!(
+        skipped,
+        [("skills/notes/assets/huge.bin", SkipReason::TooLarge)]
+    );
+    assert!(s
+        .library
+        .detail(&skill.id)?
+        .files
+        .contains(&"assets/song.mp3".to_owned()));
+    let (audit, _) = records::load_audit(&s.library.store.conn, &skill.id)?.ok_or("audit")?;
+    assert_eq!(audit.unaudited, ["skills/notes/assets/song.mp3"]);
+    let remembered: bool =
+        s.library
+            .store
+            .conn
+            .query_row("SELECT large_files FROM sources", [], |r| r.get(0))?;
+    assert!(remembered, "updates of this source copy large files too");
+    Ok(())
+}

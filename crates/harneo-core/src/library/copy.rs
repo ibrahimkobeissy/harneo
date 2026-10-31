@@ -35,7 +35,8 @@ pub enum SkipReason {
     SecretFile,
     /// A per-machine file such as `settings.local.json`.
     LocalFile,
-    /// Larger than the scan's per-file limit.
+    /// Larger than the copy's per-file limit: the scan's, or the large-file ceiling when the
+    /// import opted in.
     TooLarge,
 }
 
@@ -388,15 +389,29 @@ pub(crate) struct Copied {
     pub replaced_secret_keys: Vec<String>,
 }
 
-/// Copies `artifact` from `source_root` into the existing, empty folder `dest`.
+/// The largest file an import that opted in to large files copies: 100 MiB.
+pub const LARGE_FILE_CEILING: u64 = 100 * 1024 * 1024;
+
+/// The per-file copy limit: the scan's (1 MiB), or [`LARGE_FILE_CEILING`] when the import or
+/// the artifact's source opted in to large files.
+pub(crate) fn copy_limit(large_files: bool) -> u64 {
+    if large_files {
+        LARGE_FILE_CEILING
+    } else {
+        ScanOptions::default().max_file_bytes as u64
+    }
+}
+
+/// Copies `artifact` from `source_root` into the existing, empty folder `dest`, leaving out
+/// files over `max` bytes.
 pub(crate) fn copy_artifact(
     source_root: &Path,
     artifact: &Artifact,
     artifact_id: &str,
     dest: &Path,
     hooks: &dyn ImportHooks,
+    max: u64,
 ) -> Result<Copied> {
-    let max = ScanOptions::default().max_file_bytes as u64;
     let mut skipped = Vec::new();
     let mut replaced = Vec::new();
     let write = |dest_rel: &str, bytes: Vec<u8>, executable: bool| -> Result<()> {

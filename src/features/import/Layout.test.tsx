@@ -40,6 +40,7 @@ function cand(
       tier: "trusted",
       findings: [],
       reach,
+      unaudited: [],
       dismissed: [],
       confirmation: null,
     },

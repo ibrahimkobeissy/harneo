@@ -150,6 +150,9 @@ pub struct Audit {
     /// stored (an import preview).
     #[serde(default)]
     pub confirmation: Option<Confirmation>,
+    /// Files over the per-file limit, copied but never read by any rule: not audited.
+    #[serde(default)]
+    pub unaudited: Vec<String>,
 }
 
 /// A finding Claude judged not to be a threat.
@@ -277,6 +280,7 @@ pub fn audit_input(input: &AuditInput) -> Audit {
         reach: reach::infer(input),
         dismissed: Vec::new(),
         confirmation: None,
+        unaudited: input.oversize.clone(),
     }
 }
 
@@ -457,6 +461,7 @@ mod tests {
             reach: Reach::default(),
             dismissed: Vec::new(),
             confirmation: None,
+            unaudited: Vec::new(),
         };
         let v = serde_json::to_value(&a)?;
         assert_eq!(

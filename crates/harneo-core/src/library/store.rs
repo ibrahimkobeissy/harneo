@@ -314,8 +314,16 @@ ALTER TABLE upstream_new RENAME TO upstream;
 CREATE INDEX upstream_state ON upstream(state);
 ";
 
+/// Large files: an import can opt in to copying files over the scan's per-file limit (up to
+/// the copy ceiling), remembered per source so updates keep them; an artifact's audit lists
+/// the files it did not read because of their size.
+const V10: &str = "
+ALTER TABLE sources   ADD COLUMN large_files INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE artifacts ADD COLUMN unaudited   TEXT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;

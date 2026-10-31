@@ -27,6 +27,7 @@ function audit(score: number, tier: Audit["tier"], findings: Finding[]): Audit {
     tier,
     findings,
     reach,
+    unaudited: [],
     dismissed: [],
     confirmation: null,
   };
@@ -75,6 +76,7 @@ const dismissed: Audit = {
   tier: "trusted",
   findings: [],
   reach,
+  unaudited: [],
   dismissed: [flagged, flagged].map((finding) => ({
     finding,
     reason: "It is JSX, not a credential.",

@@ -100,6 +100,8 @@ export function ImportScreen() {
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  // Copy files over 1 MiB too (up to 100 MiB each); they are not audited.
+  const [largeFiles, setLargeFiles] = useState(false);
   // Claude's verdicts so far: each candidate's audit once phase 2 has judged it.
   const [verdicts, setVerdicts] = useState<Record<string, Audit>>({});
   // Candidates excluded by the automatic rule alone. A hand exclusion or restore leaves this
@@ -363,6 +365,7 @@ export function ImportScreen() {
           chosen.map((c) => c.id),
           picked,
           accepted,
+          largeFiles,
         ),
       );
       // A refused group is remembered only where both artifacts are already in the library.
@@ -536,6 +539,8 @@ export function ImportScreen() {
             onRestore={restore}
             onIncludeManaged={() => void includeManaged()}
             refreshing={refreshing}
+            largeFiles={largeFiles}
+            onLargeFiles={setLargeFiles}
           />
         ))}
       {step === 2 && (

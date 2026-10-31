@@ -210,6 +210,7 @@ pub fn settle(phase1: Audit, verdicts: &[Option<Verdict>], confirmation: Confirm
         reach: phase1.reach,
         dismissed,
         confirmation: Some(confirmation),
+        unaudited: phase1.unaudited,
     }
 }
 

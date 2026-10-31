@@ -58,6 +58,7 @@ function cand(
         protects: 0,
         ...reach,
       },
+      unaudited: [],
       dismissed: [],
       confirmation: null,
     },

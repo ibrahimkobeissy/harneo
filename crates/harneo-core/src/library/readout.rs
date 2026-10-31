@@ -5,7 +5,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
-use super::copy::{copy_artifact, safe_join, stored_view, NoHooks};
+use super::copy::{copy_artifact, copy_limit, safe_join, stored_view, NoHooks};
 use crate::artifact::{Artifact, ArtifactKind};
 use crate::error::Result;
 
@@ -23,7 +23,7 @@ pub(crate) fn preview_text(root: &Path, id: &str, artifact: &Artifact) -> Option
     let staging = tempfile::tempdir().ok()?;
     let dir = staging.path().join(id);
     fs::create_dir(&dir).ok()?;
-    copy_artifact(root, artifact, id, &dir, &NoHooks).ok()?;
+    copy_artifact(root, artifact, id, &dir, &NoHooks, copy_limit(false)).ok()?;
     stored_text(&dir, artifact)
 }
 
