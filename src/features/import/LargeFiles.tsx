@@ -35,7 +35,7 @@ export function LargeFilesChoice({
             {`${files} ${files === 1 ? "file" : "files"} over 1 MiB in ${names}`}
           </span>
         </label>
-        <p className={styles.sec}>
+        <p className={styles.checkNote}>
           {on
             ? "They will be copied (up to 100 MiB each). They are not security audited and are listed as such on the artifact."
             : "Off: they will not be copied. Tick to copy them (up to 100 MiB each); they are not security audited."}
