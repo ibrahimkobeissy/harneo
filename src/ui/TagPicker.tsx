@@ -1,5 +1,5 @@
 import { Plus, Tag as TagIcon } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { TagColor } from "../bindings/TagColor";
 import type { TagWithCount } from "../bindings/TagWithCount";
 import { Button } from "./Button";
@@ -43,7 +43,25 @@ export function TagPicker({
   const wrap = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const listId = useId();
+
+  // The menu is fixed to the viewport so a clipping ancestor (the import step's rounded list)
+  // cannot cut it off, and it opens upward when there is more room above the trigger.
+  useLayoutEffect(() => {
+    if (open) placeMenu(trigger.current, menu.current);
+  });
+
+  useEffect(() => {
+    if (!open) return;
+    const place = () => placeMenu(trigger.current, menu.current);
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +94,7 @@ export function TagPicker({
     setOpen(!open);
     setQuery("");
     setActive(0);
-    requestAnimationFrame(() => input.current?.focus());
+    requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
   }
 
   function pick(option: Option) {
@@ -134,6 +152,7 @@ export function TagPicker({
       )}
       {open && (
         <div
+          ref={menu}
           className={styles.tagMenu}
           role="presentation"
           onKeyDown={onKeyDown}
@@ -221,4 +240,31 @@ export function TagPicker({
       )}
     </div>
   );
+}
+
+/** Gap between the trigger and the menu, and the menu's minimum distance from the window edge. */
+const MENU_GAP = 4;
+const EDGE = 8;
+
+/** Positions the fixed menu below its trigger, or above it when it does not fit below. */
+function placeMenu(
+  trigger: HTMLElement | null,
+  menu: HTMLElement | null,
+): void {
+  if (!trigger || !menu) return;
+  const anchor = trigger.getBoundingClientRect();
+  const height = menu.offsetHeight;
+  const width = menu.offsetWidth;
+  const below = window.innerHeight - anchor.bottom - MENU_GAP - EDGE;
+  const above = anchor.top - MENU_GAP - EDGE;
+  const up = height > below && above > below;
+  const top = up
+    ? Math.max(EDGE, anchor.top - MENU_GAP - height)
+    : anchor.bottom + MENU_GAP;
+  const left = Math.max(
+    EDGE,
+    Math.min(anchor.left, window.innerWidth - width - EDGE),
+  );
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
 }

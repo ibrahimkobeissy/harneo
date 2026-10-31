@@ -20,8 +20,8 @@
   position: relative;
 }
 .tagMenu {
-  position: absolute;
-  top: calc(100% + var(--space-xs));
+  position: fixed;
+  top: 0;
   left: 0;
   z-index: 60;
   width: 260px;
