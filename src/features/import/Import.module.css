@@ -108,6 +108,8 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
+  /* Room for the selected card's 3px ring, which the scrolling body would clip. */
+  padding-top: var(--space-xs);
 }
 .choice {
   border: var(--hairline) solid var(--line);
