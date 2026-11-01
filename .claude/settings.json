@@ -166,7 +166,8 @@
       "git ls-remote *",
       "git submodule *",
       "claude plugin *",
-      "bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh"
+      "bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh",
+      ".claude/skills/ticket-flow/scripts/board.sh *"
     ],
     "failIfUnavailable": true,
     "network": {

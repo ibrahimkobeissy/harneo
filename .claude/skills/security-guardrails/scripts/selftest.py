@@ -99,6 +99,15 @@ CASES = [
     ("commit --no-verify", bash("git commit --no-verify -m x"), DENY),
     ("-c core.hooksPath", bash("git -c core.hooksPath=/dev/null commit -m x"), DENY),
     ("config core.hooksPath", bash("git config core.hooksPath /tmp/none"), DENY),
+
+    # --- sandbox-exempt commands must run alone ------------------------------
+    ("cd && gh", bash("cd /repo && gh issue list"), DENY),
+    ("git pull | tail", bash("git pull --ff-only origin main | tail -1"), DENY),
+    ("gh body from $(...)", bash("gh issue create --title x --body \"$(cat f.md)\""), DENY),
+    ("timeout git push", bash("timeout 30 git push origin main"), DENY),
+    ("env prefix gh", bash("GH_PAGER= gh pr list"), DENY),
+    ("git push after commit", bash("git commit -m x; git push origin main"), DENY),
+    ("bash -c gh", bash("bash -c 'gh issue list'"), DENY),
     ("compound with force push", bash("git add . && git commit -m x && git push -f"), DENY),
 
     # --- secret paths, file tools --------------------------------------------
@@ -143,6 +152,10 @@ CASES = [
     ("gh auth status", bash("gh auth status"), PASS),
     ("gh ssh-key list", bash("gh ssh-key list"), PASS),
     ("claude plugin install", bash("claude plugin install foo@bar"), PASS),
+    ("gh issue create --body-file", bash("gh issue create -R me/r --title x --body-file /tmp/b.md"), PASS),
+    ("git fetch alone", bash("git fetch origin"), PASS),
+    ("compound without exempt cmds", bash("cd src && grep -r TODO . | head"), PASS),
+    ("git log | head", bash("git log --oneline | head -5"), PASS),
     ("cat settings.json", bash("cat .claude/settings.json"), PASS),
     ("run selftest", bash("python3 .claude/skills/security-guardrails/scripts/selftest.py"), PASS),
     ("run gitleaks installer", bash("bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh"), PASS),
@@ -204,9 +217,10 @@ def settings_cases(report, project):
     edit("settings: sandbox off -> ask", '"enabled": true', '"enabled": false', ASK)
     edit("settings: retry outside sandbox -> ask", '"allowUnsandboxedCommands": false', '"allowUnsandboxedCommands": true', ASK)
     edit("settings: drop onFailure -> ask", ',\n            "onFailure": "block"', "", ASK)
-    edit("settings: re-enable bypass -> ask", '"disableBypassPermissionsMode": "disable",', "", ASK)
     edit("settings: invalid JSON -> ask", '"sandbox": {', '"sandbox": {{', ASK)
     edit("settings: add allowed domain -> pass", '"registry.npmjs.org",', '"registry.npmjs.org",\n        "proxy.golang.org",', PASS)
+    write("settings: re-enable bypass -> ask",
+          lambda d: d["permissions"].pop("disableBypassPermissionsMode"), ASK)
     write("settings: remove the guard hook -> ask", lambda d: d.pop("hooks"), ASK)
     write("settings: disableAllHooks -> ask", lambda d: d.update(disableAllHooks=True), ASK)
     write("settings: exclude python from sandbox -> ask", lambda d: d["sandbox"]["excludedCommands"].append("python3 *"), ASK)

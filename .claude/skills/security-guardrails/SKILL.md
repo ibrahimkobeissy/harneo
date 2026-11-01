@@ -47,8 +47,15 @@ and plugin hooks and MCP servers run outside it (check them before installing).
   It then goes through the normal permission flow and guard.py.
 - **A network domain sandboxed commands need**: add it to
   `sandbox.network.allowedDomains`. This one is not treated as weakening.
-- **A compound command that includes `git push`, `gh` or `git pull`** runs
-  sandboxed as a whole and fails on the network. Run those commands on their own.
+- **A command in `sandbox.excludedCommands` (`gh`, `git push`, `git pull`…)
+  is exempt only when it is the whole Bash call.** Chained (`cd x && gh …`,
+  `git pull | tail`, `$(…)`) or prefixed (`VAR= gh`, `timeout 30 git push`), it
+  runs sandboxed without `~/.config/gh` or `~/.ssh`, and fails as "not logged
+  in" or "check access rights", which looks like broken auth but isn't.
+  guard.py refuses these up front: run the command as its own call, using
+  `-R owner/repo`, `--body-file` or `git -C dir` instead of `cd` and
+  substitutions. A script that calls `gh` inside (e.g. ticket-flow's
+  `board.sh`) needs its own `excludedCommands` entry.
 - `.env.example` and similar templates are blocked like `.env`. The user can
   create or show them.
 

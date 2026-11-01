@@ -17,6 +17,8 @@ What it checks
 4. Destructive git (force push, reset --hard, clean -f, ...), skipping hooks.
 5. Edits that weaken the guardrails (settings.json, this script, the rules).
 6. A first `git commit` in a repo without the gitleaks pre-commit hook.
+7. A sandbox-exempt command (sandbox.excludedCommands: gh, git push...) chained
+   with others, which would run sandboxed and fail as if signed out.
 
 Limits
 ------
@@ -642,11 +644,64 @@ def log(decision, tool, reason, detail=""):
         pass
 
 
-def decide(decision, reason, tool, detail):
+# ---------------------------------------------------------------------------
+# 7. Sandbox-exempt commands chained with others
+# ---------------------------------------------------------------------------
+
+# Used when the project's settings.json can't be read.
+DEFAULT_EXCLUDED_COMMANDS = (
+    "gh *", "git push *", "git pull *", "git fetch *", "git clone *",
+    "git ls-remote *", "git submodule *", "claude plugin *",
+)
+
+
+def excluded_commands(project):
+    """The project's sandbox.excludedCommands patterns."""
+    try:
+        with open(os.path.join(project, ".claude", "settings.json")) as fh:
+            patterns = (json.load(fh).get("sandbox") or {}).get("excludedCommands")
+        if isinstance(patterns, list):
+            return [p for p in patterns if isinstance(p, str) and p.strip()]
+    except Exception:
+        pass
+    return list(DEFAULT_EXCLUDED_COMMANDS)
+
+
+def _is_excluded(argv, patterns):
+    line = " ".join(argv)
+    for p in patterns:
+        bare = p[:-2].rstrip() if p.endswith(" *") else p
+        if line == bare or fnmatch.fnmatchcase(line, p):
+            return True
+    return False
+
+
+def rule_exempt_in_compound(command, commands, patterns):
+    """The sandbox exempts an excludedCommands entry only when it is the whole
+    call. Chained (cd, &&, ;, |, $(...)) or prefixed (env VAR=, timeout), it
+    runs sandboxed, without ~/.config/gh or ~/.ssh, and fails as if signed out."""
+    hits = [argv for argv in commands if _is_excluded(argv, patterns)]
+    if not hits:
+        return None
+    raw = _tokenize(command)
+    alone = (len(commands) == 1 and not any(_is_separator(t) for t in raw)
+             and "$(" not in command and "`" not in command
+             and raw[:len(hits[0])] == hits[0])
+    if alone:
+        return None
+    name = " ".join(hits[0][:2])
+    return ("deny", "`%s` is exempt from the sandbox only when it is the whole command. "
+            "Chained or prefixed (cd, &&, ;, |, $(...), env VAR=, timeout), it runs sandboxed "
+            "without credentials and fails as 'not logged in' or 'permission denied'. Run it as "
+            "its own Bash call with nothing before or after it (use flags like -R/--repo, "
+            "--body-file or git -C instead of cd and substitutions)." % name, "retry")
+
+
+def decide(decision, reason, tool, detail, retry=False):
     log(decision, tool, reason, detail)
     message = "Blocked by security-guardrails: " if decision == "deny" else "security-guardrails: "
     message += reason
-    if decision == "deny":
+    if decision == "deny" and not retry:
         message += " If this is genuinely needed, ask the user to do it themselves."
     print(json.dumps({
         "hookSpecificOutput": {
@@ -678,6 +733,8 @@ def check_bash(command, cwd):
         results += [rule_env_and_keyrings(argv), rule_gh(argv), rule_git(argv, cwd)]
     if SHELL_WRITE_RE.search(command):
         results.append(("ask", "this shell command writes to the security guardrails' files."))
+    # Last, so a security deny's reason wins over this one.
+    results.append(rule_exempt_in_compound(command, commands, excluded_commands(_LOG_DIR or cwd)))
     return pick(results)
 
 
@@ -694,7 +751,7 @@ def main():
         command = ti.get("command", "") or ""
         result = check_bash(command, cwd)
         if result:
-            decide(result[0], result[1], tool, command)
+            decide(result[0], result[1], tool, command, retry=len(result) > 2)
     elif tool in ("Read", "Edit", "Write", "MultiEdit", "NotebookEdit"):
         fp = ti.get("file_path") or ti.get("notebook_path") or ""
         if path_is_sensitive(fp):
