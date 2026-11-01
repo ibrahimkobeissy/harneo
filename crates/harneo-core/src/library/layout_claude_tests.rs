@@ -268,8 +268,13 @@ fn items_that_cannot_be_verified_are_each_rejected_with_their_reason() -> TestRe
 }
 
 #[test]
-fn the_setting_is_off_by_default_and_nothing_asks_unless_the_layout_is_requested() -> TestResult {
+fn the_setting_is_on_by_default_and_nothing_asks_unless_the_layout_is_requested() -> TestResult {
     let mut s = setup()?;
+    assert!(
+        s.library.layout_enabled()?,
+        "on until the user turns it off"
+    );
+    s.library.set_layout_enabled(false)?;
     assert!(!s.library.layout_enabled()?);
     s.claude(&answer(&[item("command", "review", "prompts/review.md")]))?;
     let preview = s.library.preview(&s.source())?;

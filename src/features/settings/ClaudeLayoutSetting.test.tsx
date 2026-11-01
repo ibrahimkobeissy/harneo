@@ -27,10 +27,11 @@ function setup(stored: boolean | null, failSet = false) {
 const name = "Ask Claude about repo layouts at import";
 
 describe("Settings: Ask Claude about repo layouts", () => {
-  it("is off by default and says exactly what is sent and to whom", async () => {
-    setup(false);
+  it("is on by default and says exactly what is sent and to whom", async () => {
+    setup(true);
     const sw = await screen.findByRole("switch", { name });
-    expect(sw).toHaveAttribute("aria-checked", "false");
+    expect(sw).toHaveAttribute("aria-checked", "true");
+    expect(sw).toHaveAccessibleDescription(/On by default/);
     expect(sw).toHaveAccessibleDescription(/your own claude CLI/);
     expect(sw).toHaveAccessibleDescription(/file paths/);
     expect(sw).toHaveAccessibleDescription(/manifests/);

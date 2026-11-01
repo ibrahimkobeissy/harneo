@@ -35,7 +35,7 @@ export function ClaudeSettings() {
   const [model, setModel] = useState("haiku");
   const [atImport, setAtImport] = useState(false);
   const [confirm, setConfirm] = useState(true);
-  const [layout, setLayout] = useState(false);
+  const [layout, setLayout] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const layoutId = useId();
   const layoutHelpId = useId();
@@ -287,9 +287,9 @@ export function ClaudeSettings() {
           </label>
           <div id={layoutHelpId} className={styles.sec}>
             <p className={styles.para}>
-              Off by default. When on, an import that leaves files Harneo
-              couldn&apos;t place sends these to Claude through your own claude
-              CLI, using your Claude plan:
+              On by default. An import that leaves files Harneo couldn&apos;t
+              place sends these to Claude through your own claude CLI, using
+              your Claude plan:
             </p>
             <ul className={styles.list}>
               <li>the repo&apos;s file paths (up to 2,000)</li>

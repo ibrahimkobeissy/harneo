@@ -473,10 +473,11 @@ fn within(path: &str, folder: &str) -> bool {
 }
 
 impl Library {
-    /// Whether tier 3 runs on its own after a scan: the `import.layoutWithClaude` setting,
-    /// off unless set to `true`. `library_preview_layout` runs it whatever this says.
+    /// Whether tier 3 runs on its own after a scan: the `import.layoutWithClaude` setting, on
+    /// unless set to `false` (the user's choice, 2026-11-01). `library_preview_layout` runs it
+    /// whatever this says.
     pub fn layout_enabled(&self) -> Result<bool> {
-        Ok(self.settings_get(SETTING_KEY)? == Some(Value::Bool(true)))
+        Ok(self.settings_get(SETTING_KEY)? != Some(Value::Bool(false)))
     }
 
     /// Turns tier 3's automatic run on or off.

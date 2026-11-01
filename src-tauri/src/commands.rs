@@ -2298,7 +2298,8 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         app.manage(PreviewCache::default());
         let handle = app.handle();
         let state = app.state::<LibraryState>();
-        assert!(!state.with(|l| l.layout_enabled())?);
+        assert!(state.with(|l| l.layout_enabled())?, "on by default");
+        state.with(|l| l.set_layout_enabled(false))?;
         let ticket = preview_held(
             handle,
             &Source::Local {
