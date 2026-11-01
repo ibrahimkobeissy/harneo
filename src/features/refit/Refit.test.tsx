@@ -160,6 +160,8 @@ const pluginPlan = {
 
 interface Opts {
   plugins?: boolean;
+  /** Holds the plugin install until it resolves. */
+  pluginGate?: Promise<void>;
   comparison?: Comparison;
   compareError?: string;
   planError?: string;
@@ -186,6 +188,7 @@ function setup(opts: Opts = {}) {
     calls.push({ cmd, args });
     switch (cmd) {
       case "project_plugins_install":
+        if (opts.pluginGate) return opts.pluginGate.then(() => []);
         return [
           {
             id: "brag@brag",
@@ -312,6 +315,30 @@ describe("Refit flow", () => {
     expect(
       calls.filter((c) => c.cmd === "project_plugins_install"),
     ).toHaveLength(1);
+  });
+
+  it("holds the Done actions while the plugins install", async () => {
+    let release = () => {};
+    const pluginGate = new Promise<void>((r) => {
+      release = r;
+    });
+    setup({ plugins: true, pluginGate });
+    await toPreview();
+    await userEvent.click(screen.getByRole("button", { name: /Apply/ }));
+    await screen.findByText("Installing plugins from their marketplaces…");
+    expect(
+      screen.getByRole("button", { name: "Go to projects" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("link", { name: /Open the project/ })).toBeNull();
+    release();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Go to projects" }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("link", { name: /Open the project/ }),
+    ).toBeVisible();
   });
 
   it("lists registered projects and picks one", async () => {

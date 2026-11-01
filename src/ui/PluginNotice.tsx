@@ -80,7 +80,14 @@ const statusText: Record<PluginInstallStatus, string> = {
  * marketplace, as soon as the step shows, with each result as it lands and a Retry when one
  * failed. Nothing is copied; Claude Code does the install.
  */
-export function PluginsInstall({ projectId }: { projectId: bigint }) {
+export function PluginsInstall({
+  projectId,
+  onRunningChange,
+}: {
+  projectId: bigint;
+  /** Told when an install starts and ends, so the step can hold its actions meanwhile. */
+  onRunningChange?: (running: boolean) => void;
+}) {
   const [results, setResults] = useState<PluginInstall[]>([]);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +96,7 @@ export function PluginsInstall({ projectId }: { projectId: bigint }) {
 
   const run = useCallback(async () => {
     setRunning(true);
+    onRunningChange?.(true);
     setError(null);
     setResults([]);
     const stop = await onPluginsInstallProgress((r) =>
@@ -101,8 +109,9 @@ export function PluginsInstall({ projectId }: { projectId: bigint }) {
     } finally {
       stop();
       setRunning(false);
+      onRunningChange?.(false);
     }
-  }, [projectId]);
+  }, [projectId, onRunningChange]);
 
   useEffect(() => {
     if (started.current) return;

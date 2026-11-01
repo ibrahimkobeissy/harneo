@@ -74,6 +74,8 @@ const pluginPlan = {
 
 interface Opts {
   plugins?: boolean;
+  /** Holds the plugin install until it resolves. */
+  pluginGate?: Promise<void>;
   profiles?: ProfileSummary[];
   listError?: string;
   planError?: string;
@@ -94,6 +96,7 @@ function setup(opts: Opts = {}) {
     calls.push({ cmd, args });
     switch (cmd) {
       case "project_plugins_install":
+        if (opts.pluginGate) return opts.pluginGate.then(() => []);
         return [
           {
             id: "brag@brag",
@@ -243,6 +246,32 @@ describe("Scaffold flow", () => {
     expect(
       calls.filter((c) => c.cmd === "project_plugins_install"),
     ).toHaveLength(1);
+  });
+
+  it("holds the Done actions while the plugins install", async () => {
+    let release = () => {};
+    const pluginGate = new Promise<void>((r) => {
+      release = r;
+    });
+    setup({ plugins: true, pluginGate });
+    await toPreview();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Write 3 files" }),
+    );
+    await screen.findByText("Installing plugins from their marketplaces…");
+    expect(screen.getByRole("button", { name: "Open project" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Scaffold another" }),
+    ).toBeDisabled();
+    release();
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Open project" }),
+      ).toBeEnabled(),
+    );
+    expect(
+      screen.getByRole("button", { name: "Scaffold another" }),
+    ).toBeEnabled();
   });
 
   it("says nothing about plugins when the profile has none", async () => {

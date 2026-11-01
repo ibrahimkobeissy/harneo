@@ -1,4 +1,5 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
+import { useState } from "react";
 import { Link } from "react-router";
 import { Button, PluginsInstall } from "../../ui";
 import styles from "./Refit.module.css";
@@ -45,6 +46,8 @@ export function DoneStep({
   onProjects: () => void;
 }) {
   const originals = backedUp === 1 ? "original" : "originals";
+  // The actions wait while the plugins install.
+  const [installing, setInstalling] = useState(plugins);
   return (
     <div className={styles.result}>
       <div className={styles.okIcon}>
@@ -57,7 +60,12 @@ export function DoneStep({
         {backedUp} {originals} backed up. The project is in your registry with a
         fresh <span className={styles.mono}>HARNESS.md</span>.
       </p>
-      {plugins && <PluginsInstall projectId={BigInt(projectId)} />}
+      {plugins && (
+        <PluginsInstall
+          projectId={BigInt(projectId)}
+          onRunningChange={setInstalling}
+        />
+      )}
       {backupFolder && (
         <p>
           Backup saved in <span className={styles.mono}>{backupFolder}</span>.
@@ -72,9 +80,15 @@ export function DoneStep({
         </p>
       )}
       <p>
-        <Link to={`/projects/${projectId}`}>
-          Open the project to see its Backups tab
-        </Link>
+        {installing ? (
+          <span className={styles.muted}>
+            Open the project to see its Backups tab
+          </span>
+        ) : (
+          <Link to={`/projects/${projectId}`}>
+            Open the project to see its Backups tab
+          </Link>
+        )}
       </p>
       {error && (
         <p role="alert" className={styles.errNote}>
@@ -106,12 +120,12 @@ export function DoneStep({
       )}
       <div className={styles.actions}>
         {canRestore && !restored && !confirming && (
-          <Button onClick={onAskRestore}>
+          <Button onClick={onAskRestore} disabled={installing}>
             <RotateCcw size={14} aria-hidden="true" />
             Restore originals
           </Button>
         )}
-        <Button variant="primary" onClick={onProjects}>
+        <Button variant="primary" onClick={onProjects} disabled={installing}>
           <FolderGit2 size={14} aria-hidden="true" />
           Go to projects
         </Button>

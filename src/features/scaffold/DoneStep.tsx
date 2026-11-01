@@ -1,4 +1,5 @@
 import { CircleCheck, FolderGit2, FolderPlus } from "lucide-react";
+import { useState } from "react";
 import { Button, PluginsInstall } from "../../ui";
 import styles from "./Scaffold.module.css";
 
@@ -22,6 +23,8 @@ export function DoneStep({
   onOpen: () => void;
   onAgain: () => void;
 }) {
+  // The actions wait while the plugins install.
+  const [installing, setInstalling] = useState(plugins);
   return (
     <div className={styles.result}>
       <div className={styles.okIcon}>
@@ -35,13 +38,15 @@ export function DoneStep({
         <span className={styles.mono}>HARNESS.md</span>. The project is in your
         registry.
       </p>
-      {plugins && <PluginsInstall projectId={projectId} />}
+      {plugins && (
+        <PluginsInstall projectId={projectId} onRunningChange={setInstalling} />
+      )}
       <div className={styles.actions}>
-        <Button onClick={onOpen}>
+        <Button onClick={onOpen} disabled={installing}>
           <FolderGit2 size={14} aria-hidden="true" />
           Open project
         </Button>
-        <Button variant="primary" onClick={onAgain}>
+        <Button variant="primary" onClick={onAgain} disabled={installing}>
           <FolderPlus size={14} aria-hidden="true" />
           Scaffold another
         </Button>
