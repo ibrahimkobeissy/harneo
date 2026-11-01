@@ -376,3 +376,63 @@ fn an_empty_folder_has_only_profile_rows() -> TestResult {
     assert!(plan.writes.iter().all(|w| w.action == WriteAction::New));
     Ok(())
 }
+
+#[test]
+fn a_hook_script_inside_a_skill_folder_is_one_row_and_one_write() -> TestResult {
+    let f = fx()?;
+    let dir = project(&f)?;
+    // The project's settings.json runs the skill's own script as a hook (#194).
+    put(
+        dir.path(),
+        ".claude/settings.json",
+        r#"{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash \"$CLAUDE_PROJECT_DIR/.claude/skills/s/scripts/run.sh\""}]}]}}"#,
+    )?;
+    put(dir.path(), ".claude/skills/s/scripts/run.sh", "echo mine\n")?;
+    let script = ".claude/skills/s/scripts/run.sh";
+    let c = f.library.compare(dir.path(), f.profile, None)?;
+    let owners: Vec<&str> = c
+        .rows
+        .iter()
+        .filter(|r| r.paths.iter().any(|p| p == script))
+        .map(|r| r.item.as_str())
+        .collect();
+    assert_eq!(owners, vec![".claude/skills/s"]);
+    let plan = f.library.plan_refit(&c, &BTreeMap::new())?;
+    let writes: Vec<_> = plan.writes.iter().filter(|w| w.path == script).collect();
+    assert_eq!(writes.len(), 1);
+    assert_eq!(writes[0].action, WriteAction::Replace);
+    Ok(())
+}
+
+#[test]
+fn a_hook_script_inside_a_project_only_skill_stays_with_that_skill() -> TestResult {
+    let f = fx()?;
+    let dir = project(&f)?;
+    put(
+        dir.path(),
+        ".claude/skills/mine/SKILL.md",
+        "---\nname: mine\ndescription: Guards things\n---\nBody\n",
+    )?;
+    put(
+        dir.path(),
+        ".claude/skills/mine/scripts/guard.sh",
+        "exit 0\n",
+    )?;
+    put(
+        dir.path(),
+        ".claude/settings.json",
+        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"bash \"$CLAUDE_PROJECT_DIR/.claude/skills/mine/scripts/guard.sh\""}]}]}}"#,
+    )?;
+    let script = ".claude/skills/mine/scripts/guard.sh";
+    let c = f.library.compare(dir.path(), f.profile, None)?;
+    let owners: Vec<&str> = c
+        .rows
+        .iter()
+        .filter(|r| r.paths.iter().any(|p| p == script))
+        .map(|r| r.item.as_str())
+        .collect();
+    assert_eq!(owners, vec![".claude/skills/mine"]);
+    let plan = f.library.plan_refit(&c, &BTreeMap::new())?;
+    assert_eq!(plan.writes.iter().filter(|w| w.path == script).count(), 1);
+    Ok(())
+}

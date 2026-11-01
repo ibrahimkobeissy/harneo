@@ -493,6 +493,7 @@ impl Library {
                 }
             }
         }
+        one_row_per_path(&mut groups);
 
         let mut items = Vec::new();
         for (key, (profile, paths)) in groups {
@@ -560,6 +561,41 @@ impl Library {
             }
         }
         Ok(true)
+    }
+}
+
+/// Leaves each project path in exactly one group, so a plan never writes a file twice. A path
+/// can reach several groups: `settings.json` lists the hook scripts it runs, and a script can
+/// sit inside a skill folder that is an item of its own (#194). The owner is the group whose
+/// profile side has the path; otherwise the deepest folder item that contains it; otherwise
+/// the first group in order.
+fn one_row_per_path(
+    groups: &mut BTreeMap<String, (BTreeMap<String, ProfileFile>, BTreeSet<String>)>,
+) {
+    let mut claimants: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    for (key, (_, project)) in groups.iter() {
+        for path in project {
+            claimants.entry(path.clone()).or_default().push(key.clone());
+        }
+    }
+    for (path, keys) in claimants {
+        let [first, _, ..] = keys.as_slice() else {
+            continue;
+        };
+        let in_profile = keys
+            .iter()
+            .find(|k| groups.get(*k).is_some_and(|(p, _)| p.contains_key(&path)));
+        let folder = || {
+            keys.iter()
+                .filter(|k| path.starts_with(&format!("{k}/")))
+                .max_by_key(|k| k.len())
+        };
+        let owner = in_profile.or_else(folder).unwrap_or(first).clone();
+        for (key, (_, project)) in groups.iter_mut() {
+            if *key != owner {
+                project.remove(&path);
+            }
+        }
     }
 }
 
