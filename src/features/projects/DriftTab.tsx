@@ -6,6 +6,7 @@ import {
   FileX,
   RotateCcw,
   TriangleAlert,
+  Trash2,
   CircleArrowUp,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -53,11 +54,14 @@ export function DriftTab({
   report,
   onChanged,
   onNotice,
+  onForget,
 }: {
   project: Project;
   report: DriftReport;
   onChanged: () => void;
   onNotice: (text: string, tone: "ok" | "bad") => void;
+  /** The folder is gone: take the project off Harneo's list. */
+  onForget: () => void;
 }) {
   const navigate = useNavigate();
   const drifted = useMemo(
@@ -129,11 +133,20 @@ export function DriftTab({
     <>
       {report.status === "missing" && (
         <Callout tone="bad" icon={FileX}>
-          <b>The folder for {project.name} is gone.</b>
-          <p>
-            Nothing can be compared until it is back at{" "}
-            <span className={styles.mono}>{project.path}</span>.
-          </p>
+          <div className={styles.upgrade}>
+            <div>
+              <b>The folder for {project.name} is gone.</b>
+              <p>
+                Nothing can be compared until it is back at{" "}
+                <span className={styles.mono}>{project.path}</span>. If it is
+                gone for good, remove the project from Harneo.
+              </p>
+            </div>
+            <Button small onClick={onForget}>
+              <Trash2 size={14} aria-hidden="true" />
+              Remove from Harneo
+            </Button>
+          </div>
         </Callout>
       )}
       {drifted.length > 0 && (

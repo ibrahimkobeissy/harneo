@@ -1625,6 +1625,13 @@ pub fn removal_plan(
     hold_plan(&plans, plan)
 }
 
+/// Takes a project whose folder is gone off the live list; nothing on disk is touched and its
+/// backups stay. Refused while the folder exists.
+#[tauri::command]
+pub fn project_forget_missing(state: State<'_, LibraryState>, id: i64) -> Result<(), String> {
+    state.with_mut(|library| library.forget_missing_project(id))
+}
+
 /// The backup sets of a project, newest first.
 #[tauri::command]
 pub fn project_backups(state: State<'_, LibraryState>, id: i64) -> Result<Vec<Backup>, String> {
@@ -2184,6 +2191,7 @@ mod tests {
         assert!(project_file_content(state(), 1, "a".into()).is_err());
         assert!(switch_plan(state(), plans(), 1, 1, None).is_err());
         assert!(removal_plan(state(), plans(), 1).is_err());
+        assert!(project_forget_missing(state(), 1).is_err());
         assert!(project_backups(state(), 1).is_err());
         Ok(())
     }

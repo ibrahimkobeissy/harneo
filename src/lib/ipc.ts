@@ -800,6 +800,11 @@ export function removalPlan(projectId: bigint): Promise<PlanTicket> {
   return invoke<PlanTicket>("removal_plan", { projectId: Number(projectId) });
 }
 
+/** Takes a project whose folder is gone off the live list; nothing on disk is touched. */
+export function projectForgetMissing(id: bigint): Promise<void> {
+  return invoke<void>("project_forget_missing", { id: Number(id) });
+}
+
 /** The backup sets of a project, newest first. */
 export function projectBackups(id: bigint): Promise<Backup[]> {
   return invoke<Backup[]>("project_backups", { id: Number(id) });

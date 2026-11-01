@@ -133,6 +133,7 @@ pub fn run() {
             commands::artifact_profiles,
             commands::switch_plan,
             commands::removal_plan,
+            commands::project_forget_missing,
             commands::project_backups,
             commands::backup_restore,
             commands::backup_delete,

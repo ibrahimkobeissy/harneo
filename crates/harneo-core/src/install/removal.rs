@@ -7,7 +7,7 @@ use super::backup::{find_deleted_originals, find_originals, Original};
 use super::plan::{project_folder, Plan, PlanKind, Write, WriteAction};
 use super::registry::{InstalledFile, Project};
 use super::switch::{backup_count, current_bytes, take_out};
-use crate::error::Result;
+use crate::error::{Error, Result};
 use crate::library::Library;
 
 impl Library {
@@ -84,5 +84,26 @@ impl Library {
             edited_in_project: edited,
             restored,
         })
+    }
+
+    /// Takes a project whose folder is gone off the live list, without touching the disk: there
+    /// is nothing left to remove or restore. Like a removal, it stays registered as removed and
+    /// its backup sets stay. Refused while the folder exists: remove the harness instead.
+    pub fn forget_missing_project(&mut self, project_id: i64) -> Result<()> {
+        let project = self.live_project(project_id)?;
+        let path = std::path::Path::new(&project.path);
+        if path.symlink_metadata().is_ok() {
+            return Err(Error::Install {
+                message: format!(
+                    "{} is still there; remove the harness instead",
+                    project.path
+                ),
+            });
+        }
+        let _lock = self.lock_data_dir()?;
+        let tx = self.store.conn.unchecked_transaction()?;
+        super::registry::mark_removed(&tx, project_id, crate::library::records::now())?;
+        tx.commit()?;
+        Ok(())
     }
 }

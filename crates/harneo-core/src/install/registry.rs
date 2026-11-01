@@ -121,6 +121,21 @@ pub(super) fn upsert_project(conn: &Connection, plan: &Plan, now: i64) -> Result
     )?)
 }
 
+/// The project leaves the live list but stays registered as removed, so its backup sets stay
+/// listed and restorable. Its manifest goes.
+pub(super) fn mark_removed(conn: &Connection, project_id: i64, now: i64) -> Result<()> {
+    conn.execute(
+        "DELETE FROM installed_files WHERE project_id = ?1",
+        params![project_id],
+    )?;
+    conn.execute(
+        "UPDATE projects SET removed_at = ?2, profile_name = (SELECT name FROM profiles
+             WHERE id = projects.profile_id), profile_id = NULL WHERE id = ?1",
+        params![project_id, now],
+    )?;
+    Ok(())
+}
+
 /// Records the manifest and the backup row of a finished apply; returns the backup's id.
 pub(super) fn record(
     conn: &Connection,
@@ -154,17 +169,7 @@ pub(super) fn record(
         }
     }
     if plan.kind == PlanKind::Removal {
-        // The project leaves the live list but stays registered as removed, so its backup
-        // sets (the removal's own included) stay listed and restorable.
-        conn.execute(
-            "DELETE FROM installed_files WHERE project_id = ?1",
-            params![project_id],
-        )?;
-        conn.execute(
-            "UPDATE projects SET removed_at = ?2, profile_name = (SELECT name FROM profiles
-                 WHERE id = projects.profile_id), profile_id = NULL WHERE id = ?1",
-            params![project_id, now],
-        )?;
+        mark_removed(conn, project_id, now)?;
     }
     let Some(set) = set else {
         return Ok(None);

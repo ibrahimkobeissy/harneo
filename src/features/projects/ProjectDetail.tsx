@@ -35,7 +35,7 @@ import { DriftTab } from "./DriftTab";
 import { FilesTab } from "./FilesTab";
 import { ago, messageOf, statusOf } from "./format";
 import styles from "./Projects.module.css";
-import { RemoveDialog } from "./RemoveDialog";
+import { ForgetDialog, RemoveDialog } from "./RemoveDialog";
 import { StatusPill } from "./StatusPill";
 import { SwitchDialog } from "./SwitchDialog";
 import { Toast, type Notice } from "./Toast";
@@ -337,6 +337,7 @@ export function ProjectScreen() {
               report={report}
               onChanged={reload}
               onNotice={say}
+              onForget={() => setDialog("remove")}
             />
           ) : (
             <p className={styles.muted}>Could not check this project.</p>
@@ -369,7 +370,18 @@ export function ProjectScreen() {
           }}
         />
       )}
-      {dialog === "remove" && (
+      {dialog === "remove" && report?.status === "missing" && (
+        <ForgetDialog
+          project={project}
+          onClose={() => setDialog(null)}
+          onForgotten={() => {
+            void navigate("/projects", {
+              state: { toast: `Removed ${project.name} from Harneo.` },
+            });
+          }}
+        />
+      )}
+      {dialog === "remove" && report?.status !== "missing" && (
         <RemoveDialog
           project={project}
           backupDir={backupDir}

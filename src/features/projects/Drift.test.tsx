@@ -90,6 +90,7 @@ function plan(): Plan {
 }
 
 interface Opts {
+  forgetError?: boolean;
   report?: DriftReport | null;
   checkError?: boolean;
   diffError?: boolean;
@@ -162,6 +163,9 @@ function setup(path: string, opts: Opts = {}) {
           if (opts.applyGate)
             return opts.applyGate.then(() => ({ written: 2 }));
           return { written: 2 };
+        case "project_forget_missing":
+          if (opts.forgetError) throw new Error("still there");
+          return null;
         case "drift_promote":
           if (opts.promoteError) throw new Error("audit refused it");
           return { path: edited.path, artifact: "a", backup: "b" };
@@ -357,6 +361,45 @@ describe("Drift tab", () => {
     await screen.findByRole("tab", { name: /Drift/ });
     expect(await screen.findByText(/folder for shop is gone/)).toBeVisible();
     expect(screen.queryByText("No drift")).toBeNull();
+  });
+
+  it("removes a project whose folder is gone from Harneo, touching nothing", async () => {
+    const u = userEvent.setup();
+    const calls = setup("/projects/1", {
+      report: report({ status: "missing", files: [] }),
+    });
+    await u.click(
+      await screen.findByRole("button", { name: "Remove from Harneo" }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    expect(dlg).toHaveTextContent("Remove shop from Harneo?");
+    expect(dlg).toHaveTextContent("nothing on disk is touched");
+    await u.click(
+      within(dlg).getByRole("button", { name: "Remove from Harneo" }),
+    );
+    expect(await screen.findByText("Removed shop from Harneo.")).toBeVisible();
+    expect(calls.find((c) => c.cmd === "project_forget_missing")?.args).toEqual(
+      { id: 1 },
+    );
+    expect(calls.some((c) => c.cmd === "removal_plan")).toBe(false);
+  });
+
+  it("keeps the forget dialog open with the error", async () => {
+    const u = userEvent.setup();
+    setup("/projects/1", {
+      report: report({ status: "missing", files: [] }),
+      forgetError: true,
+    });
+    await u.click(
+      await screen.findByRole("button", { name: "Remove from Harneo" }),
+    );
+    const dlg = await screen.findByRole("dialog");
+    await u.click(
+      within(dlg).getByRole("button", { name: "Remove from Harneo" }),
+    );
+    expect(await within(dlg).findByRole("alert")).toHaveTextContent(
+      /Nothing was changed..*still there/,
+    );
   });
 
   it("re-applies all after a confirm that lists the files", async () => {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ApplyReport } from "../../bindings/ApplyReport";
 import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { Project } from "../../bindings/Project";
-import { installApply, removalPlan } from "../../lib/ipc";
+import { installApply, projectForgetMissing, removalPlan } from "../../lib/ipc";
 import { DialogShell } from "./DialogShell";
 import { messageOf, plural } from "./format";
 import { PlanFiles } from "./PlanFiles";
@@ -104,6 +104,58 @@ export function RemoveDialog({
       {applyError && (
         <p className={styles.err} role="alert">
           Nothing was changed. {applyError}
+        </p>
+      )}
+    </DialogShell>
+  );
+}
+
+/**
+ * The removal for a project whose folder is gone: there is nothing to delete or restore, so
+ * Harneo only stops tracking it. Its backups stay.
+ */
+export function ForgetDialog({
+  project,
+  onClose,
+  onForgotten,
+}: {
+  project: Project;
+  onClose: () => void;
+  onForgotten: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function forget() {
+    setBusy(true);
+    setError(null);
+    try {
+      await projectForgetMissing(project.id);
+      onForgotten();
+    } catch (err) {
+      setError(messageOf(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <DialogShell
+      title={`Remove ${project.name} from Harneo?`}
+      submit={busy ? "Removing…" : "Remove from Harneo"}
+      variant="danger-solid"
+      busy={busy}
+      onSubmit={() => void forget()}
+      onClose={onClose}
+    >
+      <p className={styles.text}>
+        The folder <span className={styles.mono}>{project.path}</span> is gone,
+        so there is nothing to delete or restore. Harneo stops tracking the
+        project; nothing on disk is touched, and its backups stay listed under
+        removed projects.
+      </p>
+      {error && (
+        <p className={styles.err} role="alert">
+          Nothing was changed. {error}
         </p>
       )}
     </DialogShell>

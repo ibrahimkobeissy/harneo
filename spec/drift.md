@@ -16,7 +16,8 @@ Keep every registered project honest. Harneo notices, live, when a managed file 
 2. **Library newer** is a separate signal: an installed file whose artifact's library copy now renders differently (after an update or a promote). It is shown as "Library has newer copies of N files" with **Re-apply**, not as drift.
 3. **Re-apply** writes what the project's pinned profile version renders **now** (current library copies), through `install-engine`'s plan and apply (backup first).
 4. **Promote** replaces the library copy of that artifact with the project's file (library backup first, as `updates` does; re-audit; `copy_digest` updated so it is not a "local edit"); the profile is unchanged; the manifest of this project is updated so it is in sync. Deleted files can't be promoted. Generated files (`HARNESS.md`, `.mcp.json`, `settings.json` additions) can only be re-applied.
-5. **Live rescan** uses the `notify` crate on the library store and each registered project's harness paths (`.claude/`, `CLAUDE.md`, `.mcp.json`, `HARNESS.md`), debounced 500 ms; it only triggers re-checks and UI refreshes, never writes. A project folder that disappears is shown as *Missing* and can be removed from the registry.
+5. **A missing project** (its folder is gone) can be removed from Harneo without a plan: *Remove from Harneo* on the missing callout (and the Remove action) marks it removed like a clean removal, touches nothing on disk, and keeps its backup sets. Refused while the folder exists (`forget_missing_project`).
+6. **Live rescan** uses the `notify` crate on the library store and each registered project's harness paths (`.claude/`, `CLAUDE.md`, `.mcp.json`, `HARNESS.md`), debounced 500 ms; it only triggers re-checks and UI refreshes, never writes. A project folder that disappears is shown as *Missing* and can be removed from the registry.
 
 ### Scope
 

@@ -230,3 +230,34 @@ fn property_removal_restores_every_original_byte_for_byte() -> TestResult {
     }
     Ok(())
 }
+
+#[test]
+fn a_project_whose_folder_is_gone_is_forgotten_and_keeps_its_backups() -> TestResult {
+    let mut f = fx()?;
+    let dir = tempfile::tempdir()?;
+    put(dir.path(), "CLAUDE.md", "# my own\n")?;
+    let report = install_over(&f, dir.path(), f.profile)?;
+    let id = report.project_id;
+    let backups = f.library.backups(id)?.len();
+    assert!(backups > 0);
+
+    // While the folder exists, forgetting is refused: remove the harness instead.
+    assert!(matches!(
+        f.library.forget_missing_project(id),
+        Err(Error::Install { .. })
+    ));
+    assert_eq!(f.library.projects()?.len(), 1);
+
+    let path = dir.path().to_path_buf();
+    drop(dir);
+    assert!(!path.exists());
+    f.library.forget_missing_project(id)?;
+    assert!(f.library.projects()?.is_empty());
+    let gone = f.library.project(id)?;
+    assert!(gone.removed_at.is_some());
+    assert_eq!(gone.file_count, 0);
+    assert_eq!(f.library.backups(id)?.len(), backups, "backups stay");
+    // Once removed, it cannot be forgotten twice.
+    assert!(f.library.forget_missing_project(id).is_err());
+    Ok(())
+}
