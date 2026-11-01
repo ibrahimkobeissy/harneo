@@ -8,6 +8,8 @@ mod check_tests;
 mod fixture;
 pub mod promote;
 #[cfg(test)]
+mod promote_settings_tests;
+#[cfg(test)]
 mod promote_tests;
 pub mod watch;
 #[cfg(test)]

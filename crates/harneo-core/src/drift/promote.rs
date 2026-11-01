@@ -5,6 +5,7 @@
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use ts_rs::TS;
 
 use super::check::disk_bytes;
@@ -70,13 +71,87 @@ fn without_import(project: &[u8], stored: &[u8]) -> Vec<u8> {
     lines.concat().into_bytes()
 }
 
+/// The keys of `settings.json` where an install merges the profile's plugins.
+const MERGED_KEYS: [&str; 2] = ["enabledPlugins", "extraKnownMarketplaces"];
+
+fn object_at<'a>(root: &'a Value, key: &str) -> Option<&'a Map<String, Value>> {
+    root.get(key).and_then(Value::as_object)
+}
+
+/// The project's `settings.json` as a template again: every entry the install merged in
+/// (`rendered` has it, the library `template` lacks it or holds another value) goes back to
+/// the template's state. Refused when the project changed or removed such an entry, since only
+/// the profile can say that. Entries the user added in the project are kept.
+fn without_merged_plugins(
+    path: &str,
+    disk: &[u8],
+    rendered: &[u8],
+    template: &[u8],
+) -> Result<Vec<u8>> {
+    let parse = |bytes: &[u8], what: &str| -> Result<Value> {
+        serde_json::from_slice(bytes)
+            .ok()
+            .filter(Value::is_object)
+            .ok_or_else(|| refuse(format!("{path}: the {what} is not a JSON object")))
+    };
+    let mut project = parse(disk, "project's file")?;
+    let rendered = parse(rendered, "installed version")?;
+    let template = parse(template, "library copy")?;
+    let Value::Object(root) = &mut project else {
+        return Err(refuse(format!(
+            "{path}: the project's file is not a JSON object"
+        )));
+    };
+    for key in MERGED_KEYS {
+        let Some(merged) = object_at(&rendered, key) else {
+            continue;
+        };
+        let own = object_at(&template, key);
+        for (name, value) in merged {
+            let original = own.and_then(|o| o.get(name));
+            if original == Some(value) {
+                continue;
+            }
+            let entries = root.get_mut(key).and_then(Value::as_object_mut);
+            let current = entries.as_ref().and_then(|e| e.get(name));
+            if current != Some(value) {
+                return Err(refuse(format!(
+                    "{path}: the project changed {key} \"{name}\", which the profile sets; \
+                     change the profile instead, or re-apply"
+                )));
+            }
+            if let Some(entries) = entries {
+                match original {
+                    Some(v) => {
+                        entries.insert(name.clone(), v.clone());
+                    }
+                    None => {
+                        entries.remove(name);
+                    }
+                }
+            }
+        }
+        let emptied = root
+            .get(key)
+            .and_then(Value::as_object)
+            .is_some_and(Map::is_empty);
+        if emptied && own.is_none() {
+            root.remove(key);
+        }
+    }
+    let mut out = serde_json::to_vec_pretty(&project)?;
+    out.push(b'\n');
+    Ok(out)
+}
+
 impl Library {
     /// Makes the project's edited copy of `path` the library copy of its artifact. Refused for
-    /// files that are not edited (deleted, unchanged), for generated files (`HARNESS.md`,
-    /// `.mcp.json`, a generated `settings.json`) and for a Settings template that has plugins
-    /// merged in. The old library copy is backed up, the new one is audited again and recorded
-    /// as the copy's own state (so it is not a local edit), and this project's manifest takes
-    /// the project's file as what Harneo wrote.
+    /// files that are not edited (deleted, unchanged) and for generated files (`HARNESS.md`,
+    /// `.mcp.json`, a generated `settings.json`). For a Settings template with plugins merged
+    /// in, the merged entries are taken out first (see [`without_merged_plugins`]). The old
+    /// library copy is backed up, the new one is audited again and recorded as the copy's own
+    /// state (so it is not a local edit), and this project's manifest takes the project's file
+    /// as what Harneo wrote.
     pub fn promote(&self, project_id: i64, path: &str) -> Result<PromoteReport> {
         let project = self.project(project_id)?;
         let root = crate::install::project_folder(&project.path)?;
@@ -115,17 +190,18 @@ impl Library {
         let bytes = match artifact.kind {
             ArtifactKind::Settings if main => {
                 let date = crate::install::utc_date(project.applied_at);
-                let plain = self
+                let rendered = self
                     .render_pinned(&project, &date)
                     .ok()
                     .and_then(|r| r.files.into_iter().find(|f| f.path == path))
-                    .is_none_or(|f| f.bytes == old);
-                if !plain {
-                    return Err(refuse(format!(
-                        "{path} has plugins merged in by Harneo; re-apply it instead"
-                    )));
-                }
-                let (bytes, keys) = crate::library::rewrite(&view, &view.path, disk.clone())?;
+                    .map(|f| f.bytes);
+                let template = match rendered {
+                    Some(rendered) if rendered != old => {
+                        without_merged_plugins(path, &disk, &rendered, &old)?
+                    }
+                    _ => disk.clone(),
+                };
+                let (bytes, keys) = crate::library::rewrite(&view, &view.path, template)?;
                 replaced_keys = Some(keys);
                 bytes
             }
