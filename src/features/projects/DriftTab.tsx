@@ -36,8 +36,7 @@ type Dialog =
   | { kind: "promote"; path: string }
   | null;
 
-const GENERATED =
-  "Generated files can only be re-applied; they belong to no library artifact.";
+const PROMOTE_WHY_ID = "drift-promote-why";
 
 function markOf(file: DriftFile): Pick<TreeFile, "mark" | "markText"> {
   return file.change.type === "edited"
@@ -122,12 +121,9 @@ export function DriftTab({
   }
 
   const current = diff?.path === selected ? diff : null;
-  const generated = file !== null && file.artifact === null;
-  const promoteWhy = deleted
-    ? "A deleted file has nothing to promote."
-    : generated
-      ? GENERATED
-      : null;
+  // The core runs promote's own checks for each drifted file, so every refusal is known
+  // before the click.
+  const promoteWhy = file?.promoteBlocked ?? null;
 
   return (
     <>
@@ -211,6 +207,7 @@ export function DriftTab({
                 <Button
                   small
                   disabled={promoteWhy !== null}
+                  aria-describedby={promoteWhy ? PROMOTE_WHY_ID : undefined}
                   onClick={() =>
                     setDialog({ kind: "promote", path: file.path })
                   }
@@ -227,8 +224,12 @@ export function DriftTab({
                 Replace with the profile's version
               </Button>
             </div>
-            {promoteWhy && <p className={styles.viewNote}>{promoteWhy}</p>}
-            {deleted && (
+            {promoteWhy && (
+              <p id={PROMOTE_WHY_ID} className={styles.viewNote}>
+                {promoteWhy}
+              </p>
+            )}
+            {deleted && !promoteWhy && (
               <p className={styles.viewNote}>
                 This file was deleted in the project. Re-apply puts it back.
               </p>

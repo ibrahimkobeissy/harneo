@@ -154,3 +154,45 @@ fn a_promoted_copy_is_never_replaced_by_an_update_without_a_backup() -> TestResu
     assert!(!f.library.has_local_edits(&report.artifact)?);
     Ok(())
 }
+
+#[test]
+fn the_check_says_up_front_which_files_promote_would_refuse() -> TestResult {
+    let f = fx()?;
+    let (dir, id) = project(&f)?;
+    put(dir.path(), AGENT, EDITED)?;
+    put(dir.path(), "HARNESS.md", "mine\n")?;
+    fs::remove_file(dir.path().join(super::fixture::SKILL))?;
+    put(
+        dir.path(),
+        ".claude/commands/extra.md",
+        "---\ndescription: Extra\n---\nGo\n",
+    )?;
+    let report = f.library.check_project(id)?;
+    let blocked = |path: &str| {
+        report
+            .files
+            .iter()
+            .find(|file| file.path == path)
+            .map(|file| file.promote_blocked.clone())
+    };
+    assert_eq!(blocked(AGENT), Some(None), "an edited file can be promoted");
+    assert!(blocked("HARNESS.md")
+        .flatten()
+        .is_some_and(|m| m.contains("generated")));
+    assert!(blocked(super::fixture::SKILL)
+        .flatten()
+        .is_some_and(|m| m.contains("deleted")));
+    assert_eq!(
+        blocked(".claude/commands/extra.md"),
+        Some(None),
+        "added files are imported"
+    );
+    // The same reasons promote gives.
+    let refused = f
+        .library
+        .promote(id, "HARNESS.md")
+        .err()
+        .map(|e| e.to_string());
+    assert_eq!(refused, blocked("HARNESS.md").flatten());
+    Ok(())
+}

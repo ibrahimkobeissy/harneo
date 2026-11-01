@@ -12,4 +12,9 @@ path: string, change: DriftChange,
 /**
  * The library artifact the file came from; `None` for generated and added files.
  */
-artifact: string | null, };
+artifact: string | null, 
+/**
+ * Why *Promote to library* would be refused, from the same checks promote runs; `None`
+ * when it would go ahead, and for added files (they are imported instead).
+ */
+promoteBlocked: string | null, };

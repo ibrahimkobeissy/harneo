@@ -106,6 +106,16 @@ fn library_copy(s: &Setup) -> std::result::Result<Value, Box<dyn std::error::Err
     Ok(serde_json::from_str(&std::fs::read_to_string(path)?)?)
 }
 
+/// What the drift check says about promoting the settings file: `None` when it is not listed.
+fn blocked(s: &Setup) -> std::result::Result<Option<Option<String>>, Box<dyn std::error::Error>> {
+    Ok(s.library
+        .check_project(s.id)?
+        .files
+        .into_iter()
+        .find(|f| f.path == SETTINGS)
+        .map(|f| f.promote_blocked))
+}
+
 fn template() -> Value {
     json!({"sandbox": {"excludedCommands": ["gh *"]}})
 }
@@ -118,6 +128,7 @@ fn promote_takes_the_merged_plugins_out_and_keeps_the_edit() -> TestResult {
     project["sandbox"]["excludedCommands"] = json!(["gh *", "board.sh *"]);
     write(&s, &project)?;
 
+    assert_eq!(blocked(&s)?, Some(None), "promote is offered");
     s.library.promote(s.id, SETTINGS)?;
     let copy = library_copy(&s)?;
     assert_eq!(
@@ -176,6 +187,11 @@ fn a_changed_or_removed_profile_plugin_is_refused_and_nothing_moves() -> TestRes
         .promote(s.id, SETTINGS)
         .err()
         .map(|e| e.to_string());
+    assert_eq!(
+        blocked(&s)?,
+        Some(off.clone()),
+        "the check gives the same reason up front"
+    );
     assert!(off.is_some_and(|m| m.contains("radar@mods") && m.contains("profile")));
 
     if let Some(map) = project.as_object_mut() {

@@ -50,6 +50,9 @@ pub struct DriftFile {
     pub change: DriftChange,
     /// The library artifact the file came from; `None` for generated and added files.
     pub artifact: Option<ArtifactId>,
+    /// Why *Promote to library* would be refused, from the same checks promote runs; `None`
+    /// when it would go ahead, and for added files (they are imported instead).
+    pub promote_blocked: Option<String>,
 }
 
 /// Everything a check found for one project.
@@ -185,6 +188,7 @@ impl Library {
                     path: file.path.clone(),
                     change: DriftChange::Edited { plus: 0, minus: 0 },
                     artifact: file.artifact_id.clone(),
+                    promote_blocked: self.promote_blocked(&project, &file.path),
                 });
                 continue;
             };
@@ -212,6 +216,7 @@ impl Library {
                     path: file.path.clone(),
                     change,
                     artifact: file.artifact_id.clone(),
+                    promote_blocked: self.promote_blocked(&project, &file.path),
                 });
             }
         }
@@ -255,6 +260,7 @@ impl Library {
                 path,
                 change: DriftChange::Added,
                 artifact: None,
+                promote_blocked: None,
             });
         }
         Ok(out)
