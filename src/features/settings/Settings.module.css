@@ -118,8 +118,12 @@
   margin-top: var(--space-xs);
   color: var(--t2);
 }
+/* The page fills the screen's width; only the explanations keep a readable line length. */
 .page {
-  max-width: 720px;
+  width: 100%;
+}
+.grow > * {
+  max-width: 75ch;
 }
 .error {
   margin: 0;
