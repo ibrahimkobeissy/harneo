@@ -272,6 +272,36 @@ pub fn install_plugins(
         path: project.display().to_string(),
         source,
     })?;
+    let settings = project.join(".claude").join("settings.json");
+    let written = fs::read(&settings).ok();
+    let results = install_each(config, &project, &wanted, &mut progress);
+    if let Some(written) = written {
+        keep_written_bytes(&settings, &written);
+    }
+    Ok(results)
+}
+
+/// `claude plugin install --scope project` saves the project's settings again, with its own key
+/// order and layout. When what it saved means the same settings, the bytes Harneo wrote go back,
+/// so the file does not show as drift. A real change is left as the CLI saved it. Best effort: if
+/// the file cannot be read or written, the plugins are still installed and drift shows the file.
+fn keep_written_bytes(settings: &Path, written: &[u8]) {
+    let Ok(now) = fs::read(settings) else { return };
+    let parsed = |bytes: &[u8]| serde_json::from_slice::<Value>(bytes).ok();
+    if now != written && parsed(&now).is_some() && parsed(&now) == parsed(written) {
+        // Not restoring only leaves the file showing as drift, which re-apply fixes.
+        fs::write(settings, written).ok();
+    }
+}
+
+/// Adds the marketplaces the targets need and installs each target for the project, reporting
+/// each result as it lands.
+fn install_each(
+    config: &ClaudeConfig,
+    project: &Path,
+    wanted: &[PluginTarget],
+    progress: &mut impl FnMut(&PluginInstall),
+) -> Vec<PluginInstall> {
     let mut results = Vec::new();
     let mut finish = |target: &PluginTarget, status, message: Option<String>| {
         let result = PluginInstall {
@@ -289,16 +319,16 @@ pub fn install_plugins(
     let lists =
         list::<KnownMarketplace>(config, &["plugin", "marketplace", "list", "--json"], None)
             .and_then(|markets| {
-                list::<Installed>(config, &["plugin", "list", "--json"], Some(&project))
+                list::<Installed>(config, &["plugin", "list", "--json"], Some(project))
                     .map(|installed| (markets, installed))
             });
     let (markets, installed) = match lists {
         Ok(lists) => lists,
         Err(reason) => {
-            for target in &wanted {
+            for target in wanted {
                 finish(target, PluginInstallStatus::Failed, Some(reason.clone()));
             }
-            return Ok(results);
+            return results;
         }
     };
     let here = project.display().to_string();
@@ -346,7 +376,7 @@ pub fn install_plugins(
         ready.insert(target.marketplace.clone(), state);
     }
 
-    for target in &wanted {
+    for target in wanted {
         if present.contains(target.id.as_str()) {
             finish(target, PluginInstallStatus::AlreadyInstalled, None);
             continue;
@@ -360,12 +390,12 @@ pub fn install_plugins(
             &[
                 "plugin", "install", &target.id, "--scope", "project", "--json",
             ],
-            Some(&project),
+            Some(project),
             NETWORK_TIMEOUT,
         ) {
             Ok(()) => finish(target, PluginInstallStatus::Installed, None),
             Err(reason) => finish(target, PluginInstallStatus::Failed, Some(reason)),
         }
     }
-    Ok(results)
+    results
 }

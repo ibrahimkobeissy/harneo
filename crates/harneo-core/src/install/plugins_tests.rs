@@ -173,3 +173,68 @@ fn without_the_claude_cli_every_plugin_fails_with_the_reason() -> TestResult {
                 .is_some_and(|m| m.contains("claude CLI was not found"))));
     Ok(())
 }
+
+/// A fake `claude` whose `plugin install` saves the project's settings again: `reorder` keeps the
+/// same settings with the keys in another order, otherwise it adds a key.
+fn rewriting(dir: &Path, reorder: bool) -> std::io::Result<std::path::PathBuf> {
+    let new = if reorder {
+        r#"{"extraKnownMarketplaces":{"brag":{"source":{"repo":"latent-spaces/brag","source":"github"}}},"enabledPlugins":{"brag@brag":true}}"#
+    } else {
+        r#"{"enabledPlugins":{"brag@brag":true},"extraKnownMarketplaces":{"brag":{"source":{"repo":"latent-spaces/brag","source":"github"}}},"model":"opus"}"#
+    };
+    fs::write(dir.join("new.json"), new)?;
+    let d = dir.display();
+    script(
+        dir,
+        "claude",
+        &format!(
+            r#"case "$*" in
+  "plugin marketplace list --json") echo '[]' ;;
+  "plugin list --json") echo '[]' ;;
+  "plugin install"*) cp '{d}/new.json' .claude/settings.json; echo '{{"outcome":"ok"}}' ;;
+  *) echo '{{"outcome":"ok"}}' ;;
+esac"#
+        ),
+    )
+}
+
+const BRAG_ONLY: &str = r#"{
+  "enabledPlugins": {
+    "brag@brag": true
+  },
+  "extraKnownMarketplaces": {
+    "brag": { "source": { "source": "github", "repo": "latent-spaces/brag" } }
+  }
+}
+"#;
+
+#[test]
+fn settings_the_cli_saves_again_unchanged_keep_the_bytes_harneo_wrote() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let cli = rewriting(bin.path(), true)?;
+    let p = tempfile::tempdir()?;
+    fs::create_dir(p.path().join(".claude"))?;
+    fs::write(p.path().join(".claude/settings.json"), BRAG_ONLY)?;
+    let results = install_plugins(&config(&cli), p.path(), |_| {})?;
+    assert_eq!(results.len(), 1);
+    assert_eq!(results[0].status, PluginInstallStatus::Installed);
+    // Same settings in another order: Harneo's bytes are put back, so nothing shows as drift.
+    assert_eq!(
+        fs::read_to_string(p.path().join(".claude/settings.json"))?,
+        BRAG_ONLY
+    );
+    Ok(())
+}
+
+#[test]
+fn settings_the_cli_really_changed_are_left_as_it_saved_them() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let cli = rewriting(bin.path(), false)?;
+    let p = tempfile::tempdir()?;
+    fs::create_dir(p.path().join(".claude"))?;
+    fs::write(p.path().join(".claude/settings.json"), BRAG_ONLY)?;
+    install_plugins(&config(&cli), p.path(), |_| {})?;
+    let now = fs::read_to_string(p.path().join(".claude/settings.json"))?;
+    assert!(now.contains(r#""model":"opus""#), "a real change stays");
+    Ok(())
+}
