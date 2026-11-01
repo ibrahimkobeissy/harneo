@@ -51,7 +51,7 @@ Harneo's library holds **10 artifact types**. They were chosen from the 21 file 
 | 7 | **MCP servers** | `.mcp.json` | JSON (`stdio` / `http` / `ws`); secrets only as `${VAR}` | Sometimes a `headersHelper` script | One server. Harneo writes `.mcp.json` from the profile's selected servers |
 | 8 | **Output styles** | `.claude/output-styles/*.md` | Markdown + YAML | Selected by the `outputStyle` key in Settings | One style file |
 | 9 | **Workflows** | `.claude/workflows/*.js` | JavaScript (`export const meta`) | The subagents it orchestrates (→ bundles) | One workflow file |
-| 10 | **Plugins** | Enabled through Settings (`enabledPlugins`) from their marketplace | `.claude-plugin/plugin.json` + folders | **Everything inside it:** skills, agents, commands, hooks, MCP, mods, monitors, LSP servers, `bin/` tools. Its marketplace is its source | One plugin, kept whole, never unpacked |
+| 10 | **Plugins** | Enabled through Settings (`enabledPlugins`) from their marketplace | `.claude-plugin/plugin.json` + folders | **Everything inside it:** skills, agents, commands, hooks, MCP, mods, monitors, LSP servers, `bin/` tools. Its marketplace is its source | One plugin, taken whole, **or** some of its parts, unpacked at import (2026-11-01, [ADR-002](docs/decisions/ADR-002-unpack-plugins.md)) |
 
 **Settings is one artifact on purpose.** Hooks, permissions, the status line and every other key are **not** managed separately. A user adds a **template `settings.json`** to the library (e.g. "strict deny rules + path-guard hook + my status line") and picks one per profile. Its hook and status-line scripts travel with it as part of the same item.
 
@@ -61,7 +61,7 @@ Harneo's library holds **10 artifact types**. They were chosen from the 21 file 
 | :--- | :--- |
 | Keybindings, themes | Personal user-level preferences, not part of a project's factory |
 | Auto memory (`~/.claude/projects/<p>/memory/`) | Written by Claude at runtime, not authored |
-| Mods, monitors, LSP servers, `bin/` tools as separate items | They only exist inside plugins, so they come with their plugin |
+| Mods, monitors, LSP servers, `bin/` tools, a plugin's hooks as separate items | They only work inside plugins, so they come with the whole plugin. A plugin's skills, agents, commands, output styles and MCP servers can be unpacked instead (ADR-002) |
 | Marketplaces as separate items | A marketplace is a plugin's source, recorded on the plugin |
 | `CLAUDE.local.md`, `settings.local.json` | Each developer's own gitignored overrides; Harneo never touches them |
 | `~/.claude` (user scope) as a profile target | Profiles target projects only. `~/.claude` is just a folder you can import from |
@@ -166,7 +166,7 @@ flowchart LR
 | In-app editor · AI-assisted authoring | ❌ | Edit artifacts in your own editor |
 | Enable / disable switch | ❌ | |
 | Marketplace browsing | ❌ | Import by URL instead |
-| Plugins | ✅ kept whole | Enabled from their marketplace, never unpacked; Harneo installs them from that marketplace after Scaffold or Refit (2026-10-31) |
+| Plugins | ✅ whole, or parts | Taken whole: enabled from their marketplace, and Harneo installs them from it after Scaffold or Refit (2026-10-31). **Or unpacked (decided 2026-11-01, ADR-002):** the user picks some skills, agents, commands, output styles or MCP servers, which become ordinary artifacts. Whole or parts, never both for one plugin; hooks, monitors, LSP, `bin/`, themes, workflows and settings only with the whole plugin |
 | Distribution | Source only | Users clone and build for their own OS. The maintainer builds and uses Linux only. No installers, no code signing |
 | Build-from-source guide | ✅ | `BUILDING.md`: prerequisites per OS (Rust, Node, Tauri system packages: WebKitGTK on Linux, WebView2 on Windows, Xcode tools on macOS), then the build and run commands |
 

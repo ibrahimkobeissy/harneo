@@ -21,7 +21,7 @@ Teach `harneo-core` what an AI Artifact is. Given a local folder, it finds every
 - **Discovery.** `ClaudeAdapter::scan` recognises every common folder shape, and one folder can contain several:
   - **project**: `CLAUDE.md`, `.mcp.json` and `.claude/{rules,skills,commands,agents,output-styles,workflows}`, `.claude/settings.json`;
   - **`~/.claude`-like folder** or **pack repo**: the same children at the root (`skills/`, `agents/`, `commands/`, `rules/`, `output-styles/`, `workflows/`, `settings.json`, `CLAUDE.md`);
-  - **plugin repo**: `.claude-plugin/plugin.json`. The folder becomes one Plugin artifact and the scan never descends into it, because plugins are kept whole;
+  - **plugin repo**: `.claude-plugin/plugin.json`. The folder becomes one Plugin artifact and the scan never descends into it, because plugins are kept whole; **amended 2026-11-01** ([`library.md`](library.md#unpacking-a-plugin), ADR-002): a folder in `ScanOptions.unpack` is reported as its pickable parts instead;
   - **marketplace repo**: `.claude-plugin/marketplace.json`. Each entry becomes one Plugin artifact. A remote source (a GitHub repo, a URL) is recorded as is and not fetched;
   - **loose skills**: any folder holding a `SKILL.md`, up to 4 levels deep, outside the shapes above.
   - **Amended 2026-10-25** by the layout resolver ([`library.md`](library.md#layout-resolver)): a plugin's files are its manifest and components, not its whole folder; a marketplace entry naming the imported repo merges with its plugin; `.agents/skills/` is a known pack folder; the scan also returns `unplaced` paths for Claude to propose a layout.

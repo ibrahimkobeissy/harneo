@@ -17,7 +17,7 @@ Make sure nothing ships half-wired. Harneo records which artifacts **need** whic
 3. **What is sent:** each artifact's kind, name, description and main-file text (cut to 6,000 characters), plus a catalogue of the library's artifacts (kind, name, description cut to 120 characters, at most 500 entries) so Claude can link to what is already there. Secrets are already `${KEY}` placeholders in library copies; in the Review step the same replacement is applied before sending. **An artifact with a `plaintext-secrets` or `credential-theft` finding is sent by kind, name and description only.**
 4. **Structured references become links automatically** (origin `reference`): a resolved `Reference` whose target is in the library (same kind and name) or in the same import.
 5. **Rejected proposals are remembered**, so a re-run doesn't propose them again.
-6. **Plugins are not linked inside:** a plugin is kept whole (`CONTEXT.md` §2); it can still be the target or source of a link.
+6. **Plugins are not linked inside:** a plugin taken whole is one item (`CONTEXT.md` §2); it can still be the target or source of a link. Parts unpacked from a plugin (ADR-002, 2026-11-01) are ordinary artifacts and link like any other.
 
 ### Scope
 

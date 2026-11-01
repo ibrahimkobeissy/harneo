@@ -494,3 +494,7 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#183](https://github.com/ibrahimkobeissy/harneo/issues/183) Layout resolver tier 3: Claude proposes, Harneo validates
 - [#184](https://github.com/ibrahimkobeissy/harneo/issues/184) Layout resolver: store the layout, replay it on updates
 - [#185](https://github.com/ibrahimkobeissy/harneo/issues/185) Layout resolver screens
+- [#198](https://github.com/ibrahimkobeissy/harneo/issues/198) Decide and specify: import a plugin whole or pick its parts
+- [#199](https://github.com/ibrahimkobeissy/harneo/issues/199) Scan: report a plugin's parts as separate artifacts when asked to unpack it
+- [#200](https://github.com/ibrahimkobeissy/harneo/issues/200) Import: keep a plugin's unpack choice on its source, whole and parts exclusive
+- [#201](https://github.com/ibrahimkobeissy/harneo/issues/201) Import screen: choose whole plugin or pick its parts

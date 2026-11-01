@@ -134,6 +134,24 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 - an update replays a stored `claude` entry without calling the CLI, and flags *layout changed* when its path is removed;
 - the setting off makes no call unless the button is used.
 
+## Unpacking a plugin
+
+> Decided 2026-11-01 (#198, [ADR-002](../docs/decisions/ADR-002-unpack-plugins.md)). Tickets #199 (scan), #200 (import, storage, updates), #201 (screen).
+
+**What.** At import, each plugin is taken **whole** (the default, as before) **or unpacked**: the user picks some of its parts, which become ordinary library artifacts. Never both for one plugin.
+
+1. **Pickable parts:** skills, agents, commands, output styles, and each MCP server of the plugin's `mcpServers` / `.mcp.json`. They are the components tier 1 resolves from the manifest (`plugin_scope.rs`), so no Claude call is involved. Each part carries `metadata.fromPlugin` (plugin name, folder, marketplace) and `layoutBy: "plugin.json"`.
+2. **Only with the whole plugin:** hooks, monitors, LSP servers, `bin/`, themes, workflows and the plugin's `settings.json`. They are not listed as parts; the screen says they need the whole plugin.
+3. **A part that refers outside itself** (`${CLAUDE_PLUGIN_ROOT}` pointing outside its own files) is listed with a `plugin.part-needs-plugin` error and can't be imported; the reason is shown.
+4. **Exclusive per plugin.** In one selection, a plugin and its parts can't both be picked. Across the library, parts can't be imported while the plugin is there whole, and the plugin can't be imported whole while any part is; the refusal names the plugin and what to remove first.
+5. **Stored on the source.** `ScanOptions.unpack` lists the plugin folders to unpack; the choice is kept on the source (a migration) and replayed by update checks, so a part updates like any artifact from that source.
+6. **Installs as its kind.** An unpacked part is copied into `.claude/…` like any artifact of its kind; the plugin is not enabled in `settings.json`. Unpacked skills lose the `plugin:` namespace; the duplicate-name check covers clashes.
+7. **Remote-only marketplace entries** (another repo, never fetched) can only be taken whole.
+
+**Screen.** A plugin row in the Choose step offers **Whole plugin / Pick parts**. Pick parts re-runs the preview with that plugin unpacked and lists its parts nested under it, unticked; parts that can't be picked are disabled with the reason visible; exclusivity refusals show on the row before import. Library rows and the detail panel show "from plugin <name>".
+
+**Out of scope:** enabling part of a plugin through Claude Code; pickable hooks (they would have to merge into a Settings template, which is written whole).
+
 ## Tech Stack
 
 New dependencies. They are approved with this spec; any other still needs asking first.
