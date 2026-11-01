@@ -21,7 +21,7 @@ Show which artifacts the user actually uses, from Claude's own session logs, so 
    - plugin: any of the above namespaced `plugin:` / `plugin_name:`.
    Rules, Settings, CLAUDE.md, output styles and workflows are **not tracked** and say so ("Not tracked"), showing "In N projects" instead. The parser tolerates unknown lines and fields (the log format is Claude's, not ours) and counts parse failures in a diagnostic.
 3. **Matching** to library artifacts is by kind and name at query time, so a re-import or a duplicate shares the history; duplicates are marked.
-4. **Status** (prototype `core.js:43-58`), with this precedence: *findings* (trust < 60) → *outdated* → *unused* (tracked, 0 sessions in 8 weeks, imported more than 8 weeks ago) → *not used yet* (tracked, 0 sessions, imported recently) → *current*. The "unused" window is a Setting (default 8 weeks).
+4. **Status** (prototype `core.js:43-58`), with this precedence: *findings* (trust < 60) → *outdated* → *unused* (tracked, 0 sessions in the unused window, imported longer ago than that window) → *not used yet* (tracked, 0 sessions, imported recently) → *current*. The "unused" window is a Setting (default 4 weeks; the user's choice, 2026-11-01).
 5. **Index** in its own database, `<data dir>/usage/usage.db`, incremental by file size and modification time (a file that shrank is re-read); the first index runs in the background with progress. Refreshed at app start, every 10 minutes while the app is open, and on demand.
 
 ### Scope

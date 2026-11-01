@@ -10,7 +10,7 @@ import styles from "./Settings.module.css";
 
 const WEEKS_KEY = "usage.unusedWeeks";
 const LAST_KEY = "usage.lastIndexedAt";
-const DEFAULT_WEEKS = 8;
+const DEFAULT_WEEKS = 4;
 const LOGS_PATH = "~/.claude/projects/";
 
 function validWeeks(text: string): number | null {

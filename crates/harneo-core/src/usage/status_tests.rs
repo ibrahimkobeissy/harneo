@@ -114,6 +114,16 @@ fn usage_status_precedence() {
 }
 
 #[test]
+fn the_unused_window_is_four_weeks_by_default() {
+    let (_d, lib) = lib();
+    assert_eq!(super::DEFAULT_UNUSED_WEEKS, 4);
+    add(&lib, "three", "skill", 21, None); // 3 weeks old: inside the window
+    add(&lib, "five", "skill", 35, None); // 5 weeks old: outside it
+    assert_eq!(status_of(&lib, "three"), Status::NotUsedYet);
+    assert_eq!(status_of(&lib, "five"), Status::Unused);
+}
+
+#[test]
 fn usage_window_follows_the_setting() {
     let (_d, lib) = lib();
     add(&lib, "mid", "skill", 20, None); // 3 weeks old

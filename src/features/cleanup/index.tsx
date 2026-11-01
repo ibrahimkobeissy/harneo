@@ -51,7 +51,7 @@ import {
 
 const UNUSED_SHOWN = 12;
 const UNUSED_KEY = "usage.unusedWeeks";
-const DEFAULT_WEEKS = 8;
+const DEFAULT_WEEKS = 4;
 const NOTICE_MS = 6000;
 
 interface Notice {

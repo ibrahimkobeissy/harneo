@@ -19,7 +19,7 @@ use crate::error::Result;
 /// The setting holding the unused window, in weeks.
 pub const UNUSED_WEEKS_KEY: &str = "usage.unusedWeeks";
 /// The default unused window, in weeks.
-pub const DEFAULT_UNUSED_WEEKS: i64 = 8;
+pub const DEFAULT_UNUSED_WEEKS: i64 = 4;
 
 /// Kinds whose use shows in Claude's logs, in the form the library stores them.
 const TRACKED: &str = "('skill', 'command', 'agent', 'mcp', 'plugin')";
@@ -120,7 +120,7 @@ pub(crate) fn attach(conn: &Connection, data_dir: &Path) -> Result<()> {
     }
 }
 
-/// The unused window in weeks, from the setting (at least 1; 8 when unset or not a number).
+/// The unused window in weeks, from the setting (at least 1; 4 when unset or not a number).
 fn window_weeks() -> String {
     format!(
         "MAX(1, COALESCE(NULLIF(CAST((SELECT value FROM settings WHERE key = '{UNUSED_WEEKS_KEY}') \
