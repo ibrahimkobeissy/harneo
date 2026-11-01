@@ -24,6 +24,8 @@ export function FilesTab({
     error: string | null;
   } | null>(null);
 
+  // Read again whenever the files reload (an apply, a switch, a rescan), not only on a new pick:
+  // the selected file's content may have changed under the same path.
   useEffect(() => {
     if (selected === null) return;
     let live = true;
@@ -39,7 +41,7 @@ export function FilesTab({
     return () => {
       live = false;
     };
-  }, [projectId, selected]);
+  }, [projectId, selected, files]);
 
   const tree = useMemo(() => files.map((f) => ({ path: f.path })), [files]);
   if (files.length === 0) {

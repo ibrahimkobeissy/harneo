@@ -118,6 +118,8 @@ interface Opts {
   openError?: string;
   removalPlan?: Plan;
   truncated?: boolean;
+  /** Each read of a file returns a new version, as after an apply. */
+  versioned?: boolean;
 }
 
 function Where() {
@@ -131,6 +133,7 @@ function Where() {
 
 function setup(path: string, opts: Opts = {}) {
   const calls: { cmd: string; args: unknown }[] = [];
+  let reads = 0;
   mockIPC((cmd, args) => {
     calls.push({ cmd, args });
     switch (cmd) {
@@ -152,9 +155,12 @@ function setup(path: string, opts: Opts = {}) {
       case "project_file_content": {
         if (opts.contentError) throw new Error(opts.contentError);
         const p = (args as { path: string }).path;
+        reads += 1;
         return {
           path: p,
-          content: `# ${p}\nline two ✓\n`,
+          content: opts.versioned
+            ? `# ${p} read ${reads}\n`
+            : `# ${p}\nline two ✓\n`,
           truncated: opts.truncated ?? false,
         };
       }
@@ -576,6 +582,17 @@ describe("Switch / Upgrade modal", () => {
       version: null,
     });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows the selected file's new content after an apply", async () => {
+    await upgradeSetup({ versioned: true });
+    expect(await screen.findByText(/# HARNESS\.md read 1/)).toBeVisible();
+    const dialog = await screen.findByRole("dialog", { name: "Upgrade shop" });
+    await within(dialog).findByText(".claude/skills/new/SKILL.md");
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Apply difference" }),
+    );
+    expect(await screen.findByText(/# HARNESS\.md read 2/)).toBeVisible();
   });
 
   it("shows a plan failure and a failed apply, and stays open", async () => {
