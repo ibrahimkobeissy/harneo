@@ -219,7 +219,7 @@ export function ClaudeSettings() {
           <label htmlFor={confirmId}>
             <b>Confirm security findings with Claude</b>
           </label>
-          <div id={confirmHelpId} className={`${styles.sec} ${styles.measure}`}>
+          <div id={confirmHelpId} className={styles.sec}>
             <p className={styles.para}>
               On by default. After an import or update, and on Confirm now in
               Security, each finding is sent to Claude through your own claude
@@ -251,7 +251,7 @@ export function ClaudeSettings() {
           <label htmlFor={toggleId}>
             <b>Detect bundles and tags at import</b>
           </label>
-          <div id={toggleHelpId} className={`${styles.sec} ${styles.measure}`}>
+          <div id={toggleHelpId} className={styles.sec}>
             <p className={styles.para}>
               Off by default. When on, each import sends these to Claude through
               your own claude CLI, using your Claude plan:
@@ -285,7 +285,7 @@ export function ClaudeSettings() {
           <label htmlFor={layoutId}>
             <b>Ask Claude about repo layouts at import</b>
           </label>
-          <div id={layoutHelpId} className={`${styles.sec} ${styles.measure}`}>
+          <div id={layoutHelpId} className={styles.sec}>
             <p className={styles.para}>
               Off by default. When on, an import that leaves files Harneo
               couldn&apos;t place sends these to Claude through your own claude

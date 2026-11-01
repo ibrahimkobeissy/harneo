@@ -56,7 +56,7 @@ export function DiagnosticsSettings() {
           <label htmlFor={id}>
             <b>Send error reports to Sentry</b>
           </label>
-          <div id={helpId} className={`${styles.sec} ${styles.measure}`}>
+          <div id={helpId} className={styles.sec}>
             <p className={styles.para}>
               Off by default. When on, crashes and errors in the app and the
               harneo command are sent to the Sentry project whose DSN is in the

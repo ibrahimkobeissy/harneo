@@ -110,7 +110,6 @@
   color: var(--t2);
 }
 .hint {
-  max-width: 80ch;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
@@ -118,12 +117,9 @@
   margin-top: var(--space-xs);
   color: var(--t2);
 }
-/* The page fills the screen's width; only the explanations keep a readable line length. */
+/* The page and its text fill the screen's width. */
 .page {
   width: 100%;
-}
-.grow > * {
-  max-width: 75ch;
 }
 .error {
   margin: 0;
@@ -175,9 +171,6 @@
 .status {
   color: var(--t1);
   font-weight: 500;
-}
-.measure {
-  max-width: 65ch;
 }
 .para {
   margin: 0;
