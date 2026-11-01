@@ -69,9 +69,9 @@ fn component<'a>(metadata: &'a Map<String, Value>, field: &str) -> Option<&'a Va
 
 /// What the scope collects: whole folders and single files, relative to the scan root.
 #[derive(Default)]
-struct Scope {
-    dirs: BTreeSet<PathBuf>,
-    files: BTreeSet<PathBuf>,
+pub(super) struct Scope {
+    pub(super) dirs: BTreeSet<PathBuf>,
+    pub(super) files: BTreeSet<PathBuf>,
 }
 
 /// The listed files of `folder` that belong to the plugin whose manifest metadata is `metadata`
@@ -91,49 +91,16 @@ pub(super) fn scoped_files(
     scope.files.insert(marketplace_path(folder));
 
     for (field, default) in REPLACED {
-        match component(metadata, field) {
-            Some(value) => {
-                for reference in paths_of(value) {
-                    add_path(
-                        walker,
-                        folder,
-                        &manifest,
-                        &reference,
-                        false,
-                        &mut scope,
-                        diagnostics,
-                    );
-                }
-            }
-            None => {
-                scope.dirs.insert(folder.join(default));
-            }
-        }
-    }
-    // `skills` adds to the default folder, which is always scanned.
-    let skills_dir = folder.join("skills");
-    let declared_skills = metadata.get("skills");
-    if declared_skills.is_none()
-        && !walker.is_dir(&skills_dir)
-        && walker.exists(&folder.join("SKILL.md"))
-    {
-        // A root SKILL.md with no `skills/` and no `skills` key: the plugin is one skill.
-        scope.dirs.insert(folder.to_path_buf());
-    }
-    if walker.is_dir(&skills_dir) {
-        add_skill_dir(walker, folder, &skills_dir, &mut scope);
-    }
-    for reference in declared_skills.map(paths_of).unwrap_or_default() {
-        add_path(
+        add_replaced(
             walker,
             folder,
-            &manifest,
-            &reference,
-            true,
+            metadata,
+            (field, default),
             &mut scope,
             diagnostics,
         );
     }
+    add_skills(walker, folder, metadata, &mut scope, diagnostics);
     for name in ALWAYS {
         scope.dirs.insert(folder.join(name));
         scope.files.insert(folder.join(name));
@@ -214,9 +181,74 @@ pub(super) fn scoped_files(
     kept
 }
 
+/// Adds the location of a component field that replaces its default folder.
+pub(super) fn add_replaced(
+    walker: &Walker,
+    folder: &Path,
+    metadata: &Map<String, Value>,
+    (field, default): (&str, &str),
+    scope: &mut Scope,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let manifest = manifest_path(folder);
+    match component(metadata, field) {
+        Some(value) => {
+            for reference in paths_of(value) {
+                add_path(
+                    walker,
+                    folder,
+                    &manifest,
+                    &reference,
+                    false,
+                    scope,
+                    diagnostics,
+                );
+            }
+        }
+        None => {
+            scope.dirs.insert(folder.join(default));
+        }
+    }
+}
+
+/// Adds the skills: the default `skills/` folder, the `skills` field, or the root `SKILL.md`.
+pub(super) fn add_skills(
+    walker: &Walker,
+    folder: &Path,
+    metadata: &Map<String, Value>,
+    scope: &mut Scope,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let manifest = manifest_path(folder);
+    // `skills` adds to the default folder, which is always scanned.
+    let skills_dir = folder.join("skills");
+    let declared_skills = metadata.get("skills");
+    if declared_skills.is_none()
+        && !walker.is_dir(&skills_dir)
+        && walker.exists(&folder.join("SKILL.md"))
+    {
+        // A root SKILL.md with no `skills/` and no `skills` key: the plugin is one skill.
+        scope.dirs.insert(folder.to_path_buf());
+    }
+    if walker.is_dir(&skills_dir) {
+        add_skill_dir(walker, folder, &skills_dir, scope);
+    }
+    for reference in declared_skills.map(paths_of).unwrap_or_default() {
+        add_path(
+            walker,
+            folder,
+            &manifest,
+            &reference,
+            true,
+            scope,
+            diagnostics,
+        );
+    }
+}
+
 /// The `./`-relative strings a component field names: a string, an array of strings, or the
 /// `source` of each `commands` map entry. Inline objects name no path.
-fn paths_of(value: &Value) -> Vec<String> {
+pub(super) fn paths_of(value: &Value) -> Vec<String> {
     match value {
         Value::String(s) => vec![s.clone()],
         Value::Array(items) => items.iter().flat_map(paths_of).collect(),
@@ -278,7 +310,7 @@ fn add_skill_dir(walker: &Walker, folder: &Path, dir: &Path, scope: &mut Scope) 
 }
 
 /// `reference` resolved inside `folder`; `None` (with a diagnostic) when it climbs out of it.
-fn contained(
+pub(super) fn contained(
     folder: &Path,
     manifest: &Path,
     reference: &str,
@@ -347,7 +379,7 @@ fn add_references(
     }
 }
 
-fn collect_strings(value: &Value, out: &mut Vec<String>) {
+pub(super) fn collect_strings(value: &Value, out: &mut Vec<String>) {
     match value {
         Value::String(s) => out.push(s.clone()),
         Value::Array(items) => items.iter().for_each(|v| collect_strings(v, out)),
@@ -358,7 +390,7 @@ fn collect_strings(value: &Value, out: &mut Vec<String>) {
 
 /// The plugin-relative paths written as `${CLAUDE_PLUGIN_ROOT}/…` in `text` (a command line,
 /// an argument), quotes around the variable allowed.
-fn root_references(text: &str) -> Vec<String> {
+pub(super) fn root_references(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut rest = text;
     while let Some(i) = rest.find(ROOT_VAR) {
@@ -375,6 +407,15 @@ fn root_references(text: &str) -> Vec<String> {
         }
     }
     out
+}
+
+/// Every use of `${CLAUDE_PLUGIN_ROOT}` in `text`: the plugin-relative path after it, or an empty
+/// string for a bare use (the plugin root itself).
+pub(super) fn root_uses(text: &str) -> Vec<String> {
+    let mut uses = root_references(text);
+    let bare = text.matches(ROOT_VAR).count().saturating_sub(uses.len());
+    uses.extend(std::iter::repeat_n(String::new(), bare));
+    uses
 }
 
 /// The root `README*` and `LICENSE*` files among `all`.
@@ -408,6 +449,15 @@ mod tests {
         );
         assert!(root_references("${CLAUDE_PLUGIN_ROOT}").is_empty());
         assert!(root_references("no variable").is_empty());
+    }
+
+    #[test]
+    fn root_uses_counts_bare_uses_as_empty() {
+        assert_eq!(
+            root_uses("a ${CLAUDE_PLUGIN_ROOT}/x ${CLAUDE_PLUGIN_ROOT}"),
+            ["x", ""]
+        );
+        assert!(root_uses("nothing").is_empty());
     }
 
     #[test]

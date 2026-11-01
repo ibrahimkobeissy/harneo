@@ -34,6 +34,10 @@ enum Command {
         /// Also scan Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
         #[arg(long)]
         include_managed: bool,
+        /// A plugin folder (relative to the scanned folder) to unpack: list its parts instead of
+        /// the plugin. Repeatable.
+        #[arg(long, value_name = "FOLDER")]
+        unpack: Vec<String>,
     },
     /// Audit every artifact in a folder: trust score, findings and what each can reach.
     Audit {
@@ -115,7 +119,8 @@ fn run() -> anyhow::Result<ExitCode> {
             path,
             json,
             include_managed,
-        } => scan::run(&path, json, include_managed)?,
+            unpack,
+        } => scan::run(&path, json, include_managed, unpack)?,
         Command::Audit {
             path,
             json,

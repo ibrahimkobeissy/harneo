@@ -18,9 +18,15 @@ fn label<T: Serialize>(value: &T) -> String {
         .unwrap_or_default()
 }
 
-pub fn run(path: &Path, json: bool, include_managed: bool) -> anyhow::Result<()> {
+pub fn run(
+    path: &Path,
+    json: bool,
+    include_managed: bool,
+    unpack: Vec<String>,
+) -> anyhow::Result<()> {
     let options = ScanOptions {
         include_managed,
+        unpack,
         ..ScanOptions::default()
     };
     let report = ClaudeAdapter.scan(path, &options)?;

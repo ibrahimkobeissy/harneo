@@ -688,3 +688,34 @@ mod update_cli {
         Ok(())
     }
 }
+
+#[test]
+fn scan_unpack_lists_the_plugin_parts() -> Result<(), Box<dyn std::error::Error>> {
+    let dir = tempfile::tempdir()?;
+    let plugin = dir.path().join("toolbox");
+    std::fs::create_dir_all(plugin.join(".claude-plugin"))?;
+    std::fs::create_dir_all(plugin.join("agents"))?;
+    std::fs::write(
+        plugin.join(".claude-plugin/plugin.json"),
+        r#"{"name":"toolbox"}"#,
+    )?;
+    std::fs::write(
+        plugin.join("agents/fixer.md"),
+        "---\nname: fixer\ndescription: Fixes\n---\n",
+    )?;
+    harneo()
+        .arg("scan")
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("1 artifacts (1 plugin)"));
+    harneo()
+        .arg("scan")
+        .arg(dir.path())
+        .args(["--unpack", "toolbox"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("agent fixer"))
+        .stdout(predicate::str::contains("1 artifacts (1 agent)"));
+    Ok(())
+}

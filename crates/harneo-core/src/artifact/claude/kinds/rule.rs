@@ -39,17 +39,23 @@ pub(super) fn scan_markdown(
                 report.diagnostics.extend(own);
                 continue;
             }
-            let mut walk_diagnostics = Vec::new();
-            let text = walker.read_text(rel, &mut walk_diagnostics);
-            let read = text.is_some();
-            let mut artifact = parse(base, rel, &text.unwrap_or_default());
-            if !read {
-                artifact.diagnostics.clear();
-            }
-            artifact.diagnostics.extend(walk_diagnostics);
+            let artifact = read_file(walker, base, rel, parse);
             report.artifacts.push(artifact);
         }
     }
+}
+
+/// Reads one Markdown file with `parse`. A file that cannot be read keeps only the walk's finding.
+pub(super) fn read_file(walker: &mut Walker, base: &Path, rel: &Path, parse: Parser) -> Artifact {
+    let mut walk_diagnostics = Vec::new();
+    let text = walker.read_text(rel, &mut walk_diagnostics);
+    let read = text.is_some();
+    let mut artifact = parse(base, rel, &text.unwrap_or_default());
+    if !read {
+        artifact.diagnostics.clear();
+    }
+    artifact.diagnostics.extend(walk_diagnostics);
+    artifact
 }
 
 /// A non-blank string value.

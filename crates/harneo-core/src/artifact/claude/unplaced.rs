@@ -79,6 +79,8 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
             folders.push(Path::new(&a.path));
         }
     }
+    // A plugin that was unpacked is still one folder: what is not a part is not unplaced.
+    folders.extend(options.unpack.iter().map(Path::new));
     let nothing_found = report.artifacts.is_empty();
 
     let mut all = walker.list_files(Path::new(""), &mut Vec::new());

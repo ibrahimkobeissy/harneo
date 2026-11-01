@@ -52,15 +52,22 @@ pub(crate) fn parse(
     let artifacts = match root.get("mcpServers") {
         Some(Value::Object(servers)) => servers
             .iter()
-            .map(|(name, def)| server(name, def, script_exists))
+            .map(|(name, def)| server(FILE, name, def, script_exists))
             .collect(),
         _ => Vec::new(),
     };
     (artifacts, Vec::new())
 }
 
-fn server(name: &str, def: &Value, script_exists: &dyn Fn(&str) -> bool) -> Artifact {
-    let file = Path::new(FILE);
+/// One server `name` defined in the config file `config` (root-relative); the artifact's path is
+/// `<config>#<name>` and the config file is its only file, besides a `headersHelper` script.
+pub(crate) fn server(
+    config: &str,
+    name: &str,
+    def: &Value,
+    script_exists: &dyn Fn(&str) -> bool,
+) -> Artifact {
+    let file = Path::new(config);
     let mut metadata = match def {
         Value::Object(map) => map.clone(),
         _ => Map::new(),
@@ -69,8 +76,8 @@ fn server(name: &str, def: &Value, script_exists: &dyn Fn(&str) -> bool) -> Arti
         kind: ArtifactKind::Mcp,
         name: name.to_owned(),
         description: None,
-        path: format!("{FILE}#{name}"),
-        files: vec![FILE.to_owned()],
+        path: format!("{config}#{name}"),
+        files: vec![config.to_owned()],
         metadata: Map::new(),
         references: Vec::new(),
         diagnostics: Vec::new(),

@@ -7,7 +7,7 @@
 
 use std::path::{Path, PathBuf};
 
-use super::kinds::{plugin, skill};
+use super::kinds::{plugin, plugin_parts, skill};
 use crate::artifact::walk::{Walker, MANAGED_DIRS};
 use crate::artifact::{rel_string, ArtifactKind, Diagnostic, Origin, ScanOptions, ScanReport};
 
@@ -134,6 +134,46 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
                 .iter()
                 .any(|p| Path::new(&a.path).starts_with(p))
     });
+    if !options.unpack.is_empty() {
+        unpack_plugins(walker, options, report);
+    }
+}
+
+/// A path as `ScanOptions.unpack` may spell it: no `./` prefix, no trailing slash, the scan
+/// root itself as an empty string.
+fn normal(path: &str) -> &str {
+    let path = path.trim().trim_end_matches('/');
+    let path = path.strip_prefix("./").unwrap_or(path);
+    if path == "." {
+        ""
+    } else {
+        path
+    }
+}
+
+/// Replaces each Plugin named in `options.unpack` with its parts. A plugin that is only a remote
+/// marketplace entry has no files to unpack: it stays whole, with a note.
+fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanReport) {
+    let wanted: Vec<&str> = options.unpack.iter().map(|u| normal(u)).collect();
+    let mut kept = Vec::new();
+    let mut parts = Vec::new();
+    for mut a in std::mem::take(&mut report.artifacts) {
+        if a.kind != ArtifactKind::Plugin || !wanted.contains(&normal(&a.path)) {
+            kept.push(a);
+        } else if a.path.contains('#') {
+            let file = a.path.split('#').next().unwrap_or_default().to_owned();
+            a.diagnostics.push(Diagnostic::warning(
+                "plugin.unpack-remote-only",
+                Path::new(&file),
+                "this marketplace entry points to another repo that is never fetched, so it can only be taken whole",
+            ));
+            kept.push(a);
+        } else {
+            parts.extend(plugin_parts::unpack(walker, &a, &mut report.diagnostics));
+        }
+    }
+    kept.extend(parts);
+    report.artifacts = kept;
 }
 
 /// A `plugin.json` in a marketplace's own folder, named like an entry that marketplace publishes
@@ -175,6 +215,9 @@ pub(crate) fn drop_duplicate_marketplace_roots(walker: &mut Walker, report: &mut
 /// folder convention.
 pub(crate) fn mark_layout_by(report: &mut ScanReport) {
     for a in &mut report.artifacts {
+        if a.metadata.contains_key("fromPlugin") {
+            continue; // an unpacked plugin part, already marked `plugin.json`
+        }
         let tier = if a.kind == ArtifactKind::Plugin {
             "manifest"
         } else {

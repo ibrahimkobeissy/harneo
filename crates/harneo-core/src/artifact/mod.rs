@@ -184,6 +184,11 @@ pub struct ScanOptions {
     /// whose source names this repo is the plugin folder itself, not a separate remote plugin.
     #[serde(default)]
     pub repo: Option<String>,
+    /// Plugin folders (relative to the scan root) to unpack: the scan then reports each one's
+    /// pickable parts (skills, agents, commands, output styles, MCP servers) as ordinary
+    /// artifacts instead of one Plugin. Empty by default.
+    #[serde(default)]
+    pub unpack: Vec<String>,
 }
 
 impl Default for ScanOptions {
@@ -195,6 +200,7 @@ impl Default for ScanOptions {
             skip_dirs: vec![".git".into(), "node_modules".into(), "target".into()],
             include_managed: false,
             repo: None,
+            unpack: Vec::new(),
         }
     }
 }

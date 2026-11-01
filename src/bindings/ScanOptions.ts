@@ -28,4 +28,10 @@ includeManaged: boolean,
  * The GitHub `owner/repo` being scanned, when known (a git import). A marketplace entry
  * whose source names this repo is the plugin folder itself, not a separate remote plugin.
  */
-repo: string | null, };
+repo: string | null, 
+/**
+ * Plugin folders (relative to the scan root) to unpack: the scan then reports each one's
+ * pickable parts (skills, agents, commands, output styles, MCP servers) as ordinary
+ * artifacts instead of one Plugin. Empty by default.
+ */
+unpack: Array<string>, };
