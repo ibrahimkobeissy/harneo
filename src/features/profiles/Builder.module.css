@@ -694,7 +694,7 @@
 }
 
 .treeSummary {
-  margin: 0 0 var(--space-sm);
+  margin: 0;
   color: var(--t2);
   font-size: var(--text-label);
 }

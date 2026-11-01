@@ -17,3 +17,44 @@
   font-weight: 500;
   color: var(--t2);
 }
+.headClosed {
+  margin-bottom: 0;
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.toggle:hover {
+  color: var(--t1);
+}
+.toggle:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+.chevron {
+  flex: none;
+  transition: transform 0.12s;
+}
+.chevronOpen {
+  transform: rotate(90deg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+.intro {
+  margin-bottom: var(--space-sm);
+}
+.introClosed {
+  margin-bottom: 0;
+}

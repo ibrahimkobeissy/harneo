@@ -1,4 +1,5 @@
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import styles from "./Modal.module.css";
 
 interface ModalProps {
@@ -21,7 +22,8 @@ const focusable = [
 
 // Accessible modal: labelled, focus moves in on open, is trapped on Tab and
 // returns on close. Esc is handled by the Layout key handler; a click on the
-// scrim calls onClose.
+// scrim calls onClose. It renders into document.body, so no ancestor with a mask, transform or
+// overflow can clip or reposition it.
 export function Modal({
   label,
   variant = "dialog",
@@ -65,7 +67,7 @@ export function Modal({
     }
   }
 
-  return (
+  return createPortal(
     <>
       <div className={styles.scrim} onClick={onClose} aria-hidden="true" />
       <div
@@ -79,6 +81,7 @@ export function Modal({
       >
         {children}
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

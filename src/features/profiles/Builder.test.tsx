@@ -266,6 +266,13 @@ async function setup(path: string, opts: Opts = {}) {
 }
 
 const cart = () => screen.getByRole("complementary", { name: "Profile" });
+/** The project tree starts collapsed: open it. */
+const openTree = async (user: ReturnType<typeof userEvent.setup>) =>
+  user.click(
+    await within(cart()).findByRole("button", {
+      name: "The project it produces",
+    }),
+  );
 const callsOf = (
   calls: { cmd: string; args: Record<string, unknown> }[],
   cmd: string,
@@ -650,6 +657,7 @@ describe("Builder: tree and Manual only", () => {
   it("shows where a file comes from and writes the Manual only override", async () => {
     const user = userEvent.setup();
     const { calls } = await setup("/profiles/4");
+    await openTree(user);
     const file = await within(cart()).findByRole("button", {
       name: "SKILL.md",
     });
@@ -678,6 +686,7 @@ describe("Builder: tree and Manual only", () => {
   it("says a generated file is generated, and has no toggle on non-skills", async () => {
     const user = userEvent.setup();
     await setup("/profiles/4");
+    await openTree(user);
     await user.click(
       await within(cart()).findByRole("button", { name: "HARNESS.md" }),
     );

@@ -58,6 +58,49 @@ describe("Panel", () => {
       "body",
     );
   });
+
+  it("collapsible: starts closed, keeps the intro, opens from its title", async () => {
+    const user = userEvent.setup();
+    render(
+      <Panel
+        title="Files"
+        titleId="f-title"
+        collapsible
+        defaultOpen={false}
+        intro={<p>2 skills</p>}
+      >
+        <p>the tree</p>
+      </Panel>,
+    );
+    const toggle = screen.getByRole("button", { name: "Files" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("2 skills")).toBeVisible();
+    expect(screen.queryByText("the tree")).toBeNull();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("the tree")).toBeVisible();
+  });
+
+  it("collapsible: forceOpen opens a closed panel", () => {
+    const { rerender } = render(
+      <Panel title="Files" titleId="f-title" collapsible defaultOpen={false}>
+        <p>the tree</p>
+      </Panel>,
+    );
+    expect(screen.queryByText("the tree")).toBeNull();
+    rerender(
+      <Panel
+        title="Files"
+        titleId="f-title"
+        collapsible
+        defaultOpen={false}
+        forceOpen
+      >
+        <p>the tree</p>
+      </Panel>,
+    );
+    expect(screen.getByText("the tree")).toBeVisible();
+  });
 });
 
 describe("EmptyState", () => {

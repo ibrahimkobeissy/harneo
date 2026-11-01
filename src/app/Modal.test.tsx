@@ -42,12 +42,13 @@ describe("Modal", () => {
         </>
       );
     }
-    const { rerender, container } = render(<Host open={false} />);
+    const { rerender } = render(<Host open={false} />);
     const opener = screen.getByRole("button", { name: "opener" });
     opener.focus();
     rerender(<Host open />);
     expect(screen.getByRole("dialog")).toHaveFocus();
-    const scrim = container.querySelector('[aria-hidden="true"]');
+    // The modal renders into document.body, outside the host's container.
+    const scrim = screen.getByRole("dialog").previousElementSibling;
     if (!(scrim instanceof HTMLElement)) throw new Error("no scrim");
     await user.click(scrim);
     expect(onClose).toHaveBeenCalledOnce();

@@ -38,6 +38,10 @@ export function ProjectTree({
     <Panel
       title="The project it produces"
       titleId="cart-tree"
+      collapsible
+      defaultOpen={false}
+      forceOpen={conflicts.length > 0}
+      intro={summary && <p className={styles.treeSummary}>{summary}</p>}
       aside={
         <span className={styles.panelNote}>
           {layout?.paths.length ?? 0}{" "}
@@ -45,7 +49,6 @@ export function ProjectTree({
         </span>
       }
     >
-      {summary && <p className={styles.treeSummary}>{summary}</p>}
       {rows.length === 0 && (
         <p className={styles.quiet}>
           The files appear here as you add artifacts.
