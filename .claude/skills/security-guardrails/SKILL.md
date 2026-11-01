@@ -52,10 +52,13 @@ and plugin hooks and MCP servers run outside it (check them before installing).
   `git pull | tail`, `$(…)`) or prefixed (`VAR= gh`, `timeout 30 git push`), it
   runs sandboxed without `~/.config/gh` or `~/.ssh`, and fails as "not logged
   in" or "check access rights", which looks like broken auth but isn't.
-  guard.py refuses these up front: run the command as its own call, using
-  `-R owner/repo`, `--body-file` or `git -C dir` instead of `cd` and
-  substitutions. A script that calls `gh` inside (e.g. ticket-flow's
-  `board.sh`) needs its own `excludedCommands` entry.
+  The spelling must match the entry too: `git -C dir push` is not `git push *`,
+  and `/abs/path/.claude/skills/…/board.sh` is not `.claude/skills/…/board.sh *`.
+  guard.py refuses all of these up front: run the command as its own call,
+  spelled as the entry is, `cd` in a separate call first if needed, and use
+  `-R owner/repo` or `--body-file` instead of substitutions. A script that calls
+  `gh` inside (e.g. ticket-flow's `board.sh`) needs its own `excludedCommands`
+  entry.
 - `.env.example` and similar templates are blocked like `.env`. The user can
   create or show them.
 

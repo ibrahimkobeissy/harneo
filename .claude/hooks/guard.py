@@ -18,7 +18,8 @@ What it checks
 5. Edits that weaken the guardrails (settings.json, this script, the rules).
 6. A first `git commit` in a repo without the gitleaks pre-commit hook.
 7. A sandbox-exempt command (sandbox.excludedCommands: gh, git push...) chained
-   with others, which would run sandboxed and fail as if signed out.
+   with others or spelled differently (git -C x push, an absolute script path),
+   which would run sandboxed and fail as if signed out.
 
 Limits
 ------
@@ -693,8 +694,44 @@ def rule_exempt_in_compound(command, commands, patterns):
     return ("deny", "`%s` is exempt from the sandbox only when it is the whole command. "
             "Chained or prefixed (cd, &&, ;, |, $(...), env VAR=, timeout), it runs sandboxed "
             "without credentials and fails as 'not logged in' or 'permission denied'. Run it as "
-            "its own Bash call with nothing before or after it (use flags like -R/--repo, "
-            "--body-file or git -C instead of cd and substitutions)." % name, "retry")
+            "its own Bash call with nothing before or after it: `cd` in a separate call first "
+            "if needed, and use flags like -R/--repo or --body-file instead of substitutions."
+            % name, "retry")
+
+
+def _canonical(argv, project):
+    """`argv` as an excludedCommands pattern would spell it: git without its
+    global flags (-C dir, -c key=val...), and a program path inside the
+    project made relative to it. Returns None when nothing changes."""
+    out = list(argv)
+    if os.path.basename(out[0]) == "git":
+        sub, args, _, _ = _git_parts(out)
+        if sub is not None:
+            out = ["git", sub] + list(args)
+    head = out[0]
+    if project and (os.path.isabs(head) or head.startswith("./")):
+        full = os.path.normpath(os.path.join(project, head))
+        root = os.path.normpath(project)
+        if full.startswith(root + os.sep):
+            out[0] = os.path.relpath(full, root)
+    return out if out != list(argv) else None
+
+
+def rule_exempt_misspelled(commands, patterns, project):
+    """A command that would be sandbox-exempt if spelled the way the pattern
+    is (`git -C x push` vs `git push *`, `/abs/.claude/.../board.sh` vs
+    `.claude/.../board.sh *`) runs sandboxed and fails as if signed out."""
+    for argv in commands:
+        if _is_excluded(argv, patterns):
+            continue
+        canonical = _canonical(argv, project)
+        if canonical and _is_excluded(canonical, patterns):
+            return ("deny", "`%s` is sandbox-exempt only when spelled as the excludedCommands "
+                    "entry is, so this spelling runs sandboxed without credentials and fails as "
+                    "'not logged in' or 'permission denied'. Run `%s` instead (for git, `cd` to "
+                    "the repository in a separate call first, without -C or -c)."
+                    % (" ".join(argv[:3]), " ".join(canonical)), "retry")
+    return None
 
 
 def decide(decision, reason, tool, detail, retry=False):
@@ -734,7 +771,10 @@ def check_bash(command, cwd):
     if SHELL_WRITE_RE.search(command):
         results.append(("ask", "this shell command writes to the security guardrails' files."))
     # Last, so a security deny's reason wins over this one.
-    results.append(rule_exempt_in_compound(command, commands, excluded_commands(_LOG_DIR or cwd)))
+    project = _LOG_DIR or cwd
+    patterns = excluded_commands(project)
+    results.append(rule_exempt_in_compound(command, commands, patterns))
+    results.append(rule_exempt_misspelled(commands, patterns, project))
     return pick(results)
 
 

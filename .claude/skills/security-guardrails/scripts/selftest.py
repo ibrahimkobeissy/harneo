@@ -287,6 +287,25 @@ def failure_cases(report, project):
     report.check("malformed event fails closed (exit 2)", "exit %d" % code, "exit 2")
 
 
+def spelling_cases(report, project):
+    """Sandbox-exempt commands spelled another way run sandboxed: refused."""
+    path = os.path.join(project, ".claude", "settings.json")
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"sandbox": {"excludedCommands": [
+            "gh *", "git push *", ".claude/skills/ticket-flow/scripts/board.sh *"]}}, fh)
+    script = os.path.join(project, ".claude/skills/ticket-flow/scripts/board.sh")
+    for desc, cmd, want in [
+        ("git -C dir push -> deny", "git -C /repo push origin main", DENY),
+        ("git -c k=v push -> deny", "git -c http.x=1 push origin main", DENY),
+        ("absolute board.sh -> deny", script + " set 1 done", DENY),
+        ("./board.sh -> deny", "./.claude/skills/ticket-flow/scripts/board.sh set 1 done", DENY),
+        ("board.sh as configured -> pass", ".claude/skills/ticket-flow/scripts/board.sh set 1 done", PASS),
+        ("git -C dir status -> pass", "git -C /repo status", PASS),
+        ("script outside the project -> pass", "/usr/local/bin/board.sh set 1", PASS),
+    ]:
+        report.check(desc, run_hook(bash(cmd, cwd=project), project)[1], want)
+
+
 def main():
     report = Report()
     project = tempfile.mkdtemp(prefix="guardrails-selftest-")
@@ -295,6 +314,7 @@ def main():
         for desc, event, want in CASES:
             report.check(desc, run_hook(event, project)[1], want)
         settings_cases(report, project)
+        spelling_cases(report, project)
         git_cases(report, project)
         failure_cases(report, project)
         logged = os.path.exists(os.path.join(project, ".claude", "hooks", "guard.log"))
