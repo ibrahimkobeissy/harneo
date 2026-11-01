@@ -57,6 +57,7 @@ pub fn run() {
             commands::audit_confirm_setting_set,
             commands::home_claude_dir,
             commands::library_preview,
+            commands::library_plugin_holds,
             commands::library_import,
             commands::library_preview_confirm,
             commands::library_preview_confirm_cancel,

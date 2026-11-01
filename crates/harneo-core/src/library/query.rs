@@ -178,6 +178,10 @@ pub struct LibraryItem {
     pub status: Status,
     /// A skill installed with `disable-model-invocation` by default (see [`manual_only_sql`]).
     pub manual_only: bool,
+    /// The plugin an unpacked part came from.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub from_plugin: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -507,7 +511,8 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')),
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
                   WHERE json_extract(value, '$.resolved') = 1),
-                {sessions}, {last_used}, {status}, {manual}
+                {sessions}, {last_used}, {status}, {manual},
+                json_extract(p.artifact, '$.metadata.fromPlugin.name')
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
                       a.trust_score, a.tier, a.findings, a.manual_only, s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
@@ -543,6 +548,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, Option<String>>(18)?,
             r.get::<_, String>(19)?,
             r.get::<_, bool>(20)?,
+            r.get::<_, Option<String>>(21)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -569,6 +575,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             last_used,
             status,
             manual_only,
+            from_plugin,
         ) = row?;
         let kind = parse_kind(kind)?;
         items.push(LibraryItem {
@@ -602,6 +609,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             }),
             status: Status::parse(&status),
             manual_only,
+            from_plugin,
         });
     }
     drop(stmt);

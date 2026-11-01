@@ -319,3 +319,46 @@ fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
     assert_eq!(s.rows(), 2);
     Ok(())
 }
+
+#[test]
+fn the_library_reports_what_it_holds_of_a_previews_plugins() -> TestResult {
+    let mut s = setup()?;
+    let whole = s.library.preview(&s.source)?;
+    let fresh = s.library.plugin_holds(&whole)?;
+    assert_eq!(
+        fresh,
+        [PluginHold {
+            name: "toolbox".into(),
+            folder: whole.candidates[0].artifact.path.clone(),
+            whole: false,
+            parts: false,
+        }]
+    );
+    let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
+    s.library
+        .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())?;
+
+    // The parts' preview names the same plugin once, and sees it in the library whole.
+    let parts = s.parts()?;
+    let held = s.library.plugin_holds(&parts)?;
+    assert_eq!(held.len(), 1);
+    assert!(held[0].whole && !held[0].parts, "{held:?}");
+
+    s.library.remove(&plugin)?;
+    let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
+    s.library.import(&parts, &[alpha], &TagChoices::new())?;
+    let held = s.library.plugin_holds(&s.library.preview(&s.source)?)?;
+    assert!(!held[0].whole && held[0].parts, "{held:?}");
+    Ok(())
+}
+
+#[test]
+fn a_listed_part_names_its_plugin() -> TestResult {
+    let mut s = setup()?;
+    let parts = s.parts()?;
+    let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
+    s.library.import(&parts, &[alpha], &TagChoices::new())?;
+    let page = s.library.list(&Query::default())?;
+    assert_eq!(page.items[0].from_plugin.as_deref(), Some("toolbox"));
+    Ok(())
+}

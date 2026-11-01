@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import type { PluginHold } from "../bindings/PluginHold";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Source } from "../bindings/Source";
 import type { ChangeScope } from "../bindings/ChangeScope";
@@ -237,8 +238,23 @@ export function homeClaudeDir(): Promise<string> {
 export function libraryPreview(
   source: Source,
   includeManaged = false,
+  unpack: string[] = [],
 ): Promise<PreviewTicket> {
-  return invoke<PreviewTicket>("library_preview", { source, includeManaged });
+  return invoke<PreviewTicket>("library_preview", {
+    source,
+    includeManaged,
+    ...(unpack.length > 0 && { unpack }),
+  });
+}
+
+/**
+ * What the library already holds of the plugins in a held preview, whole or as parts, so the
+ * Choose step can refuse a choice before the import does.
+ */
+export function libraryPluginHolds(token: string): Promise<PluginHold[]> {
+  return invoke<PluginHold[] | null>("library_plugin_holds", { token }).then(
+    (holds) => holds ?? [],
+  );
 }
 
 /**

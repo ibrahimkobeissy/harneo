@@ -4,7 +4,9 @@
 use std::collections::HashSet;
 
 use rusqlite::Connection;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use ts_rs::TS;
 
 use super::Candidate;
 use crate::artifact::{Artifact, ArtifactKind, Severity};
@@ -138,4 +140,42 @@ pub(super) fn folders(fresh: &[&Candidate]) -> (Vec<String>, Vec<String>) {
         .filter_map(|c| whole_of(&c.artifact).map(|(_, folder)| folder))
         .collect();
     (unpacked, whole)
+}
+
+/// A plugin of a preview (whole or unpacked) and what the library already holds of it, wherever
+/// it was imported from. The window shows this before import; [`check`] stays the backstop.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct PluginHold {
+    pub name: String,
+    /// The plugin's folder in the source: what `ScanOptions.unpack` names.
+    pub folder: String,
+    /// The library holds the plugin whole.
+    pub whole: bool,
+    /// The library holds parts of the plugin.
+    pub parts: bool,
+}
+
+/// The plugins in `candidates`, each once, with what the library holds of them.
+pub(super) fn holds(conn: &Connection, candidates: &[Candidate]) -> Result<Vec<PluginHold>> {
+    let (in_whole, in_parts) = held(conn)?;
+    let mut seen = HashSet::new();
+    let mut out = Vec::new();
+    for c in candidates {
+        let Some((name, folder)) = whole_of(&c.artifact).or_else(|| part_of(&c.artifact)) else {
+            continue;
+        };
+        if !seen.insert(folder.clone()) {
+            continue;
+        }
+        let id = identity(&c.artifact);
+        out.push(PluginHold {
+            whole: id.as_ref().is_some_and(|i| in_whole.contains(i)),
+            parts: id.as_ref().is_some_and(|i| in_parts.contains(i)),
+            name,
+            folder,
+        });
+    }
+    Ok(out)
 }

@@ -89,6 +89,7 @@ pub(crate) use restore::{Restored, PROFILE_FILE_SOURCE};
 pub use source::Source;
 use store::Store;
 pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
+pub use unpack::PluginHold;
 pub use viewer::{may_run_when_opened, FileView, MAX_VIEW_BYTES};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
@@ -216,6 +217,12 @@ impl Library {
     /// stays until `import`, the next git preview or the library being dropped.
     pub fn preview(&self, source: &Source) -> Result<Preview> {
         self.preview_with(source, &ScanOptions::default())
+    }
+
+    /// The plugins of `preview` (whole or unpacked) with what the library already holds of each,
+    /// so the window can refuse a choice before import. Read-only.
+    pub fn plugin_holds(&self, preview: &Preview) -> Result<Vec<PluginHold>> {
+        unpack::holds(&self.store.conn, &preview.candidates)
     }
 
     /// [`Self::preview`] with the scan's options (for example `include_managed`).

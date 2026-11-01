@@ -17,8 +17,8 @@ use harneo_core::install::{
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
-    Filter, ImportReport, LayoutStage, Library, Page, Preview, Query, ReauditReport, RemovalPlan,
-    Source, Tag, TagColor, TagWithCount,
+    Filter, ImportReport, LayoutStage, Library, Page, PluginHold, Preview, Query, ReauditReport,
+    RemovalPlan, Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
@@ -347,15 +347,33 @@ pub async fn library_preview(
     app: AppHandle,
     source: Source,
     include_managed: Option<bool>,
+    unpack: Option<Vec<String>>,
 ) -> Result<PreviewTicket, String> {
     let options = ScanOptions {
         include_managed: include_managed.unwrap_or(false),
+        unpack: unpack.unwrap_or_default(),
         ..ScanOptions::default()
     };
     let source = normalized(source).map_err(|e| e.to_string())?;
     tauri::async_runtime::spawn_blocking(move || preview_held(&app, &source, &options))
         .await
         .map_err(|e| e.to_string())?
+}
+
+/// What the library holds of the plugins in the preview held under `token`, so the Choose step
+/// can refuse whole-or-parts before the import does.
+#[tauri::command]
+pub fn library_plugin_holds(app: AppHandle, token: String) -> Result<Vec<PluginHold>, String> {
+    plugin_holds_held(&app, &token)
+}
+
+fn plugin_holds_held<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    token: &str,
+) -> Result<Vec<PluginHold>, String> {
+    let preview = app.state::<PreviewCache>().get(token)?;
+    app.state::<LibraryState>()
+        .with(|library| library.plugin_holds(&preview))
 }
 
 /// Scans the source and keeps the preview under a new token.
@@ -2212,6 +2230,37 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
             program: program.into(),
             ..ClaudeConfig::default()
         })
+    }
+
+    #[test]
+    fn a_held_previews_plugins_are_reported_with_what_the_library_holds(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let data = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join(".claude-plugin"))?;
+        std::fs::write(
+            source.path().join(".claude-plugin/plugin.json"),
+            r#"{"name":"toolbox","description":"Tools"}"#,
+        )?;
+        std::fs::create_dir_all(source.path().join("skills/alpha"))?;
+        std::fs::write(
+            source.path().join("skills/alpha/SKILL.md"),
+            "---\nname: alpha\ndescription: A skill\n---\nBody\n",
+        )?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(data.path())?)));
+        app.manage(PreviewCache::default());
+        let handle = app.handle();
+        let local = Source::Local {
+            path: source.path().to_path_buf(),
+        };
+        let ticket = preview_held(handle, &local, &ScanOptions::default())?;
+        let holds = plugin_holds_held(handle, &ticket.token)?;
+        assert_eq!(holds.len(), 1);
+        assert_eq!(holds[0].name, "toolbox");
+        assert!(!holds[0].whole && !holds[0].parts);
+        assert!(plugin_holds_held(handle, "forged").is_err());
+        Ok(())
     }
 
     #[test]

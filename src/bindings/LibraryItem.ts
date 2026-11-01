@@ -54,4 +54,8 @@ usage: UsageBrief | null, status: Status,
 /**
  * A skill installed with `disable-model-invocation` by default (see [`manual_only_sql`]).
  */
-manualOnly: boolean, };
+manualOnly: boolean, 
+/**
+ * The plugin an unpacked part came from.
+ */
+fromPlugin?: string, };
