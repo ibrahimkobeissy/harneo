@@ -1,9 +1,9 @@
 //! Unpacked plugins at import (`spec/library.md`, "Unpacking a plugin"): a plugin is in the
 //! library whole or as some of its parts, never both, and the choice is kept on its source.
 
-use std::collections::HashMap;
+use std::collections::HashSet;
 
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use serde_json::Value;
 
 use super::Candidate;
@@ -25,6 +25,26 @@ fn whole_of(artifact: &Artifact) -> Option<(String, String)> {
     (artifact.kind == ArtifactKind::Plugin).then(|| (artifact.name.clone(), artifact.path.clone()))
 }
 
+/// Who a plugin is, wherever it was imported from: its name and marketplace (a local clone and
+/// the git URL of the same repo are the same plugin).
+/// A plugin's name and marketplace.
+type Identity = (String, String);
+
+fn identity(artifact: &Artifact) -> Option<Identity> {
+    let (name, market) = if artifact.kind == ArtifactKind::Plugin {
+        (artifact.name.clone(), artifact.metadata.get("marketplace"))
+    } else {
+        let from = artifact.metadata.get("fromPlugin")?;
+        let name = part_of(artifact)?.0;
+        (name, from.get("marketplace"))
+    };
+    let market = market
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    Some((name, market))
+}
+
 fn exclusive(plugin: &str, detail: String) -> Error {
     Error::PluginExclusive {
         plugin: plugin.to_owned(),
@@ -32,22 +52,22 @@ fn exclusive(plugin: &str, detail: String) -> Error {
     }
 }
 
-/// The plugin folders (and names) of the library's artifacts of `source_id`, whole and unpacked.
-fn held(
-    conn: &Connection,
-    source_id: &str,
-) -> Result<(HashMap<String, String>, HashMap<String, String>)> {
-    let mut stmt = conn.prepare("SELECT artifact FROM artifacts WHERE source_id = ?1")?;
-    let rows = stmt.query_map(params![source_id], |r| r.get::<_, String>(0))?;
-    let (mut whole, mut parts) = (HashMap::new(), HashMap::new());
+/// The plugins the library holds, by [`identity`], whole and unpacked, from every source.
+fn held(conn: &Connection) -> Result<(HashSet<Identity>, HashSet<Identity>)> {
+    let mut stmt = conn.prepare("SELECT artifact FROM artifacts")?;
+    let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    let (mut whole, mut parts) = (HashSet::new(), HashSet::new());
     for row in rows {
         let Ok(artifact) = serde_json::from_str::<Artifact>(&row?) else {
             continue;
         };
-        if let Some((name, folder)) = whole_of(&artifact) {
-            whole.insert(folder, name);
-        } else if let Some((name, folder)) = part_of(&artifact) {
-            parts.insert(folder, name);
+        let Some(id) = identity(&artifact) else {
+            continue;
+        };
+        if artifact.kind == ArtifactKind::Plugin {
+            whole.insert(id);
+        } else {
+            parts.insert(id);
         }
     }
     Ok((whole, parts))
@@ -57,12 +77,7 @@ fn held(
 /// and its parts picked together, parts while the plugin is in the library whole, or the plugin
 /// whole while parts of it are. `chosen` is the whole selection; `fresh` the part of it not in
 /// the library yet.
-pub(super) fn check(
-    conn: &Connection,
-    source_id: &str,
-    chosen: &[&Candidate],
-    fresh: &[&Candidate],
-) -> Result<()> {
+pub(super) fn check(conn: &Connection, chosen: &[&Candidate], fresh: &[&Candidate]) -> Result<()> {
     for c in chosen {
         let needs = c
             .artifact
@@ -87,18 +102,21 @@ pub(super) fn check(
             ));
         }
     }
-    let (in_whole, in_parts) = held(conn, source_id)?;
+    let (in_whole, in_parts) = held(conn)?;
     for c in fresh {
-        if let Some((name, folder)) = part_of(&c.artifact) {
-            if in_whole.contains_key(&folder) {
+        let Some(id) = identity(&c.artifact) else {
+            continue;
+        };
+        if let Some((name, _)) = part_of(&c.artifact) {
+            if in_whole.contains(&id) {
                 return Err(exclusive(
                     &name,
                     format!("the plugin is in the library whole; remove the plugin {name} first to import its parts"),
                 ));
             }
         }
-        if let Some((name, folder)) = whole_of(&c.artifact) {
-            if in_parts.contains_key(&folder) {
+        if let Some((name, _)) = whole_of(&c.artifact) {
+            if in_parts.contains(&id) {
                 return Err(exclusive(
                     &name,
                     format!("parts of the plugin are in the library; remove them first to import the plugin {name} whole"),

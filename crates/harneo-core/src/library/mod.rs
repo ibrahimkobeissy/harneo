@@ -487,7 +487,7 @@ gone or no longer parses",
             .copied()
             .filter(|c| !known.contains(&c.id))
             .collect();
-        unpack::check(&self.store.conn, &source_id, &chosen, &fresh_chosen)?;
+        unpack::check(&self.store.conn, &chosen, &fresh_chosen)?;
         // A git preview's clone is consumed here and deleted when this function returns,
         // whatever the outcome.
         let clone = match &preview.source {

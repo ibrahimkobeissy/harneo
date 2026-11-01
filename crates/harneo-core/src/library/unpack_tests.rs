@@ -275,3 +275,47 @@ fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() 
     assert!(!settings.contains("enabledPlugins"), "{settings}");
     Ok(())
 }
+
+#[test]
+fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
+    let mut s = setup()?;
+    let whole = s.library.preview(&s.source)?;
+    let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
+    s.library
+        .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())?;
+
+    // A second copy of the same repo (a clone next to the first, say), unpacked.
+    let other = tempfile::tempdir()?;
+    plugin_repo(other.path())?;
+    let elsewhere = Source::Local {
+        path: other.path().to_path_buf(),
+    };
+    let parts = s.library.preview_with(&elsewhere, &unpacking(&[""]))?;
+    let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
+    let refused = s
+        .library
+        .import(&parts, std::slice::from_ref(&alpha), &TagChoices::new())
+        .expect_err("the plugin is in the library whole, from another source");
+    assert!(
+        matches!(refused, Error::PluginExclusive { .. }),
+        "{refused}"
+    );
+    assert_eq!(s.rows(), 1);
+
+    // A different plugin from another source is not affected.
+    let unrelated = tempfile::tempdir()?;
+    write(
+        unrelated.path(),
+        ".claude-plugin/plugin.json",
+        r#"{"name":"other","description":"Other"}"#,
+    )?;
+    write(unrelated.path(), "skills/delta/SKILL.md", &skill("delta"))?;
+    let theirs = Source::Local {
+        path: unrelated.path().to_path_buf(),
+    };
+    let parts = s.library.preview_with(&theirs, &unpacking(&[""]))?;
+    let delta = id(&parts, ArtifactKind::Skill, "delta")?;
+    s.library.import(&parts, &[delta], &TagChoices::new())?;
+    assert_eq!(s.rows(), 2);
+    Ok(())
+}
