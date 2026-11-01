@@ -1,0 +1,56 @@
+name: Bug report
+description: Something in Harneo (app or CLI) does not work as it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Import ~/.claude/
+        2. Open Profiles → New
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Desktop app
+        - CLI
+        - Both
+        - Building / setup script
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      description: OS version, the output of `harneo --version`, and `git rev-parse --short HEAD` of your checkout.
+      placeholder: Ubuntu 24.04, harneo 0.1.0, f6ee58e
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or errors
+      description: Terminal output or error messages. Remove anything private (tokens, paths you'd rather not share).
+      render: text

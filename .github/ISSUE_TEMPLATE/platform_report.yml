@@ -1,0 +1,37 @@
+name: Platform report
+description: You built Harneo on macOS, Windows or a Linux distro the README doesn't list. Tell us how it went.
+labels: ["platform"]
+body:
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options:
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Windows
+        - Linux (other distro)
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: OS version and commit
+      placeholder: macOS 15.1, f6ee58e
+    validations:
+      required: true
+  - type: checkboxes
+    id: steps
+    attributes:
+      label: What worked
+      options:
+        - label: The setup script ran without errors
+        - label: "`npm run tauri build -- --no-bundle` built the app"
+        - label: "`cargo build --release -p harneo-cli` built the CLI"
+        - label: The app starts and shows the library
+        - label: Import, scaffold and refit work
+  - type: textarea
+    id: notes
+    attributes:
+      label: What didn't, and anything you had to do by hand
+      render: text

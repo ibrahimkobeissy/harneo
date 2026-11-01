@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ibrahimkobeissy/harneo/security/advisories/new
+    about: Please report vulnerabilities privately, not as a public issue.
+  - name: Build instructions
+    url: https://github.com/ibrahimkobeissy/harneo/blob/main/BUILDING.md
+    about: Prerequisites and build steps for Linux, macOS and Windows.
