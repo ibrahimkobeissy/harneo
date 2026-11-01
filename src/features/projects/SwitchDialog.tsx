@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import type { ApplyReport } from "../../bindings/ApplyReport";
 import type { PlanTicket } from "../../bindings/PlanTicket";
 import type { Project } from "../../bindings/Project";
@@ -30,6 +30,7 @@ export function SwitchDialog({
   ) => void;
 }) {
   const others = profiles.filter((p) => p.id !== project.profileId);
+  const pickId = useId();
   const [chosen, setChosen] = useState<bigint | null>(
     upgrade ? project.profileId : (others[0]?.id ?? null),
   );
@@ -110,31 +111,24 @@ export function SwitchDialog({
             There is no other profile to switch to.
           </p>
         ) : (
-          <fieldset className={styles.optlist}>
-            <legend className={styles.srOnly}>Switch to</legend>
-            {others.map((p) => (
-              <label
-                key={String(p.id)}
-                className={styles.opt}
-                data-on={chosen === p.id ? "true" : undefined}
-              >
-                <input
-                  type="radio"
-                  name="switch-profile"
-                  checked={chosen === p.id}
-                  onChange={() => setChosen(p.id)}
-                />
-                <span>
-                  <b>
-                    {p.name} <span className={styles.mono}>v{p.version}</span>
-                  </b>
-                  {p.description && (
-                    <span className={styles.sec}>{p.description}</span>
-                  )}
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <div className={styles.pickField}>
+            <label htmlFor={pickId}>Switch to</label>
+            <select
+              id={pickId}
+              className={styles.select}
+              value={chosen === null ? "" : String(chosen)}
+              onChange={(e) => setChosen(BigInt(e.target.value))}
+            >
+              {others.map((p) => (
+                <option key={String(p.id)} value={String(p.id)}>
+                  {p.name} v{p.version}
+                </option>
+              ))}
+            </select>
+            {target?.description && (
+              <span className={styles.sec}>{target.description}</span>
+            )}
+          </div>
         ))}
       {planError && (
         <p className={styles.err} role="alert">

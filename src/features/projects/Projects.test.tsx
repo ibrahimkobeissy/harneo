@@ -550,7 +550,7 @@ describe("Switch / Upgrade modal", () => {
   it("upgrades: groups the plan, flags edited files, applies", async () => {
     const calls = await upgradeSetup();
     const dialog = await screen.findByRole("dialog", { name: "Upgrade shop" });
-    expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox")).not.toBeInTheDocument();
     expect(
       await within(dialog).findByText(".claude/skills/new/SKILL.md"),
     ).toBeInTheDocument();
@@ -645,7 +645,7 @@ describe("Switch / Upgrade modal", () => {
     ).toBeInTheDocument();
   });
 
-  it("switches: radio list of the other profiles, re-plans on pick", async () => {
+  it("switches: a dropdown of the other profiles, re-plans on pick", async () => {
     const calls = setup("/projects/1", {
       profiles: [
         profile(10, "Web", 1),
@@ -659,11 +659,15 @@ describe("Switch / Upgrade modal", () => {
     const dialog = await screen.findByRole("dialog", {
       name: "Switch shop to another profile",
     });
-    const radios = within(dialog).getAllByRole("radio");
-    expect(radios).toHaveLength(2);
-    expect(radios[0]).toBeChecked();
+    const pick = within(dialog).getByRole("combobox", { name: "Switch to" });
+    expect(
+      within(pick)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).toEqual(["Api v3", "Cli v2"]);
+    expect(pick).toHaveValue("11");
     await within(dialog).findByText(".claude/skills/new/SKILL.md");
-    await userEvent.click(radios[1] as HTMLElement);
+    await userEvent.selectOptions(pick, "12");
     await waitFor(() =>
       expect(
         calls

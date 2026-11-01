@@ -311,34 +311,6 @@
   margin: 0;
   color: var(--red);
 }
-.optlist {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  border: 0;
-  margin: 0;
-  padding: 0;
-  min-inline-size: 0;
-}
-.opt {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border: var(--hairline) solid var(--line);
-  border-radius: var(--radius);
-  cursor: pointer;
-}
-.opt[data-on="true"] {
-  border-color: var(--blue);
-  background: var(--blue-soft);
-}
-.opt[data-on="true"] .sec {
-  color: var(--t2);
-}
-.opt input {
-  margin-top: 3px;
-}
 .diff {
   border: var(--hairline) solid var(--line);
   border-radius: var(--radius-lg);
@@ -554,4 +526,28 @@
   padding: 0;
   display: grid;
   gap: var(--space-sm);
+}
+.pickField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+}
+.pickField label {
+  font-size: var(--text-label);
+  font-weight: 500;
+  color: var(--t2);
+}
+.select {
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+}
+.select:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
 }
