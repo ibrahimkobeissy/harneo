@@ -1,10 +1,12 @@
 name: check
 
-# Runs only for release tags such as release_1.2.3; pushes to main run nothing.
+# Runs for release tags such as release_1.2.3, or by hand (Actions → check → Run workflow);
+# pushes to main run nothing.
 on:
   push:
     tags:
       - "release_[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
 
 jobs:
   check-full:
@@ -39,9 +41,28 @@ jobs:
 
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-llvm-cov,gitleaks,osv-scanner
+          tool: cargo-llvm-cov,osv-scanner
 
+      # install-action has no gitleaks: take the release binary and check its checksum.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: 8.30.1
+        run: |
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          tarball="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO "$base/$tarball"
+          curl -fsSL "$base/gitleaks_${GITLEAKS_VERSION}_checksums.txt" | grep " $tarball\$" | sha256sum -c -
+          tar -xzf "$tarball" gitleaks
+          sudo install -m 755 gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      # The runner's system Python refuses pip installs (PEP 668); pipx gives each tool its own venv.
       - name: Install semgrep and diff-cover
-        run: pip install semgrep diff-cover
+        run: |
+          pipx install semgrep==1.183.0
+          pipx install diff-cover==11.0.0
+          semgrep --version
+          diff-cover --version
 
       - run: npm run check:full
