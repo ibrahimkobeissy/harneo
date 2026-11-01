@@ -41,6 +41,7 @@ Tauri 2 needs WebKitGTK 4.1 and a few system libraries. Package names per distro
 
 - Xcode command line tools: `xcode-select --install`.
 - Homebrew, which `setup.sh` uses for the rest.
+- Homebrew installs `node@22` and `rustup` keg-only, so they are not on your `PATH` until you add `$(brew --prefix node@22)/bin`, `$(brew --prefix rustup)/bin` and `~/.cargo/bin` (the README's [macOS](README.md#macos) section has the line to add), then run `rustup default stable`.
 
 ### Git (all platforms)
 
@@ -71,7 +72,19 @@ Rust dependencies are fetched and built on the first `cargo` or `tauri` run.
 | Run the CLI                | `cargo run -p harneo-cli -- --version`, or `-- paths` for the data folder |
 | Build the CLI in release   | `cargo build --release -p harneo-cli`                                    |
 
-Installers are not built (`bundle.active` is `false` in `src-tauri/tauri.conf.json`). The release build writes the app binary to `target/release/harneo-app` (`harneo-app.exe` on Windows), with the frontend embedded from `dist/`. The CLI binary is `target/release/harneo`. The app and the CLI share one library folder; `harneo paths` prints where it is.
+Installers are not built (`bundle.active` is `false` in `src-tauri/tauri.conf.json`). The release build writes the app binary to `target/release/harneo-app` (`harneo-app.exe` on Windows), with the frontend embedded from `dist/`. The CLI binary is `target/release/harneo`. The app and the CLI share one library folder; `harneo paths` prints where it is. The README's [Install](README.md#install) section has the per-OS steps to put both on your `PATH`.
+
+### Bundles (optional)
+
+Untested by the maintainer. To build an OS package instead of a plain binary, turn bundling on for one build and name the format:
+
+| OS | Command | Output |
+| -- | ------- | ------ |
+| macOS | `npm run tauri build -- --bundles app --config '{"bundle":{"active":true}}'` | `target/release/bundle/macos/Harneo.app` (unsigned: right-click → Open the first time) |
+| Windows | `npm run tauri build -- --bundles nsis --config '{"bundle":{"active":true}}'` | `target\release\bundle\nsis\*.exe` installer |
+| Linux | `npm run tauri build -- --bundles deb --config '{"bundle":{"active":true}}'` (or `rpm`, `appimage`) | `target/release/bundle/<format>/` |
+
+In PowerShell, quote the JSON as `--config '{\"bundle\":{\"active\":true}}'`.
 
 ## Error reporting (optional)
 
