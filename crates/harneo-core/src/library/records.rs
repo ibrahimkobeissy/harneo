@@ -192,7 +192,49 @@ pub(crate) fn stored_layout(conn: &Connection, source_id: &str) -> Result<Stored
         .into_iter()
         .map(|i| i.path)
         .collect();
-    Ok(StoredLayout { claude, ignore })
+    Ok(StoredLayout {
+        claude,
+        ignore,
+        unpack: stored_unpack(conn, source_id)?,
+    })
+}
+
+/// The plugin folders unpacked at the source's import (see `sources.unpack`).
+pub(crate) fn stored_unpack(conn: &Connection, source_id: &str) -> Result<Vec<String>> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT unpack FROM sources WHERE id = ?1",
+            params![source_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    Ok(json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default())
+}
+
+/// Adds the `add` folders to the source's unpacked plugins and removes the `drop` ones (plugins
+/// now imported whole).
+pub(crate) fn update_unpack(
+    conn: &Connection,
+    source_id: &str,
+    add: &[String],
+    drop: &[String],
+) -> Result<()> {
+    let mut folders = stored_unpack(conn, source_id)?;
+    folders.extend(add.iter().cloned());
+    folders.retain(|f| !drop.contains(f));
+    folders.sort();
+    folders.dedup();
+    let json = (!folders.is_empty())
+        .then(|| serde_json::to_string(&folders))
+        .transpose()?;
+    conn.execute(
+        "UPDATE sources SET unpack = ?2 WHERE id = ?1",
+        params![source_id, json],
+    )?;
+    Ok(())
 }
 
 pub(crate) fn insert_artifact(

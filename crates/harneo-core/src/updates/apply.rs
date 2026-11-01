@@ -284,6 +284,7 @@ impl Library {
                 .into_iter()
                 .collect(),
             ignore: Vec::new(),
+            unpack: records::stored_unpack(&self.store.conn, &detail.provenance.source.id)?,
         };
         let large_files: bool = self.store.conn.query_row(
             "SELECT large_files FROM sources WHERE id = ?1",

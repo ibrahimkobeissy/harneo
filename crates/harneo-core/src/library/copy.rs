@@ -111,12 +111,14 @@ fn store_base(artifact: &Artifact, files: &[&str]) -> String {
 
 /// Where each listed file goes: `(path in the source, path in the store)`.
 pub(crate) fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
+    let config = artifact.path.split_once('#').map(|(file, _)| file);
     let listed: Vec<&str> = artifact
         .files
         .iter()
         .map(String::as_str)
-        // An MCP server is stored as `server.json`, not as the shared `.mcp.json`.
-        .filter(|f| !(artifact.kind == ArtifactKind::Mcp && *f == MCP_FILE))
+        // An MCP server is stored as `server.json`, not as the config file it is defined in
+        // (the shared `.mcp.json`, or a plugin's `.mcp.json` / manifest) that may hold others.
+        .filter(|f| !(artifact.kind == ArtifactKind::Mcp && (*f == MCP_FILE || Some(*f) == config)))
         .collect();
     let base = store_base(artifact, &listed);
     let mut out = Vec::new();
@@ -202,14 +204,16 @@ fn auth_scheme(value: &str) -> Option<&str> {
 /// The `field` map (`env` or `headers`) of the server `name` in the source's `.mcp.json`, read
 /// only to recover the auth scheme the scan's `<redacted>` marker dropped. Any failure gives an
 /// empty map: the placeholder then simply has no scheme in front.
-fn source_map(source_root: &Path, name: &str, field: &str) -> Map<String, Value> {
+fn source_map(source_root: &Path, config: &str, name: &str, field: &str) -> Map<String, Value> {
     let read = || -> Option<Map<String, Value>> {
-        if refusal(source_root, MCP_FILE, u64::MAX).ok()?.is_some() {
+        if refusal(source_root, config, u64::MAX).ok()?.is_some() {
             return None;
         }
-        let bytes = fs::read(safe_join(source_root, MCP_FILE).ok()?).ok()?;
+        let bytes = fs::read(safe_join(source_root, config).ok()?).ok()?;
         let root: Value = serde_json::from_slice(&bytes).ok()?;
-        root.get("mcpServers")?
+        // `{"mcpServers": {...}}`, or the servers' map itself (a plugin's inline definition).
+        root.get("mcpServers")
+            .unwrap_or(&root)
             .get(name)?
             .get(field)?
             .as_object()
@@ -259,11 +263,13 @@ fn mcp_definition(source_root: &Path, artifact: &Artifact) -> (Value, Vec<String
     let mut definition = artifact.metadata.clone();
     // Scan bookkeeping, not part of the server's own definition.
     definition.remove("layoutBy");
+    definition.remove("fromPlugin");
+    let config = artifact.path.split('#').next().unwrap_or(MCP_FILE);
     for field in ["env", "headers"] {
         if !definition.contains_key(field) {
             continue;
         }
-        let original = source_map(source_root, &artifact.name, field);
+        let original = source_map(source_root, config, &artifact.name, field);
         let Some(Value::Object(map)) = definition.get_mut(field) else {
             continue;
         };

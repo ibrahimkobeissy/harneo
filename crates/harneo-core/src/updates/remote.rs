@@ -217,6 +217,7 @@ pub(crate) fn scan(
         repo: (source.kind == "git")
             .then(|| crate::artifact::github_repo(&source.location))
             .flatten(),
+        unpack: layout.unpack.clone(),
         ..ScanOptions::default()
     };
     let mut report = ClaudeAdapter.scan(root, &options).map_err(unreachable)?;

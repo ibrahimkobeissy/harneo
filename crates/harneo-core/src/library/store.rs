@@ -322,8 +322,14 @@ ALTER TABLE sources   ADD COLUMN large_files INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE artifacts ADD COLUMN unaudited   TEXT;
 ";
 
+/// Unpacked plugins: `sources.unpack` is the JSON list of plugin folders the user took apart at
+/// import (`NULL` for none), replayed by update checks so the parts keep updating as artifacts.
+const V11: &str = "
+ALTER TABLE sources ADD COLUMN unpack TEXT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -655,6 +661,35 @@ mod tests {
         assert_eq!(status("b").as_deref(), Some("confirmed"));
         assert_eq!(status("c"), None, "never audited stays so");
         assert_eq!(count(&store, "audit_verdicts"), 0);
+    }
+
+    /// A version 10 database migrates to version 11: sources gain `unpack`, empty for the ones
+    /// imported before.
+    #[test]
+    fn a_v10_database_migrates_to_unpacked_plugins() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v10 db");
+            for sql in [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO sources (id, kind, location, large_files) VALUES ('s', 'local', '/x', 1);
+                 PRAGMA user_version = 10;",
+            )
+            .expect("v10 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let source: (i64, Option<String>) = store
+            .conn
+            .query_row("SELECT large_files, unpack FROM sources", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .expect("source survives");
+        assert_eq!(source, (1, None));
     }
 
     /// A version 8 database migrates to version 9: sources get a layout version of 0 and no

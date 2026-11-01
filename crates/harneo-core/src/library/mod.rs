@@ -49,6 +49,9 @@ mod store;
 mod tags;
 #[cfg(test)]
 mod tags_tests;
+mod unpack;
+#[cfg(test)]
+pub(crate) mod unpack_tests;
 mod viewer;
 #[cfg(test)]
 mod viewer_tests;
@@ -479,6 +482,12 @@ gone or no longer parses",
         }
         let chosen_ids: Vec<&str> = chosen.iter().map(|c| c.id.as_str()).collect();
         let known = records::existing(&self.store.conn, &chosen_ids)?;
+        let fresh_chosen: Vec<&Candidate> = chosen
+            .iter()
+            .copied()
+            .filter(|c| !known.contains(&c.id))
+            .collect();
+        unpack::check(&self.store.conn, &source_id, &chosen, &fresh_chosen)?;
         // A git preview's clone is consumed here and deleted when this function returns,
         // whatever the outcome.
         let clone = match &preview.source {
@@ -559,6 +568,8 @@ gone or no longer parses",
                     rusqlite::params![source_id],
                 )?;
             }
+            let (unpacked, whole) = unpack::folders(&fresh);
+            records::update_unpack(&tx, &source_id, &unpacked, &whole)?;
             records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
             let now = records::now();
             for candidate in &fresh {

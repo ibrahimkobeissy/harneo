@@ -376,6 +376,8 @@ fn accept(
 pub(crate) struct StoredLayout {
     pub claude: Vec<StoredClaude>,
     pub ignore: Vec<String>,
+    /// The plugin folders the source's import unpacked; the scan unpacks them again.
+    pub unpack: Vec<String>,
 }
 
 /// One artifact Claude placed: its kind and path, and the reason it gave.

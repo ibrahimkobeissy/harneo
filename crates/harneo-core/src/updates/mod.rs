@@ -27,6 +27,8 @@ mod remote_tests;
 mod status_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod unpack_tests;
 
 use std::collections::HashMap;
 use std::fmt::Write as _;

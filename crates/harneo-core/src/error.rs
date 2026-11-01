@@ -46,6 +46,21 @@ pub enum Error {
         /// The id that was selected.
         id: String,
     },
+    /// A plugin and its parts cannot both be in the library: the import would have both.
+    #[error("{plugin}: {detail}")]
+    PluginExclusive {
+        /// The plugin's name.
+        plugin: String,
+        /// What conflicts and what to remove first.
+        detail: String,
+    },
+    /// A part of an unpacked plugin refers to files outside itself, so it only works with the
+    /// whole plugin.
+    #[error("{name} only works with its whole plugin: it reaches files outside itself")]
+    PartNeedsPlugin {
+        /// The part's name.
+        name: String,
+    },
     /// A path from a scanned source was absolute, climbed out with `..`, or went through a
     /// symlink, so it was not copied.
     #[error("unsafe path in the source: {path}")]

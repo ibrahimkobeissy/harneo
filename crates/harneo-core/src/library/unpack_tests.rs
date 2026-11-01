@@ -1,0 +1,277 @@
+//! Importing the parts of a plugin: what is stored, the exclusivity rules and the install.
+
+use std::fs;
+use std::path::Path;
+
+use super::*;
+use crate::artifact::ArtifactKind;
+use crate::profiles::ProfileSpec;
+
+type TestResult = std::result::Result<(), Box<dyn std::error::Error>>;
+
+fn write(root: &Path, rel: &str, contents: &str) -> std::io::Result<()> {
+    let path = root.join(rel);
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, contents)
+}
+
+fn skill(name: &str) -> String {
+    format!("---\nname: {name}\ndescription: The {name} skill\n---\nBody\n")
+}
+
+/// A plugin at the repo root: three skills, one more that needs the plugin, and two MCP servers
+/// in one `.mcp.json`.
+pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
+    write(
+        root,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"toolbox","description":"Tools"}"#,
+    )?;
+    for name in ["alpha", "beta", "gamma"] {
+        write(root, &format!("skills/{name}/SKILL.md"), &skill(name))?;
+    }
+    write(
+        root,
+        "skills/needy/SKILL.md",
+        "---\nname: needy\ndescription: Needs the plugin\n---\nRun ${CLAUDE_PLUGIN_ROOT}/shared/tool.sh\n",
+    )?;
+    write(root, "shared/tool.sh", "echo hi")?;
+    write(
+        root,
+        ".mcp.json",
+        r#"{"mcpServers":{"db":{"command":"db-server","env":{"API_KEY":"harneo-test-literal-value-123"}},"cache":{"command":"cache-server"}}}"#,
+    )
+}
+
+pub(crate) fn unpacking(folders: &[&str]) -> ScanOptions {
+    ScanOptions {
+        unpack: folders.iter().map(|f| (*f).to_owned()).collect(),
+        ..ScanOptions::default()
+    }
+}
+
+struct Setup {
+    _data: tempfile::TempDir,
+    _repo: tempfile::TempDir,
+    library: Library,
+    source: Source,
+}
+
+fn setup() -> std::result::Result<Setup, Box<dyn std::error::Error>> {
+    let repo = tempfile::tempdir()?;
+    plugin_repo(repo.path())?;
+    let data = tempfile::tempdir()?;
+    let library = Library::open(data.path())?;
+    let source = Source::Local {
+        path: repo.path().to_path_buf(),
+    };
+    Ok(Setup {
+        _data: data,
+        _repo: repo,
+        library,
+        source,
+    })
+}
+
+fn id(preview: &Preview, kind: ArtifactKind, name: &str) -> std::result::Result<String, String> {
+    preview
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == kind && c.artifact.name == name)
+        .map(|c| c.id.clone())
+        .ok_or_else(|| format!("{name} not in the preview"))
+}
+
+impl Setup {
+    fn parts(&self) -> Result<Preview> {
+        self.library.preview_with(&self.source, &unpacking(&[""]))
+    }
+
+    fn rows(&self) -> i64 {
+        self.library
+            .store
+            .conn
+            .query_row("SELECT COUNT(*) FROM artifacts", [], |r| r.get(0))
+            .unwrap_or(-1)
+    }
+
+    fn stored_unpack(&self, preview: &Preview) -> Result<Vec<String>> {
+        records::stored_unpack(
+            &self.library.store.conn,
+            &ids::source_id(&preview.source.identity()?),
+        )
+    }
+}
+
+#[test]
+fn two_of_three_skills_are_stored_with_their_plugin_and_no_plugin() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.parts()?;
+    let alpha = id(&preview, ArtifactKind::Skill, "alpha")?;
+    let beta = id(&preview, ArtifactKind::Skill, "beta")?;
+    let report = s
+        .library
+        .import(&preview, &[alpha.clone(), beta.clone()], &TagChoices::new())?;
+    assert_eq!(report.imported, [alpha.clone(), beta]);
+    assert_eq!(s.rows(), 2);
+    let kinds: Vec<String> = s
+        .library
+        .store
+        .conn
+        .prepare("SELECT kind FROM artifacts")?
+        .query_map([], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    assert_eq!(kinds, ["skill", "skill"]);
+    let detail = s.library.detail(&alpha)?;
+    assert_eq!(detail.artifact.metadata["fromPlugin"]["name"], "toolbox");
+    assert_eq!(detail.artifact.metadata["layoutBy"], "plugin.json");
+    assert_eq!(detail.files, ["SKILL.md"]);
+    assert_eq!(s.stored_unpack(&preview)?, [""]);
+    Ok(())
+}
+
+#[test]
+fn an_unpacked_mcp_part_is_stored_as_its_own_server_json() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.parts()?;
+    let db = id(&preview, ArtifactKind::Mcp, "db")?;
+    s.library
+        .import(&preview, std::slice::from_ref(&db), &TagChoices::new())?;
+    let detail = s.library.detail(&db)?;
+    assert_eq!(detail.files, ["server.json"]);
+    let text = fs::read_to_string(
+        s.library
+            .store
+            .artifacts_dir()
+            .join(&db)
+            .join("server.json"),
+    )?;
+    let stored: serde_json::Value = serde_json::from_str(&text)?;
+    assert_eq!(
+        stored,
+        serde_json::json!({"db": {"command": "db-server", "env": {"API_KEY": "${API_KEY}"}}})
+    );
+    assert!(
+        !text.contains("cache"),
+        "the other server stays out: {text}"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_plugin_and_its_parts_cannot_be_picked_together() -> TestResult {
+    let mut s = setup()?;
+    let whole = s.library.preview(&s.source)?;
+    let mut mixed = s.parts()?;
+    let plugin = whole
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == ArtifactKind::Plugin)
+        .ok_or("plugin")?
+        .clone();
+    mixed.candidates.push(plugin.clone());
+    let alpha = id(&mixed, ArtifactKind::Skill, "alpha")?;
+    let refused = s
+        .library
+        .import(&mixed, &[plugin.id, alpha], &TagChoices::new())
+        .expect_err("both picked");
+    assert!(
+        matches!(refused, Error::PluginExclusive { .. }),
+        "{refused}"
+    );
+    assert!(refused.to_string().contains("toolbox"), "{refused}");
+    assert_eq!(s.rows(), 0);
+    Ok(())
+}
+
+#[test]
+fn parts_are_refused_while_the_plugin_is_in_whole_and_the_reverse() -> TestResult {
+    let mut s = setup()?;
+    let whole = s.library.preview(&s.source)?;
+    let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
+    s.library
+        .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())?;
+    let parts = s.parts()?;
+    let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
+    let refused = s
+        .library
+        .import(&parts, std::slice::from_ref(&alpha), &TagChoices::new())
+        .expect_err("plugin is whole");
+    assert!(
+        matches!(refused, Error::PluginExclusive { .. }),
+        "{refused}"
+    );
+    let message = refused.to_string();
+    assert!(
+        message.contains("toolbox") && message.contains("remove"),
+        "{message}"
+    );
+    assert_eq!(s.rows(), 1);
+    assert!(s.stored_unpack(&parts)?.is_empty());
+
+    s.library.remove(&plugin)?;
+    s.library
+        .import(&parts, std::slice::from_ref(&alpha), &TagChoices::new())?;
+    let whole = s.library.preview(&s.source)?;
+    let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
+    let refused = s
+        .library
+        .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())
+        .expect_err("parts are in");
+    assert!(
+        matches!(refused, Error::PluginExclusive { .. }),
+        "{refused}"
+    );
+    assert!(refused.to_string().contains("remove"), "{refused}");
+    assert_eq!(s.rows(), 1);
+
+    // With the parts gone, the plugin goes in whole and the unpack choice is dropped.
+    s.library.remove(&alpha)?;
+    s.library.import(&whole, &[plugin], &TagChoices::new())?;
+    assert!(s.stored_unpack(&whole)?.is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_part_that_needs_its_plugin_is_refused() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.parts()?;
+    let needy = id(&preview, ArtifactKind::Skill, "needy")?;
+    let refused = s
+        .library
+        .import(&preview, &[needy], &TagChoices::new())
+        .expect_err("needs the plugin");
+    assert!(
+        matches!(refused, Error::PartNeedsPlugin { .. }),
+        "{refused}"
+    );
+    assert_eq!(s.rows(), 0);
+    Ok(())
+}
+
+#[test]
+fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.parts()?;
+    let alpha = id(&preview, ArtifactKind::Skill, "alpha")?;
+    s.library
+        .import(&preview, std::slice::from_ref(&alpha), &TagChoices::new())?;
+    let spec = ProfileSpec {
+        items: vec![alpha],
+        settings: None,
+        mcp: Vec::new(),
+        manual_only: std::collections::BTreeMap::new(),
+    };
+    let profile = s.library.create_profile("tools", "", &spec)?;
+    let project = tempfile::tempdir()?;
+    let plan = s.library.plan_scaffold(project.path(), profile, None)?;
+    s.library.apply(&plan)?;
+    let installed = fs::read_to_string(project.path().join(".claude/skills/alpha/SKILL.md"))?;
+    assert!(installed.contains("The alpha skill"));
+    let settings =
+        fs::read_to_string(project.path().join(".claude/settings.json")).unwrap_or_default();
+    assert!(!settings.contains("enabledPlugins"), "{settings}");
+    Ok(())
+}
