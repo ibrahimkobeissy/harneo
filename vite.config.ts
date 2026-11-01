@@ -5,6 +5,10 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   clearScreen: false,
+  // No .env files: the app reads only import.meta.env.DEV, and HARNEO_SENTRY_DSN comes from the
+  // process environment. Loading them made the dev server restart each time the Claude Code
+  // sandbox mounts over ./.env (on every sandboxed command an agent runs).
+  envDir: false,
   test: {
     // Room for several 5 s async waits in one test (see src/test/setup.ts).
     testTimeout: 20000,
