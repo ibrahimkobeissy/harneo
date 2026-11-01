@@ -190,10 +190,20 @@ function SourceSection({
   const { source, sourcePath, importedAt } = detail.provenance;
   const navigate = useNavigate();
   const imported = formatDate(importedAt);
+  const from = detail.artifact.metadata.fromPlugin;
+  const plugin =
+    typeof from === "object" && from !== null && "name" in from
+      ? String(from.name)
+      : null;
   return (
     <section className={styles.sec} aria-labelledby="d-source">
       <h3 id="d-source">Source</h3>
       <dl className={styles.kv}>
+        {plugin !== null && (
+          <Row label="Plugin">
+            <span>from plugin {plugin}</span>
+          </Row>
+        )}
         {source.kind === "git" ? (
           <>
             <Row label="URL">

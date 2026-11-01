@@ -883,3 +883,56 @@ h3.subhead {
   color: var(--t2);
   font-size: var(--text-label);
 }
+
+/* Plugins: whole or pick parts */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.choice {
+  margin: 0;
+  padding: 0 var(--space-md) var(--space-sm);
+  border: 0;
+  min-width: 0;
+}
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-lg);
+}
+.choiceOption,
+.partLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  cursor: pointer;
+}
+.choiceOption input[aria-disabled="true"],
+.partLabel input[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.choice .reason {
+  margin: var(--space-xs) 0 0;
+}
+.wholeOnly {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-xs) 0 0;
+}
+.parts {
+  margin: 0 var(--space-md) var(--space-sm) var(--space-lg);
+  padding-left: var(--space-md);
+  border-left: var(--hairline) solid var(--line);
+}
+.part {
+  padding: var(--space-xs) 0;
+}
+.part > .reason {
+  margin: var(--space-xxs) 0 0 calc(var(--space-sm) + 16px);
+}

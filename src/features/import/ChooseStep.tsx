@@ -8,9 +8,9 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Candidate } from "../../bindings/Candidate";
+import type { PluginHold } from "../../bindings/PluginHold";
 import type { Preview } from "../../bindings/Preview";
 import {
   Badge,
@@ -25,25 +25,15 @@ import type { ConfirmProgress } from "../../bindings/ConfirmProgress";
 import { LargeFilesChoice } from "./LargeFiles";
 import { ConfirmFailureCallout, ConfirmingNote, DismissedNote } from "./Phase2";
 import type { PreviewConfirmation } from "./usePreviewConfirmation";
+import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
 import { LayoutNotes, PlacementLabel } from "./Layout";
+import { PluginChoice, type PluginMode, PluginParts } from "./PluginRows";
+import { fromPlugin, needsPlugin, pluginGroups, wholeRefusal } from "./plugins";
 import type { LayoutRun } from "./useLayoutRun";
 import styles from "./Import.module.css";
-
-/** Candidates grouped by kind, in the order kinds first appear. */
-export function groupByKind(
-  candidates: Candidate[],
-): [ArtifactKind, Candidate[]][] {
-  const groups = new Map<ArtifactKind, Candidate[]>();
-  for (const c of candidates) {
-    const list = groups.get(c.artifact.kind) ?? [];
-    list.push(c);
-    groups.set(c.artifact.kind, list);
-  }
-  return [...groups];
-}
 
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -314,6 +304,8 @@ export function ChooseStep({
   phase2,
   layout,
   onCancelImport,
+  holds,
+  onPluginMode,
 }: {
   preview: Preview;
   sourceName: string;
@@ -338,6 +330,10 @@ export function ChooseStep({
   layout: LayoutRun;
   /** Leaves the import. */
   onCancelImport: () => void;
+  /** What the library already holds of the preview's plugins. */
+  holds: PluginHold[];
+  /** Switches a plugin between the whole plugin and its parts: the preview is taken again. */
+  onPluginMode: (folder: string, mode: PluginMode) => void;
 }) {
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const [copiesOpen, setCopiesOpen] = useState<ReadonlySet<string>>(new Set());
@@ -367,10 +363,31 @@ export function ChooseStep({
   }, [excluded]);
 
   const all = preview.candidates;
-  const groups = groupByKind(all);
+  // A plugin's parts are listed under their plugin, not among the kinds.
+  const shown = all.filter((c) => fromPlugin(c) === null);
+  const plugins = pluginGroups(all);
+  const unpacked = plugins.filter((g) => g.parts.length > 0);
+  const wholeGroups = new Map(
+    plugins.flatMap((g) => (g.whole ? [[g.whole.id, g] as const] : [])),
+  );
+  const groups = groupByKind(shown);
+  if (unpacked.length > 0 && !groups.some(([k]) => k === "plugin")) {
+    groups.push(["plugin", []]);
+  }
+  const holdOf = (folder: string) => holds.find((h) => h.folder === folder);
+  // A whole plugin the library cannot take because it holds parts of it: refused up front.
+  const refused = new Map<string, string>();
+  for (const g of plugins) {
+    const why = g.whole ? wholeRefusal(g, holdOf(g.folder)) : null;
+    if (g.whole && why && !g.whole.alreadyInLibrary) {
+      refused.set(g.whole.id, why);
+    }
+  }
   const free = all.filter((c) => !c.alreadyInLibrary);
   const freeIds = free.map((c) => c.id);
-  const withErrors = free.filter(hasErrors).map((c) => c.id);
+  const withErrors = free
+    .filter((c) => hasErrors(c) && needsPlugin(c) === null)
+    .map((c) => c.id);
   const errorsOut =
     withErrors.length > 0 && withErrors.every((id) => excluded.has(id));
   const claude = claudeProvidedIds(all);
@@ -382,7 +399,8 @@ export function ChooseStep({
   // Rows with a critical finding come back one by one, through their confirm.
   const riskyBack = riskyIds.filter((c) => criticalRule(c) === null);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
-  const gone = all.filter((c) => excluded.has(c.id));
+  const gone = shown.filter((c) => excluded.has(c.id));
+  const excludedCount = all.filter((c) => excluded.has(c.id)).length;
   const note = managedNote(preview.diagnostics);
 
   const isCollapsed = (key: string, size: number) =>
@@ -409,6 +427,8 @@ export function ChooseStep({
   const flipCopies = flipIn(setCopiesOpen);
   /** Bulk restore: rows with a critical finding stay out and come back one by one. */
   function restoreMany(list: Candidate[]) {
+    // A part that cannot leave its plugin and a plugin the library refuses stay out.
+    list = list.filter((c) => needsPlugin(c) === null && !refused.has(c.id));
     const stay = list.filter((c) => criticalRule(c) !== null);
     onRestore(list.filter((c) => criticalRule(c) === null).map((c) => c.id));
     setSkipNote(
@@ -460,7 +480,7 @@ export function ChooseStep({
         <div className={styles.bulk}>
           <Button
             small
-            disabled={excluded.size === 0}
+            disabled={excludedCount === 0}
             onClick={() => restoreMany(all.filter((c) => excluded.has(c.id)))}
           >
             Restore all
@@ -511,7 +531,7 @@ export function ChooseStep({
           </Button>
         </div>
         <p className={`${styles.muted} ${styles.counter}`} aria-live="polite">
-          {toImport} to import, {excluded.size} excluded
+          {toImport} to import, {excludedCount} excluded
         </p>
         {skipNote && (
           <p className={styles.reason} role="status">
@@ -520,7 +540,8 @@ export function ChooseStep({
         )}
         {groups.map(([kind, everyone]) => {
           const list = everyone.filter((c) => !excluded.has(c.id));
-          if (list.length === 0) return null;
+          const nested = kind === "plugin" ? unpacked : [];
+          if (list.length + nested.length === 0) return null;
           const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
           const back = everyone.filter((c) => excluded.has(c.id));
           const label = kindPlurals[kind];
@@ -529,7 +550,7 @@ export function ChooseStep({
             <section
               key={kind}
               className={styles.group}
-              aria-label={`${label}, ${list.length}`}
+              aria-label={`${label}, ${list.length + nested.length}`}
             >
               <header className={styles.ghead}>
                 <button
@@ -545,7 +566,9 @@ export function ChooseStep({
                     data-open={!shut}
                   />
                   <span>{label}</span>
-                  <span className={styles.count}>{list.length}</span>
+                  <span className={styles.count}>
+                    {list.length + nested.length}
+                  </span>
                 </button>
                 <span className={styles.grow} />
                 {back.length > 0 && (
@@ -571,6 +594,7 @@ export function ChooseStep({
               {!shut &&
                 list.map((c) => {
                   const open = opened.has(c.id);
+                  const wg = wholeGroups.get(c.id);
                   return (
                     <div key={c.id} className={styles.item}>
                       <div className={styles.line1}>
@@ -628,9 +652,54 @@ export function ChooseStep({
                         )}
                       </div>
                       {open && <Details candidate={c} />}
+                      {wg && (
+                        <PluginChoice
+                          group={wg}
+                          hold={holdOf(c.artifact.path)}
+                          busy={refreshing}
+                          onChange={(mode) =>
+                            onPluginMode(c.artifact.path, mode)
+                          }
+                        />
+                      )}
                     </div>
                   );
                 })}
+              {!shut &&
+                nested.map((g) => (
+                  <div key={`unpacked-${g.folder}`} className={styles.item}>
+                    <div className={styles.line1}>
+                      <div className={styles.pick}>
+                        <span className={styles.grow}>
+                          <span className={styles.title}>
+                            <b>{g.name}</b>
+                            <span className={styles.origin}>
+                              Plugin, parts only
+                            </span>
+                          </span>
+                          <span className={`${styles.line} ${styles.block}`}>
+                            <span className={styles.mono}>
+                              {g.folder || "."}
+                            </span>
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <PluginChoice
+                      group={g}
+                      hold={holdOf(g.folder)}
+                      busy={refreshing}
+                      onChange={(mode) => onPluginMode(g.folder, mode)}
+                    />
+                    <PluginParts
+                      group={g}
+                      excluded={excluded}
+                      onToggle={(id, on) =>
+                        on ? onRestore([id]) : onExclude([id])
+                      }
+                    />
+                  </div>
+                ))}
             </section>
           );
         })}
@@ -661,6 +730,9 @@ export function ChooseStep({
             {!isCollapsed(EXCLUDED, gone.length) &&
               gone.map((c) => {
                 const open = opened.has(c.id);
+                const wg = refused.has(c.id)
+                  ? wholeGroups.get(c.id)
+                  : undefined;
                 return (
                   <div key={c.id} className={styles.item}>
                     <div className={styles.line1}>
@@ -702,6 +774,7 @@ export function ChooseStep({
                         small
                         variant="ghost"
                         data-rid={c.id}
+                        disabled={refused.has(c.id)}
                         aria-label={`Restore ${c.artifact.name}`}
                         onClick={() => {
                           if (criticalRule(c) === null) {
@@ -727,6 +800,14 @@ export function ChooseStep({
                       />
                     )}
                     {open && <Details candidate={c} />}
+                    {wg && (
+                      <PluginChoice
+                        group={wg}
+                        hold={holdOf(c.artifact.path)}
+                        busy={refreshing}
+                        onChange={(mode) => onPluginMode(c.artifact.path, mode)}
+                      />
+                    )}
                   </div>
                 );
               })}

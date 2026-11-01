@@ -3,12 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router";
 import type { Audit } from "../../bindings/Audit";
 import type { ImportReport } from "../../bindings/ImportReport";
+import type { PluginHold } from "../../bindings/PluginHold";
 import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import type { TagColor } from "../../bindings/TagColor";
 import type { Source } from "../../bindings/Source";
 import {
   homeClaudeDir,
   libraryImport,
+  libraryPluginHolds,
   linkReject,
   libraryPreview,
   libraryPreviewStored,
@@ -28,6 +30,8 @@ import {
 } from "./errors";
 import styles from "./Import.module.css";
 import { criticalIds, criticalRule } from "./trust";
+import { fromPlugin, pluginGroups, wholeRefusal } from "./plugins";
+import type { PluginMode } from "./PluginRows";
 import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
@@ -100,6 +104,13 @@ export function ImportScreen() {
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
+  // The plugin folders the user took as parts, and whether the Claude-managed folders are in.
+  const [unpacked, setUnpacked] = useState<string[]>([]);
+  const managed = useRef(false);
+  // Every candidate id any preview of this source showed: only new ones get a default choice.
+  const everSeen = useRef(new Set<string>());
+  // What the library already holds of the preview's plugins.
+  const [holds, setHolds] = useState<PluginHold[]>([]);
   // Copy files over 1 MiB too (up to 100 MiB each); they are not audited.
   const [largeFiles, setLargeFiles] = useState(false);
   // Claude's verdicts so far: each candidate's audit once phase 2 has judged it.
@@ -126,6 +137,9 @@ export function ImportScreen() {
   function adopt(found: PreviewTicket, key: string) {
     setPreview(found);
     setScannedKey(key);
+    setUnpacked([]);
+    managed.current = false;
+    everSeen.current = new Set(found.candidates.map((c) => c.id));
     const only = preselect.current;
     preselect.current = null;
     setVerdicts({});
@@ -304,25 +318,83 @@ export function ImportScreen() {
     };
   }, [proposedLinks, preview]);
 
+  /** Takes a re-scan of the same source in: only candidates new to the choices start excluded
+   * (a part of `parts` always does); the user's choices on the rest stand. */
+  function retake(found: PreviewTicket, parts: string | null = null) {
+    const seen = everSeen.current;
+    const fresh = found.candidates.filter((c) => !seen.has(c.id));
+    const out = new Set(criticalIds(fresh));
+    for (const id of out) autoExcluded.current.add(id);
+    const picked = found.candidates
+      .filter((c) => parts !== null && fromPlugin(c)?.folder === parts)
+      .map((c) => c.id);
+    for (const c of found.candidates) seen.add(c.id);
+    setExcluded((prev) => new Set([...prev, ...out, ...picked]));
+    setPreview(found);
+    setTags((prev) => ({
+      ...Object.fromEntries(
+        found.candidates.map((c) => [c.id, c.suggestedTags]),
+      ),
+      ...prev,
+    }));
+  }
+
+  /** Whole plugin or Pick parts: the source is scanned again with that plugin unpacked or not. */
+  async function pluginMode(folder: string, mode: PluginMode) {
+    if (!preview) return;
+    const next =
+      mode === "parts"
+        ? [...unpacked.filter((f) => f !== folder), folder]
+        : unpacked.filter((f) => f !== folder);
+    setRefreshing(true);
+    try {
+      const found = await libraryPreview(preview.source, managed.current, next);
+      setUnpacked(next);
+      retake(found, mode === "parts" ? folder : null);
+    } catch (error) {
+      setFailure(describeFailure(messageOf(error), field, shown));
+      setStep(0);
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  // What the library holds of the plugins, once per preview. A whole plugin the library holds
+  // parts of cannot be imported: it starts out of the import.
+  useEffect(() => {
+    if (!preview) return;
+    let live = true;
+    void libraryPluginHolds(preview.token).then(
+      (found) => {
+        if (!live) return;
+        setHolds(found);
+        const out = pluginGroups(preview.candidates).flatMap((g) =>
+          g.whole &&
+          !g.whole.alreadyInLibrary &&
+          wholeRefusal(
+            g,
+            found.find((h) => h.folder === g.folder),
+          )
+            ? [g.whole.id]
+            : [],
+        );
+        for (const id of out) autoExcluded.current.delete(id);
+        if (out.length > 0) setExcluded((prev) => new Set([...prev, ...out]));
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [preview]);
+
   async function includeManaged() {
     if (!preview) return;
     setRefreshing(true);
     try {
-      const found = await libraryPreview(preview.source, true);
-      // Only candidates new to this preview start excluded; the user's choices on the rest stand.
-      const seen = new Set(preview.candidates.map((c) => c.id));
-      const fresh = criticalIds(
-        found.candidates.filter((c) => !seen.has(c.id)),
-      );
-      for (const id of fresh) autoExcluded.current.add(id);
-      setExcluded((prev) => new Set([...prev, ...fresh]));
-      setPreview(found);
-      setTags((prev) => ({
-        ...Object.fromEntries(
-          found.candidates.map((c) => [c.id, c.suggestedTags]),
-        ),
-        ...prev,
-      }));
+      const found = await libraryPreview(preview.source, true, unpacked);
+      managed.current = true;
+      retake(found);
     } catch (error) {
       setFailure(describeFailure(messageOf(error), field, shown));
       setStep(0);
@@ -539,6 +611,8 @@ export function ImportScreen() {
             onRestore={restore}
             onIncludeManaged={() => void includeManaged()}
             refreshing={refreshing}
+            holds={holds}
+            onPluginMode={(folder, mode) => void pluginMode(folder, mode)}
             largeFiles={largeFiles}
             onLargeFiles={setLargeFiles}
           />

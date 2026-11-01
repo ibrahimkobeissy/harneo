@@ -10,7 +10,8 @@ import { plural, relativeDay } from "./usage";
 
 export function sourceText(item: LibraryItem): string {
   const { label, branch } = item.source;
-  return branch ? `${label} @ ${branch}` : label;
+  const where = branch ? `${label} @ ${branch}` : label;
+  return item.fromPlugin ? `${where} · from plugin ${item.fromPlugin}` : where;
 }
 
 /** "Update 3.4.1" (warn); just "Update" when upstream has no version to name. */
