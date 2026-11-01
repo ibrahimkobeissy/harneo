@@ -78,9 +78,17 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
         if matches!(a.kind, ArtifactKind::Plugin | ArtifactKind::Skill) && !a.path.contains('#') {
             folders.push(Path::new(&a.path));
         }
+        // A plugin that was unpacked is still one folder: what is not a part is not unplaced.
+        // Its folder comes from the parts, so an `unpack` entry naming no plugin claims nothing.
+        if let Some(folder) = a
+            .metadata
+            .get("fromPlugin")
+            .and_then(|p| p.get("folder"))
+            .and_then(serde_json::Value::as_str)
+        {
+            folders.push(Path::new(folder));
+        }
     }
-    // A plugin that was unpacked is still one folder: what is not a part is not unplaced.
-    folders.extend(options.unpack.iter().map(Path::new));
     let nothing_found = report.artifacts.is_empty();
 
     let mut all = walker.list_files(Path::new(""), &mut Vec::new());

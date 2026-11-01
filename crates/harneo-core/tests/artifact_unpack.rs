@@ -287,3 +287,39 @@ fn declared_paths_and_unpickable_components_are_honoured() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn an_unpacked_plugin_claims_its_folder_however_it_is_spelled_and_nothing_else() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    plugin(dir.path(), "plugins/tools", r#"{"name":"tools"}"#)?;
+    write(
+        dir.path(),
+        "notes/prompt.md",
+        "---\nname: loose\ndescription: A prompt nobody placed\n---\nBody",
+    )?;
+
+    let report = scan(dir.path(), &["./plugins/tools/"])?;
+    assert!(report
+        .artifacts
+        .iter()
+        .all(|a| a.kind != ArtifactKind::Plugin));
+    // The plugin's hooks are not parts, and not unplaced either.
+    assert!(
+        report
+            .unplaced
+            .iter()
+            .all(|p| !p.starts_with("plugins/tools")),
+        "{:?}",
+        report.unplaced
+    );
+    assert!(report.unplaced.iter().any(|p| p == "notes/prompt.md"));
+
+    // An entry naming no plugin unpacks nothing and hides nothing.
+    let other = scan(dir.path(), &["notes"])?;
+    assert!(other.unplaced.iter().any(|p| p == "notes/prompt.md"));
+    assert!(other
+        .artifacts
+        .iter()
+        .any(|a| a.kind == ArtifactKind::Plugin));
+    Ok(())
+}
