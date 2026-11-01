@@ -36,7 +36,17 @@ describe("Settings: Diagnostics", () => {
     expect(screen.getByText(/never attached/)).toBeVisible();
   });
 
-  it("is off by default and saves when switched on", async () => {
+  it("shows the switch on when the DSN is set and no choice was made", async () => {
+    setup({ dsnMissing: false, switchOn: true });
+    const sw = screen.getByRole("switch", {
+      name: "Send error reports to Sentry",
+    });
+    await waitFor(() => expect(sw).toHaveAttribute("aria-checked", "true"));
+    expect(sw).toBeEnabled();
+    expect(screen.getByText(/On by default once/)).toBeVisible();
+  });
+
+  it("saves when switched on after being turned off", async () => {
     const sets = setup({ dsnMissing: false, switchOn: false });
     const sw = screen.getByRole("switch", {
       name: "Send error reports to Sentry",

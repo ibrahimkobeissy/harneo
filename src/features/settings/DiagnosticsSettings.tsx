@@ -58,10 +58,11 @@ export function DiagnosticsSettings() {
           </label>
           <div id={helpId} className={styles.sec}>
             <p className={styles.para}>
-              Off by default. When on, crashes and errors in the app and the
-              harneo command are sent to the Sentry project whose DSN is in the
-              HARNEO_SENTRY_DSN environment variable. Takes effect the next time
-              Harneo starts. Sent:
+              On by default once the HARNEO_SENTRY_DSN environment variable is
+              set: setting a DSN is the opt-in. Turn it off here and it stays
+              off. When on, crashes and errors in the app and the harneo command
+              are sent to the Sentry project whose DSN is in that variable.
+              Takes effect the next time Harneo starts. Sent:
             </p>
             <ul className={styles.list}>
               <li>the error message (up to 500 characters) and stack trace</li>

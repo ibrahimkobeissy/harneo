@@ -1,7 +1,8 @@
 //! Optional error reporting to Sentry, shared by the desktop app and the CLI.
 //!
 //! Reporting is off unless both hold: the `HARNEO_SENTRY_DSN` environment variable is set and the
-//! Settings switch (`diagnostics.sentryReports`) is on. The DSN is read at runtime, never
+//! Settings switch (`diagnostics.sentryReports`) is on. The switch is on by default when the DSN is
+//! set, and an explicit choice in Settings always wins. The DSN is read at runtime, never
 //! committed, never baked in, never logged. Only errors are sent: no tracing, no sessions, no
 //! default PII. Every event passes `scrub_event` first; `harneo-core` stays free of reporting.
 
@@ -57,12 +58,22 @@ pub fn decide(dsn: Option<String>, enabled: bool) -> Option<String> {
     }
 }
 
-/// Whether the Settings switch is on in the library; off when unset or unreadable.
+/// Whether the Settings switch is on in the library. A choice the user made wins; until they
+/// make one, it follows `HARNEO_SENTRY_DSN`: setting a DSN is itself the opt-in. Off when the
+/// setting is unreadable.
 pub fn switch_on(library: &harneo_core::library::Library) -> bool {
-    matches!(
-        library.settings_get(SETTING_KEY),
-        Ok(Some(serde_json::Value::Bool(true)))
-    )
+    switch_from(library.settings_get(SETTING_KEY), dsn_from_env().is_some())
+}
+
+fn switch_from<E>(
+    stored: std::result::Result<Option<serde_json::Value>, E>,
+    dsn_set: bool,
+) -> bool {
+    match stored {
+        Ok(Some(serde_json::Value::Bool(on))) => on,
+        Ok(None) => dsn_set,
+        _ => false,
+    }
 }
 
 /// Reports an error text (scrubbed on the way out); a no-op when no client is running.
@@ -246,6 +257,25 @@ mod tests {
 
     fn token() -> String {
         format!("ghp_{}", "a1B2".repeat(10))
+    }
+
+    #[test]
+    fn the_switch_follows_the_dsn_until_the_user_chooses() {
+        use serde_json::Value;
+        let none: Result<Option<Value>, ()> = Ok(None);
+        assert!(switch_from(none, true), "unset + DSN: on");
+        let none: Result<Option<Value>, ()> = Ok(None);
+        assert!(!switch_from(none, false), "unset, no DSN: off");
+        assert!(
+            !switch_from::<()>(Ok(Some(Value::Bool(false))), true),
+            "turned off stays off"
+        );
+        assert!(switch_from::<()>(Ok(Some(Value::Bool(true))), false));
+        assert!(!switch_from::<()>(
+            Ok(Some(Value::String("yes".into()))),
+            true
+        ));
+        assert!(!switch_from(Err(()), true), "unreadable: off");
     }
 
     #[test]

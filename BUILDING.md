@@ -75,10 +75,10 @@ Installers are not built (`bundle.active` is `false` in `src-tauri/tauri.conf.js
 
 ## Error reporting (optional)
 
-Harneo can send errors to a Sentry project of your own. It is off until you set a DSN and turn it on. No DSN is committed or built into Harneo.
+Harneo can send errors to a Sentry project of your own. Nothing is sent until you set a DSN; once it is set, reporting is on unless you turn it off in Settings. No DSN is committed or built into Harneo.
 
 1. Create a project in Sentry and copy its DSN. Before starting Harneo or the CLI, `export HARNEO_SENTRY_DSN=<your DSN>` (keep it out of committed files). Without it, the Settings switch is disabled and nothing is ever sent.
-2. In Harneo, open Settings → Diagnostics and turn on "Send error reports to Sentry". The `harneo` command follows the same switch. Restart Harneo for it to take effect.
+2. That's it: with the DSN set, Settings → Diagnostics → "Send error reports to Sentry" is on by default. Turn it off there to stop reporting; that choice is kept even with the DSN set. The `harneo` command follows the same switch. Restart Harneo for a change to take effect.
 
 Only errors are reported (no performance tracing, session replay, profiling or sessions), at most 20 per run and each distinct error once. Before sending, the home folder becomes `~`, request bodies, extra data and breadcrumb details are dropped, messages are cut to 500 characters, and any event containing a token or key shape is not sent. File contents, audit evidence and Claude prompts are never attached.
 
