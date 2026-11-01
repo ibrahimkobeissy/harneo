@@ -1,106 +1,93 @@
 ---
 name: security-guardrails
 description: >-
-  Install portable, project-agnostic security guardrails that stop AI coding
-  agents from reading or exfiltrating credentials and secrets (SSH/AWS/GCP keys,
-  .env files, *.pem/*.key, tokens, shell history, terraform state). Copy the
-  folder into any project's .claude/skills/ and run it to wire up a deny list
-  PLUS a PreToolUse hook that blocks shell reads (cat/less/grep/cp) the deny
-  list misses. Use whenever the user wants to harden a repo, protect secrets
-  from agents, set up agent security/guardrails, prevent the agent from reading
-  .env / .ssh / credentials, or asks to "lock down" what an agent can touch.
+  Explains and maintains this project's security guardrails: the OS-level
+  sandbox, the deny rules and the guard.py hook that stop agents from reading
+  credentials and secrets, leaking tokens through gh, or destroying git work.
+  Use when a command was blocked or asked for approval by security-guardrails,
+  when a tool fails because of the sandbox, when the user asks why something is
+  blocked or wants an exception (a command outside the sandbox, a new network
+  domain), wants to review guard.log, run the self-test, or install the
+  gitleaks pre-commit hook.
 ---
 
 # Security Guardrails
 
-Portable, copy-paste protection that stops an agent (Claude Code, and via the
-prose rules, Codex and other agents too) from reading or leaking credential and
-secret files. **Drop this folder into any project's `.claude/skills/`, run the
-installer once, and the project is hardened.**
+Four layers stop an agent from reading secrets, leaking them, or destroying
+work. Each covers a gap the others leave.
 
-## Why three layers
+| Layer | Where | What it does |
+| --- | --- | --- |
+| **Sandbox** | `sandbox` in `.claude/settings.json` | Every shell command runs in an OS-level box (bubblewrap on Linux): secret paths can't be opened by any program, writes stay in the project, network only to allowed domains. Sandboxed commands run without a prompt |
+| **Deny rules** | `permissions.deny` in `.claude/settings.json` | Block Claude's own Read/Edit/Write tools on secret paths. Also fed into the sandbox |
+| **Guard hook** | `.claude/hooks/guard.py` (PreToolUse) | Checks every tool call: secret paths, token leaks (`gh auth token`, `printenv`), `gh` misuse, destructive git, edits that weaken the guardrails, and the first commit without gitleaks. Answers deny or ask |
+| **Rules** | `.claude/rules/security-guardrails.md` | The same policy in prose, for agents that ignore Claude settings |
 
-No single mechanism is airtight, so this skill stacks three that cover each
-other's blind spots:
+**Limits, said plainly.** The guard reads command text, so a determined agent
+can disguise a command. The sandbox is the layer that can't be talked around,
+but it covers shell commands only: Claude's file tools rely on the deny rules,
+and plugin hooks and MCP servers run outside it (check them before installing).
 
-1. **`permissions.deny` rules** in `.claude/settings.json` — block the native
-   `Read`/`Edit`/`Write` tools. Documented, visible in the permissions UI, work
-   even if hooks are disabled. **Blind spot:** they don't see shell commands —
-   `cat ~/.ssh/id_rsa` sails right through.
-2. **A `PreToolUse` hook** (`scripts/guard-sensitive-paths.py`) — inspects each
-   `Bash` command by the *path it names*, so it catches every reader (`cat`,
-   `less`, `head`, `xxd`, `cp`, `base64`, `vim`, …) regardless of the binary.
-   This closes the gap layer 1 leaves open, and also re-checks the native tools.
-3. **Instructional rules** (`references/instructional-rules.md`) — prose to paste
-   into `CLAUDE.md`/`AGENTS.md` so agents whose runtime ignores Claude
-   `settings.json` hooks (e.g. Codex or other tools) are still bound by the same policy.
+## When something is blocked
 
-**Be honest about the limit:** the hook is a strong heuristic, not a sandbox. A
-determined agent could obfuscate a path (variables, base64, `eval`). The point is
-defense in depth — raise the bar high and stop every obvious case. Say this to
-the user; don't oversell it as airtight.
+- **"Blocked by security-guardrails: ..."** means guard.py denied it. Don't try
+  another way to do the same thing. If the user really needs it, they do it
+  themselves.
+- **"security-guardrails: ..." with an approval prompt** means guard.py asked:
+  the user decides.
+- **A command fails with a permission or network error** but isn't blocked by
+  guard.py: that's the sandbox. Commands are not retried outside it
+  (`allowUnsandboxedCommands: false`). Tell the user which command failed and
+  why, and offer one of the fixes below.
 
-## Install (do this when invoked)
+## Exceptions (always with the user's approval)
 
-1. **Confirm location.** The folder must sit at
-   `<project>/.claude/skills/security-guardrails/`. If the user copied it
-   elsewhere, move it there first.
-2. **Run the installer** from the project root:
-   ```
-   python3 .claude/skills/security-guardrails/scripts/install.py
-   ```
-   It merges the deny rules and registers the hook in `.claude/settings.json`,
-   creating the file if needed. It is **idempotent** — re-running only adds
-   what's missing, and never disturbs existing settings, permissions, or hooks.
-3. **Verify** the hook works end-to-end:
-   ```
-   python3 .claude/skills/security-guardrails/scripts/selftest.py
-   ```
-   All cases should pass. This runs real block/allow events through the hook.
-4. **Add the prose rules.** Open `references/instructional-rules.md` and paste
-   its `## Security Guardrails` section into the project's `CLAUDE.md` (and
-   `AGENTS.md` if it is not a symlink to the same file). Adapt only the wording
-   to match the file's style — keep the path list and the "ask the user to do it
-   manually" rule intact.
-5. **Tell the user to restart the session.** Hooks are loaded at session start,
-   so the `PreToolUse` hook only takes effect in a fresh Claude Code session.
+- **A command that needs to run outside the sandbox** (Docker, a tool that needs
+  your keyring): add it to `sandbox.excludedCommands`, e.g. `"docker compose *"`.
+  It then goes through the normal permission flow and guard.py.
+- **A network domain sandboxed commands need**: add it to
+  `sandbox.network.allowedDomains`. This one is not treated as weakening.
+- **A compound command that includes `git push`, `gh` or `git pull`** runs
+  sandboxed as a whole and fails on the network. Run those commands on their own.
+- `.env.example` and similar templates are blocked like `.env`. The user can
+  create or show them.
 
-Report exactly what changed (the installer prints a summary) and what's still
-required of the user (the restart, and pasting the prose if you couldn't).
+guard.py asks before any edit that weakens `settings.json` (removing a deny rule
+or the hook, turning the sandbox off, excluding more commands, opening paths).
 
-## What's protected
+## guard.log
 
-Credential & key stores (`~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gcloud`,
-`~/.azure`, `~/.kube`, `~/.oci`, `~/.docker/config.json`, `~/.netrc`,
-`~/.git-credentials`, `~/.config/gh`, `~/.npmrc`, `~/.pypirc`); agent tokens
-(`~/.config/anthropic`, `~/.claude/.credentials.json`,
-`~/.codex`, `~/.gemini`); secret files anywhere (`.env*`, `*.pem`, `*.key`, `*.p12`,
-`*.pfx`, `*.jks`, `*.keystore`, `id_rsa*`/`id_ed25519*`/`id_ecdsa*`,
-`*service-account*.json`, `*credentials*.json`, `secrets.*`, `*.secret`,
-`*.tfstate*`, `.pgpass`, `.my.cnf`, `.vault-token`); and shell/DB history.
+Every deny and ask is one JSON line in `.claude/hooks/guard.log` (kept out of git
+by `.claude/hooks/.gitignore`, which the hook creates),
+with the time, decision, tool, reason and the first 200 characters of the
+command. Read it to spot false positives:
 
-This skill covers **secrets only**. It does not touch git-workflow restrictions
-or other project policies — keep those separate.
+```bash
+tail -n 20 .claude/hooks/guard.log
+```
 
-## Customizing
+## Self-test
 
-The pattern lists are the single source of truth and live at the top of two
-files — keep them in sync when editing:
+Run after any change to guard.py or settings.json:
 
-- `scripts/guard-sensitive-paths.py` — `SENSITIVE_DIR_SEGMENTS`,
-  `SENSITIVE_PATH_SUFFIXES`, `SENSITIVE_FILE_GLOBS` (governs the hook).
-- `scripts/install.py` — `DENY_RULES` (governs the native-tool deny list).
+```bash
+python3 .claude/skills/security-guardrails/scripts/selftest.py
+```
 
-After any change, re-run `selftest.py` (add a case for whatever you changed) to
-confirm you didn't introduce a false positive that blocks ordinary work.
+It feeds real events through the hook (deny, ask and allowed cases), tests the
+settings-weakening check and the gitleaks flow in temp folders, and checks that
+a crash blocks.
 
-## Troubleshooting
+## gitleaks
 
-- **Hook not firing:** it only loads in a session started *after* install. Check
-  `.claude/settings.json` has a `PreToolUse` entry referencing
-  `guard-sensitive-paths.py`, then restart.
-- **`settings.json` is invalid JSON:** the installer refuses to run and tells you;
-  fix the JSON and re-run.
-- **A legitimate task is blocked:** don't disable the hook wholesale — that's the
-  guardrail working. Either ask the user to perform that one step manually, or, if
-  a pattern is genuinely too broad, narrow it in both files and re-run `selftest.py`.
+gitleaks scans what is about to be committed and refuses the commit if it finds
+a secret. The first `git commit` in a repo without the hook is denied by
+guard.py with the command to run:
+
+```bash
+bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh
+```
+
+Run it, then commit again. It keeps any existing pre-commit hook (and puts the
+scan in `pre-commit-user` when GitButler manages the hook). If gitleaks isn't
+installed on the machine, commits are not blocked; the hook only warns.
