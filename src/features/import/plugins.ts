@@ -3,6 +3,8 @@ import type { PluginHold } from "../../bindings/PluginHold";
 
 /** The error the scan puts on a part that only works inside its plugin. */
 const NEEDS_PLUGIN = "plugin.part-needs-plugin";
+/** The note the scan puts on a plugin asked to unpack that has nothing to pick. */
+const NO_PARTS = "plugin.no-parts";
 
 /** What comes only with the whole plugin, as the Choose step words it. */
 export const WHOLE_ONLY =
@@ -87,6 +89,10 @@ export function partsRefusal(
   if (remoteOnly(group)) {
     return "This marketplace entry points to another repo that is never fetched, so it can only be taken whole.";
   }
+  const nothing = group.whole?.artifact.diagnostics.find(
+    (d) => d.code === NO_PARTS,
+  );
+  if (nothing) return nothing.message;
   return hold?.whole
     ? `The plugin is in the library whole; remove the plugin ${group.name} first to import its parts.`
     : null;

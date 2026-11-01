@@ -51,4 +51,18 @@ describe("plugin helpers", () => {
     expect(kit && wholeRefusal(kit, undefined)).toBeNull();
     expect(kit && partsRefusal(kit, undefined)).toBeNull();
   });
+
+  it("gives the scan's reason when a plugin has nothing to pick", () => {
+    const empty = cand("plugin", "hooksonly");
+    empty.artifact.diagnostics.push({
+      code: "plugin.no-parts",
+      severity: "warning",
+      file: "hooksonly/.claude-plugin/plugin.json",
+      message: "nothing to pick, so it can only be taken whole",
+    } as unknown as Candidate["artifact"]["diagnostics"][number]);
+    const [group] = pluginGroups([empty]);
+    expect(group && partsRefusal(group, undefined)).toBe(
+      "nothing to pick, so it can only be taken whole",
+    );
+  });
 });

@@ -323,3 +323,29 @@ fn an_unpacked_plugin_claims_its_folder_however_it_is_spelled_and_nothing_else()
         .any(|a| a.kind == ArtifactKind::Plugin));
     Ok(())
 }
+
+#[test]
+fn a_plugin_with_nothing_to_pick_stays_whole_with_a_note() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    write(
+        dir.path(),
+        ".claude-plugin/plugin.json",
+        r#"{"name":"hooksonly"}"#,
+    )?;
+    write(
+        dir.path(),
+        "hooks/hooks.json",
+        r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"true"}]}]}}"#,
+    )?;
+    let report = scan(dir.path(), &[""])?;
+    let plugin = report
+        .artifacts
+        .iter()
+        .find(|a| a.kind == ArtifactKind::Plugin)
+        .ok_or("the plugin is still listed")?;
+    assert!(plugin
+        .diagnostics
+        .iter()
+        .any(|d| d.code == "plugin.no-parts"));
+    Ok(())
+}

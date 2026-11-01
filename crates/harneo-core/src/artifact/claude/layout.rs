@@ -151,6 +151,9 @@ fn normal(path: &str) -> &str {
     }
 }
 
+/// The warning on a plugin asked to unpack that has no pickable parts.
+pub(crate) const NO_PARTS: &str = "plugin.no-parts";
+
 /// Replaces each Plugin named in `options.unpack` with its parts. A plugin that is only a remote
 /// marketplace entry has no files to unpack: it stays whole, with a note.
 fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanReport) {
@@ -169,7 +172,18 @@ fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanR
             ));
             kept.push(a);
         } else {
-            parts.extend(plugin_parts::unpack(walker, &a, &mut report.diagnostics));
+            let found = plugin_parts::unpack(walker, &a, &mut report.diagnostics);
+            if found.is_empty() {
+                // Nothing to pick: the plugin stays whole, so it can still be imported.
+                a.diagnostics.push(Diagnostic::warning(
+                    NO_PARTS,
+                    &plugin::manifest_path(Path::new(&a.path)),
+                    "this plugin has no skills, agents, commands, output styles or MCP servers to pick, so it can only be taken whole",
+                ));
+                kept.push(a);
+            } else {
+                parts.extend(found);
+            }
         }
     }
     kept.extend(parts);
