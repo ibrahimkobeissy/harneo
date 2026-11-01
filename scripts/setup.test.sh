@@ -21,6 +21,7 @@ stub() { printf '#!/bin/bash\n%s\n' "$2" >"$bin/$1" && chmod +x "$bin/$1"; }
 # succeed only for the listed packages. Node 22 and rustup are present.
 new_env() {
   bin="$tmp/$1/bin"
+  kegs="$tmp/$1/kegs"
   mkdir -p "$bin"
   ln -s "$real_bash" "$bin/bash"
   ln -s "$(command -v dirname)" "$bin/dirname"
@@ -29,7 +30,7 @@ new_env() {
   stub pacman '[[ "$1" == -Q ]] && [[ "'"$installed"'" == *" $2 "* ]]'
   stub dpkg '[[ "$1" == -s ]] && [[ "'"$installed"'" == *" $2 "* ]]'
   stub rpm '[[ "$1" == -q ]] && [[ "'"$installed"'" == *" $2 "* ]]'
-  stub brew '[[ "$1" == list ]] && [[ "'"$installed"'" == *" $2 "* ]]'
+  stub brew '[[ "$1" == --prefix ]] && { echo "'"$kegs"'/$2"; exit 0; }; [[ "$1" == list ]] && [[ "'"$installed"'" == *" $2 "* ]]'
   stub dnf '[[ "$1 $2" == "group list" ]] && echo "'"${dnf_groups:-C Development Tools and Libraries}"'"; exit 0'
   stub xcode-select '[[ "'"${xcode:-yes}"'" == yes ]]'
   stub node 'echo "'"${node_v:-v22.4.0}"'"'
@@ -137,6 +138,23 @@ stub git 'exit 0'
 run macos brew --check
 lacks_output "macos with git on PATH" "git (comes with"
 unset xcode
+
+# --- macOS: Homebrew's keg-only rustup and node@22 (#192) ----------------------------------
+new_env mac-keg
+rm "$bin/rustup" "$bin/node"
+mkdir -p "$kegs/rustup/bin" "$kegs/node@22/bin"
+printf '#!/bin/bash\nexit 0\n' >"$kegs/rustup/bin/rustup"
+printf '#!/bin/bash\necho v22.4.0\n' >"$kegs/node@22/bin/node"
+chmod +x "$kegs/rustup/bin/rustup" "$kegs/node@22/bin/node"
+run macos brew --check
+expect_rc "macos keg-only rustup and node count as present" 0
+has_output "macos keg-only prints the PATH line" "$kegs/rustup/bin:$kegs/node@22/bin:\$HOME/.cargo/bin"
+
+new_env mac-norust
+rm "$bin/rustup"
+run macos brew
+has_output "macos rustup runs from its keg" 'brew install rustup && "$(brew --prefix rustup)/bin/rustup" default stable'
+lacks_output "macos without kegs prints no PATH line" "keg-only"
 
 # --- node and rustup -------------------------------------------------------------------------
 node_v=v20.1.0

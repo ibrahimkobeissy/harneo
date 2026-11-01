@@ -97,12 +97,35 @@ if [[ -f package.json ]]; then
   fi
 fi
 
+# Homebrew installs rustup and node@N keg-only: not linked onto PATH. Look in their keg
+# folders too, so a keg install counts as present, and print the PATH line to add.
+orig_path=$PATH
+keg_dirs=()
+if [[ "$os" == macos ]] && have brew; then
+  for keg in rustup "node@$min_node"; do
+    d="$(brew --prefix "$keg" 2>/dev/null || true)/bin"
+    keg_dirs+=("$d")
+    [[ -d "$d" ]] && PATH="$d:$PATH"
+  done
+fi
+keg_hint() {
+  local add=() d
+  for d in "${keg_dirs[@]}"; do
+    [[ -d "$d" && ":$orig_path:" != *":$d:"* ]] && add+=("$d")
+  done
+  ((${#add[@]})) || return 0
+  local joined
+  joined=$(IFS=:; echo "${add[*]}")
+  echo "setup: Homebrew installs rustup and node@$min_node keg-only, so they are not on your PATH yet. Add them, then open a new shell:"
+  echo "  echo 'export PATH=\"$joined:\$HOME/.cargo/bin:\$PATH\"' >> ~/.zshrc"
+}
+
 # Rust, through rustup (rust-toolchain.toml pins the toolchain).
 if ! have rustup; then
   add_missing "rustup (Rust toolchain manager)"
   case "$pm" in
     pacman) add_plan priv "sudo pacman -S --needed --noconfirm rustup && rustup default stable" ;;
-    brew) add_plan user "brew install rustup && rustup default stable" ;;
+    brew) add_plan user 'brew install rustup && "$(brew --prefix rustup)/bin/rustup" default stable' ;;
     *) add_plan user "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y" ;;
   esac
 fi
@@ -219,6 +242,7 @@ fi
 # --- report -----------------------------------------------------------------------------
 if ((${#missing[@]} == 0)); then
   echo "setup: everything is present."
+  keg_hint
   exit 0
 fi
 echo "setup: missing:"
@@ -277,3 +301,4 @@ done
   exit 1
 }
 echo "setup: done. Rerun with --check to confirm."
+keg_hint

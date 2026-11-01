@@ -120,12 +120,11 @@ cd harneo
 ./scripts/setup.sh                    # installs rustup and node@22 through Homebrew, after a confirmation
 ```
 
-Homebrew installs `node@22` and `rustup` *keg-only*: they are not on your `PATH` until you add them. If `node --version` or `rustup --version` fails after setup, add them and open a new shell:
+Homebrew installs `node@22` and `rustup` *keg-only*: they are not on your `PATH` until you add them. `setup.sh` prints the exact line to add when that is the case; it looks like this. Add it, then open a new shell:
 
 ```bash
-echo 'export PATH="$(brew --prefix node@22)/bin:$(brew --prefix rustup)/bin:$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
+echo 'export PATH="$(brew --prefix rustup)/bin:$(brew --prefix node@22)/bin:$HOME/.cargo/bin:$PATH"' >> ~/.zshrc
 exec zsh
-rustup default stable
 ```
 
 Then build:

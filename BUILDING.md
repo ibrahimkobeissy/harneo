@@ -41,7 +41,7 @@ Tauri 2 needs WebKitGTK 4.1 and a few system libraries. Package names per distro
 
 - Xcode command line tools: `xcode-select --install`.
 - Homebrew, which `setup.sh` uses for the rest.
-- Homebrew installs `node@22` and `rustup` keg-only, so they are not on your `PATH` until you add `$(brew --prefix node@22)/bin`, `$(brew --prefix rustup)/bin` and `~/.cargo/bin` (the README's [macOS](README.md#macos) section has the line to add), then run `rustup default stable`.
+- Homebrew installs `node@22` and `rustup` keg-only, so they are not on your `PATH` until you add `$(brew --prefix node@22)/bin`, `$(brew --prefix rustup)/bin` and `~/.cargo/bin` (`setup.sh` prints the line to add).
 
 ### Git (all platforms)
 
