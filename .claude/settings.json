@@ -148,41 +148,5 @@
       "Edit(./**/.vault-token)"
     ],
     "disableBypassPermissionsMode": "disable"
-  },
-  "sandbox": {
-    "allowUnsandboxedCommands": false,
-    "autoAllowBashIfSandboxed": true,
-    "enabled": true,
-    "excludedCommands": [
-      "gh",
-      "gh *",
-      "git push",
-      "git push *",
-      "git pull",
-      "git pull *",
-      "git fetch",
-      "git fetch *",
-      "git clone *",
-      "git ls-remote *",
-      "git submodule *",
-      "claude plugin *",
-      "bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh",
-      ".claude/skills/ticket-flow/scripts/board.sh *"
-    ],
-    "failIfUnavailable": true,
-    "network": {
-      "allowedDomains": [
-        "registry.npmjs.org",
-        "registry.yarnpkg.com",
-        "crates.io",
-        "static.crates.io",
-        "index.crates.io",
-        "pypi.org",
-        "files.pythonhosted.org",
-        "github.com",
-        "codeload.github.com",
-        "objects.githubusercontent.com"
-      ]
-    }
   }
 }
