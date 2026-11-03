@@ -498,3 +498,4 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#199](https://github.com/ibrahimkobeissy/harneo/issues/199) Scan: report a plugin's parts as separate artifacts when asked to unpack it
 - [#200](https://github.com/ibrahimkobeissy/harneo/issues/200) Import: keep a plugin's unpack choice on its source, whole and parts exclusive
 - [#201](https://github.com/ibrahimkobeissy/harneo/issues/201) Import screen: choose whole plugin or pick its parts
+- [#206](https://github.com/ibrahimkobeissy/harneo/issues/206) Ship prebuilt Linux packages (AppImage, .deb) with each release

@@ -41,7 +41,7 @@ Give Harneo a working base on which each later module adds its own core logic an
   - `BUILDING.md`, starting with the setup script, plus build commands in `README.md` and `CLAUDE.md`;
   - the Impeccable plugin enabled for this repo in `.claude/settings.json` (from the `pbakaus/impeccable` marketplace). Done 2026-10-18.
 
-**Out of scope:** any artifact, library or profile logic; installers and app bundles (distribution is source only); macOS/Windows testing; end-to-end tests of the real window (see Decisions).
+**Out of scope:** any artifact, library or profile logic; installers and app bundles (distribution was source only; Linux packages came later with ADR-003); macOS/Windows testing; end-to-end tests of the real window (see Decisions).
 
 ## Tech Stack
 

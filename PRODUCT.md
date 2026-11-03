@@ -45,7 +45,7 @@ The only tool that holds a library of artifacts outside every project, ships it 
 - Never touches `CLAUDE.local.md`, `settings.local.json`, or anything outside the target project and Harneo's own data folder.
 - Claude Code only in v1, designed so other agents can be added later.
 - No in-app editor, no enable/disable switch, no marketplace browsing (`CONTEXT.md` §4).
-- Distribution is source only; built and tested on Linux by the maintainer.
+- Distribution: source for every OS, plus prebuilt Linux packages (AppImage, .deb) with each release (ADR-003); built and tested on Linux by the maintainer.
 
 ## Brand Commitments
 

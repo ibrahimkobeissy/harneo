@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
-  <img alt="Version 0.2.0" src="https://img.shields.io/badge/version-0.2.0-475569">
+  <img alt="Version 0.2.1" src="https://img.shields.io/badge/version-0.2.1-475569">
   <img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-475569">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB">
   <img alt="Rust and TypeScript" src="https://img.shields.io/badge/Rust%20%2B%20TypeScript-0f172a">
@@ -42,7 +42,7 @@ Harneo keeps the library **outside** your projects and ships it **into** them:
 
 ## Status
 
-Harneo is **v0.1, early and moving fast**. It is a personal tool shared openly, under the MIT license.
+Harneo is **v0.2, early and moving fast**. It is a personal tool shared openly, under the MIT license.
 
 | Platform | State |
 | -------- | ----- |
@@ -50,9 +50,28 @@ Harneo is **v0.1, early and moving fast**. It is a personal tool shared openly, 
 | macOS    | Should work, **untested by the maintainer**. Reports welcome. |
 | Windows  | Should work, **untested by the maintainer**. Reports welcome. |
 
-There are no prebuilt binaries or installers: **you build Harneo from source for your own OS**. It takes one setup script and two build commands, below.
+**On Linux**, download the desktop app from the [latest release](https://github.com/ibrahimkobeissy/harneo/releases/latest) (AppImage or .deb). **On macOS and Windows**, and for the CLI on any OS, you build Harneo from source: one setup script and two build commands, below.
 
 ## Install
+
+### Linux: prebuilt packages
+
+Each [release](https://github.com/ibrahimkobeissy/harneo/releases/latest) carries the desktop app as an AppImage and a .deb (built by CI from the release tag, [ADR-003](docs/decisions/ADR-003-linux-packages.md)), plus `SHA256SUMS`. They are unsigned: check the download against `SHA256SUMS`.
+
+```bash
+sha256sum -c SHA256SUMS --ignore-missing
+
+# Any distro: the AppImage (some distros need libfuse2 / fuse2 installed first)
+chmod +x Harneo_*_amd64.AppImage
+./Harneo_*_amd64.AppImage
+
+# Debian / Ubuntu: the .deb (pulls in WebKitGTK 4.1)
+sudo apt install ./Harneo_*_amd64.deb
+```
+
+The packages hold the desktop app only. For the `harneo` CLI, build from source below.
+
+### From source
 
 Every OS follows the same five steps: install the prerequisites, clone, run the setup script, build, put the two binaries on your `PATH`. The setup script shows every command it will run and asks before running any of them; `--check` (`-Check` on Windows) only reports what is missing.
 
@@ -65,7 +84,7 @@ What you end up with:
 
 Both are written to `target/release/` (with `.exe` on Windows). No installer is built.
 
-### Linux
+#### Linux
 
 **1. Prerequisites.** `git`, and a distro that `setup.sh` knows: Arch (pacman), Debian or Ubuntu (apt), Fedora (dnf). Other distros work if you install the [Tauri 2 Linux packages](https://v2.tauri.app/start/prerequisites/#linux) yourself; [BUILDING.md](BUILDING.md#linux-tested) lists them per distro.
 
@@ -102,7 +121,7 @@ Icon=/path/to/harneo/src-tauri/icons/icon.png
 Categories=Development;
 ```
 
-### macOS
+#### macOS
 
 **1. Prerequisites.**
 
@@ -147,7 +166,7 @@ harneo-app &
 
 `--no-bundle` builds a plain binary, not a `.app`, so Harneo starts from the terminal and does not appear in Launchpad. If you want a `.app`, see [Bundles](BUILDING.md#bundles-optional) in BUILDING.md.
 
-### Windows
+#### Windows
 
 **1. Prerequisites.** Windows 10 or 11 with [winget](https://aka.ms/getwinget) (it ships with current versions) and [Git for Windows](https://git-scm.com/download/win) (`winget install --id Git.Git -e`). `setup.ps1` installs the rest: rustup, Node.js LTS, Visual Studio 2022 Build Tools with the C++ workload, and the WebView2 runtime.
 

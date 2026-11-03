@@ -1,6 +1,6 @@
 # Building Harneo
 
-Harneo is distributed as source only: clone the repo and build it for your own OS. The maintainer builds and tests on Linux only. Windows and macOS are untested by the maintainer; please report problems.
+Linux users can skip this guide: each [release](https://github.com/ibrahimkobeissy/harneo/releases/latest) carries the desktop app as an AppImage and a .deb (ADR-003). Otherwise, and for the CLI, clone the repo and build it for your own OS. The maintainer builds and tests on Linux only. Windows and macOS are untested by the maintainer; please report problems.
 
 ## Quick start
 
@@ -72,7 +72,7 @@ Rust dependencies are fetched and built on the first `cargo` or `tauri` run.
 | Run the CLI                | `cargo run -p harneo-cli -- --version`, or `-- paths` for the data folder |
 | Build the CLI in release   | `cargo build --release -p harneo-cli`                                    |
 
-Installers are not built (`bundle.active` is `false` in `src-tauri/tauri.conf.json`). The release build writes the app binary to `target/release/harneo-app` (`harneo-app.exe` on Windows), with the frontend embedded from `dist/`. The CLI binary is `target/release/harneo`. The app and the CLI share one library folder; `harneo paths` prints where it is. The README's [Install](README.md#install) section has the per-OS steps to put both on your `PATH`.
+`--no-bundle` skips installers. (The `bundle` section of `src-tauri/tauri.conf.json` targets the Linux AppImage and .deb that the `linux-packages` workflow builds for each release; `npm run tauri build -- --bundles appimage,deb` builds them locally.) The release build writes the app binary to `target/release/harneo-app` (`harneo-app.exe` on Windows), with the frontend embedded from `dist/`. The CLI binary is `target/release/harneo`. The app and the CLI share one library folder; `harneo paths` prints where it is. The README's [Install](README.md#install) section has the per-OS steps to put both on your `PATH`.
 
 ### Bundles (optional)
 

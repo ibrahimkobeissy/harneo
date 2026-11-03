@@ -167,7 +167,7 @@ flowchart LR
 | Enable / disable switch | ❌ | |
 | Marketplace browsing | ❌ | Import by URL instead |
 | Plugins | ✅ whole, or parts | Taken whole: enabled from their marketplace, and Harneo installs them from it after Scaffold or Refit (2026-10-31). **Or unpacked (decided 2026-11-01, ADR-002):** the user picks some skills, agents, commands, output styles or MCP servers, which become ordinary artifacts. Whole or parts, never both for one plugin; hooks, monitors, LSP, `bin/`, themes, workflows and settings only with the whole plugin |
-| Distribution | Source only | Users clone and build for their own OS. The maintainer builds and uses Linux only. No installers, no code signing |
+| Distribution | Source, plus Linux packages | Users clone and build for their own OS. The maintainer builds and uses Linux only. **Linux** (decided 2026-11-04, ADR-003): each release also carries an AppImage and a .deb of the desktop app, built by CI from the release tag after `check` passes. macOS and Windows: no installers, no code signing |
 | Build-from-source guide | ✅ | `BUILDING.md`: prerequisites per OS (Rust, Node, Tauri system packages: WebKitGTK on Linux, WebView2 on Windows, Xcode tools on macOS), then the build and run commands |
 
 ## 5. Constraints for the build
@@ -203,7 +203,7 @@ flowchart LR
 | Updates that respect local edits | ✅ | ❌ overwrites | — | 🟠 lock-pinned | — |
 | Usage tracking + cleanup | ✅ | ❌ | ✅ usage only | 🟠 via AgentsView | ✅ usage only |
 | Security audit | ✅ | ✅ | ❌ | 🟠 `doctor` | ❌ |
-| Desktop on macOS / Windows / Linux | ✅ from source; official build Linux | ❌ macOS only | ❌ macOS only | CLI + web | ? |
+| Desktop on macOS / Windows / Linux | ✅ from source; Linux packages (AppImage, .deb) | ❌ macOS only | ❌ macOS only | CLI + web | ? |
 
 *Competitor cells come from READMEs and HarnessKit's source code (2026-10-17); "?" means not checked.*
 

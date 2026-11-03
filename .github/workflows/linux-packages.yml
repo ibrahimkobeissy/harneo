@@ -1,0 +1,63 @@
+name: linux-packages
+
+# Builds the Linux AppImage and .deb for a release and attaches them, with SHA256SUMS,
+# to that GitHub Release (ADR-003). It runs when a release is published, which happens
+# only after the tag's `check` run passed (CLAUDE.md, Releases), or by hand for a tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build and attach to, e.g. release_0.2.1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    # An older glibc than ubuntu-latest, so the AppImage runs on more distributions.
+    runs-on: ubuntu-22.04
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Install Tauri system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential curl wget file libwebkit2gtk-4.1-dev \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev libfuse2
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - run: npm ci
+
+      - name: Check the tag matches the app version
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          test "$TAG" = "release_$version" || { echo "tag $TAG does not match version $version"; exit 1; }
+
+      - name: Build the AppImage and .deb
+        run: npm run tauri build -- --bundles appimage,deb
+
+      - name: Attach the packages and SHA256SUMS to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist-linux
+          cp target/release/bundle/appimage/*.AppImage target/release/bundle/deb/*.deb dist-linux/
+          cd dist-linux
+          sha256sum ./*.AppImage ./*.deb | sed 's| \./| |' > SHA256SUMS
+          cat SHA256SUMS
+          gh release upload "$TAG" ./*.AppImage ./*.deb SHA256SUMS --clobber --repo "$GITHUB_REPOSITORY"
