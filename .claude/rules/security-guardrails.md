@@ -45,12 +45,14 @@ remote branches, no `reset --hard`, `clean -f`, `branch -D`, `checkout .`,
 ## Leave the guardrails alone
 
 Don't weaken `.claude/settings.json` or `.claude/settings.local.json` (removing
-deny rules or the guard hook, turning the sandbox off, re-enabling bypass mode),
+deny rules or the guard hook, re-enabling bypass mode),
 and don't edit `.claude/hooks/` or this file unless the user asks. Such edits go
 to the user for approval.
 
 ## Enforcement
 
-Claude Code enforces these with deny rules and the OS-level sandbox in
-`.claude/settings.json`, plus the `.claude/hooks/guard.py` hook. See the
-`security-guardrails` skill. Other agents (Codex, ...) are bound by this text.
+Claude Code enforces these with the deny rules in `.claude/settings.json` and
+the `.claude/hooks/guard.py` hook. There is no OS-level sandbox: for shell
+commands the hook only reads the command text, so these rules bind you even
+where the hook would not notice. See the `security-guardrails` skill. Other
+agents (Codex, ...) are bound by this text.

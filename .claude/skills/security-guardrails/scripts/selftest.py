@@ -100,15 +100,9 @@ CASES = [
     ("-c core.hooksPath", bash("git -c core.hooksPath=/dev/null commit -m x"), DENY),
     ("config core.hooksPath", bash("git config core.hooksPath /tmp/none"), DENY),
 
-    # --- sandbox-exempt commands must run alone ------------------------------
-    ("cd && gh", bash("cd /repo && gh issue list"), DENY),
-    ("git pull | tail", bash("git pull --ff-only origin main | tail -1"), DENY),
-    ("gh body from $(...)", bash("gh issue create --title x --body \"$(cat f.md)\""), DENY),
-    ("timeout git push", bash("timeout 30 git push origin main"), DENY),
-    ("env prefix gh", bash("GH_PAGER= gh pr list"), DENY),
-    ("git push after commit", bash("git commit -m x; git push origin main"), DENY),
-    ("bash -c gh", bash("bash -c 'gh issue list'"), DENY),
+    # --- chained commands: security rules still apply ----------------------
     ("compound with force push", bash("git add . && git commit -m x && git push -f"), DENY),
+    ("cd && gh auth token", bash("cd /repo && gh auth token"), DENY),
 
     # --- secret paths, file tools --------------------------------------------
     ("Read .env", tool("Read", file_path="/repo/.env"), DENY),
@@ -154,7 +148,12 @@ CASES = [
     ("claude plugin install", bash("claude plugin install foo@bar"), PASS),
     ("gh issue create --body-file", bash("gh issue create -R me/r --title x --body-file /tmp/b.md"), PASS),
     ("git fetch alone", bash("git fetch origin"), PASS),
-    ("compound without exempt cmds", bash("cd src && grep -r TODO . | head"), PASS),
+    ("compound command", bash("cd src && grep -r TODO . | head"), PASS),
+    ("cd && gh (no sandbox)", bash("cd /repo && gh issue list"), PASS),
+    ("git pull | tail (no sandbox)", bash("git pull --ff-only origin main | tail -1"), PASS),
+    ("git -C dir push (no sandbox)", bash("git -C /repo push origin main"), PASS),
+    ("git push after commit (no sandbox)", bash("git commit -m x; git push origin main"), PASS),
+    ("timeout git push (no sandbox)", bash("timeout 30 git push origin main"), PASS),
     ("git log | head", bash("git log --oneline | head -5"), PASS),
     ("cat settings.json", bash("cat .claude/settings.json"), PASS),
     ("run selftest", bash("python3 .claude/skills/security-guardrails/scripts/selftest.py"), PASS),
@@ -214,16 +213,12 @@ def settings_cases(report, project):
         report.check(desc, run_hook(ev, project)[1], want)
 
     edit("settings: remove a deny rule -> ask", '      "Read(~/.ssh/**)",\n', "", ASK)
-    edit("settings: sandbox off -> ask", '"enabled": true', '"enabled": false', ASK)
-    edit("settings: retry outside sandbox -> ask", '"allowUnsandboxedCommands": false', '"allowUnsandboxedCommands": true', ASK)
     edit("settings: drop onFailure -> ask", ',\n            "onFailure": "block"', "", ASK)
-    edit("settings: invalid JSON -> ask", '"sandbox": {', '"sandbox": {{', ASK)
-    edit("settings: add allowed domain -> pass", '"registry.npmjs.org",', '"registry.npmjs.org",\n        "proxy.golang.org",', PASS)
+    edit("settings: invalid JSON -> ask", '"permissions": {', '"permissions": {{', ASK)
     write("settings: re-enable bypass -> ask",
           lambda d: d["permissions"].pop("disableBypassPermissionsMode"), ASK)
     write("settings: remove the guard hook -> ask", lambda d: d.pop("hooks"), ASK)
     write("settings: disableAllHooks -> ask", lambda d: d.update(disableAllHooks=True), ASK)
-    write("settings: exclude python from sandbox -> ask", lambda d: d["sandbox"]["excludedCommands"].append("python3 *"), ASK)
     write("settings: enable a plugin -> pass", lambda d: d.update(enabledPlugins={"x@y": True}), PASS)
     write("settings: add an env value -> pass", lambda d: d.update(env={"FOO": "1"}), PASS)
     write("settings: add a permission allow -> pass", lambda d: d["permissions"]["allow"].append("Bash(npm test)"), PASS)
@@ -287,25 +282,6 @@ def failure_cases(report, project):
     report.check("malformed event fails closed (exit 2)", "exit %d" % code, "exit 2")
 
 
-def spelling_cases(report, project):
-    """Sandbox-exempt commands spelled another way run sandboxed: refused."""
-    path = os.path.join(project, ".claude", "settings.json")
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump({"sandbox": {"excludedCommands": [
-            "gh *", "git push *", ".claude/skills/ticket-flow/scripts/board.sh *"]}}, fh)
-    script = os.path.join(project, ".claude/skills/ticket-flow/scripts/board.sh")
-    for desc, cmd, want in [
-        ("git -C dir push -> deny", "git -C /repo push origin main", DENY),
-        ("git -c k=v push -> deny", "git -c http.x=1 push origin main", DENY),
-        ("absolute board.sh -> deny", script + " set 1 done", DENY),
-        ("./board.sh -> deny", "./.claude/skills/ticket-flow/scripts/board.sh set 1 done", DENY),
-        ("board.sh as configured -> pass", ".claude/skills/ticket-flow/scripts/board.sh set 1 done", PASS),
-        ("git -C dir status -> pass", "git -C /repo status", PASS),
-        ("script outside the project -> pass", "/usr/local/bin/board.sh set 1", PASS),
-    ]:
-        report.check(desc, run_hook(bash(cmd, cwd=project), project)[1], want)
-
-
 def main():
     report = Report()
     project = tempfile.mkdtemp(prefix="guardrails-selftest-")
@@ -314,7 +290,6 @@ def main():
         for desc, event, want in CASES:
             report.check(desc, run_hook(event, project)[1], want)
         settings_cases(report, project)
-        spelling_cases(report, project)
         git_cases(report, project)
         failure_cases(report, project)
         logged = os.path.exists(os.path.join(project, ".claude", "hooks", "guard.log"))

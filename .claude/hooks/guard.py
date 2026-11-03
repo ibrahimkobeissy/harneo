@@ -6,7 +6,7 @@ Glob call, reads the Claude Code event (JSON on stdin) and answers one of:
 
   deny  - never legitimate: reading secrets, leaking tokens, destructive git
   ask   - sometimes legitimate: the user decides (even in auto mode)
-  (nothing) - normal permission flow and the sandbox decide
+  (nothing) - the normal permission flow decides
 
 What it checks
 --------------
@@ -17,16 +17,15 @@ What it checks
 4. Destructive git (force push, reset --hard, clean -f, ...), skipping hooks.
 5. Edits that weaken the guardrails (settings.json, this script, the rules).
 6. A first `git commit` in a repo without the gitleaks pre-commit hook.
-7. A sandbox-exempt command (sandbox.excludedCommands: gh, git push...) chained
-   with others or spelled differently (git -C x push, an absolute script path),
-   which would run sandboxed and fail as if signed out.
 
 Limits
 ------
-This is a heuristic over command text, not a sandbox. The Claude Code sandbox
-(enabled in settings.json) is the layer that cannot be talked around; this
-guard covers what runs outside it (gh, git push, the file tools) and catches
-the obvious cases early with a clear reason.
+This is a heuristic over command text, not a sandbox, and the project runs
+without the Claude Code sandbox. For shell commands this guard is the only
+automatic check, so a command that disguises what it touches (an interpreter
+building a path at runtime, an encoded string) can get past it. The deny
+rules in settings.json cover Claude's own file tools; this guard covers those
+too and adds the shell.
 
 Failure policy: any internal error blocks the call (exit 2). settings.json
 also sets onFailure: block, so a crash or a timeout never lets a call through.
@@ -488,9 +487,6 @@ def _abspath(path, cwd):
 def security_view(d):
     d = d if isinstance(d, dict) else {}
     perms = d.get("permissions") if isinstance(d.get("permissions"), dict) else {}
-    sandbox = d.get("sandbox") if isinstance(d.get("sandbox"), dict) else {}
-    fs = sandbox.get("filesystem") if isinstance(sandbox.get("filesystem"), dict) else {}
-    net = sandbox.get("network") if isinstance(sandbox.get("network"), dict) else {}
     guard, guard_strict = False, False
     hooks = d.get("hooks") if isinstance(d.get("hooks"), dict) else {}
     for entry in hooks.get("PreToolUse") or []:
@@ -509,16 +505,6 @@ def security_view(d):
         "disableAllHooks": d.get("disableAllHooks") is True,
         "bypass_default": perms.get("defaultMode") == "bypassPermissions",
         "bypass_disabled": perms.get("disableBypassPermissionsMode") == "disable",
-        "sandbox_enabled": sandbox.get("enabled"),
-        "fail_if_unavailable": sandbox.get("failIfUnavailable"),
-        "allow_unsandboxed": sandbox.get("allowUnsandboxedCommands"),
-        "excluded": strset(sandbox.get("excludedCommands")),
-        "fs_disabled": fs.get("disabled") is True,
-        "allow_read": strset(fs.get("allowRead")),
-        "allow_write": strset(fs.get("allowWrite")),
-        "deny_read": strset(fs.get("denyRead")),
-        "deny_write": strset(fs.get("denyWrite")),
-        "denied_domains": strset(net.get("deniedDomains")),
     }
 
 
@@ -538,22 +524,6 @@ def weakening_reasons(old, new):
         reasons.append("makes bypassPermissions the default mode")
     if o["bypass_disabled"] and not n["bypass_disabled"]:
         reasons.append("re-enables bypassPermissions mode")
-    if n["sandbox_enabled"] is not True and (o["sandbox_enabled"] is True or n["sandbox_enabled"] is False):
-        reasons.append("turns the sandbox off")
-    if n["fail_if_unavailable"] is not True and o["fail_if_unavailable"] is True:
-        reasons.append("lets Claude Code run without the sandbox when it can't start")
-    if n["allow_unsandboxed"] is True and o["allow_unsandboxed"] is not True:
-        reasons.append("lets commands retry outside the sandbox")
-    if n["excluded"] - o["excluded"]:
-        reasons.append("runs more commands outside the sandbox: %s" % ", ".join(sorted(n["excluded"] - o["excluded"])))
-    if n["fs_disabled"] and not o["fs_disabled"]:
-        reasons.append("turns off the sandbox's filesystem isolation")
-    if (n["allow_read"] - o["allow_read"]) or (n["allow_write"] - o["allow_write"]):
-        reasons.append("opens more paths in the sandbox")
-    if (o["deny_read"] - n["deny_read"]) or (o["deny_write"] - n["deny_write"]):
-        reasons.append("removes sandbox path restrictions")
-    if o["denied_domains"] - n["denied_domains"]:
-        reasons.append("removes denied network domains")
     return reasons
 
 
@@ -645,95 +615,6 @@ def log(decision, tool, reason, detail=""):
         pass
 
 
-# ---------------------------------------------------------------------------
-# 7. Sandbox-exempt commands chained with others
-# ---------------------------------------------------------------------------
-
-# Used when the project's settings.json can't be read.
-DEFAULT_EXCLUDED_COMMANDS = (
-    "gh *", "git push *", "git pull *", "git fetch *", "git clone *",
-    "git ls-remote *", "git submodule *", "claude plugin *",
-)
-
-
-def excluded_commands(project):
-    """The project's sandbox.excludedCommands patterns."""
-    try:
-        with open(os.path.join(project, ".claude", "settings.json")) as fh:
-            patterns = (json.load(fh).get("sandbox") or {}).get("excludedCommands")
-        if isinstance(patterns, list):
-            return [p for p in patterns if isinstance(p, str) and p.strip()]
-    except Exception:
-        pass
-    return list(DEFAULT_EXCLUDED_COMMANDS)
-
-
-def _is_excluded(argv, patterns):
-    line = " ".join(argv)
-    for p in patterns:
-        bare = p[:-2].rstrip() if p.endswith(" *") else p
-        if line == bare or fnmatch.fnmatchcase(line, p):
-            return True
-    return False
-
-
-def rule_exempt_in_compound(command, commands, patterns):
-    """The sandbox exempts an excludedCommands entry only when it is the whole
-    call. Chained (cd, &&, ;, |, $(...)) or prefixed (env VAR=, timeout), it
-    runs sandboxed, without ~/.config/gh or ~/.ssh, and fails as if signed out."""
-    hits = [argv for argv in commands if _is_excluded(argv, patterns)]
-    if not hits:
-        return None
-    raw = _tokenize(command)
-    alone = (len(commands) == 1 and not any(_is_separator(t) for t in raw)
-             and "$(" not in command and "`" not in command
-             and raw[:len(hits[0])] == hits[0])
-    if alone:
-        return None
-    name = " ".join(hits[0][:2])
-    return ("deny", "`%s` is exempt from the sandbox only when it is the whole command. "
-            "Chained or prefixed (cd, &&, ;, |, $(...), env VAR=, timeout), it runs sandboxed "
-            "without credentials and fails as 'not logged in' or 'permission denied'. Run it as "
-            "its own Bash call with nothing before or after it: `cd` in a separate call first "
-            "if needed, and use flags like -R/--repo or --body-file instead of substitutions."
-            % name, "retry")
-
-
-def _canonical(argv, project):
-    """`argv` as an excludedCommands pattern would spell it: git without its
-    global flags (-C dir, -c key=val...), and a program path inside the
-    project made relative to it. Returns None when nothing changes."""
-    out = list(argv)
-    if os.path.basename(out[0]) == "git":
-        sub, args, _, _ = _git_parts(out)
-        if sub is not None:
-            out = ["git", sub] + list(args)
-    head = out[0]
-    if project and (os.path.isabs(head) or head.startswith("./")):
-        full = os.path.normpath(os.path.join(project, head))
-        root = os.path.normpath(project)
-        if full.startswith(root + os.sep):
-            out[0] = os.path.relpath(full, root)
-    return out if out != list(argv) else None
-
-
-def rule_exempt_misspelled(commands, patterns, project):
-    """A command that would be sandbox-exempt if spelled the way the pattern
-    is (`git -C x push` vs `git push *`, `/abs/.claude/.../board.sh` vs
-    `.claude/.../board.sh *`) runs sandboxed and fails as if signed out."""
-    for argv in commands:
-        if _is_excluded(argv, patterns):
-            continue
-        canonical = _canonical(argv, project)
-        if canonical and _is_excluded(canonical, patterns):
-            return ("deny", "`%s` is sandbox-exempt only when spelled as the excludedCommands "
-                    "entry is, so this spelling runs sandboxed without credentials and fails as "
-                    "'not logged in' or 'permission denied'. Run `%s` instead (for git, `cd` to "
-                    "the repository in a separate call first, without -C or -c)."
-                    % (" ".join(argv[:3]), " ".join(canonical)), "retry")
-    return None
-
-
 def decide(decision, reason, tool, detail, retry=False):
     log(decision, tool, reason, detail)
     message = "Blocked by security-guardrails: " if decision == "deny" else "security-guardrails: "
@@ -770,11 +651,6 @@ def check_bash(command, cwd):
         results += [rule_env_and_keyrings(argv), rule_gh(argv), rule_git(argv, cwd)]
     if SHELL_WRITE_RE.search(command):
         results.append(("ask", "this shell command writes to the security guardrails' files."))
-    # Last, so a security deny's reason wins over this one.
-    project = _LOG_DIR or cwd
-    patterns = excluded_commands(project)
-    results.append(rule_exempt_in_compound(command, commands, patterns))
-    results.append(rule_exempt_misspelled(commands, patterns, project))
     return pick(results)
 
 

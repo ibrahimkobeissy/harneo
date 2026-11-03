@@ -11,23 +11,3 @@ coverage/
 .claude/settings.local.json
 mise.local.toml
 start.sh
-# Empty mount points the Claude Code sandbox (bubblewrap) creates for protected paths that
-# don't exist yet; recreated on every sandboxed command. Anchored, exact paths only.
-/.bash_profile
-/.bashrc
-/.profile
-/.zprofile
-/.zshrc
-/.gitconfig
-/.gitmodules
-/.ripgreprc
-/.mcp.json
-/.idea
-/.vscode
-/.claude/agents
-/.claude/commands
-/.claude/launch.json
-/.claude/loop.md
-/.claude/output-styles
-/.claude/routines
-/.claude/workflows

@@ -8,7 +8,7 @@ Installed by Harneo from profile **Software Factory v5** on 2026-11-01.
 | waiting-bell | Plugin | ibrahimkobeissy/claude-mods | Rings a bell and shows a banner whenever Claude is blocked waiting for you, repeating every 5 minutes until you answer |
 | agent-skills | Plugin | addyosmani/agent-skills | Production-grade engineering skills for AI coding agents — covering the full software development lifecycle from spec to ship |
 | impeccable | Plugin | pbakaus/impeccable | Design fluency for frontend development |
-| security-guardrails | Skill | Local | Explains and maintains this project's security guardrails: the OS-level sandbox, the deny rules and the guard.py hook that stop agents from reading credentials and secrets, leaking tokens through gh, or destroying git work |
+| security-guardrails | Skill | Local | Explains and maintains this project's security guardrails: the deny rules and the guard.py hook that stop agents from reading credentials and secrets, leaking tokens through gh, or destroying git work |
 | security-guardrails | Rule | Local |  |
 | settings | Settings | Local |  |
 
