@@ -1,0 +1,145 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #hook-stage {
+      position: absolute;
+      inset: 0;
+    }
+    #hook-term {
+      position: absolute;
+      left: 300px;
+      top: 300px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 40px;
+      line-height: 64px;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .hook-line {
+      position: relative;
+      height: 64px;
+    }
+    #hook-typed {
+      display: inline-block;
+    }
+    #hook-caret {
+      position: absolute;
+      left: 0;
+      top: 10px;
+      width: 22px;
+      height: 46px;
+      background: var(--color-accent);
+    }
+    .hook-copy {
+      color: #64748b;
+    }
+    .hook-prompt {
+      color: var(--color-accent);
+    }
+    #hook-title {
+      position: absolute;
+      left: 300px;
+      top: 640px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 84px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--color-ink);
+    }
+    #hook-title .hook-dim {
+      color: #64748b;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="hook"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div id="hook-stage" class="clip" data-start="0" data-duration="3">
+      <div id="hook-term">
+        <div class="hook-line">
+          <span id="hook-typed"
+            ><span class="hook-prompt">$</span> cp -r ../old-repo/.claude
+            .</span
+          ><span id="hook-caret"></span>
+        </div>
+        <div id="hook-c1" class="hook-line hook-copy">
+          <span class="hook-prompt">$</span> cp -r ../api/.claude .
+        </div>
+        <div id="hook-c2" class="hook-line hook-copy">
+          <span class="hook-prompt">$</span> cp -r ../web/.claude .
+        </div>
+        <div id="hook-c3" class="hook-line hook-copy">
+          <span class="hook-prompt">$</span> cp -r ../worker/.claude .
+        </div>
+      </div>
+      <h1 id="hook-title">
+        <span id="hook-w1">Copied by hand,</span>
+        <span id="hook-w2" class="hook-dim">repo to repo.</span>
+      </h1>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const CH = 24; // JetBrains Mono advance at 40px = 0.6em
+      const CHARS = 29; // "$ cp -r ../old-repo/.claude ."
+      // typing: reveal the line and move the caret in 29 steps, 0.15 -> 0.95 s
+      tl.fromTo(
+        "#hook-typed",
+        { clipPath: "inset(0 100% 0 0)" },
+        {
+          clipPath: "inset(0 0% 0 0)",
+          duration: 0.8,
+          ease: "steps(" + CHARS + ")",
+        },
+        0.15,
+      );
+      tl.fromTo(
+        "#hook-caret",
+        { x: 0 },
+        { x: CH * CHARS + 6, duration: 0.8, ease: "steps(" + CHARS + ")" },
+        0.15,
+      );
+      // copies pile up below, each a little fainter (texture, not read)
+      ["#hook-c1", "#hook-c2", "#hook-c3"].forEach(function (id, i) {
+        tl.fromTo(
+          id,
+          { opacity: 0, x: -12 },
+          {
+            opacity: 0.75 - i * 0.22,
+            x: i * 14,
+            duration: 0.3,
+            ease: "power3.out",
+          },
+          1.0 + i * 0.12,
+        );
+      });
+      // title: per-word blur in, two beats
+      tl.fromTo(
+        "#hook-w1",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        0.75,
+      );
+      tl.fromTo(
+        "#hook-w2",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        1.0,
+      );
+      // exit: blur swap into the reveal
+      tl.to(
+        ["#hook-term", "#hook-title"],
+        { opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" },
+        2.78,
+      );
+      window.__timelines["hook"] = tl;
+    })();
+  </script>
+</template>

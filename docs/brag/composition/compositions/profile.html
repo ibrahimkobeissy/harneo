@@ -1,0 +1,258 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #pf-stage {
+      position: absolute;
+      inset: 0;
+    }
+    .pf-eyebrow {
+      position: absolute;
+      left: 240px;
+      top: 44px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.01em;
+      color: var(--color-accent);
+    }
+    .pf-cap {
+      position: absolute;
+      left: 240px;
+      top: 92px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 56px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    #pf-win {
+      position: absolute;
+      left: 240px;
+      top: 200px;
+      width: 1440px;
+      height: 922px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow:
+        0 0 0 1px #e2e8f0,
+        0 40px 90px rgba(15, 23, 42, 0.16);
+    }
+    #pf-win > img#pf-empty,
+    #pf-win > img#pf-saved {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1440px;
+      height: 922px;
+    }
+    #pf-saved,
+    .pf-card {
+      opacity: 0;
+    }
+    .pf-card {
+      position: absolute;
+      width: 310px;
+      height: 84px;
+    }
+    #pf-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 34px;
+      height: 40px;
+      transform-origin: 0 0;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="profile"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="pf-stage"
+      class="clip"
+      data-start="0"
+      data-duration="3"
+      data-layout-allow-overflow
+    >
+      <div id="pf-eyebrow" class="pf-eyebrow">02 · Profile</div>
+      <h2 id="pf-cap" class="pf-cap">Compose a profile once.</h2>
+      <div id="pf-win">
+        <img
+          id="pf-empty"
+          src="assets/shots/profile-empty.png"
+          alt="New profile editor"
+        />
+        <img
+          class="pf-card"
+          id="pf-c1"
+          src="assets/shots/card-1.png"
+          alt=""
+          style="left: 279px; top: 358px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c2"
+          src="assets/shots/card-2.png"
+          alt=""
+          style="left: 598px; top: 358px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c3"
+          src="assets/shots/card-3.png"
+          alt=""
+          style="left: 279px; top: 452px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c4"
+          src="assets/shots/card-4.png"
+          alt=""
+          style="left: 598px; top: 452px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c5"
+          src="assets/shots/card-5.png"
+          alt=""
+          style="left: 279px; top: 546px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c6"
+          src="assets/shots/card-6.png"
+          alt=""
+          style="left: 598px; top: 546px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c7"
+          src="assets/shots/card-7.png"
+          alt=""
+          style="left: 279px; top: 641px"
+        />
+        <img
+          class="pf-card"
+          id="pf-c8"
+          src="assets/shots/card-8.png"
+          alt=""
+          style="left: 598px; top: 641px"
+        />
+        <img
+          id="pf-saved"
+          src="assets/shots/profile-saved.png"
+          alt="Profile Heavy v1 saved"
+        />
+      </div>
+      <svg id="pf-cursor" viewBox="0 0 34 40" aria-hidden="true">
+        <path
+          d="M2 2 L2 32 L10 25 L15.5 37 L21 34.5 L15.6 23 L26 23 Z"
+          fill="#0f172a"
+          stroke="#ffffff"
+          stroke-width="2.4"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const WIN = { x: 240, y: 200 };
+      const BTN = { x: 262, y: 42 }; // "Add" button inside a card
+      const cards = [
+        [279, 358],
+        [598, 358],
+        [279, 452],
+        [598, 452],
+        [279, 546],
+        [598, 546],
+        [279, 641],
+        [598, 641],
+      ];
+      tl.fromTo(
+        "#pf-win",
+        { y: 40, opacity: 0, filter: "blur(8px)" },
+        {
+          y: 0,
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.45,
+          ease: "expo.out",
+        },
+        0,
+      );
+      tl.fromTo(
+        "#pf-eyebrow",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2 },
+        0.1,
+      );
+      tl.fromTo(
+        "#pf-cap",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        0.15,
+      );
+      // cursor enters from the lower right, then clicks each Add on the beat grid (11.50 + 0.25 n)
+      tl.fromTo(
+        "#pf-cursor",
+        { x: 1180, y: 900, opacity: 0 },
+        { opacity: 1, duration: 0.15 },
+        0.2,
+      );
+      cards.forEach(function (c, i) {
+        const t = 0.5 + i * 0.25; // beat-grid
+        const tx = WIN.x + c[0] + BTN.x;
+        const ty = WIN.y + c[1] + BTN.y;
+        tl.to(
+          "#pf-cursor",
+          {
+            x: tx,
+            y: ty,
+            duration: i === 0 ? 0.28 : 0.17,
+            ease: "power2.inOut",
+          },
+          t - (i === 0 ? 0.28 : 0.17),
+        );
+        tl.to(
+          "#pf-cursor",
+          { scale: 0.86, duration: 0.05, ease: "power2.out" },
+          t,
+        );
+        tl.to(
+          "#pf-cursor",
+          { scale: 1, duration: 0.08, ease: "power2.out" },
+          t + 0.05,
+        );
+        tl.fromTo(
+          "#pf-c" + (i + 1),
+          { opacity: 0 },
+          { opacity: 1, duration: 0.08, ease: "none" },
+          t + 0.02,
+        );
+      });
+      tl.to("#pf-cursor", { opacity: 0, duration: 0.15 }, 2.4);
+      // 13.5 s film: the saved state (title "Heavy", 11 files, "Saved Heavy v1")
+      tl.fromTo(
+        "#pf-saved",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2, ease: "power1.inOut" },
+        2.5,
+      );
+      tl.to(
+        "#pf-stage > *",
+        { opacity: 0, filter: "blur(10px)", duration: 0.18, ease: "power3.in" },
+        2.82,
+      );
+      window.__timelines["profile"] = tl;
+    })();
+  </script>
+</template>
