@@ -1,4 +1,0 @@
-Harneo keeps every Claude Code skill, subagent, setting and MCP server you trust in one library, audits each one on import, and refits any project without losing a line: every write previewed, every replaced file backed up. Free and open source (MIT): github.com/ibrahimkobeissy/harneo
-
-Short (X / Bluesky):
-Stop copying .claude/ from repo to repo. Harneo: one library for your Claude Code harness, audited on import, installed into any project with a preview and a backup. Free, MIT. github.com/ibrahimkobeissy/harneo
