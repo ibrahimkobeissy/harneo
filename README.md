@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
-  <img alt="Version 0.2.1" src="https://img.shields.io/badge/version-0.2.1-475569">
+  <img alt="Version 0.2.2" src="https://img.shields.io/badge/version-0.2.2-475569">
   <img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-475569">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB">
   <img alt="Rust and TypeScript" src="https://img.shields.io/badge/Rust%20%2B%20TypeScript-0f172a">
