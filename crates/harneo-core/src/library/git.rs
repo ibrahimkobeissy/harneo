@@ -1,4 +1,4 @@
-//! Shallow git clones for git sources. This is the only place core starts another process.
+//! Shallow git clones for git sources.
 //!
 //! Git is run with an argument list (never a shell), no terminal and no credential prompt, and
 //! is stopped when it runs past the timeout. A clone lives in a temp folder under the library
@@ -272,6 +272,7 @@ fn run(config: &GitConfig, args: &[&OsStr]) -> Result<Output> {
     let mut command = Command::new(&config.program);
     command.args(args);
     harden(&mut command);
+    crate::host_env::for_host(&mut command);
     command
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_ASKPASS", "")

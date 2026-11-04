@@ -6,6 +6,7 @@ pub mod audit;
 pub mod bundles;
 pub mod drift;
 pub mod error;
+pub mod host_env;
 pub mod install;
 pub mod library;
 pub mod paths;

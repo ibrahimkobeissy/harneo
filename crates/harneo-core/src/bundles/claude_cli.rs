@@ -176,6 +176,7 @@ fn run_in(
     }
     .map_err(io_error)?;
     let mut command = Command::new(&config.program);
+    crate::host_env::for_host(&mut command);
     command
         .args(args)
         .current_dir(cwd.unwrap_or(scratch.path()))
