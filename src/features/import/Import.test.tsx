@@ -1,7 +1,7 @@
 import { mockIPC } from "@tauri-apps/api/mocks";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { Link, MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import type { ImportReport } from "../../bindings/ImportReport";
@@ -119,6 +119,8 @@ function setup(opts: {
   });
   render(
     <MemoryRouter initialEntries={[{ pathname: "/import", state: opts.state }]}>
+      {/* Stands in for the sidebar's Import link, present on every screen. */}
+      <Link to="/import">Sidebar Import</Link>
       <Routes>
         <Route path="/import" element={<ImportScreen />} />
         <Route path="/library" element={<LibraryProbe />} />
@@ -870,5 +872,32 @@ describe("Import screen", () => {
     expect(
       screen.getByRole("list", { name: "Secrets in settings" }),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Import screen: opened again from the sidebar", () => {
+  it("starts a fresh import after one has finished", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Import 3 artifacts" }));
+    await screen.findByText("Imported 3 artifacts into your library");
+    await u.click(screen.getByRole("link", { name: "Sidebar Import" }));
+    expect(
+      screen.queryByText("Imported 3 artifacts into your library"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Source").closest("li")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+  });
+
+  it("keeps an import in progress", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("link", { name: "Sidebar Import" }));
+    expect(screen.getByText(/Found 4 artifacts/)).toBeInTheDocument();
   });
 });

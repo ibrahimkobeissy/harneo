@@ -75,8 +75,32 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** Import: pick a source, choose what to bring in, review tags and secrets, then copy. */
+/**
+ * Import: pick a source, choose what to bring in, review tags and secrets, then copy.
+ * Opening Import again (sidebar, palette) once an import has finished starts a fresh one;
+ * an import still in progress keeps its state.
+ */
 export function ImportScreen() {
+  const { key } = useLocation();
+  const [seen, setSeen] = useState(key);
+  const [finished, setFinished] = useState(false);
+  const [run, setRun] = useState(0);
+  if (seen !== key) {
+    // A new navigation to this screen: adjust state during render, before the old run shows.
+    setSeen(key);
+    if (finished) {
+      setFinished(false);
+      setRun((n) => n + 1);
+    }
+  }
+  return <ImportFlow key={run} onFinished={setFinished} />;
+}
+
+function ImportFlow({
+  onFinished,
+}: {
+  onFinished: (finished: boolean) => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const firstRun =
@@ -124,6 +148,9 @@ export function ImportScreen() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [report, setReport] = useState<ImportReport | null>(null);
+  useEffect(() => {
+    onFinished(report !== null);
+  }, [report, onFinished]);
   // A scan answers only if it is still the latest one (Back during a scan cancels the wait).
   const scanId = useRef(0);
 
