@@ -17,7 +17,7 @@ maxTotalBytes: number,
  */
 maxLooseSkillDepth: number, 
 /**
- * Folder names never entered.
+ * Folder names never entered. `.trash` is where Claude Code keeps skills it removed.
  */
 skipDirs: Array<string>, 
 /**

@@ -176,7 +176,7 @@ pub struct ScanOptions {
     pub max_total_bytes: usize,
     /// How deep loose skills are looked for.
     pub max_loose_skill_depth: u32,
-    /// Folder names never entered.
+    /// Folder names never entered. `.trash` is where Claude Code keeps skills it removed.
     pub skip_dirs: Vec<String>,
     /// Also enter Claude-managed folders (`skills/synced/`, `dev-mods/`), skipped by default.
     pub include_managed: bool,
@@ -197,7 +197,12 @@ impl Default for ScanOptions {
             max_file_bytes: 1024 * 1024,
             max_total_bytes: 100 * 1024 * 1024,
             max_loose_skill_depth: 4,
-            skip_dirs: vec![".git".into(), "node_modules".into(), "target".into()],
+            skip_dirs: vec![
+                ".git".into(),
+                "node_modules".into(),
+                "target".into(),
+                ".trash".into(),
+            ],
             include_managed: false,
             repo: None,
             unpack: Vec::new(),
@@ -225,7 +230,7 @@ mod tests {
         assert_eq!(o.max_file_bytes, 1_048_576);
         assert_eq!(o.max_total_bytes, 104_857_600);
         assert_eq!(o.max_loose_skill_depth, 4);
-        assert_eq!(o.skip_dirs, [".git", "node_modules", "target"]);
+        assert_eq!(o.skip_dirs, [".git", "node_modules", "target", ".trash"]);
         assert!(!o.include_managed);
     }
 

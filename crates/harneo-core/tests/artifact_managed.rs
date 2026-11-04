@@ -102,3 +102,31 @@ fn dev_mods_are_skipped_and_counted() -> TestResult {
     assert_eq!(plugins, 2);
     Ok(())
 }
+
+#[test]
+fn trashed_skills_are_never_scanned() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    for rel in [
+        "skills/.trash/1793224738043-3610128-aB/gone/SKILL.md",
+        ".claude/skills/.trash/1793224738043-3610128-cD/gone2/SKILL.md",
+        ".trash/loose/SKILL.md",
+    ] {
+        write(dir.path(), rel, "---\nname: gone\ndescription: d\n---\n")?;
+    }
+    write(
+        dir.path(),
+        "skills/kept/SKILL.md",
+        "---\nname: kept\ndescription: d\n---\n",
+    )?;
+    // Not even when Claude-managed folders are included: a trash folder holds deleted skills.
+    for include_managed in [false, true] {
+        let report = scan(dir.path(), include_managed)?;
+        let found: Vec<_> = report
+            .artifacts
+            .iter()
+            .map(|a| (a.kind, a.path.as_str()))
+            .collect();
+        assert_eq!(found, [(ArtifactKind::Skill, "skills/kept")]);
+    }
+    Ok(())
+}
