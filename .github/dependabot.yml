@@ -1,5 +1,5 @@
 # Dependabot version updates (#210). Tuned to keep Actions usage and PR noise low:
-# monthly runs, one grouped PR per ecosystem, a small PR limit, and a cooldown so
+# weekly runs, one grouped PR per ecosystem, a small PR limit, and a cooldown so
 # brand-new releases settle before they are proposed. Security updates are on in the
 # repo settings and are not delayed by the cooldown.
 version: 2
@@ -7,7 +7,8 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
       time: "06:00"
     open-pull-requests-limit: 2
     cooldown:
@@ -20,7 +21,8 @@ updates:
   - package-ecosystem: "cargo"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
       time: "06:00"
     open-pull-requests-limit: 2
     cooldown:
@@ -32,7 +34,8 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: "monthly"
+      interval: "weekly"
+      day: "monday"
       time: "06:00"
     open-pull-requests-limit: 2
     cooldown:
