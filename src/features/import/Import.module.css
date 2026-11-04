@@ -893,13 +893,13 @@ h3.subhead {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.choice {
+.pluginChoice {
   margin: 0;
   padding: 0 var(--space-md) var(--space-sm);
   border: 0;
   min-width: 0;
 }
-.choices {
+.pluginChoices {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs) var(--space-lg);
@@ -916,7 +916,7 @@ h3.subhead {
   cursor: not-allowed;
   opacity: 0.6;
 }
-.choice .reason {
+.pluginChoice .reason {
   margin: var(--space-xs) 0 0;
 }
 .wholeOnly {

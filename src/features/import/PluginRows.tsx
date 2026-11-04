@@ -42,9 +42,9 @@ export function PluginChoice({
   };
   const base = `choice-${group.folder || "root"}`;
   return (
-    <fieldset className={styles.choice} aria-busy={busy}>
+    <fieldset className={styles.pluginChoice} aria-busy={busy}>
       <legend className={styles.sr}>Import {group.name} as</legend>
-      <div className={styles.choices}>
+      <div className={styles.pluginChoices}>
         {OPTIONS.map(([value, label]) => {
           const why = refusal[value];
           const unavailable = why !== null;
