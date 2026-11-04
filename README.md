@@ -266,7 +266,7 @@ Harneo writes nothing else outside the projects you point it at. Projects keep t
 
    ![Cleanup: risky, unused, repeated and duplicate artifacts, each with a fix](docs/screenshots/cleanup.png)
 
-The screenshots use dummy data.
+The screenshots use dummy data. [MANUAL.md](MANUAL.md) walks through every screen: the command palette and shortcuts, plugins taken whole or in parts, large and Claude-managed files at import, smart collections, the project page and its backups, and every setting.
 
 ## CLI
 
@@ -285,7 +285,9 @@ harneo --help                                   # everything else
 
 ## Privacy
 
-Harneo has no server and no account. The only things that ever leave your machine go through your own `claude` CLI, on your own Claude plan, and each one has a switch in **Settings**:
+Harneo has no server, no account and no analytics. It talks to the network in two ways only, both through programs you already have: `git`, to fetch the sources you import from, and your own `claude` CLI, on your own Claude plan.
+
+**Sent to Claude**, each with a switch in **Settings**:
 
 | Feature | Default | What is sent |
 | ------- | ------- | ------------ |
@@ -293,7 +295,14 @@ Harneo has no server and no account. The only things that ever leave your machin
 | Ask Claude about repo layouts at import | **On** | Only when an import leaves files Harneo couldn't place: file paths, manifests and the first 40 lines of the unplaced Markdown files. Secret-looking files are listed by name, never read. |
 | Detect bundles and tags at import | Off | Artifact text, to propose bundles and tags. |
 
-If the `claude` CLI is not installed, none of these run. Each Settings row says exactly what it sends and to whom.
+If the `claude` CLI is not installed, none of these run. Each Settings row says exactly what it sends and to whom. The model that reads your artifacts is Haiku unless you pick Sonnet or Opus in Settings.
+
+**Other network access**, nothing from your library is sent:
+
+- **Git sources.** Importing from a git URL clones it. **Check for updates at start** (on by default, at most once a day; switch in Settings) and **Check for updates** in the Library look at each source with `git` for artifacts that changed. Nothing is updated without you.
+- **Plugins.** Scaffold and refit install a profile's plugins for the project through your `claude` CLI (`claude plugin install --scope project`), from each plugin's own marketplace. Plugins are never copied.
+
+**Read on your machine, never sent:** your Claude Code session logs in `~/.claude/projects/`, read only, to count how often each artifact is used (Settings → Data shows the folder and **Re-index**). Harneo also watches the library and your registered projects' harness files to notice changes; it only reads them (**Pause live rescan** in Settings).
 
 - **Error reports (off unless you set it up).** Harneo can report errors to a Sentry project *of your own*. Nothing is sent unless you set `HARNEO_SENTRY_DSN`; no DSN is built in. [BUILDING.md](BUILDING.md#error-reporting-optional) explains what is and isn't sent.
 - **Secrets.** MCP secrets are stored only as `${VAR}` placeholders, never as values.
