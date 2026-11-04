@@ -3,15 +3,5 @@
   "identifier": "default",
   "description": "Permissions for the main window. Grow this list only as commands need it.",
   "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "dialog:allow-open",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        { "url": "https://code.claude.com" },
-        { "url": "https://code.claude.com/*" }
-      ]
-    }
-  ]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

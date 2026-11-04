@@ -12,7 +12,7 @@ function setup(
   mockIPC((cmd, args) => {
     if (cmd === "diagnostics_status") return status;
     if (cmd === "settings_set" && failSave) throw new Error("disk full");
-    if (cmd === "plugin:opener|open_url") throw new Error("no browser");
+    if (cmd === "open_link") throw new Error("no browser");
     if (cmd === "settings_set") {
       const a = args as { key: string; value: unknown };
       sets.push({ key: a.key, value: a.value });

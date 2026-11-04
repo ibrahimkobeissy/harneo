@@ -31,7 +31,6 @@ use harneo_core::usage::{IndexReport, Usage, UsageIndex, UsageSummary};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_opener::OpenerExt;
 use ts_rs::TS;
 
 use crate::held::Held;
@@ -249,7 +248,6 @@ pub fn library_read_file(
 /// checked and resolved by the core first: nothing outside the copy is ever opened.
 #[tauri::command]
 pub fn library_open_file(
-    app: AppHandle,
     state: State<'_, LibraryState>,
     id: String,
     path: String,
@@ -259,9 +257,7 @@ pub fn library_open_file(
     if harneo_core::library::may_run_when_opened(&file) {
         return tauri_plugin_opener::reveal_item_in_dir(&file).map_err(|e| e.to_string());
     }
-    app.opener()
-        .open_path(file.to_string_lossy(), None::<&str>)
-        .map_err(|e| e.to_string())
+    crate::host_open::open(&file).map_err(|e| e.to_string())
 }
 
 /// Deletes an artifact from the library (its copy, tags and collection entries).
@@ -1792,15 +1788,19 @@ fn resolve_folder(
 /// The folder is resolved here from the registry and the data dir; the window names no path.
 #[tauri::command]
 pub fn open_project_folder(
-    app: AppHandle,
     state: State<'_, LibraryState>,
     target: FolderTarget,
 ) -> Result<(), String> {
     let data_dir = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
     let folder = resolve_folder(&state, &data_dir, &target)?;
-    app.opener()
-        .open_path(folder.to_string_lossy(), None::<&str>)
-        .map_err(|e| e.to_string())
+    crate::host_open::open(&folder).map_err(|e| e.to_string())
+}
+
+/// Opens one of the web pages the window links to, by name (`host_open::link_url`).
+#[tauri::command]
+pub fn open_link(name: String) -> Result<(), String> {
+    let url = crate::host_open::link_url(&name).ok_or_else(|| format!("unknown link: {name}"))?;
+    crate::host_open::open(url).map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -2571,6 +2571,12 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         let err = write_export(Some(&dir.path().join("no/such/p.json")), b"x").err();
         assert!(err.is_some_and(|m| m.contains("cannot write")));
         Ok(())
+    }
+
+    #[test]
+    fn links_open_only_by_a_known_name() {
+        let err = open_link("https://example.com".into()).err();
+        assert_eq!(err.as_deref(), Some("unknown link: https://example.com"));
     }
 
     #[test]

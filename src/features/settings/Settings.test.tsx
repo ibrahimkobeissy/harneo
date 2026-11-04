@@ -194,7 +194,7 @@ describe("Settings: structure", () => {
     mockIPC((cmd, args) => {
       if (cmd === "claude_cli_status")
         return { found: false, path: null, version: null };
-      if (cmd === "plugin:opener|open_url") {
+      if (cmd === "open_link") {
         opened.push(args);
         return undefined;
       }
@@ -205,11 +205,7 @@ describe("Settings: structure", () => {
     await user.click(
       await screen.findByRole("button", { name: "code.claude.com" }),
     );
-    await waitFor(() =>
-      expect(opened).toEqual([
-        { url: "https://code.claude.com", with: undefined },
-      ]),
-    );
+    await waitFor(() => expect(opened).toEqual([{ name: "claudeInstall" }]));
   });
 
   it("says when the install page could not be opened", async () => {
@@ -217,7 +213,7 @@ describe("Settings: structure", () => {
     mockIPC((cmd) => {
       if (cmd === "claude_cli_status")
         return { found: false, path: null, version: null };
-      if (cmd === "plugin:opener|open_url") throw "not allowed";
+      if (cmd === "open_link") throw "not allowed";
       if (cmd === "app_info") return { version: "0.1.0", dataDir: "/data" };
       return null;
     });

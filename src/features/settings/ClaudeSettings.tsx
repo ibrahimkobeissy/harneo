@@ -156,7 +156,7 @@ export function ClaudeSettings() {
                   type="button"
                   className={styles.link}
                   onClick={() => {
-                    openExternal(INSTALL_URL).catch((err: unknown) =>
+                    openExternal("claudeInstall").catch((err: unknown) =>
                       setError(`Could not open ${INSTALL_URL}: ${String(err)}`),
                     );
                   }}

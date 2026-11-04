@@ -1765,6 +1765,7 @@ dependencies = [
  "getrandom 0.4.3",
  "harneo-core",
  "harneo-report",
+ "open",
  "sentry",
  "serde",
  "serde_json",

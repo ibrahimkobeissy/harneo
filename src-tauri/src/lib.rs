@@ -2,6 +2,7 @@
 
 mod commands;
 mod held;
+mod host_open;
 mod watch;
 
 /// Starts error reporting when the Settings switch is on and a DSN resolves (opt-in); the guard
@@ -147,6 +148,7 @@ pub fn run() {
             commands::drift_promote,
             commands::drift_promote_added,
             commands::open_project_folder,
+            commands::open_link,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

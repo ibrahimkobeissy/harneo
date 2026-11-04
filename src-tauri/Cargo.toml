@@ -28,6 +28,7 @@ harneo-report = { path = "../crates/harneo-report" }
 sentry = { version = "=0.49.5", default-features = false }
 ts-rs = "12.0.1"
 tauri-plugin-opener = "2.7.2"
+open = "5.4.5"
 getrandom = "0.4"
 
 [dev-dependencies]

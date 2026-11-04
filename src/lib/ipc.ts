@@ -1,7 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { openUrl } from "@tauri-apps/plugin-opener";
 import type { PluginHold } from "../bindings/PluginHold";
 import type { ImportReport } from "../bindings/ImportReport";
 import type { Source } from "../bindings/Source";
@@ -930,9 +929,12 @@ export function openBackupsFolder(folder?: string): Promise<void> {
   });
 }
 
-/** Opens a web page in the system browser (the opener scope allows only code.claude.com). */
-export function openExternal(url: string): Promise<void> {
-  return openUrl(url);
+/** The web pages the window links to; the backend holds their URLs. */
+export type ExternalLink = "claudeInstall" | "errorReporting";
+
+/** Opens one of Harneo's links in the system browser. */
+export function openExternal(link: ExternalLink): Promise<void> {
+  return invoke<void>("open_link", { name: link });
 }
 // --- Cleanup and prune ---
 

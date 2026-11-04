@@ -85,7 +85,7 @@ export function DiagnosticsSettings() {
                   type="button"
                   className={styles.link}
                   onClick={() => {
-                    openExternal(BUILDING_URL).catch((err: unknown) =>
+                    openExternal("errorReporting").catch((err: unknown) =>
                       setError(
                         `Could not open ${BUILDING_URL}: ${String(err)}`,
                       ),
