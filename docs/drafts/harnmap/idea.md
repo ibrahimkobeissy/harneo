@@ -97,6 +97,12 @@ Every drawing costs the user tokens (their Claude plan) and a minute or so of wa
 - **Advice, not truth.** Verdicts are non-deterministic: show them as the model's opinion with its reasons and quotes, and never block anything.
 - **Sending data is opt-in**: through the user's `claude` CLI and plan, behind a setting that is off by default.
 - **Size**: send frontmatter and descriptions for the whole profile, and full text only for the candidate in a Harnfit.
+- **Model: never Haiku (decided 2026-11-05).** Drawing a Harnmap means reasoning over a whole profile at once (stages, hand-offs, what belongs off the line), and a Harnfit means reading for contradictions between texts. Both need the strongest model. Today every Claude pass uses one setting, `bundles.model`, which defaults to `haiku` (`crates/harneo-core/src/bundles/claude_cli.rs`). Harnmap and Harnfit get their **own** model setting:
+  - defaulting to the `opus` alias (it follows the newest Opus without a code change), with `sonnet` as the lighter choice; Haiku is not offered;
+  - when the account can't use the chosen model (the existing `ModelUnavailable` failure), offer the other one, never a silent fallback;
+  - each drawing and verdict records the model that made it, shown in the map history (as `audit_verdicts` already does);
+  - the 180 s timeout of the other passes is too short for a large profile on Opus: give these calls a longer one.
+  - Opus uses more of the user's plan, which is one more reason everything is saved and never re-run silently.
 
 ## Still open
 
