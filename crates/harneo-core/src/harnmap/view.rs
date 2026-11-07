@@ -417,7 +417,7 @@ impl Library {
             .query_map(params![profile], row_of)?
             .collect::<std::result::Result<Vec<_>, _>>()?;
         let name = |id: &str| -> String {
-            records::load(&self.store.conn, &id.to_owned())
+            records::load(&self.store.conn, id)
                 .ok()
                 .flatten()
                 .map_or_else(|| id.to_owned(), |d| d.artifact.name)
