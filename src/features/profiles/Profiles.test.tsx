@@ -21,6 +21,8 @@ function summary(id: number, name: string, over: Partial<ProfileSummary> = {}) {
     fileCount: 6,
     projectCount: 0,
     updatedAt: 1_700_000_000n,
+    category: "software",
+    categoryNote: null,
     ...over,
   } satisfies ProfileSummary;
 }

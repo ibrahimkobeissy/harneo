@@ -1,5 +1,6 @@
 //! Promoting a `settings.json` whose profile merges plugins into it (#196).
 
+use crate::harnmap::CategoryId;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -75,7 +76,7 @@ fn setup(template: &Value) -> std::result::Result<Setup, Box<dyn std::error::Err
         mcp: Vec::new(),
         manual_only: BTreeMap::new(),
     };
-    let profile = library.create_profile("p", "", &spec)?;
+    let profile = library.create_profile("p", "", &spec, CategoryId::Software, None)?;
     let project = tempfile::tempdir()?;
     let plan = library.plan_scaffold(project.path(), profile, None)?;
     let id = library.apply(&plan)?.project_id;

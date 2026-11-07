@@ -1,3 +1,4 @@
+use harneo_core::harnmap::CategoryId;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -67,7 +68,7 @@ fn fx() -> Result<Fx, Box<dyn std::error::Error>> {
         mcp: Vec::new(),
         manual_only: BTreeMap::new(),
     };
-    let profile = library.create_profile("web", "", &spec)?;
+    let profile = library.create_profile("web", "", &spec, CategoryId::Software, None)?;
     Ok(Fx {
         data,
         work: tempfile::tempdir()?,

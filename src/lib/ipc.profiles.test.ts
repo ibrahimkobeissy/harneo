@@ -4,6 +4,8 @@ import {
   artifactSetManualOnly,
   profileClone,
   profileCreate,
+  profileSetCategory,
+  templatesList,
   profileDelete,
   profileDescribe,
   profileFromCollection,
@@ -31,6 +33,10 @@ describe("profile wrappers", () => {
         : null;
     });
     expect(await profileCreate("A", "d", spec)).toBe(5n);
+    await profileCreate("B", "", spec, "custom", "my steps");
+    await profileSetCategory(5n, "custom", "note");
+    await profileSetCategory(5n, "video");
+    await templatesList();
     expect(await profileClone(5n, "B")).toBe(5n);
     await profileGet(5n);
     await profileGet(5n, 2);
@@ -45,7 +51,29 @@ describe("profile wrappers", () => {
     await profileImportCommit("tok", "N");
     await artifactSetManualOnly("a", true);
     expect(calls).toEqual([
-      ["profile_create", { name: "A", description: "d", spec }],
+      [
+        "profile_create",
+        {
+          name: "A",
+          description: "d",
+          spec,
+          category: "software",
+          categoryNote: null,
+        },
+      ],
+      [
+        "profile_create",
+        {
+          name: "B",
+          description: "",
+          spec,
+          category: "custom",
+          categoryNote: "my steps",
+        },
+      ],
+      ["profile_set_category", { id: 5, category: "custom", note: "note" }],
+      ["profile_set_category", { id: 5, category: "video", note: null }],
+      ["templates_list", {}],
       ["profile_clone", { id: 5, name: "B" }],
       ["profile_get", { id: 5, version: null }],
       ["profile_get", { id: 5, version: 2 }],

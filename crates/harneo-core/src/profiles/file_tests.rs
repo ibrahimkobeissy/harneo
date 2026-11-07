@@ -1,3 +1,4 @@
+use crate::harnmap::CategoryId;
 use std::path::Path;
 
 use serde_json::Value;
@@ -92,7 +93,9 @@ fn exported(
         }],
         manual_only: BTreeMap::new(),
     };
-    let id = lib.library.create_profile("Heavy", "desc", &spec)?;
+    let id = lib
+        .library
+        .create_profile("Heavy", "desc", &spec, CategoryId::Software, None)?;
     let bytes = lib.library.export_profile(id, None)?;
     Ok((id, spec, bytes))
 }

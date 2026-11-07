@@ -5,6 +5,7 @@
 //! stored path must be a plain relative path, literal secrets are refused, and artifacts are
 //! stored through the library's atomic path with a fresh audit.
 
+use crate::harnmap::CategoryId;
 use std::collections::HashMap;
 
 use base64::engine::general_purpose::STANDARD;
@@ -577,7 +578,13 @@ impl Library {
         let mut ids = own;
         ids.extend(local);
         let spec = remap(&file.profile.spec, &ids);
-        let profile_id = self.create_profile(&final_name, &file.profile.description, &spec)?;
+        let profile_id = self.create_profile(
+            &final_name,
+            &file.profile.description,
+            &spec,
+            CategoryId::Software,
+            None,
+        )?;
         Ok(ProfileImportReport {
             profile_id,
             name: final_name,

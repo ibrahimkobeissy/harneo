@@ -1,3 +1,4 @@
+use crate::harnmap::CategoryId;
 use std::fs;
 use std::path::Path;
 
@@ -88,7 +89,9 @@ fn versions_bump_only_on_change_and_old_ones_stay_readable() -> TestResult {
     let f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
     let b = f.id(ArtifactKind::Skill, "b")?;
-    let id = f.library.create_profile("Light", " first ", &spec(&[&a]))?;
+    let id =
+        f.library
+            .create_profile("Light", " first ", &spec(&[&a]), CategoryId::Software, None)?;
     assert_eq!(f.library.profile(id, None)?.version, 1);
     assert_eq!(f.library.save_profile(id, &spec(&[&a]))?, 1);
     assert_eq!(f.library.save_profile(id, &spec(&[&a, &b]))?, 2);
@@ -112,16 +115,22 @@ fn versions_bump_only_on_change_and_old_ones_stay_readable() -> TestResult {
 fn names_are_unique_ignoring_case_and_checked() -> TestResult {
     let f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
-    let one = f.library.create_profile("Light", "", &spec(&[&a]))?;
+    let one = f
+        .library
+        .create_profile("Light", "", &spec(&[&a]), CategoryId::Software, None)?;
     assert!(matches!(
-        f.library.create_profile("light", "", &spec(&[&a])),
+        f.library
+            .create_profile("light", "", &spec(&[&a]), CategoryId::Software, None),
         Err(Error::ProfileExists { .. })
     ));
     assert!(matches!(
-        f.library.create_profile("  ", "", &spec(&[&a])),
+        f.library
+            .create_profile("  ", "", &spec(&[&a]), CategoryId::Software, None),
         Err(Error::InvalidProfile { .. })
     ));
-    let two = f.library.create_profile("Heavy", "", &spec(&[&a]))?;
+    let two = f
+        .library
+        .create_profile("Heavy", "", &spec(&[&a]), CategoryId::Software, None)?;
     assert!(matches!(
         f.library.rename_profile(two, "LIGHT"),
         Err(Error::ProfileExists { .. })
@@ -145,7 +154,10 @@ fn validation_refuses_wrong_kinds_unknown_ids_and_empty_specs() -> TestResult {
     let a = f.id(ArtifactKind::Skill, "a")?;
     let settings = f.id(ArtifactKind::Settings, "settings")?;
     let api = f.id(ArtifactKind::Mcp, "api")?;
-    let create = |s: &ProfileSpec| f.library.create_profile("P", "", s);
+    let create = |s: &ProfileSpec| {
+        f.library
+            .create_profile("P", "", s, CategoryId::Software, None)
+    };
     assert!(create(&ProfileSpec::default()).is_err());
     assert!(create(&spec(&["ffffffffffffffff"])).is_err());
     assert!(create(&spec(&[&settings])).is_err());
@@ -182,14 +194,19 @@ fn a_literal_mcp_env_value_is_refused_and_never_stored() -> TestResult {
         artifact: api,
         env: BTreeMap::from([("TOKEN".to_owned(), literal.clone())]),
     }];
-    let err = f.library.create_profile("P", "", &s).err();
+    let err = f
+        .library
+        .create_profile("P", "", &s, CategoryId::Software, None)
+        .err();
     assert!(matches!(err, Some(Error::InvalidProfile { .. })));
     assert!(!err
         .map(|e| e.to_string())
         .unwrap_or_default()
         .contains(&literal));
     assert!(f.library.profiles()?.is_empty());
-    let id = f.library.create_profile("Q", "", &spec(&[&a]))?;
+    let id = f
+        .library
+        .create_profile("Q", "", &spec(&[&a]), CategoryId::Software, None)?;
     assert!(f.library.save_profile(id, &s).is_err());
     assert_eq!(f.library.profile(id, None)?.version, 1);
     for ok in ["${A}", "${A_1}", "${9}"] {
@@ -208,7 +225,9 @@ fn clone_copies_the_current_version_and_says_where_from() -> TestResult {
     let f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
     let b = f.id(ArtifactKind::Skill, "b")?;
-    let id = f.library.create_profile("Light", "", &spec(&[&a]))?;
+    let id = f
+        .library
+        .create_profile("Light", "", &spec(&[&a]), CategoryId::Software, None)?;
     f.library.save_profile(id, &spec(&[&a, &b]))?;
     let copy = f.library.clone_profile(id, "Heavy")?;
     let view = f.library.profile(copy, None)?;
@@ -290,8 +309,12 @@ fn removing_an_artifact_gives_every_profile_holding_it_a_new_version() -> TestRe
         env: BTreeMap::new(),
     }];
     full.manual_only.insert(a.clone(), true);
-    let with_a = f.library.create_profile("With a", "", &full)?;
-    let only_b = f.library.create_profile("Only b", "", &spec(&[&b]))?;
+    let with_a = f
+        .library
+        .create_profile("With a", "", &full, CategoryId::Software, None)?;
+    let only_b =
+        f.library
+            .create_profile("Only b", "", &spec(&[&b]), CategoryId::Software, None)?;
 
     f.library.remove(&a)?;
     let view = f.library.profile(with_a, None)?;
@@ -312,7 +335,9 @@ fn removing_an_artifact_gives_every_profile_holding_it_a_new_version() -> TestRe
 fn a_failed_removal_leaves_profiles_alone() -> TestResult {
     let mut f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
-    let id = f.library.create_profile("P", "", &spec(&[&a]))?;
+    let id = f
+        .library
+        .create_profile("P", "", &spec(&[&a]), CategoryId::Software, None)?;
     assert!(f.library.remove("ffffffffffffffff").is_err());
     assert_eq!(f.library.profile(id, None)?.current_version, 1);
     Ok(())
@@ -324,7 +349,9 @@ fn removing_many_removes_only_those_and_rolls_back_on_failure() -> TestResult {
     let a = f.id(ArtifactKind::Skill, "a")?;
     let b = f.id(ArtifactKind::Skill, "b")?;
     let helper = f.id(ArtifactKind::Agent, "helper")?;
-    let id = f.library.create_profile("P", "", &spec(&[&a, &b]))?;
+    let id = f
+        .library
+        .create_profile("P", "", &spec(&[&a, &b]), CategoryId::Software, None)?;
 
     // An unknown id anywhere in the set: nothing goes, on disk or in the index.
     let before = f.library.list(&Default::default())?.total;
@@ -351,7 +378,8 @@ fn the_removal_plan_lists_every_match_with_its_profiles() -> TestResult {
     let f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
     let b = f.id(ArtifactKind::Skill, "b")?;
-    f.library.create_profile("P", "", &spec(&[&a]))?;
+    f.library
+        .create_profile("P", "", &spec(&[&a]), CategoryId::Software, None)?;
     let filter = crate::library::Filter {
         types: vec![ArtifactKind::Skill],
         ..Default::default()
@@ -364,5 +392,75 @@ fn the_removal_plan_lists_every_match_with_its_profiles() -> TestResult {
     assert_eq!(plan.artifacts[0].profiles[0].name, "P");
     assert_eq!(plan.artifacts[1].id, b);
     assert!(plan.artifacts[1].profiles.is_empty());
+    Ok(())
+}
+
+#[test]
+fn category_is_stored_on_create_and_changed_without_a_new_version() -> TestResult {
+    let f = fixture()?;
+    let a = f.id(ArtifactKind::Skill, "a")?;
+    let plain = f
+        .library
+        .create_profile("Plain", "", &spec(&[&a]), CategoryId::Software, None)?;
+    let view = f.library.profile(plain, None)?;
+    assert_eq!(
+        (view.category, view.category_note),
+        (CategoryId::Software, None)
+    );
+
+    let custom = f.library.create_profile(
+        "Mine",
+        "",
+        &spec(&[&a]),
+        CategoryId::Custom,
+        Some("  intake, triage, reply  "),
+    )?;
+    let view = f.library.profile(custom, None)?;
+    assert_eq!(view.category, CategoryId::Custom);
+    assert_eq!(view.category_note.as_deref(), Some("intake, triage, reply"));
+
+    // A note on a non-custom category is dropped; blank Custom notes are None.
+    f.library
+        .set_category(custom, CategoryId::Video, Some("ignored"))?;
+    let view = f.library.profile(custom, None)?;
+    assert_eq!(
+        (view.category, view.category_note, view.current_version),
+        (CategoryId::Video, None, 1)
+    );
+    f.library
+        .set_category(custom, CategoryId::Custom, Some("  "))?;
+    assert_eq!(f.library.profile(custom, None)?.category_note, None);
+    f.library
+        .set_category(custom, CategoryId::Custom, Some("steps"))?;
+
+    let summaries = f.library.profiles()?;
+    let found = summaries.iter().find(|p| p.id == custom).ok_or("listed")?;
+    assert_eq!(found.category, CategoryId::Custom);
+    assert_eq!(found.category_note.as_deref(), Some("steps"));
+
+    let copy = f.library.clone_profile(custom, "Copy")?;
+    let view = f.library.profile(copy, None)?;
+    assert_eq!(
+        (view.category, view.category_note.as_deref()),
+        (CategoryId::Custom, Some("steps"))
+    );
+    Ok(())
+}
+
+#[test]
+fn set_category_refuses_a_missing_profile_and_a_huge_note() -> TestResult {
+    let f = fixture()?;
+    let a = f.id(ArtifactKind::Skill, "a")?;
+    assert!(matches!(
+        f.library.set_category(999, CategoryId::Data, None),
+        Err(Error::ProfileNotFound { .. })
+    ));
+    let long = "x".repeat(MAX_NOTE_CHARS + 1);
+    assert!(matches!(
+        f.library
+            .create_profile("P", "", &spec(&[&a]), CategoryId::Custom, Some(&long)),
+        Err(Error::InvalidProfile { .. })
+    ));
+    assert_eq!(f.library.templates().len(), 8);
     Ok(())
 }

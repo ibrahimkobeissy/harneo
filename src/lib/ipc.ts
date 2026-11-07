@@ -45,6 +45,8 @@ import type { Layout } from "../bindings/Layout";
 import type { ProfileImportReport } from "../bindings/ProfileImportReport";
 import type { ProfileSpec } from "../bindings/ProfileSpec";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
+import type { CategoryId } from "../bindings/CategoryId";
+import type { Template } from "../bindings/Template";
 import type { ProfileView } from "../bindings/ProfileView";
 import type { ProfileUse } from "../bindings/ProfileUse";
 import type { Resolved } from "../bindings/Resolved";
@@ -590,10 +592,34 @@ export function profileCreate(
   name: string,
   description: string,
   spec: ProfileSpec,
+  category: CategoryId = "software",
+  categoryNote: string | null = null,
 ): Promise<bigint> {
-  return invoke<number>("profile_create", { name, description, spec }).then(
-    BigInt,
-  );
+  return invoke<number>("profile_create", {
+    name,
+    description,
+    spec,
+    category,
+    categoryNote,
+  }).then(BigInt);
+}
+
+/** Changes a profile's category (and Custom's description). Not a new version; sends nothing. */
+export function profileSetCategory(
+  id: bigint,
+  category: CategoryId,
+  note: string | null = null,
+): Promise<void> {
+  return invoke<void>("profile_set_category", {
+    id: Number(id),
+    category,
+    note,
+  });
+}
+
+/** The eight Harnmap category templates. */
+export function templatesList(): Promise<Template[]> {
+  return invoke<Template[]>("templates_list");
 }
 
 /** Saves the spec as the next version; resolves with the version now current. */

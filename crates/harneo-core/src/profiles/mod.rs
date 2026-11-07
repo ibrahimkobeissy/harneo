@@ -28,6 +28,7 @@ use ts_rs::TS;
 
 use crate::artifact::ArtifactKind;
 use crate::error::{Error, Result};
+use crate::harnmap::CategoryId;
 use crate::library::{records, ArtifactId, Filter, KindCount, Library, Query, SortKey, MAX_LIMIT};
 
 pub use file::{
@@ -86,6 +87,10 @@ pub struct ProfileSummary {
     pub project_count: u32,
     /// Unix seconds.
     pub updated_at: i64,
+    /// Picks the Harnmap template.
+    pub category: CategoryId,
+    /// Custom's description of its steps.
+    pub category_note: Option<String>,
 }
 
 /// One saved version in a profile's history.
@@ -115,6 +120,8 @@ pub struct ProfileView {
     pub versions: Vec<VersionInfo>,
     pub created_at: i64,
     pub updated_at: i64,
+    pub category: CategoryId,
+    pub category_note: Option<String>,
 }
 
 fn invalid(reason: impl Into<String>) -> Error {
@@ -134,6 +141,25 @@ fn clean_name(name: &str) -> Result<String> {
         )));
     }
     Ok(name.to_owned())
+}
+
+/// The longest Custom description, in characters.
+pub const MAX_NOTE_CHARS: usize = 1000;
+
+/// Custom keeps its description (trimmed, nothing when blank); every other category has none.
+fn clean_note(category: CategoryId, note: Option<&str>) -> Result<Option<String>> {
+    let note = note.map(str::trim).filter(|n| !n.is_empty());
+    match note {
+        Some(n) if category == CategoryId::Custom => {
+            if n.chars().count() > MAX_NOTE_CHARS {
+                return Err(invalid(format!(
+                    "a category description is at most {MAX_NOTE_CHARS} characters"
+                )));
+            }
+            Ok(Some(n.to_owned()))
+        }
+        _ => Ok(None),
+    }
 }
 
 fn is_unique_violation(error: &rusqlite::Error) -> bool {
@@ -241,15 +267,27 @@ struct Row {
     current_version: u32,
     created_at: i64,
     updated_at: i64,
+    category: CategoryId,
+    category_note: Option<String>,
 }
 
 fn row(conn: &Connection, id: ProfileId) -> Result<Row> {
     conn.query_row(
-        "SELECT name, description, current_version, created_at, updated_at
+        "SELECT name, description, current_version, created_at, updated_at,
+                category, category_note
          FROM profiles WHERE id = ?1",
         params![id],
         |r| {
+            let category: String = r.get(5)?;
             Ok(Row {
+                category: category.parse().map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        5,
+                        rusqlite::types::Type::Text,
+                        Box::new(e),
+                    )
+                })?,
+                category_note: r.get(6)?,
                 name: r.get(0)?,
                 description: r.get(1)?,
                 current_version: r.get(2)?,
@@ -299,14 +337,18 @@ fn insert_profile(
     name: &str,
     description: &str,
     spec: &ProfileSpec,
+    category: CategoryId,
+    category_note: Option<&str>,
 ) -> Result<ProfileId> {
     let name = clean_name(name)?;
+    let note = clean_note(category, category_note)?;
     let at = records::now();
     let tx = conn.unchecked_transaction()?;
     match tx.execute(
-        "INSERT INTO profiles (name, description, current_version, created_at, updated_at)
-         VALUES (?1, ?2, 1, ?3, ?3)",
-        params![name, description.trim(), at],
+        "INSERT INTO profiles
+             (name, description, current_version, created_at, updated_at, category, category_note)
+         VALUES (?1, ?2, 1, ?3, ?3, ?4, ?5)",
+        params![name, description.trim(), at, category.as_str(), note],
     ) {
         Ok(_) => {}
         Err(e) if is_unique_violation(&e) => return Err(Error::ProfileExists { name }),
@@ -366,6 +408,8 @@ impl Library {
                 file_count: resolved.artifacts.iter().map(|i| i.file_count).sum(),
                 project_count: crate::install::project_count(conn, id)?,
                 updated_at: found.updated_at,
+                category: found.category,
+                category_note: found.category_note,
             });
         }
         Ok(out)
@@ -399,19 +443,55 @@ impl Library {
             versions,
             created_at: found.created_at,
             updated_at: found.updated_at,
+            category: found.category,
+            category_note: found.category_note,
         })
     }
 
-    /// Creates a profile at version 1. The spec is validated first.
+    /// Creates a profile at version 1. The spec is validated first. `category_note` is kept
+    /// for Custom only.
     pub fn create_profile(
         &self,
         name: &str,
         description: &str,
         spec: &ProfileSpec,
+        category: CategoryId,
+        category_note: Option<&str>,
     ) -> Result<ProfileId> {
         clean_name(name)?;
         spec.validate(&self.store.conn)?;
-        insert_profile(&self.store.conn, name, description, spec)
+        insert_profile(
+            &self.store.conn,
+            name,
+            description,
+            spec,
+            category,
+            category_note,
+        )
+    }
+
+    /// Changes a profile's category (and Custom's description). Not a new version; nothing is
+    /// sent anywhere.
+    pub fn set_category(
+        &self,
+        id: ProfileId,
+        category: CategoryId,
+        note: Option<&str>,
+    ) -> Result<()> {
+        let note = clean_note(category, note)?;
+        match self.store.conn.execute(
+            "UPDATE profiles SET category = ?2, category_note = ?3, updated_at = ?4
+             WHERE id = ?1",
+            params![id, category.as_str(), note, records::now()],
+        )? {
+            0 => Err(Error::ProfileNotFound { id }),
+            _ => Ok(()),
+        }
+    }
+
+    /// The eight category templates.
+    pub fn templates(&self) -> Vec<crate::harnmap::Template> {
+        crate::harnmap::templates()
     }
 
     /// Saves `spec` as the next version, or returns the current version when nothing changed.
@@ -479,7 +559,14 @@ impl Library {
         let found = row(conn, id)?;
         let spec = spec_of(conn, id, found.current_version)?;
         let description = format!("Cloned from {} v{}", found.name, found.current_version);
-        insert_profile(conn, new_name, &description, &spec)
+        insert_profile(
+            conn,
+            new_name,
+            &description,
+            &spec,
+            found.category,
+            found.category_note.as_deref(),
+        )
     }
 
     /// A new profile holding a collection's artifacts (a smart one is evaluated now). Settings
@@ -519,7 +606,14 @@ impl Library {
         };
         spec.validate(&self.store.conn)?;
         let description = format!("Created from the collection {}", collection.name);
-        insert_profile(&self.store.conn, name, &description, &spec)
+        insert_profile(
+            &self.store.conn,
+            name,
+            &description,
+            &spec,
+            CategoryId::Software,
+            None,
+        )
     }
 
     /// Sets a skill's library default for manual-only invocation. Only the index changes, never

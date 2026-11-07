@@ -1,6 +1,7 @@
 //! Shared setup for the switch, removal and restore tests: installing over a project that has
 //! files of its own, the way a refit does, and a second version of the fixture profile.
 
+use crate::harnmap::CategoryId;
 use std::fs;
 use std::path::Path;
 
@@ -76,7 +77,8 @@ pub fn mini_profile(f: &Fx) -> std::result::Result<i64, Box<dyn std::error::Erro
         items: skill.into_iter().chain(claude).collect(),
         ..web.spec
     };
-    Ok(f.library.create_profile("mini", "", &spec)?)
+    Ok(f.library
+        .create_profile("mini", "", &spec, CategoryId::Software, None)?)
 }
 
 /// Saves a new version of `profile` that also holds the agent `rev`; returns the version.

@@ -1,6 +1,7 @@
 //! Shared test setup: a library with a profile, and projects scaffolded through the real plan
 //! and apply.
 
+use crate::harnmap::CategoryId;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -69,7 +70,7 @@ pub fn fx() -> std::result::Result<Fx, Box<dyn std::error::Error>> {
         mcp: Vec::new(),
         manual_only: BTreeMap::new(),
     };
-    let profile = library.create_profile("web", "", &spec)?;
+    let profile = library.create_profile("web", "", &spec, CategoryId::Software, None)?;
     Ok(Fx {
         data,
         src,

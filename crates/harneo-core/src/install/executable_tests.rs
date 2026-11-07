@@ -1,5 +1,6 @@
 //! The executable bit of a script survives import, update, install and a profile file.
 
+use crate::harnmap::CategoryId;
 use std::collections::BTreeMap;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
@@ -94,7 +95,7 @@ fn import_update_scaffold_and_profile_file_keep_the_executable_bit() -> TestResu
     );
 
     // Scaffolding writes the script executable and the text file not.
-    let profile = library.create_profile("p", "", &spec(&id))?;
+    let profile = library.create_profile("p", "", &spec(&id), CategoryId::Software, None)?;
     let project = tempfile::tempdir()?;
     let plan = library.plan_scaffold(project.path(), profile, None)?;
     let run = plan

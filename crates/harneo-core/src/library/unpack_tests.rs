@@ -1,5 +1,6 @@
 //! Importing the parts of a plugin: what is stored, the exclusivity rules and the install.
 
+use crate::harnmap::CategoryId;
 use std::fs;
 use std::path::Path;
 
@@ -264,7 +265,9 @@ fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() 
         mcp: Vec::new(),
         manual_only: std::collections::BTreeMap::new(),
     };
-    let profile = s.library.create_profile("tools", "", &spec)?;
+    let profile = s
+        .library
+        .create_profile("tools", "", &spec, CategoryId::Software, None)?;
     let project = tempfile::tempdir()?;
     let plan = s.library.plan_scaffold(project.path(), profile, None)?;
     s.library.apply(&plan)?;

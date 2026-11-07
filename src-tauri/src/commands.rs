@@ -1,5 +1,6 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
+use harneo_core::harnmap::{CategoryId, Template};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -1265,8 +1266,35 @@ pub fn profile_create(
     name: String,
     description: String,
     spec: ProfileSpec,
+    category: CategoryId,
+    category_note: Option<String>,
 ) -> Result<ProfileId, String> {
-    state.with(|library| library.create_profile(&name, &description, &spec))
+    state.with(|library| {
+        library.create_profile(
+            &name,
+            &description,
+            &spec,
+            category,
+            category_note.as_deref(),
+        )
+    })
+}
+
+/// Changes a profile's category (and Custom's description). Not a new version; sends nothing.
+#[tauri::command]
+pub fn profile_set_category(
+    state: State<'_, LibraryState>,
+    id: ProfileId,
+    category: CategoryId,
+    note: Option<String>,
+) -> Result<(), String> {
+    state.with(|library| library.set_category(id, category, note.as_deref()))
+}
+
+/// The eight Harnmap category templates.
+#[tauri::command]
+pub fn templates_list(state: State<'_, LibraryState>) -> Result<Vec<Template>, String> {
+    state.with(|library| Ok(library.templates()))
 }
 
 /// Saves the spec as the next version; resolves with the version now current.
@@ -1956,12 +1984,24 @@ mod tests {
             items: vec![alpha.clone()],
             ..ProfileSpec::default()
         };
-        let id = profile_create(state(), "Light".into(), "d".into(), spec.clone())?;
+        let id = profile_create(
+            state(),
+            "Light".into(),
+            "d".into(),
+            spec.clone(),
+            CategoryId::Software,
+            None,
+        )?;
         assert_eq!(profiles_list(state())?.len(), 1);
         assert_eq!(profile_get(state(), id, None)?.name, "Light");
         assert_eq!(profile_save(state(), id, spec.clone())?, 1);
         profile_rename(state(), id, "Lighter".into())?;
         profile_describe(state(), id, "new".into())?;
+        assert_eq!(templates_list(state())?.len(), 8);
+        profile_set_category(state(), id, CategoryId::Custom, Some("steps".into()))?;
+        let view = profile_get(state(), id, None)?;
+        assert_eq!(view.category, CategoryId::Custom);
+        assert_eq!(view.category_note.as_deref(), Some("steps"));
         assert_eq!(profile_get(state(), id, Some(1))?.description, "new");
         assert_eq!(profile_resolve(state(), spec.clone())?.artifacts.len(), 1);
         assert!(!profile_layout(state(), spec)?.paths.is_empty());
@@ -2540,6 +2580,8 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
                     items: ids.clone(),
                     ..ProfileSpec::default()
                 },
+                CategoryId::Software,
+                None,
             )
         })?;
         let target = tempfile::tempdir()?;

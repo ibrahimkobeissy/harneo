@@ -328,8 +328,42 @@ const V11: &str = "
 ALTER TABLE sources ADD COLUMN unpack TEXT;
 ";
 
+/// Harnmap: a profile's `category` (picks the map template; existing profiles are `software`)
+/// and Custom's `category_note`, the draws of each profile's map (the highest `no` is the
+/// current map, older rows are frozen) and each candidate's latest Harnfit verdict.
+const V12: &str = "
+ALTER TABLE profiles ADD COLUMN category      TEXT NOT NULL DEFAULT 'software';
+ALTER TABLE profiles ADD COLUMN category_note TEXT;
+
+CREATE TABLE harnmap_draws (
+    id            INTEGER PRIMARY KEY,
+    profile_id    INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    no            INTEGER NOT NULL,
+    created_at    INTEGER NOT NULL,
+    model         TEXT NOT NULL,
+    duration_ms   INTEGER NOT NULL,
+    description   TEXT NOT NULL,
+    category      TEXT NOT NULL,
+    map           TEXT NOT NULL,
+    basis         TEXT NOT NULL,
+    restored_from INTEGER,
+    UNIQUE (profile_id, no)
+) STRICT;
+
+CREATE TABLE harnfit_fits (
+    profile_id  INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    candidate   TEXT NOT NULL,
+    created_at  INTEGER NOT NULL,
+    model       TEXT NOT NULL,
+    duration_ms INTEGER NOT NULL,
+    verdict     TEXT NOT NULL,
+    basis       TEXT NOT NULL,
+    PRIMARY KEY (profile_id, candidate)
+) STRICT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;
@@ -690,6 +724,65 @@ mod tests {
             })
             .expect("source survives");
         assert_eq!(source, (1, None));
+    }
+
+    /// A version 11 database migrates to version 12: existing profiles become `software`, and
+    /// the Harnmap tables exist and cascade with their profile.
+    #[test]
+    fn a_v11_database_migrates_to_harnmap() {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().join(LIBRARY_DIR);
+        fs::create_dir_all(root.join(ARTIFACTS_DIR)).expect("mkdir");
+        {
+            let conn = Connection::open(root.join(DB_FILE)).expect("v11 db");
+            for sql in [V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11] {
+                conn.execute_batch(sql).expect("schema");
+            }
+            conn.execute_batch(
+                "INSERT INTO profiles (id, name, description, current_version, created_at, updated_at)
+                     VALUES (1, 'Old', '', 1, 0, 0);
+                 PRAGMA user_version = 11;",
+            )
+            .expect("v11 rows");
+        }
+        let store = Store::open(dir.path()).expect("migrates");
+        assert_eq!(store.schema_version().expect("v"), SCHEMA_VERSION);
+        let profile: (String, Option<String>) = store
+            .conn
+            .query_row("SELECT category, category_note FROM profiles", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .expect("profile survives");
+        assert_eq!(profile, ("software".to_owned(), None));
+        store
+            .conn
+            .execute_batch(
+                "INSERT INTO harnmap_draws (profile_id, no, created_at, model, duration_ms,
+                     description, category, map, basis) VALUES (1, 1, 0, 'opus', 5, '', 'software', '{}', '{}');
+                 INSERT INTO harnfit_fits (profile_id, candidate, created_at, model, duration_ms,
+                     verdict, basis) VALUES (1, 'a', 0, 'opus', 5, '{}', '{}');",
+            )
+            .expect("the new tables take rows");
+        assert!(store
+            .conn
+            .execute_batch(
+                "INSERT INTO harnmap_draws (profile_id, no, created_at, model, duration_ms,
+                     description, category, map, basis) VALUES (1, 1, 0, 'opus', 5, '', 'software', '{}', '{}');",
+            )
+            .is_err());
+        store
+            .conn
+            .execute("DELETE FROM profiles", [])
+            .expect("delete profile");
+        let left: i64 = store
+            .conn
+            .query_row(
+                "SELECT (SELECT COUNT(*) FROM harnmap_draws) + (SELECT COUNT(*) FROM harnfit_fits)",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(left, 0);
     }
 
     /// A version 8 database migrates to version 9: sources get a layout version of 0 and no

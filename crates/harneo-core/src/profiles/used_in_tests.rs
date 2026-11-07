@@ -1,5 +1,6 @@
 use super::tests::{fixture, write, TestResult};
 use super::*;
+use crate::harnmap::CategoryId;
 use crate::library::{Source, TagChoices};
 
 fn spec_of_items(ids: &[&str]) -> ProfileSpec {
@@ -17,7 +18,9 @@ fn profiles_using_counts_picked_bundled_settings_and_mcp() -> TestResult {
     let helper = f.id(ArtifactKind::Agent, "helper")?;
     let settings = f.id(ArtifactKind::Settings, "settings")?;
     let api = f.id(ArtifactKind::Mcp, "api")?;
-    let first = f.library.create_profile("Zed", "", &spec_of_items(&[&a]))?;
+    let first =
+        f.library
+            .create_profile("Zed", "", &spec_of_items(&[&a]), CategoryId::Software, None)?;
     f.library.create_profile(
         "Alpha",
         "",
@@ -30,6 +33,8 @@ fn profiles_using_counts_picked_bundled_settings_and_mcp() -> TestResult {
             }],
             ..ProfileSpec::default()
         },
+        CategoryId::Software,
+        None,
     )?;
 
     let names = |id: &str| -> std::result::Result<Vec<(String, u32)>, crate::Error> {

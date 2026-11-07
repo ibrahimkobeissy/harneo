@@ -297,7 +297,13 @@ mod scaffold_cli {
             items: ids,
             ..ProfileSpec::default()
         };
-        library.create_profile("Heavy", "", &spec)?;
+        library.create_profile(
+            "Heavy",
+            "",
+            &spec,
+            harneo_core::harnmap::CategoryId::Software,
+            None,
+        )?;
         Ok(data)
     }
 

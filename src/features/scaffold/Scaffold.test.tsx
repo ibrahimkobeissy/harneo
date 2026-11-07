@@ -21,6 +21,8 @@ function summary(id: number, name: string): ProfileSummary {
     fileCount: 3,
     projectCount: 0,
     updatedAt: 1n,
+    category: "software",
+    categoryNote: null,
   };
 }
 

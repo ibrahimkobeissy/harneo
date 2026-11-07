@@ -71,6 +71,8 @@ mod tests {
             file_count: count,
             project_count: projects,
             updated_at: 0,
+            category: harneo_core::harnmap::CategoryId::Software,
+            category_note: None,
         }
     }
 

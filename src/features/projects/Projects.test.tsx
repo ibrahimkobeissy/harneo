@@ -38,6 +38,8 @@ function profile(id: number, name: string, version: number): ProfileSummary {
     fileCount: 3,
     projectCount: 1,
     updatedAt: 1n,
+    category: "software",
+    categoryNote: null,
   };
 }
 

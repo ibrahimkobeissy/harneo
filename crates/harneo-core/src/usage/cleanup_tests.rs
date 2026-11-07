@@ -1,3 +1,4 @@
+use crate::harnmap::CategoryId;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -128,8 +129,14 @@ fn every_group_comes_from_the_library_state() -> TestResult {
         items,
         ..ProfileSpec::default()
     };
-    lib.create_profile("a", "", &spec(vec![s.clone(), stale.clone()]))?;
-    lib.create_profile("b", "", &spec(vec![s.clone()]))?;
+    lib.create_profile(
+        "a",
+        "",
+        &spec(vec![s.clone(), stale.clone()]),
+        CategoryId::Software,
+        None,
+    )?;
+    lib.create_profile("b", "", &spec(vec![s.clone()]), CategoryId::Software, None)?;
 
     let c = lib.cleanup()?;
 

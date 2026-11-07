@@ -109,6 +109,8 @@ pub fn run() {
             commands::profiles_list,
             commands::profile_get,
             commands::profile_create,
+            commands::profile_set_category,
+            commands::templates_list,
             commands::profile_save,
             commands::profile_rename,
             commands::profile_describe,

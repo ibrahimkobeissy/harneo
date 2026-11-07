@@ -1,5 +1,6 @@
 use super::tests::{fixture, spec, TestResult};
 use super::*;
+use crate::harnmap::CategoryId;
 
 #[test]
 fn bundles_are_pulled_in_with_the_reason() -> TestResult {
@@ -108,7 +109,8 @@ fn worst_trust_is_the_lowest_audited_score() -> TestResult {
 fn summaries_count_kinds_and_files_with_bundles() -> TestResult {
     let f = fixture()?;
     let a = f.id(ArtifactKind::Skill, "a")?;
-    f.library.create_profile("P", "", &spec(&[&a]))?;
+    f.library
+        .create_profile("P", "", &spec(&[&a]), CategoryId::Software, None)?;
     let summary = &f.library.profiles()?[0];
     let counts: Vec<(ArtifactKind, u32)> =
         summary.counts.iter().map(|c| (c.kind, c.count)).collect();
