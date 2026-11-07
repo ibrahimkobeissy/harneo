@@ -34,7 +34,7 @@ Let the user **see a profile as a factory** before using it, shape that picture 
 
 ### Core (`crates/harneo-core/src/harnmap/`)
 
-**Templates (`templates.rs`)**: static data, one per category: `Category { id, label, shape, stages: Vec<{ id, name }>, loops: Vec<{ from, to, label }>, phases?: Vec<{ name, stages }>, suggestions: [String; 3] }`.
+**Templates (`templates.rs`)**: static data, one per category: `Category { id, label, shape, stages: Vec<{ id, name }>, loops: Vec<{ from, to, label }>, phases?: Vec<{ name, stages }>, parallel: Vec<StageId>, suggestions: [String; 3] }`. `parallel` lists the stages drawn side by side as tracks between a fork and a join (`video`: Edit and Sound & captions); empty elsewhere.
 
 | Category id | Shape | Stages (loops) |
 |---|---|---|
@@ -62,6 +62,8 @@ pub struct MapDoc {
     pub shape: Shape,
     pub stages: Vec<Stage>,          // { id, name, origin: Template | Claude | User }
     pub loops: Vec<Loop>,            // { from: StageId, to: StageId, label }
+    pub phases: Vec<Phase>,          // copied from the template
+    pub parallel: Vec<StageId>,      // stages drawn as parallel tracks
     pub placements: Vec<Placement>,  // one per placed artifact
     pub hidden: Vec<ArtifactId>,
     pub hidden_types: Vec<ArtifactKind>,
