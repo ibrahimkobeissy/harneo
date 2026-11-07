@@ -1096,6 +1096,20 @@ pub(crate) fn stored_files(dir: &Path) -> Result<Vec<String>> {
     Ok(files)
 }
 
+/// Whether two spellings of a plugin folder name the same one (`./a/`, `a`, `.` for the root).
+fn same_folder(a: &str, b: &str) -> bool {
+    let normal = |p: &str| {
+        let p = p.trim().trim_end_matches('/');
+        let p = p.strip_prefix("./").unwrap_or(p);
+        if p == "." {
+            String::new()
+        } else {
+            p.to_owned()
+        }
+    };
+    normal(a) == normal(b)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1109,18 +1123,4 @@ mod tests {
             store::SCHEMA_VERSION
         );
     }
-}
-
-/// Whether two spellings of a plugin folder name the same one (`./a/`, `a`, `.` for the root).
-fn same_folder(a: &str, b: &str) -> bool {
-    let normal = |p: &str| {
-        let p = p.trim().trim_end_matches('/');
-        let p = p.strip_prefix("./").unwrap_or(p);
-        if p == "." {
-            String::new()
-        } else {
-            p.to_owned()
-        }
-    };
-    normal(a) == normal(b)
 }
