@@ -9,7 +9,7 @@ use std::path::Path;
 use super::fixture::{put, TestResult};
 use crate::artifact::ArtifactKind;
 use crate::library::{Library, Source, TagChoices};
-use crate::profiles::ProfileSpec;
+use crate::profiles::{ExportOptions, ProfileSpec};
 use crate::updates::{CheckScope, UpdateChoice};
 
 const SCRIPT: &str = "skills/s/scripts/run.sh";
@@ -119,7 +119,7 @@ fn import_update_scaffold_and_profile_file_keep_the_executable_bit() -> TestResu
     assert_eq!(mode(&project.path().join(&text.path))? & 0o111, 0);
 
     // Export, then import into a fresh data dir.
-    let exported = library.export_profile(profile, None)?;
+    let exported = library.export_profile(profile, None, ExportOptions::default())?;
     let json: serde_json::Value = serde_json::from_slice(&exported)?;
     let files = json["artifacts"][0]["files"].as_array().ok_or("no files")?;
     let flagged: Vec<&str> = files

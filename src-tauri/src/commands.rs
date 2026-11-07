@@ -25,8 +25,8 @@ use harneo_core::library::{
     RemovalPlan, Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
-    Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec, ProfileSummary,
-    ProfileUse, ProfileView, Resolved, MAX_FILE_BYTES,
+    ExportOptions, Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec,
+    ProfileSummary, ProfileUse, ProfileView, Resolved, MAX_FILE_BYTES,
 };
 use harneo_core::updates::{
     CheckReport, CheckScope, FileDiff, Hunk, UpdateChoice, UpdateReport, UpdateStatus,
@@ -1600,11 +1600,17 @@ pub async fn profile_export(
     id: ProfileId,
     version: Option<u32>,
     default_name: String,
+    include_history: Option<bool>,
+    include_fits: Option<bool>,
 ) -> Result<Option<String>, String> {
+    let options = ExportOptions {
+        include_history: include_history.unwrap_or(true),
+        include_fits: include_fits.unwrap_or(true),
+    };
     tauri::async_runtime::spawn_blocking(move || {
         let bytes = app
             .state::<LibraryState>()
-            .with(|library| library.export_profile(id, version))?;
+            .with(|library| library.export_profile(id, version, options))?;
         let picked = app
             .dialog()
             .file()
@@ -2227,7 +2233,10 @@ mod tests {
 
         // The dialog is the backend's; what follows it is the held file.
         let file = data.path().join("light.harneo-profile.json");
-        std::fs::write(&file, state().with(|l| l.export_profile(id, None))?)?;
+        std::fs::write(
+            &file,
+            state().with(|l| l.export_profile(id, None, ExportOptions::default()))?,
+        )?;
         let held = app.state::<ProfileFileCache>();
         let ticket =
             preview_profile_bytes(app.handle(), read_profile_file(&file.to_string_lossy())?)?;

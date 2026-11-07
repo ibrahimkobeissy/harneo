@@ -7,14 +7,14 @@ use super::tests::{write, TestResult};
 use super::*;
 use crate::library::{Source, TagChoices};
 
-struct Lib {
+pub(super) struct Lib {
     data: tempfile::TempDir,
     _src: tempfile::TempDir,
-    library: Library,
+    pub(super) library: Library,
 }
 
 impl Lib {
-    fn id(&self, kind: ArtifactKind, name: &str) -> std::result::Result<String, String> {
+    pub(super) fn id(&self, kind: ArtifactKind, name: &str) -> std::result::Result<String, String> {
         self.library
             .find(kind, name)
             .map_err(|e| e.to_string())?
@@ -22,7 +22,7 @@ impl Lib {
     }
 }
 
-fn source() -> std::result::Result<tempfile::TempDir, Box<dyn std::error::Error>> {
+pub(super) fn source() -> std::result::Result<tempfile::TempDir, Box<dyn std::error::Error>> {
     let src = tempfile::tempdir()?;
     let r = src.path();
     write(
@@ -50,7 +50,9 @@ fn source() -> std::result::Result<tempfile::TempDir, Box<dyn std::error::Error>
     Ok(src)
 }
 
-fn library_from(src: tempfile::TempDir) -> std::result::Result<Lib, Box<dyn std::error::Error>> {
+pub(super) fn library_from(
+    src: tempfile::TempDir,
+) -> std::result::Result<Lib, Box<dyn std::error::Error>> {
     let data = tempfile::tempdir()?;
     let mut library = Library::open(data.path())?;
     let preview = library.preview(&Source::Local {
@@ -65,7 +67,7 @@ fn library_from(src: tempfile::TempDir) -> std::result::Result<Lib, Box<dyn std:
     })
 }
 
-fn empty() -> std::result::Result<Lib, Box<dyn std::error::Error>> {
+pub(super) fn empty() -> std::result::Result<Lib, Box<dyn std::error::Error>> {
     let data = tempfile::tempdir()?;
     let library = Library::open(data.path())?;
     Ok(Lib {
@@ -76,7 +78,7 @@ fn empty() -> std::result::Result<Lib, Box<dyn std::error::Error>> {
 }
 
 /// A profile of everything in `lib`, exported.
-fn exported(
+pub(super) fn exported(
     lib: &Lib,
 ) -> std::result::Result<(ProfileId, ProfileSpec, Vec<u8>), Box<dyn std::error::Error>> {
     let mut env = BTreeMap::new();
@@ -96,11 +98,13 @@ fn exported(
     let id = lib
         .library
         .create_profile("Heavy", "desc", &spec, CategoryId::Software, None)?;
-    let bytes = lib.library.export_profile(id, None)?;
+    let bytes = lib
+        .library
+        .export_profile(id, None, ExportOptions::default())?;
     Ok((id, spec, bytes))
 }
 
-fn edit(
+pub(super) fn edit(
     bytes: &[u8],
     f: impl FnOnce(&mut Value),
 ) -> std::result::Result<Vec<u8>, Box<dyn std::error::Error>> {
@@ -123,7 +127,7 @@ fn a_profile_survives_the_trip_to_a_fresh_data_dir() -> TestResult {
     let (_, spec, bytes) = exported(&one)?;
     let file: Value = serde_json::from_slice(&bytes)?;
     assert_eq!(file["format"], "harneo-profile");
-    assert_eq!(file["formatVersion"], 1);
+    assert_eq!(file["formatVersion"], 2);
     assert_eq!(file["profile"]["version"], 1);
 
     let mut two = empty()?;
@@ -252,7 +256,7 @@ fn a_newer_format_a_foreign_file_and_a_big_file_are_refused() -> TestResult {
     let one = library_from(source()?)?;
     let (_, _, bytes) = exported(&one)?;
     let two = empty()?;
-    let newer = edit(&bytes, |v| v["formatVersion"] = Value::from(2))?;
+    let newer = edit(&bytes, |v| v["formatVersion"] = Value::from(3))?;
     let error = two
         .library
         .import_profile_file(&newer)
@@ -300,7 +304,7 @@ fn a_literal_secret_stops_the_export_and_the_import() -> TestResult {
     std::fs::write(stored(&one, &settings, "settings.json"), &tampered)?;
     let error = one
         .library
-        .export_profile(profile, None)
+        .export_profile(profile, None, ExportOptions::default())
         .err()
         .map(|e| e.to_string())
         .unwrap_or_default();

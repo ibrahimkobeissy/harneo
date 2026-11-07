@@ -206,10 +206,10 @@ pub struct ArtifactFit {
 
 /// What a fit was made from: the profile's artifacts and the candidate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct FitBasis {
-    profile: Basis,
-    candidate_digest: String,
-    source: String,
+pub(super) struct FitBasis {
+    pub(super) profile: Basis,
+    pub(super) candidate_digest: String,
+    pub(super) source: String,
 }
 
 /// The candidate as the run reads it.

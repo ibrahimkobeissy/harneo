@@ -69,17 +69,32 @@ describe("plans and previews stay in the backend", () => {
   it("profile export and import take no path from the window", async () => {
     const calls = record(null);
     expect(await profileExport(3n, "x.harneo-profile.json")).toBeNull();
-    await profileExport(3n, "x.harneo-profile.json", 2);
+    await profileExport(3n, "x.harneo-profile.json", 2, {
+      includeHistory: false,
+      includeFits: true,
+    });
     expect(await profileImportPreview()).toBeNull();
     await profileImportCommit("f-tok");
     expect(calls).toEqual([
       {
         cmd: "profile_export",
-        args: { id: 3, version: null, defaultName: "x.harneo-profile.json" },
+        args: {
+          id: 3,
+          version: null,
+          defaultName: "x.harneo-profile.json",
+          includeHistory: true,
+          includeFits: true,
+        },
       },
       {
         cmd: "profile_export",
-        args: { id: 3, version: 2, defaultName: "x.harneo-profile.json" },
+        args: {
+          id: 3,
+          version: 2,
+          defaultName: "x.harneo-profile.json",
+          includeHistory: false,
+          includeFits: true,
+        },
       },
       { cmd: "profile_import_preview", args: {} },
       { cmd: "profile_import_commit", args: { token: "f-tok", name: null } },

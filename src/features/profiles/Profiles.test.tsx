@@ -62,6 +62,8 @@ interface Opts {
   preview?: ProfileImportPreview;
   failList?: string;
   failClone?: string;
+  mapDraws?: number;
+  fits?: { candidate: { label: string } }[];
 }
 
 function Where() {
@@ -84,7 +86,30 @@ function setup(opts: Opts = {}) {
           ? null
           : { token: "file-tok", ...(opts.preview ?? preview) };
       case "profile_import_commit":
-        return { profileId: 9, name: "Team default", imported: ["b"] };
+        return {
+          profileId: 9,
+          name: "Team default",
+          imported: ["b"],
+          mapDraws: opts.mapDraws ?? 0,
+          fits: 2,
+        };
+      case "harnmap_get":
+        return {
+          drawn: opts.mapDraws !== undefined,
+          no: 3,
+          drawCount: 3,
+          createdAt: 1,
+          artifacts: {},
+          unplaced: [],
+          stale: null,
+          doc: { stages: [], placements: [] },
+        };
+      case "harnmap_history":
+        return Array.from({ length: opts.mapDraws ?? 0 }, (_, i) => ({
+          no: i + 1,
+        }));
+      case "harnfit_list":
+        return opts.fits ?? [];
       case "profile_clone":
         if (opts.failClone) throw new Error(opts.failClone);
         return 7;
@@ -203,6 +228,11 @@ describe("Profiles list", () => {
     const dialog = screen.getByRole("dialog", { name: "Clone profile" });
     const name = within(dialog).getByLabelText("Name");
     expect(name).toHaveValue("Light copy");
+    expect(
+      within(dialog).getByText(
+        "The copy gets Light’s map, its history and its saved fits. Edits to one never touch the other.",
+      ),
+    ).toBeVisible();
     await user.clear(name);
     await user.type(name, "Light 2");
     await user.click(
@@ -247,6 +277,7 @@ describe("Profiles list", () => {
     await user.click(
       await screen.findByRole("button", { name: "Export My Light" }),
     );
+    await user.click(await screen.findByRole("button", { name: "Export" }));
     await waitFor(() =>
       expect(screen.getByText(/Exported My Light v2 to/)).toBeVisible(),
     );
@@ -255,8 +286,72 @@ describe("Profiles list", () => {
       id: 1,
       version: null,
       defaultName: "my-light.harneo-profile.json",
+      includeHistory: true,
+      includeFits: true,
     });
     expect(calls.some((c) => c.cmd.startsWith("plugin:dialog"))).toBe(false);
+  });
+
+  it("shows what the file carries and the switches change the file", async () => {
+    const user = userEvent.setup();
+    const calls = setup({
+      profiles: [summary(1, "Heavy")],
+      mapDraws: 3,
+      fits: [
+        { candidate: { label: "tdd-lite" } },
+        { candidate: { label: "db" } },
+      ],
+    });
+    await user.click(
+      await screen.findByRole("button", { name: "Export Heavy" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("Harnmap, draw 3")).toBeVisible();
+    expect(
+      within(dialog).getByText("Map history, 2 earlier drawings"),
+    ).toBeVisible();
+    expect(within(dialog).getByText("Saved fits, 2")).toBeVisible();
+    expect(within(dialog).getByText("tdd-lite, db")).toBeVisible();
+    expect(
+      within(dialog).getByText("heavy.harneo-profile.json · format v2"),
+    ).toBeVisible();
+    await user.click(
+      within(dialog).getByRole("switch", { name: "Include map history" }),
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.cmd === "profile_export")?.args).toMatchObject(
+        {
+          includeHistory: false,
+          includeFits: true,
+        },
+      ),
+    );
+  });
+
+  it("offers no history or fits for a profile with no map", async () => {
+    const user = userEvent.setup();
+    const calls = setup({ profiles: [summary(1, "Heavy")] });
+    await user.click(
+      await screen.findByRole("button", { name: "Export Heavy" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    expect(await within(dialog).findByText("No map drawn yet")).toBeVisible();
+    expect(
+      within(dialog).getByRole("switch", { name: "Include map history" }),
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByRole("switch", { name: "Include saved fits" }),
+    ).toBeDisabled();
+    await user.click(within(dialog).getByRole("button", { name: "Export" }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.cmd === "profile_export")?.args).toMatchObject(
+        {
+          includeHistory: true,
+          includeFits: true,
+        },
+      ),
+    );
   });
 
   it("does nothing when the save dialog is cancelled", async () => {
@@ -265,6 +360,7 @@ describe("Profiles list", () => {
     await user.click(
       await screen.findByRole("button", { name: "Export Light" }),
     );
+    await user.click(await screen.findByRole("button", { name: "Export" }));
     await waitFor(() =>
       expect(calls.some((c) => c.cmd === "profile_export")).toBe(true),
     );
@@ -308,6 +404,44 @@ describe("Profiles list", () => {
       name: null,
     });
     expect(calls.filter((c) => c.cmd === "profiles_list")).toHaveLength(2);
+  });
+
+  it("says the imported map is ready and links to it", async () => {
+    const user = userEvent.setup();
+    setup({ profiles: [summary(1, "Light")], mapDraws: 3 });
+    await user.click(
+      await screen.findByRole("button", { name: "Import profile file" }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Import profile and 1 artifact",
+      }),
+    );
+    expect(
+      await screen.findByText(
+        /Its Harnmap is ready, with 3 drawings in history and 2 saved fits. No tokens spent./,
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("link", { name: "Open Harnmap" })).toHaveAttribute(
+      "href",
+      "/profiles/9/harnmap",
+    );
+  });
+
+  it("says nothing of a map when the file had none", async () => {
+    const user = userEvent.setup();
+    setup({ profiles: [summary(1, "Light")] });
+    await user.click(
+      await screen.findByRole("button", { name: "Import profile file" }),
+    );
+    await user.click(
+      await screen.findByRole("button", {
+        name: "Import profile and 1 artifact",
+      }),
+    );
+    expect(await screen.findByText(/Imported Team default/)).toBeVisible();
+    expect(screen.queryByText(/Harnmap is ready/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Open Harnmap" })).toBeNull();
   });
 
   it("asks for another name on a name clash", async () => {

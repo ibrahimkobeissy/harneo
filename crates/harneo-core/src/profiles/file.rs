@@ -5,7 +5,7 @@
 //! stored path must be a plain relative path, literal secrets are refused, and artifacts are
 //! stored through the library's atomic path with a fresh audit.
 
-use crate::harnmap::CategoryId;
+use crate::harnmap::{ArtifactKey, CategoryId, FileFit, FileHarnmap, PreparedMap};
 use std::collections::HashMap;
 
 use base64::engine::general_purpose::STANDARD;
@@ -24,7 +24,8 @@ use crate::library::{is_executable, ArtifactId, Library, Provenance, Restored};
 /// The `format` field of every profile file.
 pub const FORMAT: &str = "harneo-profile";
 /// The newest `formatVersion` this build reads and writes.
-pub const FORMAT_VERSION: u32 = 1;
+pub const FORMAT_VERSION: u32 = 2;
+/// The most draws or saved fits a file may carry is set in the Harnmap module.
 /// The largest profile file, exported or imported.
 pub const MAX_FILE_BYTES: usize = 50 * 1024 * 1024;
 /// Added to the name of an imported profile whose name is taken.
@@ -38,6 +39,12 @@ struct ProfileFile {
     exported_at: i64,
     profile: FileProfile,
     artifacts: Vec<FileArtifact>,
+    /// The map: the current draw, and earlier ones when history is included (format 2).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    harnmap: Option<FileHarnmap>,
+    /// Saved Harnfit verdicts (format 2).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    fits: Vec<FileFit>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -47,6 +54,29 @@ struct FileProfile {
     description: String,
     version: u32,
     spec: ProfileSpec,
+    /// Absent in a format 1 file: `software`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    category: Option<CategoryId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    category_note: Option<String>,
+}
+
+/// What an export carries beyond the profile and its artifacts. The current map is always in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExportOptions {
+    /// Include the earlier drawings of the map.
+    pub include_history: bool,
+    /// Include the saved Harnfit verdicts.
+    pub include_fits: bool,
+}
+
+impl Default for ExportOptions {
+    fn default() -> Self {
+        Self {
+            include_history: true,
+            include_fits: true,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -153,6 +183,10 @@ pub struct ProfileImportReport {
     pub name: String,
     /// Artifacts newly stored in the library.
     pub imported: Vec<ArtifactId>,
+    /// How many drawings of the map the profile got (0: no map).
+    pub map_draws: u32,
+    /// How many saved fits the profile got.
+    pub fits: u32,
 }
 
 /// Names of the entries of `env` / `headers` maps in `value` that hold a literal secret.
@@ -224,6 +258,8 @@ struct Parsed {
     local: HashMap<ArtifactId, ArtifactId>,
     /// The id each file artifact gets here (see [`own_id`]), by the id the file gives it.
     own: HashMap<ArtifactId, ArtifactId>,
+    /// The checked map part, mapped to this library's ids.
+    map: PreparedMap,
 }
 
 /// The id an artifact from a profile file gets: derived from what it stores, in a namespace no
@@ -355,7 +391,15 @@ fn check_spec(file: &ProfileFile) -> Result<()> {
     Ok(())
 }
 
-fn parse(conn: &Connection, bytes: &[u8]) -> Result<Parsed> {
+fn key_of(artifact: &Artifact) -> ArtifactKey {
+    ArtifactKey {
+        kind: artifact.kind,
+        name: artifact.name.clone(),
+        digest: artifact.digest.clone().unwrap_or_default(),
+    }
+}
+
+fn parse(library: &Library, bytes: &[u8]) -> Result<Parsed> {
     if bytes.len() > MAX_FILE_BYTES {
         return Err(invalid("the profile file is larger than 50 MiB"));
     }
@@ -374,9 +418,16 @@ fn parse(conn: &Connection, bytes: &[u8]) -> Result<Parsed> {
              ({FORMAT_VERSION}); update Harneo to import it"
         )));
     }
-    let file: ProfileFile = serde_json::from_value(value)
+    let mut file: ProfileFile = serde_json::from_value(value)
         .map_err(|e| invalid(format!("the profile file is damaged: {e}")))?;
+    if version < 2 {
+        file.harnmap = None;
+        file.fits.clear();
+        file.profile.category = None;
+        file.profile.category_note = None;
+    }
     check_spec(&file)?;
+    let conn = &library.store.conn;
     let mut local = HashMap::new();
     let mut own = HashMap::new();
     for item in &file.artifacts {
@@ -393,7 +444,19 @@ fn parse(conn: &Connection, bytes: &[u8]) -> Result<Parsed> {
             local.insert(item.id.clone(), found);
         }
     }
-    Ok(Parsed { file, local, own })
+    let mut resolver = HashMap::new();
+    for item in &file.artifacts {
+        if let Some(id) = local.get(&item.id).or_else(|| own.get(&item.id)) {
+            resolver.insert(key_of(&item.artifact), id.clone());
+        }
+    }
+    let map = library.prepare_map(file.harnmap.as_ref(), &file.fits, &resolver)?;
+    Ok(Parsed {
+        file,
+        local,
+        own,
+        map,
+    })
 }
 
 /// `name` made unique among profiles by " (imported)", then a number.
@@ -428,8 +491,16 @@ fn remap(spec: &ProfileSpec, local: &HashMap<ArtifactId, ArtifactId>) -> Profile
 impl Library {
     /// The profile at `version` (the current one when `None`) with every artifact it resolves
     /// to, as the bytes of a `.harneo-profile.json` file. Refuses when an artifact is gone from
-    /// the library, a file holds a literal secret, or the result is over 50 MiB.
-    pub fn export_profile(&self, id: ProfileId, version: Option<u32>) -> Result<Vec<u8>> {
+    /// the library, a file holds a literal secret, or the result is over 50 MiB. The file also
+    /// carries the category and the map (every drawing with `options.include_history`, else
+    /// only the current one) and the saved fits (with `options.include_fits`), naming artifacts
+    /// by kind, name and digest.
+    pub fn export_profile(
+        &self,
+        id: ProfileId,
+        version: Option<u32>,
+        options: ExportOptions,
+    ) -> Result<Vec<u8>> {
         let view = self.profile(id, version)?;
         let resolved = self.resolve(&view.spec)?;
         if !resolved.missing.is_empty() {
@@ -438,6 +509,7 @@ impl Library {
             ));
         }
         let mut artifacts = Vec::new();
+        let mut key_map = HashMap::new();
         let mut total = 0usize;
         for item in &resolved.artifacts {
             let detail = self.detail(&item.id)?;
@@ -471,8 +543,10 @@ impl Library {
             if !keys.is_empty() {
                 return Err(secret_refusal(&entry.artifact.name, &keys));
             }
+            key_map.insert(entry.id.clone(), key_of(&entry.artifact));
             artifacts.push(entry);
         }
+        let (harnmap, fits) = self.export_map(id, &key_map, options)?;
         let file = ProfileFile {
             format: FORMAT.to_owned(),
             format_version: FORMAT_VERSION,
@@ -482,8 +556,12 @@ impl Library {
                 description: view.description,
                 version: view.version,
                 spec: view.spec,
+                category: Some(view.category),
+                category_note: view.category_note,
             },
             artifacts,
+            harnmap,
+            fits,
         };
         let bytes = serde_json::to_vec_pretty(&file)?;
         if bytes.len() > MAX_FILE_BYTES {
@@ -495,7 +573,7 @@ impl Library {
     /// Reads a profile file and says what importing it would do. Changes nothing.
     pub fn import_profile_file(&self, bytes: &[u8]) -> Result<ProfileImportPreview> {
         let conn = &self.store.conn;
-        let Parsed { file, local, .. } = parse(conn, bytes)?;
+        let Parsed { file, local, .. } = parse(self, bytes)?;
         Ok(ProfileImportPreview {
             name_clash: name_taken(conn, &file.profile.name)?,
             artifacts: file
@@ -533,7 +611,12 @@ impl Library {
         bytes: &[u8],
         name: Option<&str>,
     ) -> Result<ProfileImportReport> {
-        let Parsed { file, local, own } = parse(&self.store.conn, bytes)?;
+        let Parsed {
+            file,
+            local,
+            own,
+            map,
+        } = parse(self, bytes)?;
         let final_name = match name {
             Some(given) => given.trim().to_owned(),
             None if name_taken(&self.store.conn, &file.profile.name)? => {
@@ -582,13 +665,16 @@ impl Library {
             &final_name,
             &file.profile.description,
             &spec,
-            CategoryId::Software,
-            None,
+            file.profile.category.unwrap_or(CategoryId::Software),
+            file.profile.category_note.as_deref(),
         )?;
+        self.store_map(profile_id, &map)?;
         Ok(ProfileImportReport {
             profile_id,
             name: final_name,
             imported,
+            map_draws: map.draw_count(),
+            fits: map.fit_count(),
         })
     }
 }

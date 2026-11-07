@@ -42,6 +42,10 @@ export function CloneDialog({
       onClose={onClose}
     >
       <NameField value={name} onChange={setName} />
+      <p className={styles.cloneNote}>
+        The copy gets {profile.name}’s map, its history and its saved fits.
+        Edits to one never touch the other.
+      </p>
       {error && (
         <p role="alert" className={styles.error}>
           {error}

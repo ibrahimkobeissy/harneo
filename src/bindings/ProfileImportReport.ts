@@ -11,4 +11,12 @@ name: string,
 /**
  * Artifacts newly stored in the library.
  */
-imported: Array<string>, };
+imported: Array<string>, 
+/**
+ * How many drawings of the map the profile got (0: no map).
+ */
+mapDraws: number, 
+/**
+ * How many saved fits the profile got.
+ */
+fits: number, };

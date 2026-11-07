@@ -1,6 +1,7 @@
 import { FileUp, Layers, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
+import type { ProfileImportReport } from "../../bindings/ProfileImportReport";
 import type { ProfileImportTicket } from "../../bindings/ProfileImportTicket";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import {
@@ -11,6 +12,7 @@ import {
 import { Button, EmptyState, Kbd, Screen } from "../../ui";
 import { labelOf, useTemplates } from "./category";
 import { CloneDialog } from "./CloneDialog";
+import { ExportDialog, type ExportChoice } from "./ExportDialog";
 import { ImportDialog } from "./ImportDialog";
 import { DeleteDialog, RenameDialog } from "./ProfileDialogs";
 import { ProfileCard } from "./ProfileCard";
@@ -26,6 +28,16 @@ const NOTICE_MS = 6000;
 interface Notice {
   text: string;
   bad: boolean;
+  /** Where an "Open Harnmap" link goes, for an import that brought a map. */
+  harnmap?: bigint;
+}
+
+/** The sentence about the map an import brought, or nothing when it had none. */
+function mapLine(report: ProfileImportReport): string {
+  if (report.mapDraws === 0) return "";
+  const draws = `${report.mapDraws} ${report.mapDraws === 1 ? "drawing" : "drawings"}`;
+  const fits = `${report.fits} saved ${report.fits === 1 ? "fit" : "fits"}`;
+  return ` Its Harnmap is ready, with ${draws} in history and ${fits}. No tokens spent.`;
 }
 
 /** `Light profile` becomes `light-profile.harneo-profile.json`. */
@@ -45,6 +57,7 @@ export function ProfilesScreen() {
   const [cloning, setCloning] = useState<ProfileSummary | null>(null);
   const [renaming, setRenaming] = useState<ProfileSummary | null>(null);
   const [deleting, setDeleting] = useState<ProfileSummary | null>(null);
+  const [exporting, setExporting] = useState<ProfileSummary | null>(null);
   const [importing, setImporting] = useState<ProfileImportTicket | null>(null);
 
   const reload = useCallback(() => {
@@ -72,13 +85,13 @@ export function ProfilesScreen() {
       ) {
         return;
       }
-      if (cloning || importing || renaming || deleting) return;
+      if (cloning || importing || renaming || deleting || exporting) return;
       event.preventDefault();
       newProfile();
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [cloning, importing, renaming, deleting, newProfile]);
+  }, [cloning, importing, renaming, deleting, exporting, newProfile]);
 
   // A good result is a toast: it goes by itself. A failure stays until dismissed.
   useEffect(() => {
@@ -87,16 +100,19 @@ export function ProfilesScreen() {
     return () => clearTimeout(timer);
   }, [notice]);
 
-  function say(text: string, bad = false) {
-    setNotice({ text, bad });
+  function say(text: string, bad = false, harnmap?: bigint) {
+    setNotice({ text, bad, harnmap });
   }
 
-  async function exportProfile(profile: ProfileSummary) {
+  async function exportProfile(profile: ProfileSummary, choice: ExportChoice) {
+    setExporting(null);
     try {
       // The save dialog is the backend's: it picks the path and writes the file.
       const path = await profileExport(
         profile.id,
         exportFileName(profile.name),
+        undefined,
+        choice,
       );
       if (path === null) return;
       say(`Exported ${profile.name} v${profile.version} to ${path}.`);
@@ -145,6 +161,9 @@ export function ProfilesScreen() {
         >
           {notice.bad && <TriangleAlert size={14} aria-hidden="true" />}
           <span className={styles.noticeText}>{notice.text}</span>
+          {notice.harnmap !== undefined && (
+            <Link to={`/profiles/${notice.harnmap}/harnmap`}>Open Harnmap</Link>
+          )}
           <Button variant="ghost" small onClick={() => setNotice(null)}>
             Dismiss
           </Button>
@@ -203,7 +222,7 @@ export function ProfilesScreen() {
               profile={p}
               categoryLabel={labelOf(templates, p.category)}
               onClone={setCloning}
-              onExport={(profile) => void exportProfile(profile)}
+              onExport={setExporting}
               onRename={setRenaming}
               onDelete={setDeleting}
             />
@@ -212,6 +231,14 @@ export function ProfilesScreen() {
       )}
       {cloning && (
         <CloneDialog profile={cloning} onClose={() => setCloning(null)} />
+      )}
+      {exporting && (
+        <ExportDialog
+          profile={exporting}
+          fileName={exportFileName(exporting.name)}
+          onClose={() => setExporting(null)}
+          onExport={(choice) => exportProfile(exporting, choice)}
+        />
       )}
       {renaming && (
         <RenameDialog
@@ -242,7 +269,9 @@ export function ProfilesScreen() {
           onDone={(report) => {
             setImporting(null);
             say(
-              `Imported ${report.name}. ${report.imported.length} new ${report.imported.length === 1 ? "artifact" : "artifacts"} added to your library.`,
+              `Imported ${report.name}. ${report.imported.length} new ${report.imported.length === 1 ? "artifact" : "artifacts"} added to your library.${mapLine(report)}`,
+              false,
+              report.mapDraws > 0 ? report.profileId : undefined,
             );
             reload();
           }}

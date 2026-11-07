@@ -794,20 +794,30 @@ export function profileLayout(spec: ProfileSpec): Promise<Layout> {
   return invoke<Layout>("profile_layout", { spec });
 }
 
+/** What a profile file carries besides the profile and the current map. */
+export interface ProfileExportOptions {
+  includeHistory: boolean;
+  includeFits: boolean;
+}
+
 /**
  * Opens the backend's save dialog and writes the profile (at `version`, else the current one)
  * where the user chose. `defaultName` only pre-fills the file name. Resolves with the path
- * written, or `null` when the user cancelled.
+ * written, or `null` when the user cancelled. The current map always travels; `options` says
+ * whether the earlier drawings and the saved fits do too.
  */
 export function profileExport(
   id: bigint,
   defaultName: string,
   version?: number,
+  options: ProfileExportOptions = { includeHistory: true, includeFits: true },
 ): Promise<string | null> {
   return invoke<string | null>("profile_export", {
     id: Number(id),
     version: version ?? null,
     defaultName,
+    includeHistory: options.includeHistory,
+    includeFits: options.includeFits,
   });
 }
 

@@ -7,6 +7,8 @@
 
 mod file;
 #[cfg(test)]
+mod file_map_tests;
+#[cfg(test)]
 mod file_tests;
 pub(crate) mod layout;
 #[cfg(test)]
@@ -32,8 +34,8 @@ use crate::harnmap::CategoryId;
 use crate::library::{records, ArtifactId, Filter, KindCount, Library, Query, SortKey, MAX_LIMIT};
 
 pub use file::{
-    ImportArtifact, ImportedProfile, ProfileImportPreview, ProfileImportReport, FORMAT,
-    FORMAT_VERSION, MAX_FILE_BYTES,
+    ExportOptions, ImportArtifact, ImportedProfile, ProfileImportPreview, ProfileImportReport,
+    FORMAT, FORMAT_VERSION, MAX_FILE_BYTES,
 };
 pub use layout::{Generated, Layout, LayoutConflict, PathFrom, PlannedPath};
 pub use resolve::{Resolved, ResolvedItem, Why};
@@ -552,21 +554,41 @@ impl Library {
         }
     }
 
-    /// A new profile with the current version's content, described "Cloned from X vN".
+    /// A new profile with the current version's content, described "Cloned from X vN". The
+    /// copy also gets the category and note, every draw of the map (same numbers) and every
+    /// saved fit; artifacts are shared, so their bases stay valid.
     pub fn clone_profile(&self, id: ProfileId, new_name: &str) -> Result<ProfileId> {
         let conn = &self.store.conn;
         clean_name(new_name)?;
         let found = row(conn, id)?;
         let spec = spec_of(conn, id, found.current_version)?;
         let description = format!("Cloned from {} v{}", found.name, found.current_version);
-        insert_profile(
+        let copy = insert_profile(
             conn,
             new_name,
             &description,
             &spec,
             found.category,
             found.category_note.as_deref(),
-        )
+        )?;
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO harnmap_draws (profile_id, no, created_at, model, duration_ms,
+                 description, category, map, basis, restored_from)
+             SELECT ?2, no, created_at, model, duration_ms, description, category, map, basis,
+                    restored_from
+             FROM harnmap_draws WHERE profile_id = ?1",
+            params![id, copy],
+        )?;
+        tx.execute(
+            "INSERT INTO harnfit_fits (profile_id, candidate, created_at, model, duration_ms,
+                 verdict, basis)
+             SELECT ?2, candidate, created_at, model, duration_ms, verdict, basis
+             FROM harnfit_fits WHERE profile_id = ?1",
+            params![id, copy],
+        )?;
+        tx.commit()?;
+        Ok(copy)
     }
 
     /// A new profile holding a collection's artifacts (a smart one is evaluated now). Settings
