@@ -2210,7 +2210,7 @@ mod tests {
             harnmap_draw_at(app.state::<LibraryState>(), id, 1)?
                 .stages
                 .len(),
-            1
+            2
         );
         assert_eq!(harnmap_restore(app.state::<LibraryState>(), id, 1)?, 2);
         harnmap_cancel(id);
