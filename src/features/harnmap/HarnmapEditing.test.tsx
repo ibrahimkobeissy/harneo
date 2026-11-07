@@ -293,11 +293,11 @@ describe("Harnmap screen: unplaced and placing", () => {
     await user.click(
       await screen.findByRole("treeitem", { name: "Place /review" }),
     );
-    let pop = screen.getByRole("dialog", { name: "Why here?" });
+    expect(screen.getByRole("dialog", { name: "Why here?" })).toBeVisible();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "Why here?" })).toBeNull();
     await user.click(screen.getByRole("treeitem", { name: "Place /review" }));
-    pop = screen.getByRole("dialog", { name: "Why here?" });
+    const pop = screen.getByRole("dialog", { name: "Why here?" });
     await user.selectOptions(within(pop).getByLabelText("Where"), "Toolbelt");
     await user.type(within(pop).getByLabelText(/Why here\?/), "Any stage");
     await user.keyboard("{Enter}");
