@@ -1,15 +1,23 @@
-import { Check, FileQuestion, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Check, FileQuestion, History, ListTree, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router";
 import type { DrawFailure } from "../../bindings/DrawFailure";
 import type { DrawOutcome } from "../../bindings/DrawOutcome";
+import type { DrawSummary } from "../../bindings/DrawSummary";
+import type { MapDoc } from "../../bindings/MapDoc";
+import type { MapEdit } from "../../bindings/MapEdit";
 import type { MapView } from "../../bindings/MapView";
 import type { Template } from "../../bindings/Template";
+import type { Zone } from "../../bindings/Zone";
 import {
   claudeCliStatus,
   harnmapCancel,
   harnmapDraw,
+  harnmapDrawAt,
+  harnmapEdit,
   harnmapGet,
+  harnmapHistory,
+  harnmapRestore,
   openExternal,
   profileGet,
   settingsGet,
@@ -30,7 +38,11 @@ import {
   type DrawModel,
 } from "./draw";
 import styles from "./Harnmap.module.css";
+import { HistoryPanel } from "./HistoryPanel";
+import { ListView } from "./ListView";
 import { MapCanvas } from "./MapCanvas";
+import { NodeDetail } from "./NodeDetail";
+import { nextOrder, sameZone, zoneName, zonePhrase } from "./place";
 import { RedrawDialog } from "./RedrawDialog";
 import {
   FirstDrawPanel,
@@ -44,7 +56,13 @@ import {
   NothingOnLineCard,
   StaleCard,
 } from "./states";
-import { DEFAULT_VIEW, type MapViewState } from "./types";
+import { StagesPopover } from "./StagesPopover";
+import { DEFAULT_VIEW, type Dnd, type MapViewState } from "./types";
+import { OnTheMap, UnplacedPanel } from "./UnplacedPanel";
+import { WhyHere } from "./WhyHere";
+
+/** How long a toast stays. */
+const TOAST_MS = 5000;
 
 type Load =
   | { status: "loading" }
@@ -177,6 +195,22 @@ function Loaded({
   const [failedAfter, setFailedAfter] = useState(0);
   const [redraw, setRedraw] = useState(false);
   const [keepOld, setKeepOld] = useState(false);
+  const [list, setList] = useState(false);
+  const [stagesOpen, setStagesOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<DrawSummary[] | null>(null);
+  const [preview, setPreview] = useState<{ no: number; doc: MapDoc } | null>(
+    null,
+  );
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [placing, setPlacing] = useState<{
+    artifact: string;
+    zone: Zone;
+  } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [edited, setEdited] = useState(false);
+  const [focusFilter, setFocusFilter] = useState(0);
+  const filter = useRef<HTMLInputElement>(null);
   const drawing = since !== null;
   const busy = drawing || replay !== null;
   const base = `/profiles/${profile}`;
@@ -208,6 +242,50 @@ function Loaded({
     );
     return () => clearTimeout(timer);
   }, [replay]);
+
+  // A toast leaves by itself.
+  useEffect(() => {
+    if (toast === null) return;
+    const timer = setTimeout(() => setToast(null), TOAST_MS);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // The history follows the draws while its panel is open.
+  const drawCount = view.drawCount;
+  useEffect(() => {
+    if (!historyOpen) return;
+    let live = true;
+    harnmapHistory(profile).then(
+      (draws) => live && setHistory(draws),
+      () => live && setHistory([]),
+    );
+    return () => {
+      live = false;
+    };
+  }, [historyOpen, profile, drawCount]);
+
+  // "Place by hand" puts the cursor in the Unplaced filter once the panel is there.
+  useEffect(() => {
+    if (focusFilter > 0) filter.current?.focus();
+  }, [focusFilter]);
+
+  const say = useCallback((text: string) => {
+    setToast(text);
+    announce(text);
+  }, []);
+
+  /** Sends one edit; the map is saved at once and the view follows what came back. */
+  async function edit(change: MapEdit, message?: string): Promise<boolean> {
+    try {
+      setView(await harnmapEdit(profile, change));
+      setEdited(true);
+      if (message) say(message);
+      return true;
+    } catch (err) {
+      say(`Could not save that change: ${String(err)}`);
+      return false;
+    }
+  }
 
   const run = useCallback(
     async (text: string) => {
@@ -287,7 +365,14 @@ function Loaded({
         placements: shownView.view.doc.placements.slice(0, shownView.shown),
       }
     : current.doc;
-  const data = { ...toMapData(current), doc };
+  const shownDoc = preview?.doc ?? doc;
+  const data = { ...toMapData(current), doc: shownDoc };
+  // Hidden artifacts and types are part of the saved map once it is drawn.
+  const viewState: MapViewState = {
+    ...mapView,
+    hidden: shownDoc.hidden,
+    hiddenKinds: view.drawn ? shownDoc.hiddenTypes : mapView.hiddenKinds,
+  };
 
   const nameOf = (artifact: string) =>
     current.artifacts[artifact]?.name ?? artifact;
@@ -307,6 +392,106 @@ function Loaded({
       stageName,
       v.unplaced.map((a) => v.artifacts[a]?.name ?? a),
     );
+
+  const editable = view.drawn && !busy && preview === null;
+  const placement = view.doc.placements.find((p) => p.artifact === selected);
+  const detail = selected !== null && editable && placement !== undefined;
+
+  function changeView(next: MapViewState) {
+    setMapView(next);
+    if (!editable) return;
+    const was = view.doc.hiddenTypes;
+    void (async () => {
+      for (const kind of next.hiddenKinds.filter((k) => !was.includes(k)))
+        await edit({ type: "hideType", kind });
+      for (const kind of was.filter((k) => !next.hiddenKinds.includes(k)))
+        await edit({ type: "showType", kind });
+    })();
+  }
+
+  function drop(zone: Zone) {
+    const artifact = dragging;
+    setDragging(null);
+    if (!artifact) return;
+    const there = view.doc.placements.find((p) => p.artifact === artifact);
+    if (!there) {
+      setPlacing({ artifact, zone });
+      return;
+    }
+    if (sameZone(there.zone, zone)) return;
+    void move(artifact, zone);
+  }
+
+  function move(artifact: string, zone: Zone) {
+    return edit(
+      { type: "move", artifact, zone, order: nextOrder(view.doc, zone) },
+      `${nameOf(artifact)} moved to ${zoneName(view.doc, zone)} and pinned. It stays on re-draw.`,
+    );
+  }
+
+  async function place(zone: Zone, note: string) {
+    if (!placing) return;
+    const artifact = placing.artifact;
+    const ok = await edit(
+      { type: "place", artifact, zone, note },
+      `${nameOf(artifact)} placed ${zonePhrase(view.doc, zone)} and pinned. It stays on re-draw.`,
+    );
+    if (ok) setPlacing(null);
+  }
+
+  const dnd: Dnd | undefined = editable
+    ? {
+        active: dragging !== null,
+        onStart: setDragging,
+        onEnd: () => setDragging(null),
+        onDrop: drop,
+      }
+    : undefined;
+
+  function openHistory() {
+    setHistoryOpen(true);
+    setSelected(null);
+    setStagesOpen(false);
+  }
+
+  function closeHistory() {
+    setHistoryOpen(false);
+    setPreview(null);
+  }
+
+  async function previewDraw(no: number) {
+    try {
+      setPreview({ no, doc: await harnmapDrawAt(profile, no) });
+      setSelected(null);
+    } catch (err) {
+      say(`Could not open draw ${no}: ${String(err)}`);
+    }
+  }
+
+  async function restore(no: number) {
+    try {
+      const created = await harnmapRestore(profile, no);
+      setView(await harnmapGet(profile));
+      setPreview(null);
+      setEdited(true);
+      say(`Draw ${no} restored as draw ${created}. Nothing was overwritten.`);
+    } catch (err) {
+      say(`Could not restore draw ${no}: ${String(err)}`);
+    }
+  }
+
+  function placeByHand() {
+    setHistoryOpen(false);
+    setPreview(null);
+    setSelected(null);
+    setList(false);
+    setFocusFilter((n) => n + 1);
+  }
+
+  function pick(artifact: string) {
+    setList(false);
+    setSelected(artifact);
+  }
 
   const actions = {
     onRetry: () => void run(description),
@@ -335,24 +520,50 @@ function Loaded({
           </span>
         )}
         {view.drawn && (
-          <span className={styles.saved}>
-            <Check size={12} aria-hidden="true" /> Saved
+          <span className={styles.saved} role="status">
+            <Check size={12} aria-hidden="true" />{" "}
+            {edited ? "Saved just now" : "Saved"}
           </span>
         )}
         <span className={styles.grow} />
-        {/* The list view comes later; Map is the only view for now. */}
         <div className={styles.seg} role="group" aria-label="View">
-          <button type="button" aria-pressed="true">
+          <button
+            type="button"
+            aria-pressed={!list}
+            onClick={() => setList(false)}
+          >
             Map
           </button>
-          <button type="button" aria-pressed="false" disabled>
+          <button
+            type="button"
+            aria-pressed={list}
+            onClick={() => setList(true)}
+          >
             List
           </button>
         </div>
         {view.drawn && (
-          <Button small disabled={busy} onClick={() => setRedraw(true)}>
-            Re-draw
-          </Button>
+          <>
+            <Button
+              small
+              aria-expanded={stagesOpen}
+              disabled={busy || preview !== null}
+              onClick={() => setStagesOpen(!stagesOpen)}
+            >
+              <ListTree size={14} aria-hidden="true" /> Stages
+            </Button>
+            <Button
+              small
+              aria-expanded={historyOpen}
+              disabled={busy}
+              onClick={() => (historyOpen ? closeHistory() : openHistory())}
+            >
+              <History size={14} aria-hidden="true" /> Map history
+            </Button>
+            <Button small disabled={busy} onClick={() => setRedraw(true)}>
+              Re-draw
+            </Button>
+          </>
         )}
         <Link to={base} className={styles.close} aria-label="Close">
           <X size={16} aria-hidden="true" />
@@ -360,13 +571,69 @@ function Loaded({
       </header>
       <div className={styles.body}>
         <div className={styles.map}>
-          <MapCanvas
-            data={data}
-            selected={selected}
-            view={mapView}
-            onSelect={setSelected}
-            onView={setMapView}
-          />
+          {preview && (
+            <div className={styles.banner} role="status">
+              <b>Previewing draw {preview.no}</b>
+              <Button small onClick={() => void restore(preview.no)}>
+                Restore
+              </Button>
+              <Button small variant="ghost" onClick={() => setPreview(null)}>
+                Back to current
+              </Button>
+            </div>
+          )}
+          <div className={styles.mapBody}>
+            {list ? (
+              <ListView view={current} profile={name} onPick={pick} />
+            ) : (
+              <MapCanvas
+                data={data}
+                selected={selected}
+                view={viewState}
+                onSelect={setSelected}
+                onView={changeView}
+                dnd={dnd}
+              />
+            )}
+          </div>
+          {stagesOpen && view.drawn && (
+            <StagesPopover
+              stages={view.doc.stages}
+              onRename={(id, next) =>
+                void edit({ type: "renameStage", id, name: next })
+              }
+              onRemove={(id) =>
+                void edit(
+                  { type: "removeStage", id },
+                  `${stageName(id)} removed. Its stations went back to Unplaced.`,
+                )
+              }
+              onMove={(id, to) => void edit({ type: "moveStage", id, to })}
+              onAdd={() =>
+                void edit({
+                  type: "addStage",
+                  after: view.doc.stages.at(-1)?.id ?? null,
+                  name: "New stage",
+                })
+              }
+              onClose={() => setStagesOpen(false)}
+            />
+          )}
+          {placing && (
+            <WhyHere
+              key={placing.artifact}
+              name={nameOf(placing.artifact)}
+              doc={view.doc}
+              zone={placing.zone}
+              onPlace={(zone, note) => void place(zone, note)}
+              onCancel={() => setPlacing(null)}
+            />
+          )}
+          {toast && (
+            <div className={styles.toast} role="status">
+              <Check size={12} aria-hidden="true" /> {toast}
+            </div>
+          )}
         </div>
         <aside className={styles.side} aria-label="Draw">
           {failure && (
@@ -417,7 +684,54 @@ function Loaded({
               addLink={base}
             />
           )}
-          {!busy && !done && view.drawn && (
+          {!busy && !done && view.drawn && historyOpen && (
+            <HistoryPanel
+              draws={history}
+              previewing={preview?.no ?? null}
+              busy={busy}
+              onPreview={(no) => void previewDraw(no)}
+              onRestore={(no) => void restore(no)}
+              onClose={closeHistory}
+            />
+          )}
+          {!busy && !done && view.drawn && !historyOpen && detail && (
+            <NodeDetail
+              key={selected}
+              id={selected}
+              info={
+                current.artifacts[selected] ?? { name: selected, kind: "skill" }
+              }
+              placement={placement}
+              facts={current.facts[selected] ?? []}
+              doc={view.doc}
+              onClose={() => setSelected(null)}
+              onNote={(text) =>
+                void edit({ type: "note", artifact: selected, text })
+              }
+              onMove={(zone) => void move(selected, zone)}
+              onRemove={() => {
+                setSelected(null);
+                void edit(
+                  { type: "remove", artifact: selected },
+                  `${nameOf(selected)} went back to Unplaced`,
+                );
+              }}
+              onHide={() => {
+                setSelected(null);
+                void edit(
+                  { type: "hide", artifact: selected },
+                  `${nameOf(selected)} hidden. It is still in the profile.`,
+                );
+              }}
+              onUnpin={() =>
+                void edit(
+                  { type: "unpin", artifact: selected },
+                  `${nameOf(selected)} unpinned. Claude places it on the next re-draw.`,
+                )
+              }
+            />
+          )}
+          {!busy && !done && view.drawn && !historyOpen && !detail && (
             <>
               {categoryChanged && !keepOld && (
                 <CategoryChangedCard
@@ -435,9 +749,39 @@ function Loaded({
                   no={view.no}
                   nameOf={nameOf}
                   onRedraw={() => setRedraw(true)}
+                  onPlaceByHand={placeByHand}
                 />
               )}
               {!onLine && <NothingOnLineCard addLink={base} />}
+              <UnplacedPanel
+                ref={filter}
+                unplaced={view.unplaced}
+                artifacts={view.artifacts}
+                hidden={view.doc.hidden}
+                disabled={preview !== null}
+                onPick={(artifact) =>
+                  setPlacing({
+                    artifact,
+                    zone: view.doc.stages[0]
+                      ? { type: "stage", id: view.doc.stages[0].id }
+                      : { type: "toolbelt" },
+                  })
+                }
+                onDragStart={setDragging}
+                onDragEnd={() => setDragging(null)}
+                onShow={(artifact) => void edit({ type: "show", artifact })}
+                onShowAll={() =>
+                  void (async () => {
+                    for (const artifact of view.doc.hidden)
+                      await edit({ type: "show", artifact });
+                  })()
+                }
+              />
+              <OnTheMap
+                doc={view.doc}
+                bundles={view.bundles.length}
+                nameOf={nameOf}
+              />
               <div className={styles.sect}>
                 <div className={styles.eyebrow}>
                   DRAW {view.no} · {view.drawCount} IN HISTORY

@@ -254,7 +254,7 @@ describe("Harnmap screen: drawn map and re-draw", () => {
     const s = setup(view());
     expect(await screen.findByText(/Draw 2 · .* · Opus · 52 s/)).toBeVisible();
     expect(screen.getByText("Saved")).toBeVisible();
-    expect(screen.getByRole("button", { name: "List" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "List" })).toBeEnabled();
     expect(screen.getByRole("link", { name: "Heavy" })).toHaveAttribute(
       "href",
       "/profiles/7",
@@ -535,7 +535,7 @@ describe("Harnmap screen: failures", () => {
 describe("Harnmap screen: out of date", () => {
   const stale = (over: Partial<Staleness> = {}): Staleness => ({
     added: ["wpp"],
-    removed: ["gone"],
+    removed: [{ id: "gone", name: "gone", kind: "skill" }],
     changed: ["tdd"],
     categoryChanged: null,
     ...over,

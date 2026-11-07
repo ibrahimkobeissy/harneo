@@ -280,12 +280,15 @@ export function StaleCard({
   no,
   nameOf,
   onRedraw,
+  onPlaceByHand,
 }: {
   stale: Staleness;
   profile: string;
   no: number;
   nameOf: (id: string) => string;
   onRedraw: () => void;
+  /** Opens the Unplaced panel so the new artifacts can be dragged onto the map. */
+  onPlaceByHand: () => void;
 }) {
   return (
     <Card label="Map out of date" title="Out of date">
@@ -296,11 +299,11 @@ export function StaleCard({
         {stale.added.map((id) => (
           <Row key={`+${id}`} mark="+" name={nameOf(id)} note="in Unplaced" />
         ))}
-        {stale.removed.map((id) => (
+        {stale.removed.map((r) => (
           <Row
-            key={`-${id}`}
+            key={`-${r.id}`}
             mark="−"
-            name={nameOf(id)}
+            name={r.name}
             note="removed from the map"
           />
         ))}
@@ -319,6 +322,9 @@ export function StaleCard({
       </p>
       <div className={styles.row}>
         <Button onClick={onRedraw}>Re-draw</Button>
+        <Button variant="ghost" onClick={onPlaceByHand}>
+          Place by hand
+        </Button>
       </div>
     </Card>
   );

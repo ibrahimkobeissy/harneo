@@ -38,4 +38,4 @@ pub use map::{
 pub use templates::{
     templates, Category, CategoryId, Shape, Template, TemplateLoop, TemplatePhase, TemplateStage,
 };
-pub use view::{ArtifactInfo, CategoryChange, DrawSummary, MapView, Staleness};
+pub use view::{ArtifactInfo, CategoryChange, DrawSummary, MapView, RemovedArtifact, Staleness};

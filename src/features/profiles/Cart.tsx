@@ -5,6 +5,7 @@ import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { Resolved } from "../../bindings/Resolved";
 import { Button, kinds, Panel } from "../../ui";
 import styles from "./Builder.module.css";
+import { HarnmapCard } from "./HarnmapCard";
 import { McpPanel } from "./McpPanel";
 import { ProjectTree } from "./ProjectTree";
 import { SettingsPanel } from "./SettingsPanel";
@@ -28,6 +29,7 @@ export function Cart({
   name,
   onName,
   saved,
+  profileId,
   isNew,
   dirty,
   specChanged,
@@ -46,6 +48,8 @@ export function Cart({
   name: string;
   onName: (name: string) => void;
   saved: { version: number };
+  /** The saved profile's id; `null` until its first save. */
+  profileId: bigint | null;
   isNew: boolean;
   dirty: boolean;
   specChanged: boolean;
@@ -137,6 +141,9 @@ export function Cart({
       </div>
 
       <div className={styles.cartBody}>
+        {profileId !== null && (
+          <HarnmapCard profile={profileId} version={saved.version} />
+        )}
         <ProjectTree
           layout={layout}
           resolved={resolved}

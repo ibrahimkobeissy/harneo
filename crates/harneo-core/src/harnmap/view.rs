@@ -33,6 +33,17 @@ pub struct CategoryChange {
     pub to: CategoryId,
 }
 
+/// An artifact that left the profile since the map was drawn, with its last known name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct RemovedArtifact {
+    pub id: ArtifactId,
+    /// From the library; "a removed artifact" when it was deleted from the library entirely.
+    pub name: String,
+    pub kind: Option<ArtifactKind>,
+}
+
 /// How the profile differs from what the current map was drawn from.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -41,7 +52,7 @@ pub struct Staleness {
     /// In the profile now, not when drawn: they wait in Unplaced.
     pub added: Vec<ArtifactId>,
     /// Drawn, no longer in the profile: their placements are left out of the view.
-    pub removed: Vec<ArtifactId>,
+    pub removed: Vec<RemovedArtifact>,
     /// In both, with a different digest.
     pub changed: Vec<ArtifactId>,
     pub category_changed: Option<CategoryChange>,
@@ -256,6 +267,19 @@ fn change_line(
 }
 
 impl Library {
+    /// An artifact that left the profile, named from the library if it is still there.
+    fn removed_artifact(&self, id: &str) -> RemovedArtifact {
+        let found = records::load(&self.store.conn, id).ok().flatten();
+        RemovedArtifact {
+            id: id.to_owned(),
+            name: found.as_ref().map_or_else(
+                || "a removed artifact".to_owned(),
+                |d| d.artifact.name.clone(),
+            ),
+            kind: found.map(|d| d.artifact.kind),
+        }
+    }
+
     /// The newest draw of `profile`, or `None` before the first.
     pub(super) fn latest_draw(&self, profile: ProfileId) -> Result<Option<DrawRow>> {
         Ok(self
@@ -323,7 +347,7 @@ impl Library {
         let known: HashSet<&str> = items.iter().map(|i| i.id.as_str()).collect();
         let (drawn, mut doc, recorded, stale) = match latest {
             Some(row) => {
-                let stale = staleness(&row, &basis, view.category);
+                let stale = staleness(&row, &basis, view.category, &|id| self.removed_artifact(id));
                 let recorded = (
                     row.no,
                     row.created_at,
@@ -494,7 +518,13 @@ impl Library {
 }
 
 /// How the profile now differs from what `row` was drawn from; `None` when it does not.
-fn staleness(row: &DrawRow, now: &Basis, category: CategoryId) -> Option<Staleness> {
+/// `removed_of` names an artifact that left the profile.
+fn staleness(
+    row: &DrawRow,
+    now: &Basis,
+    category: CategoryId,
+    removed_of: &dyn Fn(&str) -> RemovedArtifact,
+) -> Option<Staleness> {
     let was: HashMap<&str, &str> = row
         .basis
         .artifacts
@@ -518,7 +548,7 @@ fn staleness(row: &DrawRow, now: &Basis, category: CategoryId) -> Option<Stalene
             .artifacts
             .iter()
             .filter(|a| !current.contains_key(a.id.as_str()))
-            .map(|a| a.id.clone())
+            .map(|a| removed_of(&a.id))
             .collect(),
         changed: now
             .artifacts

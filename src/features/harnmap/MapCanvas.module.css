@@ -589,3 +589,13 @@
 .lc {
   border-top: var(--hairline-strong) dashed var(--t3);
 }
+
+/* A zone a dragged artifact is over: a dashed blue frame. */
+.stage[data-over="true"],
+.band[data-over="true"] {
+  border: var(--hairline-strong) dashed var(--blue);
+  background: var(--blue-soft);
+}
+.nd[draggable="true"] {
+  cursor: grab;
+}

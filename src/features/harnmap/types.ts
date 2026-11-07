@@ -1,6 +1,7 @@
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { Fact } from "../../bindings/Fact";
 import type { MapDoc } from "../../bindings/MapDoc";
+import type { Zone } from "../../bindings/Zone";
 
 /** What the canvas needs to know about an artifact on the map. */
 export interface ArtifactInfo {
@@ -59,4 +60,13 @@ export const DEFAULT_VIEW: MapViewState = {
 
 export function clampZoom(zoom: number): number {
   return Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom)) * 100) / 100;
+}
+
+/** Drag and drop onto the map: the drop targets are the stage frames, the toolbelt and the floor. */
+export interface Dnd {
+  /** True while an artifact is being dragged. */
+  active: boolean;
+  onStart: (artifact: string) => void;
+  onEnd: () => void;
+  onDrop: (zone: Zone) => void;
 }

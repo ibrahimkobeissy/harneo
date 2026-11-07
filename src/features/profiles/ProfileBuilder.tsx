@@ -495,6 +495,7 @@ function Builder({
           name={name}
           onName={setName}
           saved={saved}
+          profileId={saved.id}
           isNew={isNew}
           dirty={dirty}
           specChanged={specChanged}

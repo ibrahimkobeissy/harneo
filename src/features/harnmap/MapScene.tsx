@@ -1,11 +1,13 @@
-import { useId } from "react";
+import { useId, useState, type HTMLAttributes } from "react";
+import type { Zone } from "../../bindings/Zone";
 import type { Placement } from "../../bindings/Placement";
 import { Heartbeat } from "./Heartbeat";
 import type { Layout, Point } from "./layout";
 import styles from "./MapCanvas.module.css";
 import { Node } from "./Node";
 import { Tooltip } from "./Tooltip";
-import type { HookInfo, Layers, MapData } from "./types";
+import { zoneKey } from "./place";
+import type { Dnd, HookInfo, Layers, MapData } from "./types";
 
 export const TOOLTIP_W = 248;
 const HB = 20;
@@ -51,6 +53,7 @@ export function MapScene({
   focusTip,
   onSelect,
   onOpen,
+  dnd,
 }: {
   data: MapData;
   layout: Layout;
@@ -62,8 +65,26 @@ export function MapScene({
   focusTip: boolean;
   onSelect: (id: string) => void;
   onOpen: (id: string | null, fromKeyboard: boolean) => void;
+  /** Present when the map can be edited by dragging. */
+  dnd?: Dnd;
 }) {
   const arrow = useId();
+  const [over, setOver] = useState<string | null>(null);
+  /** Drag-over and drop handlers that make an element stand for `zone`. */
+  const target = (zone: Zone): HTMLAttributes<HTMLElement> => ({
+    onDragOver: (ev) => {
+      if (!dnd?.active) return;
+      ev.preventDefault();
+      setOver(zoneKey(zone));
+    },
+    onDragLeave: () => setOver(null),
+    onDrop: (ev) => {
+      if (!dnd?.active) return;
+      ev.preventDefault();
+      setOver(null);
+      dnd.onDrop(zone);
+    },
+  });
   const shown = layout.nodes.filter((n) =>
     n.zone.type === "stage"
       ? layers.line
@@ -210,6 +231,9 @@ export function MapScene({
               key={s.id}
               className={styles.stage}
               data-testid="stage"
+              data-stage={s.id}
+              data-over={over === `stage:${s.id}`}
+              {...target({ type: "stage", id: s.id })}
               style={{
                 left: s.frame.x,
                 top: s.frame.y,
@@ -234,6 +258,8 @@ export function MapScene({
         <div
           className={styles.band}
           data-testid="toolbelt"
+          data-over={over === "toolbelt"}
+          {...target({ type: "toolbelt" })}
           style={{
             left: layout.toolbelt.x,
             top: layout.toolbelt.y,
@@ -250,6 +276,8 @@ export function MapScene({
         <div
           className={styles.band}
           data-testid="floor"
+          data-over={over === "floor"}
+          {...target({ type: "floor" })}
           style={{
             left: layout.floor.x,
             top: layout.floor.y,
@@ -276,6 +304,12 @@ export function MapScene({
             selected={selected === n.id}
             onSelect={() => onSelect(n.id)}
             onInfo={() => onOpen(n.id, true)}
+            drag={
+              dnd
+                ? { onStart: () => dnd.onStart(n.id), onEnd: dnd.onEnd }
+                : undefined
+            }
+            dropProps={dnd ? target(n.zone) : undefined}
           />
         );
       })}

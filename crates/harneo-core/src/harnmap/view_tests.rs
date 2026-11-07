@@ -54,6 +54,21 @@ fn edits_need_a_draw() -> TestResult {
 }
 
 #[test]
+fn a_removed_artifact_deleted_from_the_library_keeps_a_generic_name() -> TestResult {
+    let mut f = drawn()?;
+    let tdd = f.id("tdd");
+    let trimmed = spec_without(&f, "tdd")?;
+    f.library.save_profile(f.profile, &trimmed)?;
+    f.library.remove(&tdd)?;
+    let stale = f.library.harnmap(f.profile)?.stale.ok_or("stale")?;
+    assert_eq!(stale.removed.len(), 1);
+    assert_eq!(stale.removed[0].id, tdd);
+    assert_eq!(stale.removed[0].name, "a removed artifact");
+    assert_eq!(stale.removed[0].kind, None);
+    Ok(())
+}
+
+#[test]
 fn staleness_reports_added_removed_changed_and_category() -> TestResult {
     let f = drawn()?;
     let tdd = f.id("tdd");
@@ -64,7 +79,10 @@ fn staleness_reports_added_removed_changed_and_category() -> TestResult {
     f.library.save_profile(f.profile, &trimmed)?;
     let view = f.library.harnmap(f.profile)?;
     let stale = view.stale.ok_or("stale")?;
-    assert_eq!(stale.removed, vec![tdd.clone()]);
+    assert_eq!(stale.removed.len(), 1);
+    assert_eq!(stale.removed[0].id, tdd);
+    assert_eq!(stale.removed[0].name, "tdd");
+    assert_eq!(stale.removed[0].kind, Some(crate::artifact::ArtifactKind::Skill));
     assert!(view.doc.placements.iter().all(|p| p.artifact != tdd));
     // Edits still work while a placement is orphaned.
     f.library.harnmap_edit(

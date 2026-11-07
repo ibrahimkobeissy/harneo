@@ -9,6 +9,7 @@ import {
   clampZoom,
   QUIET_BELOW,
   ZOOM_STEP,
+  type Dnd,
   type MapData,
   type MapViewState,
 } from "./types";
@@ -49,12 +50,15 @@ export function MapCanvas({
   view,
   onSelect,
   onView,
+  dnd,
 }: {
   data: MapData;
   selected: string | null;
   view: MapViewState;
   onSelect: (id: string | null) => void;
   onView: (view: MapViewState) => void;
+  /** Present when nodes can be dragged and dropped onto zones. */
+  dnd?: Dnd;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState<Pan>({ x: 0, y: 0 });
@@ -230,6 +234,7 @@ export function MapCanvas({
             focusTip={open?.keyboard ?? false}
             onSelect={onSelect}
             onOpen={(id, keyboard) => setOpen(id ? { id, keyboard } : null)}
+            dnd={dnd}
           />
         </div>
       </div>

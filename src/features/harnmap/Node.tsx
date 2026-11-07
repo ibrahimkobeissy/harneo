@@ -1,4 +1,5 @@
 import { Pin } from "lucide-react";
+import type { HTMLAttributes } from "react";
 import type { Placement } from "../../bindings/Placement";
 import { kinds } from "../../ui";
 import styles from "./MapCanvas.module.css";
@@ -12,6 +13,8 @@ export function Node({
   selected,
   onSelect,
   onInfo,
+  drag,
+  dropProps,
 }: {
   info: ArtifactInfo;
   placement: Placement;
@@ -19,6 +22,10 @@ export function Node({
   selected: boolean;
   onSelect: () => void;
   onInfo: () => void;
+  /** Present when the node can be dragged to another zone. */
+  drag?: { onStart: () => void; onEnd: () => void };
+  /** Drag-over and drop handlers: dropping on a node is dropping on its zone. */
+  dropProps?: HTMLAttributes<HTMLElement>;
 }) {
   const meta = kinds[info.kind];
   const Icon = meta.icon;
@@ -37,6 +44,13 @@ export function Node({
         onSelect();
       }}
       onPointerDown={(ev) => ev.stopPropagation()}
+      draggable={drag ? true : undefined}
+      onDragStart={(ev) => {
+        ev.dataTransfer?.setData("text/plain", placement.artifact);
+        drag?.onStart();
+      }}
+      onDragEnd={drag?.onEnd}
+      {...dropProps}
       onKeyDown={(ev) => {
         if (ev.key === "i" && !ev.ctrlKey && !ev.metaKey && !ev.altKey) {
           ev.preventDefault();

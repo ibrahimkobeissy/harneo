@@ -710,3 +710,38 @@
   font-weight: 500;
   text-decoration: none;
 }
+
+/* The Harnmap card: a sketch of the line, the draw line and the way in. */
+.miniLink {
+  display: block;
+  margin-top: var(--space-sm);
+  padding: var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+.mini {
+  display: block;
+  overflow: visible;
+}
+.miniPipe {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+.miniStage rect {
+  fill: var(--raised);
+  stroke: var(--line);
+}
+.miniStage circle {
+  fill: var(--line2);
+}
+.miniStage[data-placed="true"] circle {
+  fill: var(--t1);
+}
+.drawLine {
+  margin: var(--space-sm) 0;
+  color: var(--t2);
+  font-size: var(--text-body);
+}
