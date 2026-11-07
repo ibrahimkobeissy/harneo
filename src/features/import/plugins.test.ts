@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
+import type { WholeReason } from "../../bindings/WholeReason";
 import {
   fromPlugin,
   lostIfUnpacked,
@@ -71,7 +72,10 @@ describe("plugin helpers", () => {
 
 describe("why a plugin stays whole", () => {
   it("words each reason like the core and lists what unpacking loses", () => {
-    const hooks = { type: "wholeOnlyParts", parts: ["hooks", "mods"] } as const;
+    const hooks: WholeReason = {
+      type: "wholeOnlyParts",
+      parts: ["hooks", "mods"],
+    };
     expect(wholeReasonText(hooks)).toBe(
       "Has hooks, mods: they only work inside the plugin.",
     );
