@@ -130,6 +130,8 @@ export function wholeReasonText(reason: WholeReason): string {
       return `Its ${joinParts(reason.parts)} refer to files outside themselves: they only work inside the plugin.`;
     case "remoteOnly":
       return "Its files live in another repo that is never fetched, so it can only be taken whole.";
+    case "noParts":
+      return "It has no skills, agents, commands, output styles or MCP servers to unpack.";
   }
 }
 

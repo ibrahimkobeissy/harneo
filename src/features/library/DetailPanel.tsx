@@ -60,6 +60,7 @@ import { ManualOnlySection, UsedInSection } from "./ProfileSections";
 import { useDetailWidth } from "./useDetailWidth";
 import { useNarrow } from "./useNarrow";
 import { TagsSection } from "./TagsSection";
+import { StaysWhole, UnpackButton, useUnpackPlan } from "./UnpackPlugin";
 import { UsageSection } from "./UsageSection";
 
 type Load =
@@ -542,6 +543,7 @@ export function DetailPanel({
   onMembershipChanged = () => {},
   onLeftCollection = () => {},
   onUpdated = () => {},
+  onUnpacked = () => {},
 }: {
   id: string;
   /** Scroll to the Trust section and move focus to its heading (`?focus=trust`). */
@@ -562,6 +564,8 @@ export function DetailPanel({
   onLeftCollection?: () => void;
   /** The library copy was updated (or the user kept theirs): the list's badges follow. */
   onUpdated?: () => void;
+  /** The plugin became its parts: the id of the first one, or null when there is none. */
+  onUnpacked?: (firstPart: string | null) => void;
 }) {
   const [tick, setTick] = useState(0);
   useChanged((change) => {
@@ -572,6 +576,7 @@ export function DetailPanel({
   const load = useDetail(id, tick);
   const update = useUpdateStatus(id, tick);
   const detail = load.status === "ready" ? load.detail : null;
+  const unpackPlan = useUnpackPlan(id, detail?.artifact.kind ?? null, tick);
   const targets = useReferenceTargets(
     detail ? detail.artifact.references : null,
   );
@@ -734,6 +739,12 @@ export function DetailPanel({
                 artifactName={detail.artifact.name}
                 artifactKind={detail.artifact.kind}
               />
+              <UnpackButton
+                id={id}
+                name={detail.artifact.name}
+                plan={unpackPlan}
+                onUnpacked={onUnpacked}
+              />
               <Button small onClick={() => setFinding(true)}>
                 <Boxes size={14} aria-hidden="true" />
                 Find bundles
@@ -782,6 +793,7 @@ export function DetailPanel({
                   {detail.artifact.description ?? "No description."}
                 </p>
               </section>
+              <StaysWhole plan={unpackPlan} />
               <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
               {detail.artifact.kind === "skill" && (
                 <ManualOnlySection

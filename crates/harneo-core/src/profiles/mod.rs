@@ -381,6 +381,73 @@ pub(crate) fn remove_artifacts(conn: &Connection, artifacts: &[&str]) -> Result<
     Ok(())
 }
 
+/// A profile that gets a new version because a plugin in it was unpacked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct ProfileChange {
+    pub id: ProfileId,
+    pub name: String,
+    /// The current version before.
+    pub from: u32,
+    /// The version the change writes (or would write).
+    pub to: u32,
+}
+
+/// Puts `parts` in the place of `plugin` in every profile whose current version holds it as a
+/// picked item, as one new version each, and lists those profiles. With `apply` false nothing is
+/// written. MCP servers join the profile as servers (no environment values); other parts take the
+/// plugin's place in the item list. Runs inside the library's unpack transaction.
+pub(crate) fn replace_with_parts(
+    conn: &Connection,
+    plugin: &str,
+    parts: &[(ArtifactId, ArtifactKind)],
+    apply: bool,
+) -> Result<Vec<ProfileChange>> {
+    let ids = conn
+        .prepare("SELECT id FROM profiles ORDER BY name COLLATE NOCASE")?
+        .query_map([], |r| r.get::<_, ProfileId>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let at = records::now();
+    let mut changed = Vec::new();
+    for id in ids {
+        let found = row(conn, id)?;
+        let spec = spec_of(conn, id, found.current_version)?;
+        let Some(position) = spec.items.iter().position(|i| i == plugin) else {
+            continue;
+        };
+        let mut next = spec.without(plugin);
+        let mut items = next.items.clone();
+        let mut at_place = position.min(items.len());
+        for (part, kind) in parts {
+            if *kind == ArtifactKind::Mcp {
+                if !next.mcp.iter().any(|m| &m.artifact == part) {
+                    next.mcp.push(McpChoice {
+                        artifact: part.clone(),
+                        env: BTreeMap::new(),
+                    });
+                }
+            } else if !items.contains(part) {
+                items.insert(at_place, part.clone());
+                at_place += 1;
+            }
+        }
+        next.items = items;
+        let to = found.current_version + 1;
+        if apply {
+            next.validate(conn)?;
+            insert_version(conn, id, to, &next, at)?;
+        }
+        changed.push(ProfileChange {
+            id,
+            name: found.name,
+            from: found.current_version,
+            to,
+        });
+    }
+    Ok(changed)
+}
+
 impl Library {
     /// Every profile by name, with what its current version resolves to.
     pub fn profiles(&self) -> Result<Vec<ProfileSummary>> {

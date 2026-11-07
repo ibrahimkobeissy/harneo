@@ -266,6 +266,38 @@ fn change_line(
     }
 }
 
+/// Drops `artifact` from the current draw of `profile` (placement and hidden entry); older draws
+/// stay as they were. With `apply` false only counts. Returns the placements dropped.
+pub(crate) fn drop_from_current_draw(
+    conn: &rusqlite::Connection,
+    profile: ProfileId,
+    artifact: &str,
+    apply: bool,
+) -> Result<usize> {
+    let row = conn
+        .query_row(
+            &format!(
+                "SELECT {COLUMNS} FROM harnmap_draws WHERE profile_id = ?1
+                 ORDER BY no DESC LIMIT 1"
+            ),
+            params![profile],
+            row_of,
+        )
+        .optional()?;
+    let Some(row) = row else {
+        return Ok(0);
+    };
+    let mut doc = row.doc;
+    let dropped = doc.drop_artifact(artifact);
+    if apply && dropped > 0 {
+        conn.execute(
+            "UPDATE harnmap_draws SET map = ?3 WHERE profile_id = ?1 AND no = ?2",
+            params![profile, row.no, serde_json::to_string(&doc)?],
+        )?;
+    }
+    Ok(dropped)
+}
+
 impl Library {
     /// An artifact that left the profile, named from the library if it is still there.
     fn removed_artifact(&self, id: &str) -> RemovedArtifact {

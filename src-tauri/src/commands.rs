@@ -285,6 +285,25 @@ pub fn library_remove_many(state: State<'_, LibraryState>, ids: Vec<String>) -> 
     state.with_mut(|library| library.remove_many(&ids))
 }
 
+/// What unpacking a whole plugin would do: its parts and the profiles that change, or why it
+/// stays whole. Changes nothing.
+#[tauri::command]
+pub fn library_unpack_plan(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<harneo_core::library::UnpackOutcome, String> {
+    state.with(|library| library.unpack_plan(&id))
+}
+
+/// Turns a whole plugin into its parts; profiles holding it get the parts as a new version.
+#[tauri::command]
+pub fn library_unpack_plugin(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<harneo_core::library::UnpackOutcome, String> {
+    state.with_mut(|library| library.unpack_in_library(&id))
+}
+
 /// The id of the library artifact of `kind` named `name`, if any (for opening a reference).
 #[tauri::command]
 pub fn library_find(
@@ -2472,6 +2491,19 @@ mod tests {
         assert!(plan.artifacts.is_empty());
         let err = library_remove_many(state(), vec!["nope".into()]).err();
         assert!(err.is_some_and(|m| m.contains("not in the library")));
+        Ok(())
+    }
+
+    #[test]
+    fn library_unpack_commands_report_unknown_ids() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(Library::open(dir.path())?)));
+        let state = || app.state::<LibraryState>();
+        let plan = library_unpack_plan(state(), "0000000000000000".into()).err();
+        assert!(plan.is_some_and(|m| m.contains("not in the library")));
+        let done = library_unpack_plugin(state(), "0000000000000000".into()).err();
+        assert!(done.is_some_and(|m| m.contains("not in the library")));
         Ok(())
     }
 

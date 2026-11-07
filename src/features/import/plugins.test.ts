@@ -83,6 +83,7 @@ describe("why a plugin stays whole", () => {
       "Its skills refer to files outside themselves: they only work inside the plugin.",
     );
     expect(wholeReasonText({ type: "remoteOnly" })).toMatch(/never fetched/);
+    expect(wholeReasonText({ type: "noParts" })).toMatch(/no skills/);
     expect(lostIfUnpacked(hooks)).toBe("hooks, mods");
     expect(lostIfUnpacked({ type: "remoteOnly" })).toBeNull();
     expect(lostIfUnpacked(null)).toBeNull();

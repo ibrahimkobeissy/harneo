@@ -22,6 +22,11 @@ fn part_of(artifact: &Artifact) -> Option<(String, String)> {
     Some((name.to_owned(), folder.to_owned()))
 }
 
+/// The folder of the plugin an unpacked part came from.
+pub(super) fn part_folder(artifact: &Artifact) -> Option<String> {
+    part_of(artifact).map(|(_, folder)| folder)
+}
+
 /// The plugin an artifact is, when it is a whole Plugin.
 fn whole_of(artifact: &Artifact) -> Option<(String, String)> {
     (artifact.kind == ArtifactKind::Plugin).then(|| (artifact.name.clone(), artifact.path.clone()))

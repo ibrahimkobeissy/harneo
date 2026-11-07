@@ -699,6 +699,12 @@ export function LibraryScreen({
             openPanel(null);
             reload();
           }}
+          onUnpacked={(first) => {
+            setTrail([]);
+            openPanel(first);
+            reload();
+            refreshCollections();
+          }}
         />
       )}
       {finding && (

@@ -54,6 +54,12 @@ pub enum Error {
         /// What conflicts and what to remove first.
         detail: String,
     },
+    /// The artifact asked to unpack is not a plugin held whole.
+    #[error("{name} is not a plugin in the library")]
+    NotAPlugin {
+        /// The artifact's name.
+        name: String,
+    },
     /// A part of an unpacked plugin refers to files outside itself, so it only works with the
     /// whole plugin.
     #[error("{name} only works with its whole plugin: it reaches files outside itself")]

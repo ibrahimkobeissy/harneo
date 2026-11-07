@@ -25,6 +25,7 @@ import type { Links } from "../bindings/Links";
 import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { RemovalPlan } from "../bindings/RemovalPlan";
+import type { UnpackOutcome } from "../bindings/UnpackOutcome";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
 import type { ReauditReport } from "../bindings/ReauditReport";
@@ -129,6 +130,17 @@ export function libraryRemovalPlan(filter: Filter): Promise<RemovalPlan> {
 /** Deletes these artifacts from the library, all or nothing. */
 export function libraryRemoveMany(ids: string[]): Promise<void> {
   return invoke<void>("library_remove_many", { ids });
+}
+
+/** What unpacking a whole plugin would do: its parts and the profiles that change, or why it
+ * stays whole. Changes nothing. */
+export function libraryUnpackPlan(id: string): Promise<UnpackOutcome> {
+  return invoke<UnpackOutcome>("library_unpack_plan", { id });
+}
+
+/** Turns a whole plugin into its parts; profiles holding it get the parts instead. */
+export function libraryUnpackPlugin(id: string): Promise<UnpackOutcome> {
+  return invoke<UnpackOutcome>("library_unpack_plugin", { id });
 }
 
 /** The id of the library artifact of this kind and name, or null when it is not imported. */

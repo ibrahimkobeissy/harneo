@@ -84,6 +84,15 @@ fn zone_key(zone: &Zone) -> String {
 }
 
 impl MapDoc {
+    /// Takes `artifact` off the map and out of the hidden list; returns how many placements went.
+    pub(crate) fn drop_artifact(&mut self, artifact: &str) -> usize {
+        let before = self.placements.len();
+        self.placements.retain(|p| p.artifact != artifact);
+        self.hidden.retain(|a| a != artifact);
+        self.renumber(None);
+        before - self.placements.len()
+    }
+
     /// Position of the placement of `artifact`.
     fn placed_at(&self, artifact: &str) -> Result<usize> {
         self.placements

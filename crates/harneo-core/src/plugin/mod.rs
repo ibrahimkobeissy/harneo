@@ -100,6 +100,9 @@ pub enum WholeReason {
     PluginRootTie { parts: Vec<PluginPart> },
     /// A marketplace entry pointing to another repo, which is never fetched.
     RemoteOnly,
+    /// It has no skills, agents, commands, output styles or MCP servers to unpack. Only the
+    /// library's unpack action reports it: an import leaves such a plugin whole with a warning.
+    NoParts,
 }
 
 impl WholeReason {
@@ -116,6 +119,10 @@ impl WholeReason {
                 "Its {} refer to files outside themselves: they only work inside the plugin.",
                 join(parts)
             ),
+            Self::NoParts => {
+                "It has no skills, agents, commands, output styles or MCP servers to unpack."
+                    .to_owned()
+            }
             Self::RemoteOnly => {
                 "Its files live in another repo that is never fetched, so it can only be taken whole."
                     .to_owned()

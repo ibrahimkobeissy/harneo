@@ -40,4 +40,5 @@ pub(crate) use portable::{ArtifactKey, FileFit, FileHarnmap, PreparedMap};
 pub use templates::{
     templates, Category, CategoryId, Shape, Template, TemplateLoop, TemplatePhase, TemplateStage,
 };
+pub(crate) use view::drop_from_current_draw;
 pub use view::{ArtifactInfo, CategoryChange, DrawSummary, MapView, RemovedArtifact, Staleness};
