@@ -225,7 +225,7 @@ pub(crate) fn draw_model(value: Option<&Value>) -> String {
     }
 }
 
-fn cut(text: &str, chars: usize) -> String {
+pub(super) fn cut(text: &str, chars: usize) -> String {
     text.chars().take(chars).collect()
 }
 

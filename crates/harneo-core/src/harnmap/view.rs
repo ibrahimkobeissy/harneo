@@ -285,7 +285,7 @@ impl Library {
     }
 
     /// The profile's resolved artifacts now, with what a map drawn from them would record.
-    fn current_basis(&self, profile: ProfileId) -> Result<(Vec<ResolvedItem>, Basis)> {
+    pub(super) fn current_basis(&self, profile: ProfileId) -> Result<(Vec<ResolvedItem>, Basis)> {
         let view = self.profile(profile, None)?;
         let items = self.resolve(&view.spec)?.artifacts;
         let mut artifacts = Vec::new();

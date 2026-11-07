@@ -132,7 +132,7 @@ impl Fixture {
         Ok(())
     }
 
-    fn calls(&self) -> usize {
+    pub(super) fn calls(&self) -> usize {
         fs::read_dir(self.bin.path())
             .map(|d| {
                 d.filter_map(std::result::Result::ok)
@@ -142,7 +142,7 @@ impl Fixture {
             .unwrap_or(0)
     }
 
-    fn stdin(&self, n: usize) -> std::io::Result<String> {
+    pub(super) fn stdin(&self, n: usize) -> std::io::Result<String> {
         fs::read_to_string(self.bin.path().join(format!("in-{n}.txt")))
     }
 

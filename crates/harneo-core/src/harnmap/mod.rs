@@ -9,6 +9,9 @@ mod edit_tests;
 mod facts;
 #[cfg(test)]
 mod facts_tests;
+mod fit;
+#[cfg(test)]
+mod fit_tests;
 mod map;
 #[cfg(test)]
 mod map_tests;
@@ -24,6 +27,10 @@ pub use draw::{
 };
 pub use edit::MapEdit;
 pub use facts::{Fact, FactKind, Facts, Hook};
+pub use fit::{
+    ArtifactFit, Candidate, CandidateInfo, FitChanges, FitJob, FitQuote, FitResult, FitSummary,
+    FitVerdict, FitView, MissingMcpServer, Verdict, CANDIDATE_CHARS, TOTAL_CHARS,
+};
 pub use map::{
     Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageId, StageOrigin, TemplateChange, Zone,
     MAX_NOTE, MAX_TOOLTIP, MAX_WHY,

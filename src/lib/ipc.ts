@@ -51,6 +51,10 @@ import type { DrawOutcome } from "../bindings/DrawOutcome";
 import type { DrawSummary } from "../bindings/DrawSummary";
 import type { MapDoc } from "../bindings/MapDoc";
 import type { MapEdit } from "../bindings/MapEdit";
+import type { FitCandidate } from "../bindings/FitCandidate";
+import type { FitView } from "../bindings/FitView";
+import type { FitSummary } from "../bindings/FitSummary";
+import type { ArtifactFit } from "../bindings/ArtifactFit";
 import type { MapView } from "../bindings/MapView";
 import type { ProfileView } from "../bindings/ProfileView";
 import type { ProfileUse } from "../bindings/ProfileUse";
@@ -685,6 +689,59 @@ export function harnmapRestore(profileId: bigint, no: number): Promise<number> {
   return invoke<number>("harnmap_restore", {
     profileId: Number(profileId),
     no,
+  });
+}
+
+/**
+ * Asks Claude (through the user's `claude` CLI) whether one candidate fits the profile's map and
+ * saves the verdict. Rejects with a `DrawFailure`.
+ */
+export function harnfitRun(
+  profileId: bigint,
+  candidate: FitCandidate,
+): Promise<FitView> {
+  return invoke<FitView>("harnfit_run", {
+    profileId: Number(profileId),
+    candidate,
+  });
+}
+
+/** Stops the fit running for a profile; nothing is saved. */
+export function harnfitCancel(profileId: bigint): Promise<void> {
+  return invoke<void>("harnfit_cancel", { profileId: Number(profileId) });
+}
+
+/** The profile's saved fits, newest first. */
+export function harnfitList(profileId: bigint): Promise<FitSummary[]> {
+  return invoke<FitSummary[]>("harnfit_list", {
+    profileId: Number(profileId),
+  });
+}
+
+/** The saved fit of one candidate (by its candidate key), or null. */
+export function harnfitGet(
+  profileId: bigint,
+  candidateKey: string,
+): Promise<FitView | null> {
+  return invoke<FitView | null>("harnfit_get", {
+    profileId: Number(profileId),
+    candidateKey,
+  });
+}
+
+/** The saved fits of one library artifact, one per profile, for its card. */
+export function harnfitForArtifact(artifactId: string): Promise<ArtifactFit[]> {
+  return invoke<ArtifactFit[]>("harnfit_for_artifact", { artifactId });
+}
+
+/** Adds the fitted artifact to the profile and places it pinned on the map. */
+export function harnfitAdd(
+  profileId: bigint,
+  candidateKey: string,
+): Promise<FitView> {
+  return invoke<FitView>("harnfit_add", {
+    profileId: Number(profileId),
+    candidateKey,
   });
 }
 

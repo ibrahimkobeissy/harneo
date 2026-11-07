@@ -1,8 +1,8 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
 use harneo_core::harnmap::{
-    CategoryId, DrawFailure, DrawOutcome, DrawRegistry, DrawSummary, MapDoc, MapEdit, MapView,
-    Template,
+    ArtifactFit, Candidate, CategoryId, DrawFailure, DrawOutcome, DrawRegistry, DrawSummary,
+    FitSummary, FitView, MapDoc, MapEdit, MapView, Template,
 };
 use std::collections::HashMap;
 use std::path::Path;
@@ -1397,6 +1397,118 @@ pub fn harnmap_restore(
     state.with(|library| library.harnmap_restore(profile_id, no))
 }
 
+/// The candidate of a Harnfit run, as the window names it: a library artifact, or a candidate
+/// of the import preview held under `token`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, TS)]
+#[serde(tag = "type", rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub enum FitCandidate {
+    Library {
+        id: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    Preview {
+        token: String,
+        candidate_id: String,
+    },
+}
+
+/// The fits running now, so `harnfit_cancel` can reach them.
+static FITS: DrawRegistry = DrawRegistry::new();
+
+/// Prepares, runs and saves one fit; the library is not held while Claude works.
+fn run_fit<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    profile_id: ProfileId,
+    candidate: &FitCandidate,
+) -> Result<FitView, DrawFailure> {
+    let other = |message: String| DrawFailure::Other { message };
+    let state = app.state::<LibraryState>();
+    let cancel = FITS.start(profile_id);
+    let result = (|| {
+        let candidate = match candidate {
+            FitCandidate::Library { id } => Candidate::Library(id.clone()),
+            FitCandidate::Preview {
+                token,
+                candidate_id,
+            } => Candidate::Preview {
+                preview: Box::new(app.state::<PreviewCache>().get(token).map_err(other)?),
+                candidate: candidate_id.clone(),
+            },
+        };
+        let job = state
+            .with(|library| Ok(library.prepare_fit(profile_id, &candidate, cancel)))
+            .map_err(other)?
+            .map_err(|e| DrawFailure::from(&e))?;
+        let fitted = job.run().map_err(|e| DrawFailure::from(&e))?;
+        state
+            .with(|library| Ok(library.save_fit(&job, fitted)))
+            .map_err(other)?
+            .map_err(|e| DrawFailure::from(&e))
+    })();
+    FITS.finish(profile_id);
+    result
+}
+
+/// Asks Claude whether one candidate fits the profile's map and saves the verdict. Pressing the
+/// button is the user's consent.
+#[tauri::command]
+pub async fn harnfit_run(
+    app: AppHandle,
+    profile_id: ProfileId,
+    candidate: FitCandidate,
+) -> Result<FitView, DrawFailure> {
+    tauri::async_runtime::spawn_blocking(move || run_fit(&app, profile_id, &candidate))
+        .await
+        .map_err(|e| DrawFailure::Other {
+            message: e.to_string(),
+        })?
+}
+
+/// Stops the fit running for a profile: the `claude` process is killed and nothing is saved.
+#[tauri::command]
+pub fn harnfit_cancel(profile_id: ProfileId) {
+    FITS.cancel(profile_id);
+}
+
+/// The profile's saved fits, newest first.
+#[tauri::command]
+pub fn harnfit_list(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+) -> Result<Vec<FitSummary>, String> {
+    state.with(|library| library.fits(profile_id))
+}
+
+/// The saved fit of one candidate (`candidate_key` as in `FitSummary.candidate.key`), if any.
+#[tauri::command]
+pub fn harnfit_get(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+    candidate_key: String,
+) -> Result<Option<FitView>, String> {
+    state.with(|library| library.harnfit_get(profile_id, &candidate_key))
+}
+
+/// The saved fits of one library artifact, one per profile, for the library card.
+#[tauri::command]
+pub fn harnfit_for_artifact(
+    state: State<'_, LibraryState>,
+    artifact_id: String,
+) -> Result<Vec<ArtifactFit>, String> {
+    state.with(|library| library.fits_for(&artifact_id))
+}
+
+/// Adds the fitted library artifact to the profile and places it pinned on the map.
+#[tauri::command]
+pub fn harnfit_add(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+    candidate_key: String,
+) -> Result<FitView, String> {
+    state.with(|library| library.fit_add(profile_id, &candidate_key))
+}
+
 /// Saves the spec as the next version; resolves with the version now current.
 #[tauri::command]
 pub fn profile_save(
@@ -2214,6 +2326,110 @@ mod tests {
         );
         assert_eq!(harnmap_restore(app.state::<LibraryState>(), id, 1)?, 2);
         harnmap_cancel(id);
+        Ok(())
+    }
+
+    #[test]
+    fn a_fit_runs_for_a_library_or_preview_candidate_lists_and_adds(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use std::os::unix::fs::PermissionsExt;
+        let data = tempfile::tempdir()?;
+        let bin = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        for (name, body) in [("tdd", "Body"), ("lite", "Test first,\nalways.")] {
+            std::fs::create_dir_all(source.path().join(format!("skills/{name}")))?;
+            std::fs::write(
+                source.path().join(format!("skills/{name}/SKILL.md")),
+                format!("---\nname: {name}\ndescription: D\n---\n{body}\n"),
+            )?;
+        }
+        let mut library = Library::open(data.path())?;
+        let preview = library.preview(&Source::Local {
+            path: source.path().to_path_buf(),
+        })?;
+        let all: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+        let pick = |name: &str| -> Result<String, Box<dyn std::error::Error>> {
+            Ok(preview
+                .candidates
+                .iter()
+                .find(|c| c.artifact.name == name)
+                .ok_or("candidate")?
+                .id
+                .clone())
+        };
+        let (tdd, lite) = (pick("tdd")?, pick("lite")?);
+        library.import(&preview, &all, &HashMap::new())?;
+        let spec = ProfileSpec {
+            items: vec![tdd],
+            ..ProfileSpec::default()
+        };
+        let id = library.create_profile("P", "", &spec, CategoryId::Software, None)?;
+        let program = bin.path().join("claude");
+        let write_claude = |body: &str| -> std::io::Result<()> {
+            std::fs::write(&program, format!("#!/bin/sh\ncat > /dev/null\n{body}\n"))?;
+            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))
+        };
+        library.use_claude(ClaudeConfig {
+            program: program.clone().into(),
+            ..ClaudeConfig::default()
+        });
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(library)));
+        app.manage(PreviewCache::default());
+        let handle = app.handle().clone();
+        let library_candidate = FitCandidate::Library { id: lite.clone() };
+
+        // No map yet.
+        write_claude("exit 1")?;
+        assert!(matches!(
+            run_fit(&handle, id, &library_candidate),
+            Err(DrawFailure::Other { .. })
+        ));
+        write_claude(
+            "printf '%s' '{\"is_error\":false,\"structured_output\":{\"stages\":[{\"name\":\"Build\"}],\"loops\":[],\"placements\":[]}}'",
+        )?;
+        run_draw(&handle, id, "Go").map_err(|e| format!("{e:?}"))?;
+
+        write_claude("echo 'Not logged in - /login' >&2\nexit 1")?;
+        assert!(matches!(
+            run_fit(&handle, id, &library_candidate),
+            Err(DrawFailure::ClaudeFailed { .. })
+        ));
+        write_claude(
+            "printf '%s' '{\"is_error\":false,\"structured_output\":{\"verdict\":\"fits\",\"zone\":\"stage:Build\",\"why\":\"Good.\",\"conflicts_with\":[],\"quotes\":[{\"artifact\":\"candidate\",\"text\":\"Test first, always.\"}]}}'",
+        )?;
+        let view = run_fit(&handle, id, &library_candidate).map_err(|e| format!("{e:?}"))?;
+        assert_eq!(view.verdict.quotes.len(), 1);
+        harnfit_cancel(id);
+
+        // A preview candidate resolves through the held preview; an unknown token fails.
+        let token = app.state::<PreviewCache>().put(preview.clone())?;
+        let by_preview = FitCandidate::Preview {
+            token: token.clone(),
+            candidate_id: lite.clone(),
+        };
+        let previewed = run_fit(&handle, id, &by_preview).map_err(|e| format!("{e:?}"))?;
+        assert!(previewed.verdict.candidate.key.starts_with("src:"));
+        let gone = FitCandidate::Preview {
+            token: "nope".to_owned(),
+            candidate_id: lite.clone(),
+        };
+        assert!(matches!(
+            run_fit(&handle, id, &gone),
+            Err(DrawFailure::Other { .. })
+        ));
+
+        let state = || app.state::<LibraryState>();
+        let listed = harnfit_list(state(), id)?;
+        assert_eq!(listed.len(), 2);
+        let key = format!("lib:{lite}");
+        assert!(harnfit_get(state(), id, key.clone())?.is_some());
+        assert!(harnfit_get(state(), id, "lib:none".to_owned())?.is_none());
+        assert_eq!(harnfit_for_artifact(state(), lite.clone())?.len(), 1);
+        let added = harnfit_add(state(), id, key)?;
+        assert!(added.stale);
+        assert!(profile_get(state(), id, None)?.spec.items.contains(&lite));
+        assert!(harnfit_add(state(), id, "src:x@local:skill/y".to_owned()).is_err());
         Ok(())
     }
 

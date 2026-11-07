@@ -383,6 +383,60 @@ fn item_facts(conn: &Connection, profile: &Profile, item: &ResolvedItem) -> Resu
     Ok(out)
 }
 
+/// The MCP servers an artifact of `kind` with `metadata` names that `items` (a profile's
+/// resolved artifacts) don't include, as written in the artifact. Only subagents, skills and
+/// commands name servers.
+pub(crate) fn missing_servers(
+    items: &[ResolvedItem],
+    kind: ArtifactKind,
+    metadata: &Map<String, Value>,
+) -> Vec<String> {
+    let profile = Profile {
+        items,
+        mcp: items
+            .iter()
+            .filter(|i| i.kind == ArtifactKind::Mcp)
+            .map(|i| normalise(&i.name))
+            .collect(),
+    };
+    let named: Vec<String> = match kind {
+        ArtifactKind::Agent => metadata
+            .get("mcpServers")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(Value::as_str)
+            .map(str::to_owned)
+            .collect(),
+        ArtifactKind::Skill | ArtifactKind::Command => list_field(metadata, "allowed-tools")
+            .iter()
+            .filter_map(|t| server_of(t))
+            .map(str::to_owned)
+            .collect(),
+        _ => Vec::new(),
+    };
+    let mut out: Vec<String> = Vec::new();
+    for server in named {
+        if !profile.has_server(&server) && !out.contains(&server) {
+            out.push(server);
+        }
+    }
+    out
+}
+
+/// Whether an MCP server called `server` (spelled as in tool names) is in the library.
+pub(crate) fn server_in_library(conn: &Connection, server: &str) -> Result<bool> {
+    let wanted = normalise(server);
+    let mut stmt = conn.prepare("SELECT name FROM artifacts WHERE kind = 'mcp'")?;
+    let names = stmt.query_map([], |r| r.get::<_, String>(0))?;
+    for name in names {
+        if normalise(&name?) == wanted {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// The facts of each of `items` (the profile's resolved artifacts), from the files only.
 pub(crate) fn facts(conn: &Connection, items: &[ResolvedItem]) -> Result<Facts> {
     let profile = Profile {

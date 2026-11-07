@@ -222,6 +222,21 @@ pub enum Error {
     /// The profile has no drawn map yet, so there is nothing to edit.
     #[error("the profile has no map yet: draw it first")]
     NoMap,
+    /// A plugin taken whole cannot be fitted yet.
+    #[error("Harnfit does not take a plugin whole yet; fit its skills, commands or agents one at a time")]
+    HarnfitPluginUnsupported,
+    /// A fit that needs the artifact in the library was asked for a candidate that is not there.
+    #[error("import it into the library first")]
+    ImportFirst,
+    /// The candidate is already in the profile, so there is nothing to fit.
+    #[error("{name} is already in the profile")]
+    HarnfitAlreadyInProfile {
+        /// The candidate's name.
+        name: String,
+    },
+    /// No saved fit for this candidate.
+    #[error("there is no saved fit for this candidate")]
+    FitNotFound,
     /// The profile has no draw with this number.
     #[error("draw {no} does not exist")]
     DrawNotFound {

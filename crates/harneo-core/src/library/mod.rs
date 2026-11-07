@@ -307,6 +307,19 @@ impl Library {
         }
     }
 
+    /// The commit a git preview was read at, or an empty text for a local folder or when the
+    /// clone is no longer held.
+    pub(crate) fn preview_commit(&self, preview: &Preview) -> String {
+        let Ok(identity) = preview.source.identity() else {
+            return String::new();
+        };
+        let slot = self.pending.lock().unwrap_or_else(PoisonError::into_inner);
+        match slot.as_ref() {
+            Some(pending) if pending.identity == identity => pending.checkout.commit.clone(),
+            _ => String::new(),
+        }
+    }
+
     /// The clone behind a git preview, taken out of the slot so it is deleted when the caller
     /// is done with it, however that goes.
     fn take_pending(&self, identity: &str) -> Result<PendingClone> {
