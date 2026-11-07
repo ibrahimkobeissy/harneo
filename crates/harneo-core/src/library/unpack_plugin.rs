@@ -283,6 +283,7 @@ impl Library {
             let fresh: Vec<&str> = built.parts.iter().map(|(i, _)| i.as_str()).collect();
             crate::bundles::add_reference_links(&tx, &fresh, now)?;
             records::update_unpack(&tx, &built.source_id, &folders, &[])?;
+            carry_over(&tx, id, &fresh)?;
             let parts = part_kinds(&built.parts);
             let profiles = crate::profiles::replace_with_parts(&tx, id, &parts, true)?;
             let mut dropped = 0;
@@ -333,6 +334,39 @@ impl Library {
             }
         }
     }
+}
+
+/// Gives the parts the plugin's tags and puts them in its manual collections at its place, in
+/// part order. The plugin's own rows cascade away when it is deleted.
+fn carry_over(conn: &rusqlite::Connection, plugin_id: &str, part_ids: &[&str]) -> Result<()> {
+    let count = i64::try_from(part_ids.len()).unwrap_or(i64::MAX);
+    for part_id in part_ids {
+        conn.execute(
+            "INSERT OR IGNORE INTO artifact_tags (artifact_id, tag_id)
+             SELECT ?1, tag_id FROM artifact_tags WHERE artifact_id = ?2",
+            rusqlite::params![part_id, plugin_id],
+        )?;
+    }
+    let held: Vec<(i64, i64)> = conn
+        .prepare("SELECT collection_id, position FROM collection_items WHERE artifact_id = ?1")?
+        .query_map(rusqlite::params![plugin_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<std::result::Result<_, _>>()?;
+    for (collection, position) in held {
+        // Room for the parts after the plugin's slot, which the first part takes over.
+        conn.execute(
+            "UPDATE collection_items SET position = position + ?3
+             WHERE collection_id = ?1 AND position > ?2",
+            rusqlite::params![collection, position, count - 1],
+        )?;
+        for (offset, part_id) in (0..).zip(part_ids) {
+            conn.execute(
+                "INSERT OR IGNORE INTO collection_items (collection_id, artifact_id, position)
+                 VALUES (?1, ?2, ?3)",
+                rusqlite::params![collection, part_id, position + offset],
+            )?;
+        }
+    }
+    Ok(())
 }
 
 /// Deletes the plugin's own stored copy once its row is gone; a leftover folder with no row is

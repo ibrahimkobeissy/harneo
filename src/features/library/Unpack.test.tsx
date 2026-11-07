@@ -126,6 +126,9 @@ describe("unpacking a whole plugin", () => {
     expect(
       within(confirm).getByText(/Heavy v4 → v5, Light v2 → v3/),
     ).toBeInTheDocument();
+    expect(
+      within(confirm).getByText("Keeps its tags and collections."),
+    ).toBeInTheDocument();
     expect(within(confirm).getByText(/lose the/)).toHaveTextContent(
       "Its skills lose the plugin: prefix; a project keeps its version until you switch it.",
     );

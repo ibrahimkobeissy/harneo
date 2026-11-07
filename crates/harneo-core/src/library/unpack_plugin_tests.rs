@@ -6,6 +6,7 @@ use std::path::Path;
 use super::*;
 use crate::artifact::ArtifactKind;
 use crate::harnmap::{Basis, BasisArtifact, CategoryId, MapDoc, PlacedBy, Placement, Zone};
+use crate::library::tags::TagColor;
 use crate::plugin::WholeReason;
 use crate::profiles::ProfileSpec;
 use crate::updates::{CheckScope, SourceResult};
@@ -338,6 +339,36 @@ fn a_failure_leaves_the_library_as_it_was() -> TestResult {
     let dirs = fs::read_dir(s.library.store.artifacts_dir())?.count();
     assert_eq!(dirs, 1);
     assert_eq!(s.library.profile(profile, None)?.version, 1);
+    Ok(())
+}
+
+#[test]
+fn parts_keep_the_plugins_tags_and_collections() -> TestResult {
+    let mut s = setup(&[])?;
+    let tag = s.library.create_tag("mine", TagColor::Red)?;
+    s.library.tag_artifact(&s.plugin, tag.id)?;
+    let held = s.library.create_manual_collection("held")?;
+    s.library.add_to_collection(held.id, &s.plugin)?;
+    let done = s.library.unpack_in_library(&s.plugin)?;
+    assert!(done.parts.len() > 1);
+    for part in &done.parts {
+        let tags = s.library.artifact_tags(&part.id)?;
+        assert_eq!(tags.len(), 1);
+        assert_eq!((tags[0].id, tags[0].color), (tag.id, TagColor::Red));
+        assert_eq!(s.library.artifact_collections(&part.id)?, vec![held.id]);
+    }
+    assert!(s.library.artifact_collections(&s.plugin)?.is_empty());
+    let order: Vec<String> = s
+        .library
+        .store
+        .conn
+        .prepare(
+            "SELECT artifact_id FROM collection_items WHERE collection_id = ?1 ORDER BY position",
+        )?
+        .query_map([held.id], |r| r.get(0))?
+        .collect::<std::result::Result<_, _>>()?;
+    let wanted: Vec<String> = done.parts.iter().map(|p| p.id.clone()).collect();
+    assert_eq!(order, wanted);
     Ok(())
 }
 

@@ -131,6 +131,7 @@ export function UnpackButton({
                 until you draw it again.
               </p>
             )}
+            <p>Keeps its tags and collections.</p>
             <p>
               Its skills lose the <code>plugin:</code> prefix; a project keeps
               its version until you switch it.
