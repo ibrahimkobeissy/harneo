@@ -1,5 +1,7 @@
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
+import type { PluginPart } from "../../bindings/PluginPart";
+import type { WholeReason } from "../../bindings/WholeReason";
 
 /** The error the scan puts on a part that only works inside its plugin. */
 const NEEDS_PLUGIN = "plugin.part-needs-plugin";
@@ -96,4 +98,42 @@ export function partsRefusal(
   return hold?.whole
     ? `The plugin is in the library whole; remove the plugin ${group.name} first to import its parts.`
     : null;
+}
+
+/** A kind of plugin component as a sentence names it. Mirrors the core. */
+const PART_LABELS: Record<PluginPart, string> = {
+  skills: "skills",
+  agents: "agents",
+  commands: "commands",
+  outputStyles: "output styles",
+  mcpServers: "MCP servers",
+  hooks: "hooks",
+  monitors: "monitors",
+  lspServers: "LSP servers",
+  mods: "mods",
+  bin: "bin tools",
+  themes: "themes",
+  workflows: "workflows",
+  settings: "settings",
+};
+
+function joinParts(parts: PluginPart[]): string {
+  return parts.map((p) => PART_LABELS[p]).join(", ");
+}
+
+/** Why a plugin is proposed whole, as the core words it (`WholeReason::text`). */
+export function wholeReasonText(reason: WholeReason): string {
+  switch (reason.type) {
+    case "wholeOnlyParts":
+      return `Has ${joinParts(reason.parts)}: they only work inside the plugin.`;
+    case "pluginRootTie":
+      return `Its ${joinParts(reason.parts)} refer to files outside themselves: they only work inside the plugin.`;
+    case "remoteOnly":
+      return "Its files live in another repo that is never fetched, so it can only be taken whole.";
+  }
+}
+
+/** What unpacking would lose ("hooks, mods"), or null when nothing comes only with the plugin. */
+export function lostIfUnpacked(reason: WholeReason | null): string | null {
+  return reason?.type === "wholeOnlyParts" ? joinParts(reason.parts) : null;
 }

@@ -189,6 +189,19 @@ pub struct ScanOptions {
     /// artifacts instead of one Plugin. Empty by default.
     #[serde(default)]
     pub unpack: Vec<String>,
+    /// Plugin folders the user chose to take whole: the default (ADR-004) leaves them alone.
+    /// Only the library's preview reads it, together with `unpack_by_default`.
+    #[serde(default)]
+    pub whole: Vec<String>,
+    /// A preview unpacks every plugin that is in neither `unpack` nor `whole` and need not stay
+    /// whole (ADR-004). Off for an update, which replays the stored choice and so leaves a plugin
+    /// imported whole as it was.
+    #[serde(default = "yes")]
+    pub unpack_by_default: bool,
+}
+
+fn yes() -> bool {
+    true
 }
 
 impl Default for ScanOptions {
@@ -206,6 +219,8 @@ impl Default for ScanOptions {
             include_managed: false,
             repo: None,
             unpack: Vec::new(),
+            whole: Vec::new(),
+            unpack_by_default: true,
         }
     }
 }

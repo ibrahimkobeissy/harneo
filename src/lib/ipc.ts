@@ -249,11 +249,13 @@ export function libraryPreview(
   source: Source,
   includeManaged = false,
   unpack: string[] = [],
+  whole: string[] = [],
 ): Promise<PreviewTicket> {
   return invoke<PreviewTicket>("library_preview", {
     source,
     includeManaged,
     ...(unpack.length > 0 && { unpack }),
+    ...(whole.length > 0 && { whole }),
   });
 }
 

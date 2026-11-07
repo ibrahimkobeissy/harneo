@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import {
   fromPlugin,
+  lostIfUnpacked,
   needsPlugin,
   partsRefusal,
   pluginGroups,
   remoteOnly,
+  wholeReasonText,
   wholeRefusal,
 } from "./plugins";
 
@@ -64,5 +66,21 @@ describe("plugin helpers", () => {
     expect(group && partsRefusal(group, undefined)).toBe(
       "nothing to pick, so it can only be taken whole",
     );
+  });
+});
+
+describe("why a plugin stays whole", () => {
+  it("words each reason like the core and lists what unpacking loses", () => {
+    const hooks = { type: "wholeOnlyParts", parts: ["hooks", "mods"] } as const;
+    expect(wholeReasonText(hooks)).toBe(
+      "Has hooks, mods: they only work inside the plugin.",
+    );
+    expect(wholeReasonText({ type: "pluginRootTie", parts: ["skills"] })).toBe(
+      "Its skills refer to files outside themselves: they only work inside the plugin.",
+    );
+    expect(wholeReasonText({ type: "remoteOnly" })).toMatch(/never fetched/);
+    expect(lostIfUnpacked(hooks)).toBe("hooks, mods");
+    expect(lostIfUnpacked({ type: "remoteOnly" })).toBeNull();
+    expect(lostIfUnpacked(null)).toBeNull();
   });
 });

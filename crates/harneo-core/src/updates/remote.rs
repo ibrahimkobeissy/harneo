@@ -218,6 +218,9 @@ pub(crate) fn scan(
             .then(|| crate::artifact::github_repo(&source.location))
             .flatten(),
         unpack: layout.unpack.clone(),
+        // The stored choice is replayed as it is: a source imported before ADR-004 keeps its
+        // whole plugins until the user unpacks them.
+        unpack_by_default: false,
         ..ScanOptions::default()
     };
     let mut report = ClaudeAdapter.scan(root, &options).map_err(unreachable)?;

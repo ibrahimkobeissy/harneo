@@ -64,7 +64,9 @@ use std::sync::{Mutex, PoisonError};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, Diagnostic, ScanOptions, ScanReport};
+use crate::artifact::{
+    AgentAdapter, Artifact, ArtifactKind, ClaudeAdapter, Diagnostic, ScanOptions, ScanReport,
+};
 use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 pub use audits::ArtifactAudit;
@@ -353,6 +355,16 @@ impl Library {
             ..options.clone()
         };
         let mut report = ClaudeAdapter.scan(root, options)?;
+        let by_default = self.unpacked_by_default(identity, root, options, &report)?;
+        if !by_default.is_empty() {
+            let mut unpack = options.unpack.clone();
+            unpack.extend(by_default);
+            let again = ScanOptions {
+                unpack,
+                ..options.clone()
+            };
+            report = ClaudeAdapter.scan(root, &again)?;
+        }
         // A source imported before replays what Claude placed in it, without asking again.
         let lost = self.replay_stored_layout(identity, root, &mut report)?;
         let (kind, location) = match source {
@@ -383,6 +395,43 @@ gone or no longer parses",
             unplaced_overflow: report.unplaced_overflow,
             layout_ignored: Vec::new(),
         })
+    }
+
+    /// The plugin folders a preview unpacks on its own (ADR-004): every plugin the user made no
+    /// choice about (in neither `options.unpack` nor `options.whole`), that is not in the library
+    /// yet and does not have to stay whole.
+    fn unpacked_by_default(
+        &self,
+        identity: &str,
+        root: &Path,
+        options: &ScanOptions,
+        report: &ScanReport,
+    ) -> Result<Vec<String>> {
+        if !options.unpack_by_default {
+            return Ok(Vec::new());
+        }
+        let mut walker = crate::artifact::walk::Walker::new(root, options);
+        let mut folders = Vec::new();
+        for plugin in report
+            .artifacts
+            .iter()
+            .filter(|a| a.kind == ArtifactKind::Plugin)
+        {
+            let chosen = options
+                .unpack
+                .iter()
+                .chain(&options.whole)
+                .any(|f| same_folder(f, &plugin.path));
+            if chosen || crate::plugin::must_stay_whole(&mut walker, plugin).is_some() {
+                continue;
+            }
+            // Already imported from this source: its choice was made then, and stays.
+            let id = ids::artifact_id(identity, &plugin.path);
+            if records::existing(&self.store.conn, &[id.as_str()])?.is_empty() {
+                folders.push(plugin.path.clone());
+            }
+        }
+        Ok(folders)
     }
 
     /// Replays what Claude placed in the source named `identity` when it was imported, over a
@@ -1060,4 +1109,18 @@ mod tests {
             store::SCHEMA_VERSION
         );
     }
+}
+
+/// Whether two spellings of a plugin folder name the same one (`./a/`, `a`, `.` for the root).
+fn same_folder(a: &str, b: &str) -> bool {
+    let normal = |p: &str| {
+        let p = p.trim().trim_end_matches('/');
+        let p = p.strip_prefix("./").unwrap_or(p);
+        if p == "." {
+            String::new()
+        } else {
+            p.to_owned()
+        }
+    };
+    normal(a) == normal(b)
 }

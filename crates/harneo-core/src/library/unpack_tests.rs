@@ -385,3 +385,152 @@ fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
     assert!(parts.candidates.iter().all(|c| c.must_stay_whole.is_none()));
     Ok(())
 }
+
+/// A skills-only plugin pack, like addyosmani/agent-skills: nothing in it needs the plugin.
+pub(crate) fn skills_pack(root: &Path) -> std::io::Result<()> {
+    write(
+        root,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"pack","description":"Skills"}"#,
+    )?;
+    for name in ["one", "two"] {
+        write(root, &format!("skills/{name}/SKILL.md"), &skill(name))?;
+    }
+    Ok(())
+}
+
+fn plugins_of(preview: &Preview) -> usize {
+    preview
+        .candidates
+        .iter()
+        .filter(|c| c.artifact.kind == ArtifactKind::Plugin)
+        .count()
+}
+
+fn local(dir: &tempfile::TempDir) -> Source {
+    Source::Local {
+        path: dir.path().to_path_buf(),
+    }
+}
+
+fn names(preview: &Preview, kind: ArtifactKind) -> Vec<String> {
+    preview
+        .candidates
+        .iter()
+        .filter(|c| c.artifact.kind == kind)
+        .map(|c| c.artifact.name.clone())
+        .collect()
+}
+
+#[test]
+fn a_skills_pack_with_no_choice_previews_as_its_parts_and_stores_the_choice() -> TestResult {
+    let repo = tempfile::tempdir()?;
+    skills_pack(repo.path())?;
+    let data = tempfile::tempdir()?;
+    let mut library = Library::open(data.path())?;
+    let preview = library.preview(&local(&repo))?;
+    assert_eq!(plugins_of(&preview), 0);
+    assert_eq!(names(&preview, ArtifactKind::Skill), ["one", "two"]);
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&preview, &ids, &TagChoices::new())?;
+    let stored = records::stored_unpack(
+        &library.store.conn,
+        &ids::source_id(&preview.source.identity()?),
+    )?;
+    assert_eq!(stored, [""]);
+    Ok(())
+}
+
+#[test]
+fn an_explicit_whole_choice_beats_the_default() -> TestResult {
+    let repo = tempfile::tempdir()?;
+    skills_pack(repo.path())?;
+    let data = tempfile::tempdir()?;
+    let library = Library::open(data.path())?;
+    let whole = ScanOptions {
+        whole: vec!["./".into()],
+        ..ScanOptions::default()
+    };
+    let preview = library.preview_with(&local(&repo), &whole)?;
+    assert_eq!(plugins_of(&preview), 1);
+    assert!(names(&preview, ArtifactKind::Skill).is_empty());
+    let off = ScanOptions {
+        unpack_by_default: false,
+        ..ScanOptions::default()
+    };
+    assert_eq!(
+        plugins_of(&library.preview_with(&local(&repo), &off)?),
+        1,
+        "the default can be switched off"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_plugin_with_hooks_is_proposed_whole_with_its_reason() -> TestResult {
+    let repo = tempfile::tempdir()?;
+    skills_pack(repo.path())?;
+    write(
+        repo.path(),
+        "hooks/hooks.json",
+        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo hi"}]}]}}"#,
+    )?;
+    let data = tempfile::tempdir()?;
+    let library = Library::open(data.path())?;
+    let preview = library.preview(&local(&repo))?;
+    let plugin = preview
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == ArtifactKind::Plugin)
+        .ok_or("the plugin stays whole")?;
+    let reason = plugin.must_stay_whole.as_ref().ok_or("a reason")?;
+    assert_eq!(
+        reason.text(),
+        "Has hooks: they only work inside the plugin."
+    );
+    // The user may still unpack a mixed plugin: its pickable parts come out.
+    let parts = library.preview_with(&local(&repo), &unpacking(&[""]))?;
+    assert_eq!(plugins_of(&parts), 0);
+    assert_eq!(names(&parts, ArtifactKind::Skill), ["one", "two"]);
+    Ok(())
+}
+
+#[test]
+fn a_plugin_already_imported_whole_from_the_source_stays_whole() -> TestResult {
+    let repo = tempfile::tempdir()?;
+    skills_pack(repo.path())?;
+    let data = tempfile::tempdir()?;
+    let mut library = Library::open(data.path())?;
+    let off = ScanOptions {
+        unpack_by_default: false,
+        ..ScanOptions::default()
+    };
+    let before = library.preview_with(&local(&repo), &off)?;
+    let ids: Vec<String> = before.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&before, &ids, &TagChoices::new())?;
+    let again = library.preview(&local(&repo))?;
+    assert_eq!(plugins_of(&again), 1);
+    Ok(())
+}
+
+#[test]
+fn a_new_default_import_of_a_plugin_held_whole_elsewhere_is_refused_not_converted() -> TestResult {
+    let first = tempfile::tempdir()?;
+    skills_pack(first.path())?;
+    let second = tempfile::tempdir()?;
+    skills_pack(second.path())?;
+    let data = tempfile::tempdir()?;
+    let mut library = Library::open(data.path())?;
+    let off = ScanOptions {
+        unpack_by_default: false,
+        ..ScanOptions::default()
+    };
+    let held = library.preview_with(&local(&first), &off)?;
+    let ids: Vec<String> = held.candidates.iter().map(|c| c.id.clone()).collect();
+    library.import(&held, &ids, &TagChoices::new())?;
+    let preview = library.preview(&local(&second))?;
+    let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+    let refused = library.import(&preview, &ids, &TagChoices::new());
+    assert!(matches!(refused, Err(Error::PluginExclusive { .. })));
+    Ok(())
+}

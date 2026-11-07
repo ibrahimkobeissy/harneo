@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
+import type { WholeReason } from "../../bindings/WholeReason";
 import type { Preview } from "../../bindings/Preview";
 import {
   Badge,
@@ -305,6 +306,7 @@ export function ChooseStep({
   layout,
   onCancelImport,
   holds,
+  reasons,
   onPluginMode,
 }: {
   preview: Preview;
@@ -332,6 +334,8 @@ export function ChooseStep({
   onCancelImport: () => void;
   /** What the library already holds of the preview's plugins. */
   holds: PluginHold[];
+  /** Why each plugin (by folder) is proposed whole, kept after it is unpacked. */
+  reasons: ReadonlyMap<string, WholeReason>;
   /** Switches a plugin between the whole plugin and its parts: the preview is taken again. */
   onPluginMode: (folder: string, mode: PluginMode) => void;
 }) {
@@ -656,6 +660,7 @@ export function ChooseStep({
                         <PluginChoice
                           group={wg}
                           hold={holdOf(c.artifact.path)}
+                          reason={reasons.get(c.artifact.path) ?? null}
                           busy={refreshing}
                           onChange={(mode) =>
                             onPluginMode(c.artifact.path, mode)
@@ -688,6 +693,7 @@ export function ChooseStep({
                     <PluginChoice
                       group={g}
                       hold={holdOf(g.folder)}
+                      reason={reasons.get(g.folder) ?? null}
                       busy={refreshing}
                       onChange={(mode) => onPluginMode(g.folder, mode)}
                     />
@@ -804,6 +810,7 @@ export function ChooseStep({
                       <PluginChoice
                         group={wg}
                         hold={holdOf(c.artifact.path)}
+                        reason={reasons.get(c.artifact.path) ?? null}
                         busy={refreshing}
                         onChange={(mode) => onPluginMode(c.artifact.path, mode)}
                       />

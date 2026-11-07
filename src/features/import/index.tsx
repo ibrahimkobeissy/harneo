@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import type { Audit } from "../../bindings/Audit";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { PluginHold } from "../../bindings/PluginHold";
+import type { WholeReason } from "../../bindings/WholeReason";
 import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import type { TagColor } from "../../bindings/TagColor";
 import type { Source } from "../../bindings/Source";
@@ -128,9 +129,10 @@ function ImportFlow({
   const [scannedKey, setScannedKey] = useState("");
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [refreshing, setRefreshing] = useState(false);
-  // The plugin folders the user took as parts, and whether the Claude-managed folders are in.
-  const [unpacked, setUnpacked] = useState<string[]>([]);
+  // Whether the Claude-managed folders are in. The plugins' choices are read off the preview.
   const managed = useRef(false);
+  // Why each plugin (by folder) is proposed whole; kept once it is unpacked, to list what it loses.
+  const reasons = useRef(new Map<string, WholeReason>());
   // Every candidate id any preview of this source showed: only new ones get a default choice.
   const everSeen = useRef(new Set<string>());
   // What the library already holds of the preview's plugins.
@@ -160,11 +162,21 @@ function ImportFlow({
     form.choice === "claude" ||
     (form.choice === "git" ? form.url.trim() : form.path.trim()) !== "";
 
+  /** Notes why the plugins of a preview must stay whole. */
+  function rememberReasons(found: PreviewTicket) {
+    for (const c of found.candidates) {
+      if (c.artifact.kind === "plugin" && c.mustStayWhole) {
+        reasons.current.set(c.artifact.path, c.mustStayWhole);
+      }
+    }
+  }
+
   /** Takes a fresh preview in: everything included except what the audit holds back. */
   function adopt(found: PreviewTicket, key: string) {
     setPreview(found);
     setScannedKey(key);
-    setUnpacked([]);
+    reasons.current = new Map();
+    rememberReasons(found);
     managed.current = false;
     everSeen.current = new Set(found.candidates.map((c) => c.id));
     const only = preselect.current;
@@ -348,6 +360,7 @@ function ImportFlow({
   /** Takes a re-scan of the same source in: only candidates new to the choices start excluded
    * (a part of `parts` always does); the user's choices on the rest stand. */
   function retake(found: PreviewTicket, parts: string | null = null) {
+    rememberReasons(found);
     const seen = everSeen.current;
     const fresh = found.candidates.filter((c) => !seen.has(c.id));
     const out = new Set(criticalIds(fresh));
@@ -369,14 +382,15 @@ function ImportFlow({
   /** Whole plugin or Pick parts: the source is scanned again with that plugin unpacked or not. */
   async function pluginMode(folder: string, mode: PluginMode) {
     if (!preview) return;
-    const next =
-      mode === "parts"
-        ? [...unpacked.filter((f) => f !== folder), folder]
-        : unpacked.filter((f) => f !== folder);
+    const { unpack, whole } = choicesOf(preview, folder, mode);
     setRefreshing(true);
     try {
-      const found = await libraryPreview(preview.source, managed.current, next);
-      setUnpacked(next);
+      const found = await libraryPreview(
+        preview.source,
+        managed.current,
+        unpack,
+        whole,
+      );
       retake(found, mode === "parts" ? folder : null);
     } catch (error) {
       setFailure(describeFailure(messageOf(error), field, shown));
@@ -419,7 +433,8 @@ function ImportFlow({
     if (!preview) return;
     setRefreshing(true);
     try {
-      const found = await libraryPreview(preview.source, true, unpacked);
+      const { unpack, whole } = choicesOf(preview);
+      const found = await libraryPreview(preview.source, true, unpack, whole);
       managed.current = true;
       retake(found);
     } catch (error) {
@@ -639,6 +654,7 @@ function ImportFlow({
             onIncludeManaged={() => void includeManaged()}
             refreshing={refreshing}
             holds={holds}
+            reasons={reasons.current}
             onPluginMode={(folder, mode) => void pluginMode(folder, mode)}
             largeFiles={largeFiles}
             onLargeFiles={setLargeFiles}
@@ -733,4 +749,24 @@ function ImportFlow({
       )}
     </Screen>
   );
+}
+
+/**
+ * Every plugin of a preview as an explicit choice for the next scan: the folders shown as
+ * parts and the ones shown whole, with `folder` switched to `mode` when given. Naming them all
+ * keeps a re-scan from applying the default over what the user sees.
+ */
+function choicesOf(
+  preview: PreviewTicket,
+  folder?: string,
+  mode?: PluginMode,
+): { unpack: string[]; whole: string[] } {
+  const unpack: string[] = [];
+  const whole: string[] = [];
+  for (const g of pluginGroups(preview.candidates)) {
+    const asParts =
+      g.folder === folder && mode ? mode === "parts" : g.parts.length > 0;
+    (asParts ? unpack : whole).push(g.folder);
+  }
+  return { unpack, whole };
 }

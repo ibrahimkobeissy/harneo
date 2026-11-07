@@ -34,4 +34,15 @@ repo: string | null,
  * pickable parts (skills, agents, commands, output styles, MCP servers) as ordinary
  * artifacts instead of one Plugin. Empty by default.
  */
-unpack: Array<string>, };
+unpack: Array<string>, 
+/**
+ * Plugin folders the user chose to take whole: the default (ADR-004) leaves them alone.
+ * Only the library's preview reads it, together with `unpack_by_default`.
+ */
+whole: Array<string>, 
+/**
+ * A preview unpacks every plugin that is in neither `unpack` nor `whole` and need not stay
+ * whole (ADR-004). Off for an update, which replays the stored choice and so leaves a plugin
+ * imported whole as it was.
+ */
+unpackByDefault: boolean, };

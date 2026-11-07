@@ -348,10 +348,12 @@ pub async fn library_preview(
     source: Source,
     include_managed: Option<bool>,
     unpack: Option<Vec<String>>,
+    whole: Option<Vec<String>>,
 ) -> Result<PreviewTicket, String> {
     let options = ScanOptions {
         include_managed: include_managed.unwrap_or(false),
         unpack: unpack.unwrap_or_default(),
+        whole: whole.unwrap_or_default(),
         ..ScanOptions::default()
     };
     let source = normalized(source).map_err(|e| e.to_string())?;

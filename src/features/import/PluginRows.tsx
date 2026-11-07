@@ -1,14 +1,17 @@
 import { Info } from "lucide-react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
+import type { WholeReason } from "../../bindings/WholeReason";
 import { Badge } from "../../ui";
 import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
 import {
+  lostIfUnpacked,
   needsPlugin,
   partsRefusal,
   type PluginGroup,
   WHOLE_ONLY,
+  wholeReasonText,
   wholeRefusal,
 } from "./plugins";
 import styles from "./Import.module.css";
@@ -27,11 +30,14 @@ const OPTIONS: [PluginMode, string][] = [
 export function PluginChoice({
   group,
   hold,
+  reason,
   busy,
   onChange,
 }: {
   group: PluginGroup;
   hold: PluginHold | undefined;
+  /** Why the plugin is proposed whole, when it must be (ADR-004). */
+  reason: WholeReason | null;
   busy: boolean;
   onChange: (mode: PluginMode) => void;
 }) {
@@ -41,6 +47,7 @@ export function PluginChoice({
     parts: partsRefusal(group, hold),
   };
   const base = `choice-${group.folder || "root"}`;
+  const lost = lostIfUnpacked(reason);
   return (
     <fieldset className={styles.pluginChoice} aria-busy={busy}>
       <legend className={styles.sr}>Import {group.name} as</legend>
@@ -74,9 +81,19 @@ export function PluginChoice({
           </p>
         );
       })}
+      {mode === "whole" && reason && (
+        <p className={`${styles.muted} ${styles.wholeOnly}`}>
+          <Info size={12} aria-hidden="true" /> {wholeReasonText(reason)}
+        </p>
+      )}
       {mode === "parts" && (
         <p className={`${styles.muted} ${styles.wholeOnly}`}>
           <Info size={12} aria-hidden="true" /> {WHOLE_ONLY}
+        </p>
+      )}
+      {mode === "parts" && lost && (
+        <p className={`${styles.muted} ${styles.wholeOnly}`}>
+          <Info size={12} aria-hidden="true" /> Lost if unpacked: {lost}.
         </p>
       )}
     </fieldset>

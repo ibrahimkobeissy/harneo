@@ -2,6 +2,7 @@ use std::path::Path;
 
 use super::tests::{write, TestResult};
 use super::*;
+use crate::artifact::ScanOptions;
 use crate::library::{Source, TagChoices};
 
 struct Lib {
@@ -20,11 +21,32 @@ impl Lib {
 }
 
 fn import(root: &Path) -> std::result::Result<Lib, Box<dyn std::error::Error>> {
+    import_with(root, &ScanOptions::default())
+}
+
+/// Like [`import`], with every plugin taken whole (the user's choice, ADR-004).
+fn import_whole(root: &Path) -> std::result::Result<Lib, Box<dyn std::error::Error>> {
+    import_with(
+        root,
+        &ScanOptions {
+            unpack_by_default: false,
+            ..ScanOptions::default()
+        },
+    )
+}
+
+fn import_with(
+    root: &Path,
+    options: &ScanOptions,
+) -> std::result::Result<Lib, Box<dyn std::error::Error>> {
     let data = tempfile::tempdir()?;
     let mut library = Library::open(data.path())?;
-    let preview = library.preview(&Source::Local {
-        path: root.to_path_buf(),
-    })?;
+    let preview = library.preview_with(
+        &Source::Local {
+            path: root.to_path_buf(),
+        },
+        options,
+    )?;
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
     library.import(&preview, &ids, &TagChoices::new())?;
     Ok(Lib {
@@ -201,7 +223,7 @@ fn a_plugin_alone_produces_only_the_settings_key_and_a_template_keeps_its_own_fi
         "---\nname: x\ndescription: d\n---\n",
     )?;
     write(src.path(), "settings.json", "{}\n")?;
-    let lib = import(src.path())?;
+    let lib = import_whole(src.path())?;
     let plugin = lib.id(ArtifactKind::Plugin, "p")?;
     let alone = lib.library.layout(&ProfileSpec {
         items: vec![plugin.clone()],
