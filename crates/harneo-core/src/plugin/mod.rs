@@ -141,9 +141,77 @@ fn join(parts: &[PluginPart]) -> String {
     }
 }
 
+/// The mark in a plugin's path that says its files are in another repo: `<file>#<entry>`, a
+/// marketplace entry that is never fetched.
+const REMOTE_MARK: char = '#';
+
+/// True when `path` is a remote-only entry's path.
+pub(crate) fn is_remote_path(path: &str) -> bool {
+    path.contains(REMOTE_MARK)
+}
+
+/// The file a remote-only entry's path names (the marketplace file), before the mark.
+pub(crate) fn remote_file(path: &str) -> &str {
+    path.split(REMOTE_MARK).next().unwrap_or_default()
+}
+
 /// True when the plugin is a marketplace entry pointing to another repo.
-fn is_remote_only(plugin: &Artifact) -> bool {
-    plugin.path.contains('#')
+pub(crate) fn is_remote_only(plugin: &Artifact) -> bool {
+    is_remote_path(&plugin.path)
+}
+
+/// The folder of a plugin whose files are on disk: `None` for any other artifact and for a
+/// remote-only entry.
+pub(crate) fn local_folder(artifact: &Artifact) -> Option<&Path> {
+    (artifact.kind == ArtifactKind::Plugin && !is_remote_only(artifact))
+        .then(|| Path::new(&artifact.path))
+}
+
+/// The name of the marketplace that lists the plugin, when it has one.
+pub(crate) fn marketplace_of(artifact: &Artifact) -> Option<&str> {
+    artifact.metadata.get("marketplace")?.as_str()
+}
+
+/// True when the plugin was read from a marketplace (whatever the entry's name is).
+pub(crate) fn is_marketplace_entry(artifact: &Artifact) -> bool {
+    artifact.metadata.contains_key("marketplace")
+}
+
+/// The manifest that named a plugin: a marketplace entry's `marketplace.json`, else the plugin's
+/// own `plugin.json` (an installed plugin is read from its folder's `plugin.json`).
+pub(crate) fn manifest_name(artifact: &Artifact) -> &'static str {
+    if is_marketplace_entry(artifact) || artifact.path.contains("marketplace.json") {
+        "marketplace.json"
+    } else {
+        "plugin.json"
+    }
+}
+
+/// The plugin in a `plugin:name` namespaced skill, command or agent name.
+pub(crate) fn namespaced_plugin(name: &str) -> Option<&str> {
+    name.split_once(':')
+        .map(|(plugin, _)| plugin)
+        .filter(|p| !p.is_empty())
+}
+
+/// The `name@marketplace` keys a settings file's `enabledPlugins` lists, enabled or not.
+pub(crate) fn enabled_keys(settings: &serde_json::Map<String, serde_json::Value>) -> Vec<&str> {
+    match settings.get("enabledPlugins") {
+        Some(serde_json::Value::Object(plugins)) => plugins.keys().map(String::as_str).collect(),
+        _ => Vec::new(),
+    }
+}
+
+/// The settings keys a profile's plugins add to a project's `settings.json`, which Harneo merges
+/// instead of owning.
+pub(crate) const MERGED_SETTINGS_KEYS: [&str; 2] = ["enabledPlugins", "extraKnownMarketplaces"];
+
+/// Harnfit fits one skill, command or agent at a time: a plugin is refused.
+pub(crate) fn ensure_fits_harnfit(kind: ArtifactKind) -> crate::error::Result<()> {
+    if kind == ArtifactKind::Plugin {
+        return Err(crate::error::Error::HarnfitPluginUnsupported);
+    }
+    Ok(())
 }
 
 /// The manifest field, or the file or folder Claude Code reads by default, makes the part present.

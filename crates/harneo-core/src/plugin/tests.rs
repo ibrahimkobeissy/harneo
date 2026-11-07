@@ -232,3 +232,70 @@ fn hooks_json_with_modules_and_hooks_holds_mods_and_hooks() -> TestResult {
     );
     Ok(())
 }
+
+fn artifact(kind: ArtifactKind, path: &str) -> Artifact {
+    Artifact {
+        kind,
+        name: "x".to_owned(),
+        description: None,
+        path: path.to_owned(),
+        files: Vec::new(),
+        metadata: serde_json::Map::new(),
+        references: Vec::new(),
+        diagnostics: Vec::new(),
+        digest: None,
+        origin: crate::artifact::Origin::Own,
+    }
+}
+
+#[test]
+fn a_hash_in_the_path_marks_a_remote_only_entry() {
+    let remote = artifact(ArtifactKind::Plugin, "marketplace.json#tools");
+    let local = artifact(ArtifactKind::Plugin, "plugins/tools");
+    assert!(is_remote_only(&remote) && is_remote_path(&remote.path));
+    assert!(!is_remote_only(&local));
+    assert_eq!(remote_file(&remote.path), "marketplace.json");
+    assert_eq!(remote_file(&local.path), "plugins/tools");
+    assert_eq!(local_folder(&remote), None);
+    assert_eq!(local_folder(&local), Some(Path::new("plugins/tools")));
+    let skill = artifact(ArtifactKind::Skill, "skills/a");
+    assert_eq!(local_folder(&skill), None);
+}
+
+#[test]
+fn the_marketplace_and_manifest_come_from_the_metadata_and_path() {
+    let mut p = artifact(ArtifactKind::Plugin, "plugins/tools");
+    assert_eq!(marketplace_of(&p), None);
+    assert!(!is_marketplace_entry(&p));
+    assert_eq!(manifest_name(&p), "plugin.json");
+    p.metadata.insert("marketplace".into(), "acme".into());
+    assert_eq!(marketplace_of(&p), Some("acme"));
+    assert!(is_marketplace_entry(&p));
+    assert_eq!(manifest_name(&p), "marketplace.json");
+    p.metadata
+        .insert("marketplace".into(), serde_json::json!(3));
+    assert_eq!(marketplace_of(&p), None);
+    assert!(is_marketplace_entry(&p));
+    let by_path = artifact(ArtifactKind::Plugin, "x/marketplace.json#a");
+    assert_eq!(manifest_name(&by_path), "marketplace.json");
+}
+
+#[test]
+fn namespaced_names_and_enabled_keys_are_read() {
+    assert_eq!(namespaced_plugin("fmt:run"), Some("fmt"));
+    assert_eq!(namespaced_plugin(":run"), None);
+    assert_eq!(namespaced_plugin("run"), None);
+    let settings = serde_json::json!({"enabledPlugins": {"a@m": true, "b@m": false}});
+    let map = settings.as_object().cloned().unwrap_or_default();
+    assert_eq!(enabled_keys(&map), vec!["a@m", "b@m"]);
+    assert!(enabled_keys(&serde_json::Map::new()).is_empty());
+}
+
+#[test]
+fn harnfit_refuses_only_plugins() {
+    assert!(ensure_fits_harnfit(ArtifactKind::Skill).is_ok());
+    assert!(matches!(
+        ensure_fits_harnfit(ArtifactKind::Plugin),
+        Err(crate::error::Error::HarnfitPluginUnsupported)
+    ));
+}

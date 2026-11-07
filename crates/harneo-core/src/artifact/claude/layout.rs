@@ -125,8 +125,8 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
     let plugin_paths: Vec<PathBuf> = report
         .artifacts
         .iter()
-        .filter(|a| a.kind == ArtifactKind::Plugin && !a.path.contains('#'))
-        .map(|a| PathBuf::from(&a.path))
+        .filter_map(|a| crate::plugin::local_folder(a))
+        .map(Path::to_path_buf)
         .collect();
     report.artifacts.retain(|a| {
         a.kind == ArtifactKind::Plugin
@@ -163,8 +163,8 @@ fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanR
     for mut a in std::mem::take(&mut report.artifacts) {
         if a.kind != ArtifactKind::Plugin || !wanted.contains(&normal(&a.path)) {
             kept.push(a);
-        } else if a.path.contains('#') {
-            let file = a.path.split('#').next().unwrap_or_default().to_owned();
+        } else if crate::plugin::is_remote_only(&a) {
+            let file = crate::plugin::remote_file(&a.path).to_owned();
             a.diagnostics.push(Diagnostic::warning(
                 "plugin.unpack-remote-only",
                 Path::new(&file),
@@ -199,7 +199,7 @@ pub(crate) fn drop_duplicate_marketplace_roots(walker: &mut Walker, report: &mut
     let roots: Vec<String> = report
         .artifacts
         .iter()
-        .filter(|a| a.kind == ArtifactKind::Plugin && !a.metadata.contains_key("marketplace"))
+        .filter(|a| a.kind == ArtifactKind::Plugin && !crate::plugin::is_marketplace_entry(a))
         .map(|a| a.path.clone())
         .filter(|p| walker.exists(&plugin::marketplace_path(Path::new(p))))
         .collect();
@@ -208,14 +208,14 @@ pub(crate) fn drop_duplicate_marketplace_roots(walker: &mut Walker, report: &mut
         .iter()
         .filter(|a| {
             a.kind == ArtifactKind::Plugin
-                && a.metadata.contains_key("marketplace")
-                && !a.path.contains('#')
+                && crate::plugin::is_marketplace_entry(a)
+                && !crate::plugin::is_remote_only(a)
         })
         .map(|a| (a.name.clone(), a.path.clone()))
         .collect();
     report.artifacts.retain(|a| {
         let duplicate = a.kind == ArtifactKind::Plugin
-            && !a.metadata.contains_key("marketplace")
+            && !crate::plugin::is_marketplace_entry(a)
             && roots.contains(&a.path)
             && published
                 .iter()
@@ -241,12 +241,7 @@ pub(crate) fn mark_layout_by(report: &mut ScanReport) {
         if a.kind == ArtifactKind::Plugin {
             // Which manifest named it: a marketplace entry, else the plugin's own plugin.json
             // (an installed plugin is read from its folder's plugin.json).
-            let manifest =
-                if a.metadata.contains_key("marketplace") || a.path.contains("marketplace.json") {
-                    "marketplace.json"
-                } else {
-                    "plugin.json"
-                };
+            let manifest = crate::plugin::manifest_name(a);
             a.metadata.insert("layoutManifest".into(), manifest.into());
         }
     }

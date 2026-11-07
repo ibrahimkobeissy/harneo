@@ -121,13 +121,15 @@ fn references(metadata: &Map<String, Value>, out: &mut Vec<Reference>) {
             resolved: false,
         });
     }
-    if let Some(Value::Object(plugins)) = metadata.get("enabledPlugins") {
-        out.extend(plugins.keys().map(|k| Reference {
-            kind: ArtifactKind::Plugin,
-            target: k.clone(),
-            resolved: false,
-        }));
-    }
+    out.extend(
+        crate::plugin::enabled_keys(metadata)
+            .into_iter()
+            .map(|k| Reference {
+                kind: ArtifactKind::Plugin,
+                target: k.to_owned(),
+                resolved: false,
+            }),
+    );
 }
 
 /// Every command string in `hooks` (event, matcher groups, `hooks[]`) and `statusLine`.

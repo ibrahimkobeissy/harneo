@@ -17,8 +17,6 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use serde_json::Value;
-
 use crate::artifact::{ArtifactKind, Diagnostic, ScanReport};
 
 /// Resolves references and adds the cross-artifact diagnostics, in the report's order.
@@ -30,10 +28,7 @@ pub(crate) fn run(report: &mut ScanReport) {
         names.insert((a.kind, a.name.clone()));
         *counts.entry((a.kind, a.name.clone())).or_default() += 1;
         if a.kind == ArtifactKind::Plugin {
-            let marketplace = match a.metadata.get("marketplace") {
-                Some(Value::String(m)) => Some(m.clone()),
-                _ => None,
-            };
+            let marketplace = crate::plugin::marketplace_of(a).map(str::to_owned);
             plugins.entry(a.name.clone()).or_default().push(marketplace);
         }
     }

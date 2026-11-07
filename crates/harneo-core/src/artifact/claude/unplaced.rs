@@ -75,7 +75,9 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
         claimed.insert(a.path.as_str());
         claimed.extend(a.files.iter().map(String::as_str));
         // A plugin (or a skill) is claimed whole, not just its listed files.
-        if matches!(a.kind, ArtifactKind::Plugin | ArtifactKind::Skill) && !a.path.contains('#') {
+        if let Some(folder) = crate::plugin::local_folder(a) {
+            folders.push(folder);
+        } else if a.kind == ArtifactKind::Skill && !crate::plugin::is_remote_path(&a.path) {
             folders.push(Path::new(&a.path));
         }
         // A plugin that was unpacked is still one folder: what is not a part is not unplaced.
