@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heavy · first draw</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+/* the factory */
+.fx{position:relative;width:1040px;height:612px}
+.pipe{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.pipe.o{stroke:var(--line);stroke-width:10}
+.pipe.i{stroke:var(--side);stroke-width:4}
+.beam{fill:none;stroke:var(--t1);stroke-linecap:round;stroke-linejoin:round;animation-name:run;animation-timing-function:linear;animation-iteration-count:infinite;transition:opacity .6s}
+@keyframes run{from{stroke-dashoffset:250}to{stroke-dashoffset:0}}
+.chute{position:absolute;width:4px;border-radius:2px;background:var(--line)}
+.valve{position:absolute;width:12px;height:12px;border-radius:6px;background:var(--bg);border:2px solid var(--line2);transition:background .4s,border-color .4s}
+.valve.on{background:var(--t1);border-color:var(--t1)}
+.mach{position:absolute;border:1px solid var(--line);border-radius:12px;background:var(--raised);transition:border-color .3s,box-shadow .3s}
+.mach.rx{border-color:var(--t3);box-shadow:0 0 0 4px var(--sunk)}
+.mh{position:absolute;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;white-space:nowrap}
+.mh .n{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10.5px;font-weight:500;color:var(--t3)}
+.mct{position:absolute;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10.5px;color:var(--t3);text-align:right}
+.lt{position:absolute;width:8px;height:8px;border-radius:4px;border:1.5px solid var(--line2);background:transparent;transition:background .3s,border-color .3s}
+.lt.on{background:var(--t1);border-color:var(--t1)}
+.lt.ping::after{content:"";position:absolute;inset:-5px;border-radius:50%;border:1.5px solid var(--t1);animation:ping 1.1s cubic-bezier(.2,.6,.3,1) infinite}
+@keyframes ping{from{transform:scale(.5);opacity:.9}to{transform:scale(1.6);opacity:0}}
+.sock{position:absolute;height:44px;border:1px dashed var(--line2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--t3);transition:opacity .3s}
+.pk{position:absolute;width:120px;height:44px;display:flex;align-items:center;gap:7px;padding:0 8px;background:var(--raised);border:1px solid var(--line);border-radius:8px;transform-origin:50% 50%;transition:left .75s cubic-bezier(.45,0,.25,1),top .42s cubic-bezier(.3,.8,.3,1),transform .42s cubic-bezier(.3,.8,.3,1),opacity .15s,border-color .4s,box-shadow .4s}
+.pk.fly{border-color:var(--t1);box-shadow:0 2px 8px rgba(15,23,42,.18)}
+.pk .ti{width:20px;height:20px;padding:3px;vertical-align:0}
+.pk span{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10.5px;font-weight:500;line-height:13px;overflow-wrap:anywhere;color:var(--t1)}
+.intake{position:absolute;left:0;top:10px;width:60px;height:36px;border-radius:10px;background:var(--t1);color:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:"JetBrains Mono",ui-monospace,monospace;line-height:1.1}
+.intake b{font-size:13px}.intake small{font-size:9px;opacity:.7;letter-spacing:.06em}
+.rack{position:absolute;height:2px;background:var(--line2);border-radius:1px}
+.peg{position:absolute;width:6px;height:6px;border-radius:3px;background:var(--line2)}
+.slab{position:absolute;border-radius:12px;border:1px solid var(--line);border-top:2px solid var(--line2);background:repeating-linear-gradient(135deg,var(--sunk) 0 1px,transparent 1px 9px),var(--side)}
+.zlab{position:absolute;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10.5px;font-weight:500;letter-spacing:.06em;color:var(--t3)}
+.zlab b{color:var(--t1);font-weight:600}
+.gate{position:absolute;transition:opacity .5s}
+/* the console */
+.sect{padding:18px 20px;border-bottom:1px solid var(--line)}
+.ex{height:26px;padding:0 9px;border-radius:13px;border:1px solid var(--line);background:var(--raised);color:var(--t2);font:500 11.5px Inter,system-ui,sans-serif;cursor:pointer}
+.ex:hover{border-color:var(--line2);color:var(--t1)}
+.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.facts div{background:var(--raised);padding:8px 10px}
+.facts dt{font-size:10.5px;color:var(--t3);font-weight:500;letter-spacing:.04em;text-transform:uppercase}
+.facts dd{margin:2px 0 0;font-size:12.5px;font-weight:500}
+.go{height:40px;width:100%;justify-content:center;font-size:13px}
+.kbd{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10.5px;padding:1px 5px;border-radius:4px;background:rgba(255,255,255,.18)}
+.clock{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:34px;font-weight:500;letter-spacing:-.02em;line-height:1}
+.ticks{display:grid;grid-template-columns:repeat(22,minmax(0,1fr));gap:3px}
+.ticks i{height:14px;border-radius:2px;background:var(--line);transition:background .3s}
+.ticks i.on{background:var(--t1)}
+.ticks i.nx{background:var(--t3);animation:blinkn 1s ease-in-out infinite}
+@keyframes blinkn{50%{opacity:.35}}
+.con{border-radius:10px;background:var(--sunk);padding:10px 12px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11px;line-height:1.75;height:260px;overflow:hidden;position:relative}
+.con::after{content:"";position:absolute;left:0;right:0;bottom:0;height:48px;background:linear-gradient(transparent,var(--sunk))}
+.con .ln{display:grid;grid-template-columns:42px 1fr auto;gap:8px;animation:lnin .35s ease-out}
+@keyframes lnin{from{opacity:0;transform:translateY(-4px)}}
+.chg li{padding:8px 0;border-top:1px solid var(--line);list-style:none;font-size:12.5px;display:grid;grid-template-columns:20px 1fr;gap:6px}
+@media (prefers-reduced-motion:reduce){.beam,.lt.ping::after,.ticks i.nx,.con .ln{animation:none}.pk{transition:none}}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="height: 100vh; min-height: 700px; display: flex; flex-direction: column; background: var(--bg)">
+  <header class="row" style="flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--raised)">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--t2)"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path><path d="M9 3v15M15 6v15"></path></svg>
+    <nav aria-label="Breadcrumb" class="row" style="gap: 6px; font-size: 14px"><a href="Main.dc.html" style="color: var(--t2); text-decoration: none">Heavy</a><span class="t3">→</span><b>Harnmap</b></nav>
+    <span class="badge">Software development</span>
+    <span class="t3" style="font-size: 12px">{{headNote}}</span>
+    <span style="flex: 1"></span>
+    <a class="icb" href="Main.dc.html" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></a>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+    <div class="dots" style="flex: 999 1 560px; min-width: 0; min-height: 560px; position: relative; overflow: auto">
+      <div style="padding: 40px 20px 40px; width: max-content; margin: 0 auto">
+        <div class="fx" role="img" aria-label="{{fxLabel}}">
+
+          <svg width="1040" height="612" viewBox="0 0 1040 612" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible">
+            <path class="pipe o" d="M 60 28 H 1028"></path>
+            <path class="pipe i" d="M 60 28 H 1028"></path>
+            <path class="pipe o" d="M 808 320 V 346 H 520 V 326"></path>
+            <path class="pipe i" d="M 808 320 V 346 H 520 V 326"></path>
+            <path d="M 1022 20 L 1034 28 L 1022 36" fill="none" stroke="var(--line2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+            <g style="opacity: {{beamOp}}">
+              <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-width: 4; stroke-dasharray: 110 140; opacity: .14; animation-duration: {{bT}}s; animation-delay: {{bD3}}s"></path>
+              <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-width: 4; stroke-dasharray: 50 200; opacity: .32; animation-duration: {{bT}}s; animation-delay: {{bD2}}s"></path>
+              <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-width: 4; stroke-dasharray: 14 236; animation-duration: {{bT}}s"></path>
+            </g>
+            <g style="opacity: {{loopOp}}">
+              <path class="beam" pathLength="300" d="M 808 320 V 346 H 520 V 326" style="stroke-width: 4; stroke-dasharray: 60 190; opacity: .22; animation-duration: {{lT}}s; animation-delay: {{lD2}}s"></path>
+              <path class="beam" pathLength="300" d="M 808 320 V 346 H 520 V 326" style="stroke-width: 4; stroke-dasharray: 14 236; animation-duration: {{lT}}s"></path>
+            </g>
+          </svg>
+
+          <div class="intake" aria-hidden="true"><b>{{left}}</b><small>IN</small></div>
+
+          <div class="chute" style="left: 86px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 230px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 374px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 518px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 662px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 806px; top: 32px; height: 32px"></div>
+          <div class="chute" style="left: 950px; top: 32px; height: 32px"></div>
+          <div class="valve {{st.a.on}}" style="left: 82px; top: 22px"></div>
+          <div class="valve {{st.b.on}}" style="left: 226px; top: 22px"></div>
+          <div class="valve {{st.c.on}}" style="left: 370px; top: 22px"></div>
+          <div class="valve {{st.d.on}}" style="left: 514px; top: 22px"></div>
+          <div class="valve {{st.e.on}}" style="left: 658px; top: 22px"></div>
+          <div class="valve {{st.f.on}}" style="left: 802px; top: 22px"></div>
+          <div class="valve {{st.g.on}}" style="left: 946px; top: 22px"></div>
+
+          <div class="gate" style="left: 64px; top: 6px; width: 964px; height: 2px; background: var(--t2); border-radius: 1px; opacity: {{gateOp}}"></div>
+          <div class="gate mono" style="left: 72px; top: -20px; padding: 1px 6px; border: 1px solid var(--line2); border-radius: 5px; background: var(--raised); font-size: 10px; color: var(--t2); white-space: nowrap; opacity: {{gateOp}}">hook · PreToolUse · Write|Edit · path-guard · fires at every stage</div>
+
+          <div class="mach {{st.a.rx}}" style="left: 20px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.b.rx}}" style="left: 164px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.c.rx}}" style="left: 308px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.d.rx}}" style="left: 452px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.e.rx}}" style="left: 596px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.f.rx}}" style="left: 740px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mach {{st.g.rx}}" style="left: 884px; top: 64px; width: 136px; height: 256px"></div>
+          <div class="mh" style="left: 32px; top: 76px"><span class="n">01</span>Idea</div>
+          <div class="mh" style="left: 176px; top: 76px"><span class="n">02</span>Spec</div>
+          <div class="mh" style="left: 320px; top: 76px"><span class="n">03</span>Plan</div>
+          <div class="mh" style="left: 464px; top: 76px"><span class="n">04</span>Build</div>
+          <div class="mh" style="left: 608px; top: 76px"><span class="n">05</span>Test</div>
+          <div class="mh" style="left: 752px; top: 76px"><span class="n">06</span>Review</div>
+          <div class="mh" style="left: 896px; top: 76px"><span class="n">07</span>Ship</div>
+          <div class="mct" style="left: 110px; top: 78px; width: 24px">{{st.a.c}}</div>
+          <div class="mct" style="left: 254px; top: 78px; width: 24px">{{st.b.c}}</div>
+          <div class="mct" style="left: 398px; top: 78px; width: 24px">{{st.c.c}}</div>
+          <div class="mct" style="left: 542px; top: 78px; width: 24px">{{st.d.c}}</div>
+          <div class="mct" style="left: 686px; top: 78px; width: 24px">{{st.e.c}}</div>
+          <div class="mct" style="left: 830px; top: 78px; width: 24px">{{st.f.c}}</div>
+          <div class="mct" style="left: 974px; top: 78px; width: 24px">{{st.g.c}}</div>
+          <div class="lt {{st.a.lt}}" style="left: 140px; top: 82px"></div>
+          <div class="lt {{st.b.lt}}" style="left: 284px; top: 82px"></div>
+          <div class="lt {{st.c.lt}}" style="left: 428px; top: 82px"></div>
+          <div class="lt {{st.d.lt}}" style="left: 572px; top: 82px"></div>
+          <div class="lt {{st.e.lt}}" style="left: 716px; top: 82px"></div>
+          <div class="lt {{st.f.lt}}" style="left: 860px; top: 82px"></div>
+          <div class="lt {{st.g.lt}}" style="left: 1004px; top: 82px"></div>
+          <div class="sock" style="left: 28px; top: 108px; width: 120px; opacity: {{st.a.so}}">empty</div>
+          <div class="sock" style="left: 172px; top: 108px; width: 120px; opacity: {{st.b.so}}">empty</div>
+          <div class="sock" style="left: 316px; top: 108px; width: 120px; opacity: {{st.c.so}}">empty</div>
+          <div class="sock" style="left: 460px; top: 108px; width: 120px; opacity: {{st.d.so}}">empty</div>
+          <div class="sock" style="left: 604px; top: 108px; width: 120px; opacity: {{st.e.so}}">empty</div>
+          <div class="sock" style="left: 748px; top: 108px; width: 120px; opacity: {{st.f.so}}">empty</div>
+          <div class="sock" style="left: 892px; top: 108px; width: 120px; opacity: {{st.g.so}}">empty</div>
+          <div class="zlab" style="left: 600px; top: 352px; width: 128px; text-align: center; background: var(--bg)">changes requested</div>
+
+          <div class="zlab" style="left: 20px; top: 380px"><b>TOOLBELT</b> · any stage</div>
+          <div class="rack" style="left: 20px; top: 400px; width: 1000px"></div>
+          <div class="peg" style="left: 77px; top: 398px"></div>
+          <div class="peg" style="left: 209px; top: 398px"></div>
+          <div class="peg" style="left: 941px; top: 398px"></div>
+          <div class="sock" style="left: 20px; top: 412px; width: 120px; opacity: {{tbSo}}">empty</div>
+
+          <div class="slab" style="left: 20px; top: 480px; width: 1000px; height: 112px"></div>
+          <div class="zlab" style="left: 36px; top: 492px"><b>FLOOR</b> · always on</div>
+          <div class="sock" style="left: 36px; top: 524px; width: 120px; opacity: {{flSo}}">empty</div>
+
+          <sc-for list="{{items}}" as="it" hint-placeholder-count="22">
+            <div class="pk {{it.fly}}" style="left: {{it.x}}px; top: {{it.y}}px; transform: scale({{it.s}}); opacity: {{it.o}}"><svg class="ti {{it.t}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{it.d}}"></path></svg><span>{{it.n}}</span></div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <aside style="flex: 1 1 360px; min-width: 0; border-left: 1px solid var(--line); background: var(--raised); overflow: auto; max-height: 100%">
+      <sc-if value="{{isEmpty}}" hint-placeholder-val="{{ true }}">
+        <div class="sect">
+          <div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em">HARNMAP · NOT DRAWN YET</div>
+          <h1 class="h2" style="margin-top: 6px">Draw the factory</h1>
+          <p class="t2" style="margin: 6px 0 0; font-size: 12.5px">Claude sends Heavy’s 24 artifacts down the line and puts each one where it works: on a stage, on the toolbelt, or on the floor.</p>
+        </div>
+        <div class="sect" style="display: flex; flex-direction: column; gap: 8px">
+          <div class="row" style="justify-content: space-between"><label class="lbl" for="desc">How do you see this factory?</label><span class="t3" style="font-size: 11px">Optional</span></div>
+          <textarea id="desc" class="ta" style="min-height: 104px" placeholder="Leave it empty and Claude works it out from your artifacts." value="{{desc}}" onChange="{{onDesc}}" onKeyDown="{{onKey}}"></textarea>
+          <div class="row" style="gap: 8px; flex-wrap: wrap"><span class="cap">Suggestions for</span><div class="seg" role="group" aria-label="Suggestions for which template"><button type="button" class="{{sgSw}}" onClick="{{toSw}}">Software development</button><button type="button" class="{{sgVd}}" onClick="{{toVd}}">Video production</button></div></div>
+          <div class="row" style="flex-wrap: wrap; gap: 6px">
+            <sc-for list="{{chips}}" as="ch" hint-placeholder-count="3"><button type="button" class="ex" onClick="{{ch.add}}">+ {{ch.label}}</button></sc-for>
+          </div>
+        </div>
+        <div class="sect" style="display: flex; flex-direction: column; gap: 14px; border-bottom: 0">
+          <dl class="facts" style="margin: 0">
+            <div><dt>Sends</dt><dd>24 artifacts</dd></div>
+            <div><dt>Through</dt><dd class="mono" style="font-size: 12px">your claude CLI</dd></div>
+            <div><dt>Uses</dt><dd>your plan · Opus</dd></div>
+            <div><dt>Takes</dt><dd>usually 1–3 min</dd></div>
+          </dl>
+          <button type="button" class="btn p go" onClick="{{draw}}">Draw<span class="kbd">Ctrl ↵</span></button>
+          <p class="t2" style="margin: 0; font-size: 12px"><b style="color: var(--t1)">What is sent:</b> each artifact’s name, type, description and files, the stages, your description. <b style="color: var(--t1)">Never:</b> project files, secrets, other profiles. Pressing Draw is your go-ahead.</p>
+          <span class="t3" style="font-size: 11.5px; text-align: center">Saved with Heavy as draw 1. Nothing to save by hand.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDrawing}}" hint-placeholder-val="{{ false }}">
+        <div class="sect">
+          <div class="row" style="justify-content: space-between; align-items: flex-end">
+            <div><div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em">{{phaseTag}}</div><div class="clock" style="margin-top: 6px">{{clock}}</div></div>
+            <button type="button" class="btn sm g" onClick="{{cancel}}">Cancel</button>
+          </div>
+          <p class="t2" style="margin: 10px 0 14px; font-size: 12.5px">{{phase}}</p>
+          <div class="ticks" role="progressbar" aria-label="Artifacts placed" aria-valuemin="0" aria-valuemax="22" aria-valuenow="{{n}}">
+            <sc-for list="{{ticks}}" as="tk" hint-placeholder-count="22"><i class="{{tk.c}}"></i></sc-for>
+          </div>
+          <div class="row" style="justify-content: space-between; margin-top: 8px"><span class="mono" style="font-size: 12px">{{n}} <span class="t3">/ 22 placed</span></span><span class="mono t3" style="font-size: 12px">{{stationsLit}} / 7 stages lit</span></div>
+        </div>
+        <div class="sect" style="border-bottom: 0">
+          <div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em; margin-bottom: 8px">PLACEMENTS</div>
+          <div class="con" aria-live="polite">
+            <sc-for list="{{log}}" as="l" hint-placeholder-count="5">
+              <div class="ln"><span class="t3">{{l.t}}</span><span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{l.n}}</span><span class="t3">{{l.w}}</span></div>
+            </sc-for>
+            <sc-if value="{{reading}}" hint-placeholder-val="{{ true }}"><div class="t3">reading 24 artifacts<span class="pulse">…</span></div></sc-if>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isDone}}" hint-placeholder-val="{{ false }}">
+        <div class="sect">
+          <div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em">DRAW 1 · SAVED</div>
+          <div class="row" style="margin-top: 6px; gap: 10px; align-items: baseline"><span class="clock">{{clock}}</span><span class="t2" style="font-size: 12.5px">Opus · 22 placed · 7 of 7 stages</span></div>
+        </div>
+        <div class="sect">
+          <div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em">CHANGES FROM THE TEMPLATE · COMPUTED BY HARNEO</div>
+          <ul class="chg" style="margin: 8px 0 0; padding: 0">
+            <li><span class="t3">=</span><span>Kept all 7 stages. Renamed none, added none.</span></li>
+            <li><span class="t3">+</span><span><span class="mono">strict-guard</span>’s PreToolUse hook (Write|Edit) drawn along the whole line, from settings.json.</span></li>
+            <li><span class="t3">↺</span><span>The loop from Review to Build is drawn: Claude’s reading, not enforced.</span></li>
+            <li><span class="t3">○</span><span>Left 2 skills unplaced: <span class="mono">webperf</span>, <span class="mono">security-and-hardening</span>.</span></li>
+          </ul>
+        </div>
+        <div class="sect" style="display: flex; flex-direction: column; gap: 8px; border-bottom: 0">
+          <a class="btn p go" href="Harnmap.dc.html">Open the map</a>
+          <button type="button" class="btn g" onClick="{{reset}}" style="justify-content: center">Replay the draw</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{isCancelled}}" hint-placeholder-val="{{ false }}">
+        <div class="sect" style="border-bottom: 0">
+          <div class="mono t3" style="font-size: 10.5px; letter-spacing: .06em">CANCELLED</div>
+          <h1 class="h3" style="margin-top: 6px">The line is stopped</h1>
+          <p class="t2" style="margin: 6px 0 14px; font-size: 12.5px">Nothing was saved and the empty factory is back. Your description is kept.</p>
+          <button type="button" class="btn" onClick="{{reset}}">Back</button>
+        </div>
+      </sc-if>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"placement":{"editor":"enum","options":["replay after the answer (v1)","live (needs the spike)"],"default":"replay after the answer (v1)"},"$preview":{"width":1440,"height":900}}'>
+const P = {
+  sk: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z',
+  cm: 'M4 17l6-6-6-6M12 19h8',
+  sa: 'M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2',
+  wf: 'M3 3h8v8H3zM13 13h8v8h-8zM7 11v4a2 2 0 0 0 2 2h4',
+  ru: 'M12 3v18M7 21h10M3 7h18M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z',
+  se: 'M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4',
+  mc: 'M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z',
+  os: 'M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-1.4-1-1.6-1-2.6 0-1.1.9-2 2-2h2.3A5.2 5.2 0 0 0 22 10.2C22 5.7 17.5 2 12 2zM8 8h.01M12 6h.01M16 8h.01M7 12h.01',
+  md: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8'
+};
+const STAGES = ['Idea','Spec','Plan','Build','Test','Review','Ship'];
+// each template ships its own suggestions
+const SUG = {
+  sw: [['Spec first, always', 'Spec first, always.'], ['TDD inside Build', 'TDD lives inside Build.'], ['Review sends work back', 'Review is strict and sends work back to Build.']],
+  vd: [['Script before storyboard', 'The script is locked before the storyboard starts.'], ['Captions from the transcript', 'Captions are written from the transcript.'], ['Continuity check before publish', 'A continuity check runs before publish.']]
+};
+// [name, type, where]: where = ['s', stage, row] | ['t', x] | ['f', x]
+const SEQ = [
+  ['rust-service CLAUDE.md','md',['f',36]], ['rust-conventions','ru',['f',168]], ['strict-guard','se',['f',300]], ['terse','os',['f',432]],
+  ['write-a-prd','sk',['s',0,0]], ['/spec','cm',['s',1,0]], ['spec-driven-development','sk',['s',1,1]], ['/plan','cm',['s',2,0]],
+  ['/build','cm',['s',3,0]], ['incremental-implementation','sk',['s',3,1]], ['frontend-ui-engineering','sk',['s',3,2]],
+  ['test-driven-development','sk',['s',4,0]], ['test-engineer','sa',['s',4,1]],
+  ['/review','cm',['s',5,0]], ['code-review-and-quality','sk',['s',5,1]], ['code-reviewer','sa',['s',5,2]], ['security-auditor','sa',['s',5,3]],
+  ['/ship','cm',['s',6,0]], ['release','wf',['s',6,1]],
+  ['grill-me','sk',['t',20]], ['sentry','mc',['t',152]], ['github','mc',['t',884]]
+];
+const LIVE = { READ: 2.4, GAP: 0.72 }, REPLAY = { READ: 6, GAP: 0.11 };
+const TRAVEL = 0.85, LAND = 0.5;
+let READ = REPLAY.READ, GAP = REPLAY.GAP;
+const slot = (w) => {
+  if (w[0] === 's') return { x: 20 + w[1] * 144 + 8, y: 108 + w[2] * 50, where: STAGES[w[1]] };
+  if (w[0] === 't') return { x: w[1], y: 412, where: 'Toolbelt' };
+  return { x: w[1], y: 524, where: 'Floor' };
+};
+const mmss = (s) => { const t = Math.max(0, Math.floor(s)); return String(Math.floor(t / 60)).padStart(2, '0') + ':' + String(t % 60).padStart(2, '0'); };
+// beam: head 14 / mid 50 / tail 110 over a 250 period; delays keep all three heads together
+const beam = (T) => ({ bT: T, bD2: (-(50 - 14) * T / 250).toFixed(3), bD3: (-(110 - 14) * T / 250).toFixed(3) });
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { mode: 'empty', e: 0, desc: '' }; }
+  componentWillUnmount() { clearInterval(this._i); }
+  start() {
+    clearInterval(this._i);
+    const m = this.props.placement === 'live (needs the spike)' ? LIVE : REPLAY; READ = m.READ; GAP = m.GAP;
+    this._t0 = Date.now();
+    this.setState({ mode: 'drawing', e: 0 });
+    const end = READ + SEQ.length * GAP + TRAVEL + LAND + 0.4;
+    this._i = setInterval(() => {
+      const e = (Date.now() - this._t0) / 1000;
+      if (e >= end) { clearInterval(this._i); this.setState({ mode: 'done', e }); }
+      else this.setState({ e });
+    }, 80);
+  }
+  add(txt) { const d = this.state.desc; this.setState({ desc: d ? d.replace(/\s*$/, '') + ' ' + txt : txt }); }
+  renderVals() {
+    const s = this.state;
+    const done = s.mode === 'done', drawing = s.mode === 'drawing';
+    const e = done ? 1e9 : (drawing ? s.e : -1);
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    let lastStage = -1, n = 0, tb = 0, fl = 0, dispatched = 0;
+    const log = [];
+    const items = SEQ.map(([name, t, w], k) => {
+      const sl = slot(w);
+      const d = e - (READ + k * GAP);
+      let x = -30, y = 6, sc = 0.3, o = 0, fly = '';
+      if (d >= 0) { o = 1; dispatched++; }
+      if (d >= 0.08) { x = sl.x; fly = 'fly'; }
+      if (d >= TRAVEL) {
+        y = sl.y; sc = 1; fly = '';
+        n++;
+        if (w[0] === 's') { counts[w[1]]++; } else if (w[0] === 't') tb++; else fl++;
+        log.push({ t: mmss(GAP === LIVE.GAP ? READ + k * GAP + TRAVEL : READ * 8 + k * GAP + TRAVEL), n: name, w: sl.where });
+      }
+      if (d >= 0 && d < TRAVEL + LAND && w[0] === 's') lastStage = w[1];
+      return { n: name, t, d: P[t], x, y, s: sc, o, fly };
+    });
+    const st = {};
+    counts.forEach((c, i) => { st['abcdefg'[i]] = ({
+      c: c ? String(c) : '·', on: c ? 'on' : '', so: c ? '0' : '1',
+      lt: (c ? 'on' : '') + (drawing && i === lastStage ? ' ping' : ''),
+      rx: drawing && i === lastStage ? 'rx' : ''
+    }); });
+    const lit = counts.filter((c) => c).length;
+    const reading = drawing && s.e < READ;
+    const B = drawing ? beam(2.2) : beam(9);
+    const LT = drawing ? 3 : 7;
+    return Object.assign({
+      theme: this.props.theme ?? 'auto',
+      items, st, left: String(SEQ.length - dispatched),
+      tbSo: tb ? '0' : '1', flSo: fl ? '0' : '1',
+      beamOp: drawing ? (reading ? '0.55' : '1') : (done ? '0.45' : '0'),
+      loopOp: done ? '0.5' : (drawing && counts[5] ? '0.8' : '0'),
+      lT: LT, lD2: (-(60 - 14) * LT / 250).toFixed(3),
+      gateOp: (done || (drawing && n >= 3)) ? '1' : '0',
+      fxLabel: 'Factory for Heavy: ' + n + ' of 22 artifacts placed',
+      isEmpty: s.mode === 'empty', isDrawing: drawing, isDone: done, isCancelled: s.mode === 'cancelled',
+      headNote: done ? 'Draw 1 · just now' : (drawing ? 'Drawing…' : 'Not drawn yet'),
+      desc: s.desc, onDesc: (ev) => this.setState({ desc: ev.target.value }),
+      onKey: (ev) => { if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') this.start(); },
+      chips: (s.sug === 'vd' ? SUG.vd : SUG.sw).map(([label, text]) => ({ label, add: () => this.add(text) })),
+      sgSw: s.sug === 'vd' ? '' : 'on', sgVd: s.sug === 'vd' ? 'on' : '',
+      toSw: () => this.setState({ sug: 'sw' }), toVd: () => this.setState({ sug: 'vd' }),
+      draw: () => this.start(),
+      cancel: () => { clearInterval(this._i); this.setState({ mode: 'cancelled' }); },
+      reset: () => { clearInterval(this._i); this.setState({ mode: 'empty', e: 0 }); },
+      n, stationsLit: lit, clock: mmss(this.props.placement === 'live (needs the spike)' ? s.e : (s.e < READ ? s.e * 8 : READ * 8 + (s.e - READ))),
+      phaseTag: reading ? (GAP === LIVE.GAP ? 'READING' : 'CLAUDE IS WORKING · OPUS') : (GAP === LIVE.GAP ? 'PLACING' : 'ANSWER IN · REPLAYING'),
+      phase: reading ? (GAP === LIVE.GAP ? 'Claude is reading the 24 artifacts and the Software development template.' : 'Reading 24 artifacts. Usually 1–3 min. The placements arrive together when Claude answers, then ride the line in about 3 s.') : (GAP === LIVE.GAP ? 'Each artifact rides the line as Claude places it. The stage light comes on when it lands.' : 'Claude answered. Harneo checked the answer, and each artifact now rides to its stage.'),
+      ticks: SEQ.map((x, k) => ({ c: k < n ? 'on' : (k === n && !reading ? 'nx' : '') })),
+      log: log.reverse().slice(0, 12), reading
+    }, B);
+  }
+}
+</script>
+</body>
+</html>

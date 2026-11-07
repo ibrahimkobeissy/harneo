@@ -35,6 +35,9 @@ A builder who works across many projects with Claude Code: a solo dev, a consult
 | **Tag** | A user-defined, colored label on a library artifact (e.g. `testing`, `rust`). Many per artifact. Library metadata only, never written into projects. |
 | **Collection** | A saved grouping of library artifacts: *smart* (a saved filter) or *manual* (hand-picked). Collections only organize; profiles install. |
 | **Project registry** | Harneo's list of the projects it has scaffolded or refitted, with the profile and version each one runs. |
+| **Category** | The kind of work a profile is for (e.g. Software development, Video production). Sets the shape of its Harnmap. |
+| **Harnmap** | A profile drawn as a factory: stages on a production line, with each artifact on the *line* (invoked at a point), the *toolbelt* (any stage) or the *floor* (always on). |
+| **Harnfit** | Claude's verdict on how one new artifact would fit a profile's Harnmap, before it is added. |
 
 ## 2. The AI Artifacts
 
@@ -107,6 +110,9 @@ flowchart LR
 4. **Invocation mode per skill:** mark heavy skills *manual-only* (`disable-model-invocation: true`) so they never fire by accident.
 5. **Export / import a profile** as one file, to share it or move machines.
 6. **Run a harness check** on the profile, one button that tests whether the profile is good before it goes into any project. *Noted, not yet scoped*; see §6.
+7. **Pick a category** when creating a profile (Software development, Research, Writing & content, Video production, Social media, Data & analytics, Design, or Custom described in a few lines). It sets the shape of the profile's Harnmap (decided 2026-11-07).
+8. **See the factory: the Harnmap.** Claude draws the profile as a production line on its category's template: stages, which artifact acts where, and what sits off the line (the *toolbelt*) or under it (the *floor*). The user edits it like a diagram: move, pin, note, hide, edit stages. Every drawing is kept in a history, saved with the profile and exported with it (decided 2026-11-07, `spec/harnmap.md`).
+9. **Try before adding: Harnfit.** Before adding a new artifact to a profile, Claude places it on the profile's Harnmap and gives a verdict (fits, fits with changes, conflicts) with checked quotes. It is advice, never a block. This is the judgement half of the harness check (§6).
 
 ### Stage 4 — Scaffold a new project: "a full harness in one click"
 
@@ -162,6 +168,7 @@ flowchart LR
 | Export / import profile · CLI companion | ✅ | |
 | Multi-agent ready | ✅ design only | Claude only in v1; any agent addable later as an adapter |
 | Harness check on a profile | 🟡 noted | Not yet scoped (§6) |
+| Profile categories · Harnmap · Harnfit | ✅ | Decided 2026-11-07 (`spec/harnmap.md`). Claude draws on Opus by default (Sonnet allowed, never Haiku); sending happens only when the user clicks Draw or Harnfit |
 | Shopping-cart profile builder | 🟡 UX note | For the UI phase (§6) |
 | In-app editor · AI-assisted authoring | ❌ | Edit artifacts in your own editor |
 | Enable / disable switch | ❌ | |

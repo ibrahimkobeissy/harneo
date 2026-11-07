@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heavy · Harnfit</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+.sect{padding:14px 16px;border-bottom:1px solid var(--line)}
+.recede{opacity:.42;pointer-events:none;filter:saturate(.4)}
+.gh{position:absolute;display:block;padding:8px 10px;border:1.5px dashed var(--t2);border-radius:10px;background:var(--bg);color:var(--t1);text-align:left}
+.gh .nm{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:11.5px;font-weight:500;margin-left:6px}
+.gh .nt{display:block;margin-top:4px;font-size:11px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.newtag{position:absolute;height:18px;line-height:16px;padding:0 6px;border-radius:6px;border:1px dashed var(--t2);background:var(--bg);color:var(--t2);font-size:10.5px;font-weight:600;letter-spacing:.02em}
+.vtag{position:absolute;height:18px;line-height:18px;padding:0 7px;border-radius:6px;font-size:10.5px;font-weight:600}
+.vtag.gr{background:var(--green-soft);color:var(--green)}.vtag.am{background:var(--amber-soft);color:var(--amber)}.vtag.rd{background:var(--red-soft);color:var(--red)}.vtag.nt{background:var(--sunk);color:var(--t2)}
+.pn{position:absolute;width:20px;height:20px;border-radius:10px;background:var(--pl-bg);color:var(--pl);border:1px solid var(--pl);font:600 11px/18px Inter,system-ui,sans-serif;text-align:center}
+.fit{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raised);color:var(--t1);font:inherit;text-align:left;cursor:pointer}
+.fit:hover{border-color:var(--line2)}
+.fit.on{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring)}
+.part{display:grid;grid-template-columns:20px 1fr auto;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:12px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="height: 100vh; min-height: 680px; display: flex; flex-direction: column; background: var(--bg)">
+  <header class="row" style="flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--raised)">
+    <svg class="ico" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--t2)"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path><path d="M9 3v15M15 6v15"></path></svg>
+    <nav aria-label="Breadcrumb" class="row" style="gap: 6px; font-size: 14px"><a href="Main.dc.html" style="color: var(--t2); text-decoration: none">Heavy</a><span class="t3">→</span><a href="Harnmap.dc.html" style="color: var(--t2); text-decoration: none">Harnmap</a><span class="t3">→</span><b>Harnfit</b></nav>
+    <span class="badge" style="border: 1px dashed var(--t2); background: transparent"><span class="mono">{{c.name}}</span> · not in Heavy</span>
+    <span style="flex: 1"></span>
+    <span class="row t3" style="gap: 5px; font-size: 12px"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Fit saved {{c.when}} · {{c.model}}</span>
+    <button type="button" class="btn" onClick="{{runAgain}}"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>Run again</button>
+    <a class="icb" href="Harnmap.dc.html" aria-label="Close Harnfit"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></a>
+  </header>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-wrap: wrap">
+    <div style="flex: 999 1 560px; min-width: 0; min-height: 520px; position: relative">
+      <div class="dots" style="position: absolute; inset: 0; overflow: auto">
+        <div style="padding: 48px 24px 64px; width: max-content">
+          <div style="position: relative; width: 1040px; height: 664px">
+            <div class="recede" style="position: absolute; left: 0; top: 0; width: 1040px; height: 664px">
+              <dc-import name="HeavyMap" theme="{{theme}}" hint-size="1040px,664px"></dc-import>
+            </div>
+
+            <sc-if value="{{isTdd}}" hint-placeholder-val="{{ true }}">
+              <svg class="ar rd" width="12" height="8" viewBox="0 0 12 8" preserveAspectRatio="none" style="position: absolute; left: 724px; top: 255px; width: 12px; height: 8px"><path d="M 0 4 L 12 4"></path></svg>
+              <svg class="ar rd" width="8" height="124" viewBox="0 0 8 124" preserveAspectRatio="none" style="position: absolute; left: 732px; top: 135px; width: 8px; height: 124px"><path d="M 4 0 L 4 124"></path></svg>
+              <svg class="ar rd" width="11" height="8" viewBox="0 0 11 8" preserveAspectRatio="none" style="position: absolute; left: 725px; top: 131px; width: 11px; height: 8px"><defs><marker id="hf-1" orient="auto" markerWidth="5" markerHeight="5" refX="2" refY="2" overflow="visible"><path d="M0 0 L4 2 L0 4 Z" style="stroke: none; fill: context-stroke"></path></marker></defs><path d="M 11 4 L 4 4" marker-end="url(#hf-1)"></path></svg>
+              <div style="position: absolute; left: 602px; top: 106px; width: 124px; height: 58px; border: 2px solid var(--red-fill); border-radius: 10px; pointer-events: none"></div>
+              <div class="nd gh" style="left: 604px; top: 232px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>tdd-lite</b><i>Tests after the code</i></span></div>
+              <span class="newtag" style="left: 690px; top: 223px">NEW</span>
+              <svg class="ar k" width="15" height="8" viewBox="0 0 15 8" preserveAspectRatio="none" style="position: absolute; left: 588px; top: 255px; width: 15px; height: 8px"><path d="M 0 4 L 15 4"></path></svg>
+              <div class="pop vd bad" role="region" aria-label="Verdict for tdd-lite" style="position: absolute; left: 268px; top: 200px; width: 320px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+                <div class="row" style="justify-content: space-between"><span class="badge rd"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="m15 9-6 6M9 9l6 6"></path></svg>Conflicts</span><span class="t3" style="font-size: 11.5px">Would go: Test</span></div>
+                <div style="font-size: 12.5px">Clashes with <span class="mono">test-driven-development</span>. Both run at Test and give opposite orders.</div>
+                <div class="quote del">tdd-lite · SKILL.md:12
+Write the implementation first, then add tests that cover it.</div>
+                <div class="quote">test-driven-development · SKILL.md:8
+Never write production code before a failing test.</div>
+                <div class="row t2" style="gap: 6px; font-size: 11.5px"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--green)"><path d="M20 6 9 17l-5-5"></path></svg>Both quotes checked word for word against the files. Line numbers found by Harneo, not Claude.</div>
+                <div class="t2" style="font-size: 12px">If you want it for spikes, keep it out of Heavy and use it in a lighter profile.</div>
+                <div class="row" style="flex-wrap: wrap"><button type="button" class="btn sm p" onClick="{{add}}">Add to profile</button><button type="button" class="btn sm" onClick="{{elsewhere}}">Place elsewhere</button><button type="button" class="btn sm g" onClick="{{discard}}">Discard</button></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isCommit}}" hint-placeholder-val="{{ false }}">
+              <div class="nd gh" style="left: 892px; top: 232px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/commit-helper</b><i>Conventional commits</i></span></div>
+              <span class="newtag" style="left: 978px; top: 223px">NEW</span>
+              <svg class="ar k" width="15" height="8" viewBox="0 0 15 8" preserveAspectRatio="none" style="position: absolute; left: 876px; top: 255px; width: 15px; height: 8px"><path d="M 0 4 L 15 4"></path></svg>
+              <div class="pop vd fits" role="region" aria-label="Verdict for commit-helper" style="position: absolute; left: 556px; top: 200px; width: 320px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+                <div class="row" style="justify-content: space-between"><span class="badge gr"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>Fits</span><span class="t3" style="font-size: 11.5px">Would go: Ship, before release</span></div>
+                <div style="font-size: 12.5px">It writes conventional commit messages. Nothing in Heavy does that yet, and <span class="mono">release</span> reads commit types to build its notes, so the two work together.</div>
+                <div class="t2" style="font-size: 12px">No overlap found with the 24 artifacts in Heavy.</div>
+                <div class="row" style="flex-wrap: wrap"><button type="button" class="btn sm p" onClick="{{add}}">Add to profile</button><button type="button" class="btn sm" onClick="{{elsewhere}}">Place elsewhere</button><button type="button" class="btn sm g" onClick="{{discard}}">Discard</button></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isDb}}" hint-placeholder-val="{{ false }}">
+              <div style="position: absolute; left: 499px; top: 349px; width: 0; height: 106px; border-left: 2px dashed var(--t2)"></div>
+              <div class="nd gh" style="left: 460px; top: 294px"><svg class="ti sa" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2"></path></svg><span><b>db-migrator</b><i>Writes and runs migrations</i></span></div>
+              <span class="newtag" style="left: 546px; top: 285px">NEW</span>
+              <div class="nd gh" style="left: 416px; top: 456px"><svg class="ti mc" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"></path></svg><span><b>postgres</b><i>MCP · needed, missing</i></span></div>
+              <svg class="ar k" width="15" height="8" viewBox="0 0 15 8" preserveAspectRatio="none" style="position: absolute; left: 444px; top: 317px; width: 15px; height: 8px"><path d="M 0 4 L 15 4"></path></svg>
+              <div class="pop vd chg" role="region" aria-label="Verdict for db-migrator" style="position: absolute; left: 124px; top: 230px; width: 320px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+                <div class="row" style="justify-content: space-between"><span class="badge am"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg>Fits with changes</span><span class="t3" style="font-size: 11.5px">Would go: Build</span></div>
+                <div style="font-size: 12.5px">Fits in Build, next to <span class="mono">/build</span>. It calls a <span class="mono">postgres</span> MCP server that Heavy doesn’t have.</div>
+                <div class="quote add">Proposed change
+Add the postgres MCP server to Heavy, or
+limit db-migrator to writing migration files.</div>
+                <div class="t2" style="font-size: 12px"><span class="mono">postgres</span> isn’t in your library. Importing it asks for its <span class="mono">${VAR}</span> secrets, as usual.</div>
+                <div class="row" style="flex-wrap: wrap"><button type="button" class="btn sm p" onClick="{{importPg}}">Import postgres first</button><button type="button" class="btn sm" onClick="{{add}}">Add without it</button><button type="button" class="btn sm" onClick="{{elsewhere}}">Place elsewhere</button><button type="button" class="btn sm g" onClick="{{discard}}">Discard</button></div>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{isPlug}}" hint-placeholder-val="{{ false }}">
+              <span class="pn" style="left: 162px; top: 160px">1</span>
+              <span class="vtag nt" style="left: 232px; top: 161px">in Heavy</span>
+              <span class="pn" style="left: 594px; top: 98px">2</span>
+              <span class="vtag nt" style="left: 632px; top: 99px">differs from yours</span>
+              <div class="nd gh" style="left: 892px; top: 232px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>documentation-and-adrs</b></span></div>
+              <span class="pn" style="left: 882px; top: 222px">3</span>
+              <span class="vtag gr" style="left: 980px; top: 223px">fits</span>
+              <div class="nd gh" style="left: 604px; top: 232px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>browser-testing-with-devtools</b></span></div>
+              <span class="pn" style="left: 594px; top: 222px">4</span>
+              <span class="vtag am" style="left: 668px; top: 223px">changes</span>
+              <div class="nd gh" style="left: 460px; top: 294px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/code-simplify</b><i>After a task passes</i></span></div>
+              <span class="pn" style="left: 450px; top: 284px">5</span>
+              <span class="vtag gr" style="left: 548px; top: 285px">fits</span>
+              <div class="nd gh" style="left: 284px; top: 456px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>debugging-and-error-recovery</b></span></div>
+              <span class="pn" style="left: 274px; top: 446px">6</span>
+              <span class="vtag gr" style="left: 372px; top: 447px">fits</span>
+              <div class="pop row" style="position: absolute; left: 600px; top: 584px; padding: 8px 12px; gap: 8px">
+                <svg class="ti pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 9.4 7.5 4.2M21 16V8l-9-5-9 5v8l9 5zM3.3 7 12 12l8.7-5M12 22V12"></path></svg>
+                <span style="font-size: 12px"><b class="mono">agent-skills</b> · plugin · 6 parts, numbered on the map</span>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div class="pop row" role="note" style="position: absolute; left: 12px; top: 12px; padding: 6px 10px; gap: 8px; font-size: 12px; max-width: calc(100% - 24px)">
+        <svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--t2)"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+        <span class="t2">Heavy is drawn faded. Dashed means new, not in the profile. Verdicts are Claude’s opinion, not a rule.</span>
+      </div>
+      <sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}">
+        <div class="pop row" role="status" style="position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%); padding: 8px 12px; gap: 8px; font-size: 12.5px; white-space: nowrap"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>{{toast}}</div>
+      </sc-if>
+    </div>
+
+    <aside aria-label="Harnfit panel" style="flex: 1 1 320px; min-width: 0; border-left: 1px solid var(--line); background: var(--raised); overflow: auto; max-height: 100%">
+      <div class="sect">
+        <div class="row" style="gap: 10px">
+          <svg class="ti l {{c.t}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{c.d}}"></path></svg>
+          <div style="min-width: 0"><h1 class="mono" style="margin: 0; font-size: 14px; font-weight: 600">{{c.name}}</h1><div class="t3" style="font-size: 12px">{{c.tl}} · {{c.src}}</div></div>
+        </div>
+        <p class="t2" style="margin: 10px 0 0; font-size: 12.5px">{{c.desc}}</p>
+      </div>
+
+      <sc-if value="{{isPlug}}" hint-placeholder-val="{{ false }}">
+        <div class="sect">
+          <div class="vd chg" style="padding: 12px">
+            <div class="row" style="justify-content: space-between"><span class="badge am">Fits with changes</span><span class="t3" style="font-size: 11.5px">overall</span></div>
+            <p style="margin: 8px 0 6px; font-size: 12.5px">4 new parts fit Heavy; 2 are already in it. One part needs a browser MCP server Heavy doesn’t have.</p>
+            <div class="part"><span class="pn" style="position: static">1</span><span class="mono">spec-driven-development</span><span class="vtag nt" style="position: static">same as yours</span></div>
+            <div class="part"><span class="pn" style="position: static">2</span><span class="mono">test-driven-development</span><span class="vtag am" style="position: static">differs · diff</span></div>
+            <div class="part"><span class="pn" style="position: static">3</span><span><span class="mono">documentation-and-adrs</span><br><span class="t3">Ship · records decisions at release</span></span><span class="vtag gr" style="position: static">fits</span></div>
+            <div class="part"><span class="pn" style="position: static">4</span><span><span class="mono">browser-testing-with-devtools</span><br><span class="t3">Test · needs chrome-devtools MCP</span></span><span class="vtag am" style="position: static">changes</span></div>
+            <div class="part"><span class="pn" style="position: static">5</span><span><span class="mono">/code-simplify</span><br><span class="t3">Build · after a task passes</span></span><span class="vtag gr" style="position: static">fits</span></div>
+            <div class="part"><span class="pn" style="position: static">6</span><span><span class="mono">debugging-and-error-recovery</span><br><span class="t3">Toolbelt · any stage</span></span><span class="vtag gr" style="position: static">fits</span></div>
+            <div class="row" style="gap: 8px; align-items: flex-start; margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--amber-soft); font-size: 12px"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px; color: var(--amber); flex: none"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span>Parts 1 and 2 are already in Heavy. Adding the whole plugin would install them twice, with the same names in the project.</span></div>
+            <div class="row" style="flex-wrap: wrap; margin-top: 10px"><button type="button" class="btn sm p" onClick="{{add}}">Add plugin anyway</button><button type="button" class="btn sm" onClick="{{elsewhere}}">Pick parts</button><button type="button" class="btn sm g" onClick="{{discard}}">Discard</button></div>
+            <p class="t3" style="font-size: 11.5px; margin: 8px 0 0">A plugin installs as one unit. Pick parts copies only the new ones (3 to 6) into your library, with no duplicates.</p>
+          </div>
+        </div>
+      </sc-if>
+
+      <div class="sect">
+        <div class="row" style="justify-content: space-between"><h2 class="h4">Saved fits for Heavy</h2><span class="mono t3">4</span></div>
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 10px">
+          <sc-for list="{{fits}}" as="f" hint-placeholder-count="4">
+            <button type="button" class="fit {{f.cls}}" onClick="{{f.pick}}" aria-pressed="{{f.on}}">
+              <svg class="ti {{f.t}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{f.d}}"></path></svg>
+              <span style="flex: 1; min-width: 0"><span class="mono" style="font-weight: 500">{{f.name}}</span><br><span class="t3" style="font-size: 11.5px">{{f.when}}</span></span>
+              <span class="badge {{f.vc}}">{{f.v}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <p class="t3" style="font-size: 11.5px; margin: 10px 0 0">Every fit is saved with the profile, with the candidate’s source, commit and content hash. Reopening one costs no tokens; it shows out of date when the candidate or Heavy changes. Each fit keeps its latest verdict. Run again asks Claude afresh, usually 30–90 s.</p>
+      </div>
+      <div class="sect" style="border-bottom: 0">
+        <h2 class="cap" style="margin: 0">This is Claude’s opinion</h2>
+        <p class="t2" style="margin: 6px 0 0; font-size: 12.5px">Harneo never blocks an add. A conflict is a warning with the lines that clash, so you can judge for yourself.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":900}}'>
+const P = {
+  sk: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z',
+  cm: 'M4 17l6-6-6-6M12 19h8',
+  sa: 'M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2',
+  pl: 'M16.5 9.4 7.5 4.2M21 16V8l-9-5-9 5v8l9 5zM3.3 7 12 12l8.7-5M12 22V12'
+};
+const C = {
+  tdd: { name: 'tdd-lite', t: 'sk', tl: 'Skill', model: 'Opus · 48 s', src: 'library · added 3 Nov', when: '4 Nov 15:02', desc: 'A lighter testing skill: write the code, then add tests that cover it.', v: 'Conflicts', vc: 'rd' },
+  commit: { name: '/commit-helper', t: 'cm', tl: 'Command', model: 'Opus · 36 s', src: 'import scan · git-kit @ 3f2a91c', when: 'just now', desc: 'Writes conventional commit messages from the staged diff.', v: 'Fits', vc: 'gr' },
+  db: { name: 'db-migrator', t: 'sa', tl: 'Subagent', model: 'Sonnet · 29 s', src: 'library · added 1 Nov', when: '2 Nov 11:20 · out of date, Heavy changed', desc: 'Writes, checks and runs database migrations through a postgres MCP server.', v: 'With changes', vc: 'am' },
+  plug: { name: 'agent-skills', t: 'pl', tl: 'Plugin · 6 parts', model: 'Opus · 1 min 12 s', src: 'import scan · addyosmani/agent-skills @ 9c04e1d', when: '5 Nov 09:14', desc: 'Engineering workflow skills and commands. Each part is placed and judged on its own; the plugin gets one overall verdict.', v: 'With changes', vc: 'am' }
+};
+const KEYS = ['tdd', 'commit', 'db', 'plug'];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { cand: 'tdd', toast: '' }; }
+  componentWillUnmount() { clearTimeout(this._t); }
+  say(m) { this.setState({ toast: m }); clearTimeout(this._t); this._t = setTimeout(() => this.setState({ toast: '' }), 3200); }
+  renderVals() {
+    const s = this.state;
+    const cur = C[s.cand];
+    const c = Object.assign({ d: P[cur.t] }, cur);
+    return {
+      theme: this.props.theme ?? 'auto', c,
+      isTdd: s.cand === 'tdd', isCommit: s.cand === 'commit', isDb: s.cand === 'db', isPlug: s.cand === 'plug',
+      fits: KEYS.map((k) => ({ name: C[k].name, t: C[k].t, d: P[C[k].t], when: C[k].when, v: C[k].v, vc: C[k].vc, on: k === s.cand, cls: k === s.cand ? 'on' : '', pick: () => this.setState({ cand: k }) })),
+      hasToast: !!s.toast, toast: s.toast,
+      add: () => this.say(cur.name + ' added to Heavy and placed on the map, pinned.'),
+      elsewhere: () => this.say('Drag the dashed node to another stage, the toolbelt or the floor.'),
+      discard: () => this.say('Discarded. The fit stays in Saved fits.'),
+      runAgain: () => this.say('Asking Claude again (Opus, usually 30–90 s). The saved verdict stays until the new one arrives.'),
+      importPg: () => this.say('Opening import for postgres. Its secrets go through the usual ${VAR} step.')
+    };
+  }
+}
+</script>
+</body>
+</html>

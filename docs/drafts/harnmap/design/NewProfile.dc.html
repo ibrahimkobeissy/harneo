@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>New profile · pick a category</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+.tn .l{stroke:var(--line2);stroke-width:3.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tn .bm{fill:none;stroke:var(--t1);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:14 236;animation:run 6s linear infinite;opacity:0;transition:opacity .4s}
+.tn .bm.b2{stroke-dasharray:44 206;animation-delay:-.72s}
+.cat.on .tn .bm,.cat:hover .tn .bm{opacity:1}
+.cat.on .tn .bm.b2,.cat:hover .tn .bm.b2{opacity:.25}
+.tn .r{stroke:var(--line2);stroke-width:1;fill:none}
+.tn .n{fill:var(--raised);stroke:var(--line2);stroke-width:1.5}
+.cat.on .tn .n{stroke:var(--t2)}
+.cat{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--raised);color:var(--t1);font:inherit;text-align:left;cursor:pointer;min-height:172px}
+.cat:hover{border-color:var(--line2)}
+.cat.on{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-ring)}
+.cat:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.thumb{border-radius:6px;background:var(--side);border:1px solid var(--line);padding:8px 6px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="min-height: 100vh; background: var(--scrim); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px">
+  <div class="pop" role="dialog" aria-label="New profile" style="width: 100%; max-width: 1120px; display: flex; flex-direction: column">
+    <div class="row" style="justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--line)">
+      <h1 class="h2">New profile</h1>
+      <button type="button" class="icb" aria-label="Close"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+    </div>
+    <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 18px">
+      <div style="max-width: 420px">
+        <label class="lbl" for="pname">Profile name</label>
+        <input id="pname" class="input" value="Studio videos" style="margin-top: 6px">
+      </div>
+      <div>
+        <div class="row" style="justify-content: space-between; flex-wrap: wrap">
+          <h2 class="h4">What kind of work is it for?</h2>
+          <span class="t3" style="font-size: 12px">Sets the shape of its Harnmap. You can change it later.</span>
+        </div>
+        <div role="radiogroup" aria-label="Category" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; margin-top: 10px">
+
+          <button type="button" role="radio" aria-checked="{{a.sw}}" class="cat {{c.sw}}" onClick="{{p.sw}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M13 24H193M163 30V48H103V30"></path><path class="bm" pathLength="1000" d="M13 24H193M163 30V48H103V30"></path><path class="bm b2" pathLength="1000" d="M13 24H193M163 30V48H103V30"></path><rect class="n" x="6" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="36" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="66" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="96" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="126" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="156" y="18" width="14" height="12" rx="3"></rect><rect class="n" x="186" y="18" width="14" height="12" rx="3"></rect></svg>
+            <b class="h4">Software development</b>
+            <span class="t2" style="font-size: 12px">A line, with a loop from Review back to Build.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.rs}}" class="cat {{c.rs}}" onClick="{{p.rs}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M16 32H30M42 32H78M122 32H146M158 32H166M178 32H186"></path><path class="bm" pathLength="1000" d="M16 32H30M42 32H78M122 32H146M158 32H166M178 32H186"></path><path class="bm b2" pathLength="1000" d="M16 32H30M42 32H78M122 32H146M158 32H166M178 32H186"></path><circle class="l" cx="100" cy="32" r="22"></circle><rect class="n" x="4" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="30" y="26" width="12" height="12" rx="3"></rect><circle class="n" cx="100" cy="10" r="5"></circle><circle class="n" cx="119" cy="43" r="5"></circle><circle class="n" cx="81" cy="43" r="5"></circle><rect class="n" x="146" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="166" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="186" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Research</b>
+            <span class="t2" style="font-size: 12px">Read and analyse in a loop until the question is answered.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.wr}}" class="cat {{c.wr}}" onClick="{{p.wr}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M10 32H190M94 26C94 8 122 8 122 26M150 38C150 58 94 58 94 38"></path><path class="bm" pathLength="1000" d="M10 32H190M94 26C94 8 122 8 122 26M150 38C150 58 94 58 94 38"></path><path class="bm b2" pathLength="1000" d="M10 32H190M94 26C94 8 122 8 122 26M150 38C150 58 94 58 94 38"></path><rect class="n" x="4" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="32" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="60" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="88" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="116" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="144" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="184" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Writing &amp; content</b>
+            <span class="t2" style="font-size: 12px">A line, with an editorial loop: Edit and Fact-check go back to Draft.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.vd}}" class="cat {{c.vd}}" onClick="{{p.vd}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="r" d="M70 4V60M120 4V60"></path><path class="l" d="M18 32H26M38 32H46M58 32H86M98 32H110V16H134M110 32V48H134M146 16H160V32H176M146 48H160V32"></path><path class="bm" pathLength="1000" d="M18 32H26M38 32H46M58 32H86M98 32H110V16H134M110 32V48H134M146 16H160V32H176M146 48H160V32"></path><path class="bm b2" pathLength="1000" d="M18 32H26M38 32H46M58 32H86M98 32H110V16H134M110 32V48H134M146 16H160V32H176M146 48H160V32"></path><rect class="n" x="6" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="26" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="46" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="86" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="134" y="10" width="12" height="12" rx="3"></rect><rect class="n" x="134" y="42" width="12" height="12" rx="3"></rect><rect class="n" x="176" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Video production</b>
+            <span class="t2" style="font-size: 12px">Pre, production, post. Picture and sound run in parallel in post.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.so}}" class="cat {{c.so}}" onClick="{{p.so}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><circle class="l" cx="56" cy="32" r="22"></circle><path class="l" d="M78 32H100M100 32L124 10M100 32H124M100 32L124 54M136 10L160 32M136 32H160M136 54L160 32M172 32H186V4H56V10"></path><path class="bm" pathLength="1000" d="M78 32H100M100 32L124 10M100 32H124M100 32L124 54M136 10L160 32M136 32H160M136 54L160 32M172 32H186V4H56V10"></path><path class="bm b2" pathLength="1000" d="M78 32H100M100 32L124 10M100 32H124M100 32L124 54M136 10L160 32M136 32H160M136 54L160 32M172 32H186V4H56V10"></path><circle class="n" cx="56" cy="10" r="5"></circle><circle class="n" cx="34" cy="32" r="5"></circle><circle class="n" cx="56" cy="54" r="5"></circle><circle class="n" cx="78" cy="32" r="5"></circle><rect class="n" x="124" y="4" width="12" height="12" rx="3"></rect><rect class="n" x="124" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="124" y="48" width="12" height="12" rx="3"></rect><rect class="n" x="160" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Social media</b>
+            <span class="t2" style="font-size: 12px">A cycle that fans out per platform and comes back to Plan.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.da}}" class="cat {{c.da}}" onClick="{{p.da}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M10 32H190M62 26C62 10 98 10 98 26M98 38C98 54 62 54 62 38"></path><path class="bm" pathLength="1000" d="M10 32H190M62 26C62 10 98 10 98 26M98 38C98 54 62 54 62 38"></path><path class="bm b2" pathLength="1000" d="M10 32H190M62 26C62 10 98 10 98 26M98 38C98 54 62 54 62 38"></path><rect class="n" x="4" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="28" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="56" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="92" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="128" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="156" y="26" width="12" height="12" rx="3"></rect><rect class="n" x="184" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Data &amp; analytics</b>
+            <span class="t2" style="font-size: 12px">A line, with a back-and-forth between Clean and Explore.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.de}}" class="cat {{c.de}}" onClick="{{p.de}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M16 32L58 6L100 32L58 58ZM100 32L142 6L184 32L142 58Z"></path><path class="bm" pathLength="1000" d="M16 32L58 6L100 32L58 58ZM100 32L142 6L184 32L142 58Z"></path><path class="bm b2" pathLength="1000" d="M16 32L58 6L100 32L58 58ZM100 32L142 6L184 32L142 58Z"></path><rect class="n" x="4" y="26" width="12" height="12" rx="3"></rect><circle class="n" cx="58" cy="6" r="4"></circle><circle class="n" cx="100" cy="32" r="5"></circle><circle class="n" cx="142" cy="6" r="4"></circle><circle class="n" cx="142" cy="58" r="4"></circle><rect class="n" x="184" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Design (UI, brand)</b>
+            <span class="t2" style="font-size: 12px">Double diamond: open up, narrow down, twice.</span>
+          </button>
+
+          <button type="button" role="radio" aria-checked="{{a.cu}}" class="cat {{c.cu}}" onClick="{{p.cu}}">
+            <svg class="tn thumb" viewBox="0 0 200 64" width="100%" height="64" aria-hidden="true"><path class="l" d="M16 32H88M112 32H184" style="stroke-dasharray: 3 5"></path><path class="bm" pathLength="1000" d="M16 32H88M112 32H184"></path><path class="bm b2" pathLength="1000" d="M16 32H88M112 32H184"></path><rect class="n" x="4" y="26" width="12" height="12" rx="3"></rect><path class="l" d="M100 18l3 8.5 8.5 3-8.5 3-3 8.5-3-8.5-8.5-3 8.5-3z"></path><path class="bm" pathLength="1000" d="M100 18l3 8.5 8.5 3-8.5 3-3 8.5-3-8.5-8.5-3 8.5-3z"></path><path class="bm b2" pathLength="1000" d="M100 18l3 8.5 8.5 3-8.5 3-3 8.5-3-8.5-8.5-3 8.5-3z"></path><rect class="n" x="184" y="26" width="12" height="12" rx="3"></rect></svg>
+            <b class="h4">Custom</b>
+            <span class="t2" style="font-size: 12px">Describe your work. Claude picks one of the shapes above and names the stages; you edit them.</span>
+          </button>
+        </div>
+      </div>
+
+      <sc-if value="{{isCustom}}" hint-placeholder-val="{{ false }}">
+        <div class="panel" style="padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+          <label class="lbl" for="cdesc">Describe the work in a few lines</label>
+          <textarea id="cdesc" class="ta" placeholder="e.g. I run a weekly newsletter on climate policy: collect news, pick 5 stories, write, have a friend review, send on Fridays."></textarea>
+          <span class="t3" style="font-size: 12px">Claude picks one of the 5 shapes and names the stages when you first draw the map. Until then the map shows one open stage.</span>
+        </div>
+      </sc-if>
+
+      <div class="panel" style="padding: 12px 16px; background: var(--side)">
+        <div class="cap">Template stages · the empty Harnmap you start from</div>
+        <div class="mono" style="margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center">
+          <sc-for list="{{stages}}" as="s" hint-placeholder-count="7">
+            <span class="badge" style="background: var(--raised); border: 1px solid var(--line); font-family: inherit">{{s.n}}</span><span class="t3">{{s.sep}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="justify-content: flex-end; padding: 14px 20px; border-top: 1px solid var(--line)">
+      <button type="button" class="btn g">Cancel</button>
+      <a class="btn p" href="Main.dc.html">Create profile</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":900}}'>
+const ST = {
+  sw: ['Idea','Spec','Plan','Build','Test','Review','Ship'],
+  rs: ['Question','Sources','Read & extract','Analyse','Synthesise','Verify','Report'],
+  wr: ['Brief','Research','Outline','Draft','Edit','Fact-check','Publish'],
+  vd: ['Concept','Script','Storyboard','Shoot & assets','Edit ∥ Sound & captions','Publish'],
+  so: ['Plan','Ideate','Create','Adapt per platform','Schedule','Engage','Measure','↺ Plan'],
+  da: ['Question','Collect','Clean ⇄ Explore','Model','Visualise','Report'],
+  de: ['Brief','Research','Define','Concepts','Prototype ⇄ Critique','Hand-off'],
+  cu: ['Proposed by Claude from your description']
+};
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 'vd' }; }
+  renderVals() {
+    const sel = this.state.sel;
+    const keys = Object.keys(ST);
+    const c = {}, a = {}, p = {};
+    keys.forEach((k) => { c[k] = k === sel ? 'on' : ''; a[k] = k === sel ? 'true' : 'false'; p[k] = () => this.setState({ sel: k }); });
+    const list = ST[sel];
+    return {
+      theme: this.props.theme ?? 'auto', c, a, p, isCustom: sel === 'cu',
+      stages: list.map((n, i) => ({ n, sep: i < list.length - 1 ? '→' : '' }))
+    };
+  }
+}
+</script>
+</body>
+</html>

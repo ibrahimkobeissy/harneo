@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harnmap states</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+.card{display:flex;flex-direction:column;height:360px;overflow:hidden}
+.ch{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line)}
+.cb{flex:1;position:relative;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mini{position:relative;height:96px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.mini::before{content:"";position:absolute;left:8px;right:8px;top:7px;height:5px;border-radius:3px;background:var(--line)}
+.mb{position:absolute;top:18px;width:44px;height:68px;border:1px solid var(--line);background:var(--raised);border-radius:7px}
+.mb::before{content:"";position:absolute;left:20px;top:-7px;width:2px;height:6px;background:var(--line)}
+.mbl{position:absolute;top:24px;font-size:9.5px;font-weight:600;color:var(--t2)}
+.mn{background:var(--sunk)!important;border-color:var(--line)!important}
+.mn{position:absolute;width:36px;height:12px;border-radius:3px;background:var(--raised);border:1px solid var(--line2)}
+.ban{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;font-size:12.5px}
+.ban.rd{background:var(--red-soft);color:var(--t1)}
+.ban.am{background:var(--amber-soft);color:var(--t1)}
+.ban.nt{background:var(--side);border:1px solid var(--line)}
+.mbl{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500}
+.code{font-family:"JetBrains Mono",ui-monospace,monospace;font-size:12px;padding:8px 10px;border-radius:6px;background:var(--sunk)}
+.dn{display:flex;align-items:center;gap:4px;height:20px;padding:0 5px;border-radius:5px;border:1px solid var(--line);background:var(--raised);font-family:"JetBrains Mono",ui-monospace,monospace;font-size:9.5px;white-space:nowrap;overflow:hidden}
+.dn i{width:8px;height:8px;border-radius:2px;flex:none}
+.hbm{width:5px;height:5px;border-radius:50%;background:var(--t3);flex:none;animation:hbs 2s ease-in-out infinite}
+@keyframes hbs{0%,30%,100%{transform:scale(1)}12%{transform:scale(1.3)}}
+@media (prefers-reduced-motion:reduce){.hbm{animation:none}}
+.sw{position:relative;width:30px;height:18px;border-radius:9px;background:var(--switch-off,#7c8ba1);border:0;padding:0;flex:none;cursor:pointer}
+.sw span{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:7px;background:#fff}
+.sw.on{background:var(--blue)}.sw.on span{left:14px}
+.chk{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;font-size:12px}
+.chk input{accent-color:var(--blue);margin:0}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="width: 1440px; height: 2100px; padding: 56px 64px; background: var(--bg)">
+  <h1 class="h1">States</h1>
+  <p class="t2" style="margin: 6px 0 0">What the Harnmap shows when it can’t draw, when the answer is wrong, when things changed, and when there is a lot on it. There is no switch before Draw: pressing it is the go-ahead.</p>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 24px">
+
+    <section class="panel card" aria-label="Empty profile">
+      <div class="ch"><h2 class="h4">Empty profile</h2><span class="badge">template only</span></div>
+      <div class="cb">
+        <div class="mini dots">
+          <div class="mb" style="left: 10px"></div><div class="mb" style="left: 60px"></div><div class="mb" style="left: 110px"></div><div class="mb" style="left: 160px"></div><div class="mb" style="left: 210px"></div><div class="mb" style="left: 260px"></div><div class="mb" style="left: 310px"></div>
+          <div class="mbl" style="left: 16px">Idea</div><div class="mbl" style="left: 66px">Spec</div><div class="mbl" style="left: 116px">Plan</div><div class="mbl" style="left: 166px">Build</div><div class="mbl" style="left: 216px">Test</div><div class="mbl" style="left: 264px">Review</div><div class="mbl" style="left: 316px">Ship</div>
+        </div>
+        <b style="font-size: 13px">Nothing to place yet</b>
+        <p class="t2" style="margin: 0; font-size: 12.5px">This is the Software development template: 7 stages and a loop from Review to Build. Add artifacts to Light and Claude can draw its factory.</p>
+        <div class="row" style="margin-top: auto"><a class="btn" href="Main.dc.html">Add from library</a><button type="button" class="btn g">Edit stages</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="claude CLI not installed">
+      <div class="ch"><h2 class="h4"><span class="mono">claude</span> CLI not found</h2><span class="badge">blocked</span></div>
+      <div class="cb">
+        <div class="ban nt"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px; flex: none"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span>Harneo draws maps through your own Claude Code CLI, and it isn’t on your PATH. The map and its template still work by hand.</span></div>
+        <p class="t2" style="margin: 0; font-size: 12.5px">Install Claude Code with the official setup guide, sign in once in a terminal, then check again. Harneo never asks for a key.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Check again</button><a class="btn g" href="#">Claude Code setup guide</a></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="claude not signed in">
+      <div class="ch"><h2 class="h4"><span class="mono">claude</span> is not signed in</h2><span class="badge ">blocked</span></div>
+      <div class="cb">
+        <div class="ban nt"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px; flex: none"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span>The CLI is installed but not signed in, so Claude can’t draw. Your map and templates still work by hand.</span></div><p class="t3" style="margin: 0; font-size: 12px">Run <span class="mono">claude</span> once in a terminal and sign in with your plan. No switch to turn on: pressing Draw is the go-ahead, with what is sent listed next to it.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Check again</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Drawing failed">
+      <div class="ch"><h2 class="h4">Re-draw failed</h2><span class="badge rd">error</span></div>
+      <div class="cb">
+        <div class="ban rd"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px; flex: none; color: var(--red)"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4M12 16h.01"></path></svg><span><b>Claude stopped after 52 s:</b> usage limit reached. Your map is unchanged: draw 3 is still current.</span></div>
+        <div class="mini dots" style="opacity: .9">
+          <div class="mb" style="left: 10px"></div><div class="mb" style="left: 60px"></div><div class="mb" style="left: 110px"></div><div class="mb" style="left: 160px"></div><div class="mb" style="left: 210px"></div><div class="mb" style="left: 260px"></div><div class="mb" style="left: 310px"></div>
+          <div class="mn" style="left: 14px; top: 26px"></div><div class="mn" style="left: 64px; top: 26px"></div><div class="mn" style="left: 64px; top: 44px"></div><div class="mn" style="left: 114px; top: 26px"></div><div class="mn" style="left: 164px; top: 26px"></div><div class="mn" style="left: 164px; top: 44px"></div><div class="mn" style="left: 214px; top: 26px"></div><div class="mn" style="left: 264px; top: 26px"></div><div class="mn" style="left: 264px; top: 44px"></div><div class="mn" style="left: 264px; top: 62px"></div><div class="mn" style="left: 314px; top: 26px"></div>
+        </div>
+        <p class="t2" style="margin: 0; font-size: 12px">Your description is kept, so retrying costs one click.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Try again</button><button type="button" class="btn g">Show the CLI output</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Map out of date">
+      <div class="ch"><h2 class="h4">Out of date</h2><span class="badge am">profile changed</span></div>
+      <div class="cb">
+        <div class="ban am"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px; flex: none; color: var(--amber)"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"></path></svg><span>Heavy changed since draw 3 on 4 Nov.</span></div>
+        <div style="font-size: 12.5px; display: flex; flex-direction: column; gap: 5px">
+          <div class="row"><span class="mono" style="color: var(--green); width: 14px">+</span><span class="mono">commit-helper</span><span class="t3">in Unplaced</span></div>
+          <div class="row"><span class="mono" style="color: var(--green); width: 14px">+</span><span class="mono">db-migrator</span><span class="t3">placed from its fit</span></div>
+          <div class="row"><span class="mono" style="color: var(--red); width: 14px">−</span><span class="mono">grill-me</span><span class="t3">removed from the map</span></div>
+          <div class="row"><span class="mono t3" style="width: 14px">~</span><span class="mono">test-driven-development</span><span class="t3">differs from the drawn copy · diff</span></div>
+        </div>
+        <p class="t3" style="margin: 0; font-size: 12px">The map still works. New artifacts wait in Unplaced; place them by hand or re-draw.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Re-draw</button><button type="button" class="btn g">Place by hand</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Category changed">
+      <div class="ch"><h2 class="h4">Category changed</h2><span class="badge">new template</span></div>
+      <div class="cb">
+        <p style="margin: 0; font-size: 12.5px">Heavy is now <b>Research</b>. Its map was drawn on Software development.</p>
+        <svg viewBox="0 0 380 80" width="100%" height="80" aria-hidden="true" style="border: 1px solid var(--line); border-radius: 8px; background: var(--side)">
+          <g fill="none" stroke="var(--t3)" stroke-width="1.5"><path d="M30 40H60M84 40H140M240 40H270M294 40H310M334 40H346"></path><circle cx="190" cy="40" r="26"></circle></g>
+          <g fill="var(--raised)" stroke="var(--t2)" stroke-width="1.5"><rect x="12" y="32" width="18" height="16" rx="4"></rect><rect x="60" y="32" width="24" height="16" rx="4"></rect><circle cx="190" cy="14" r="6"></circle><circle cx="212" cy="54" r="6"></circle><circle cx="168" cy="54" r="6"></circle><rect x="270" y="32" width="24" height="16" rx="4"></rect><rect x="310" y="32" width="24" height="16" rx="4"></rect><rect x="346" y="32" width="24" height="16" rx="4"></rect></g>
+        </svg>
+        <p class="t2" style="margin: 0; font-size: 12.5px">Re-draw on the Research template? Draw 3 stays in Map history and comes back if you switch back.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn p">Re-draw on Research</button><button type="button" class="btn g">Keep the old map for now</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Model not available">
+      <div class="ch"><h2 class="h4">Model not available</h2><span class="badge rd">error</span></div>
+      <div class="cb">
+        <div class="ban rd"><span><b>Opus isn’t available on your plan right now.</b> Nothing was sent.</span></div><p class="t2" style="margin: 0; font-size: 12.5px">Sonnet can draw the map too. The history entry says which model drew it.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Draw with Sonnet</button><button type="button" class="btn g">Cancel</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Timeout">
+      <div class="ch"><h2 class="h4">Timed out</h2><span class="badge rd">error</span></div>
+      <div class="cb">
+        <div class="ban rd"><span><b>No answer after 5 min.</b> Claude was stopped and your map is unchanged.</span></div><p class="t2" style="margin: 0; font-size: 12.5px">Big profiles take longer. Try again, or draw with Sonnet, which is quicker.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Try again</button><button type="button" class="btn g">Use Sonnet</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Answer did not validate">
+      <div class="ch"><h2 class="h4">Answer didn’t check out</h2><span class="badge rd">error</span></div>
+      <div class="cb">
+        <div class="ban rd"><span><b>Claude’s answer failed Harneo’s checks twice</b>: it placed <span class="mono">/ship</span> twice and named a stage that doesn’t exist.</span></div><p class="t2" style="margin: 0; font-size: 12.5px">Harneo retried once on its own. Your map is unchanged; nothing half-drawn was saved.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Try again</button><button type="button" class="btn g">Show the answer</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Nothing on the line">
+      <div class="ch"><h2 class="h4">Nothing on the line</h2><span class="badge ">drawn</span></div>
+      <div class="cb">
+        <p style="margin: 0; font-size: 12.5px">Notes is a profile of 1 CLAUDE.md, 2 rules and an MCP server. Claude put everything on the floor and the toolbelt.</p><p class="t2" style="margin: 0; font-size: 12.5px">That’s a valid map: the stages stay empty and say so. Add skills or commands to give the line work to do.</p>
+        <div class="row" style="margin-top: auto"><a class="btn" href="Main.dc.html">Add from library</a></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Harnfit with no map">
+      <div class="ch"><h2 class="h4">Harnfit needs a map</h2><span class="badge ">blocked</span></div>
+      <div class="cb">
+        <p style="margin: 0; font-size: 12.5px">To fit <span class="mono">tdd-lite</span> into Light, Light needs a map first.</p><p class="t2" style="margin: 0; font-size: 12.5px">Draw Light’s map, then fit. Or do both in one run: more tokens, usually 2–4 min.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Draw Light’s map first</button><button type="button" class="btn g">Draw and fit</button></div>
+      </div>
+    </section>
+
+    <section class="panel card" aria-label="Fit out of date">
+      <div class="ch"><h2 class="h4">Fit out of date</h2><span class="badge am">out of date</span></div>
+      <div class="cb">
+        <div class="ban am"><span>The <span class="mono">db-migrator</span> fit from 2 Nov no longer matches.</span></div><div style="font-size: 12.5px; display: flex; flex-direction: column; gap: 5px"><div class="row"><span class="mono t3" style="width: 14px">~</span><span>Heavy changed since the fit (2 artifacts added)</span></div><div class="row"><span class="mono t3" style="width: 14px">=</span><span>Candidate unchanged · hash <span class="mono">a41c…</span></span></div></div><p class="t3" style="margin: 0; font-size: 12px">The old verdict stays visible, marked out of date.</p>
+        <div class="row" style="margin-top: auto"><button type="button" class="btn">Run again</button><button type="button" class="btn g">Keep the old verdict</button></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" aria-label="Big messy profile" style="margin-top: 24px; height: 330px; display: flex; flex-direction: column; overflow: hidden">
+    <div class="ch"><h2 class="h4">A big profile: Monorepo, 47 artifacts</h2><span class="t3" style="font-size: 12px">Below 75% zoom the map turns into plain boxes: no pipe, chutes or rings. Hiding works by type and layer.</span></div>
+    <div style="flex: 1; position: relative; display: flex">
+      <div class="dots" style="flex: 1; position: relative; overflow: hidden; padding: 56px 16px 12px">
+        <div style="display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px">
+          <sc-for list="{{cols}}" as="col" hint-placeholder-count="9">
+            <div style="border: 1px solid var(--line); background: var(--side); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0">
+              <div style="font-size: 10px; font-weight: 600; padding: 0 2px 2px">{{col.name}}</div>
+              <sc-for list="{{col.nodes}}" as="nd" hint-placeholder-count="4">
+                <div class="dn" style="opacity: {{nd.op}}"><i style="background: {{nd.c}}"></i><span style="flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis">{{nd.n}}</span><b class="hbm"></b></div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+        <div class="pop row" style="position: absolute; left: 12px; top: 10px; padding: 4px 6px; gap: 6px">
+          <span class="cap">Layers</span>
+          <div class="seg"><button type="button" class="on">Line</button><button type="button">Toolbelt</button><button type="button" class="on">Floor</button></div>
+          <button type="button" class="btn sm on">Types · 2 hidden</button>
+          <span class="mono t3" style="padding: 0 4px">60%</span>
+        </div>
+        <div class="pop" style="position: absolute; right: 12px; bottom: 12px; width: 150px; height: 84px; padding: 6px">
+          <div style="position: relative; width: 100%; height: 100%; background: var(--side); border-radius: 4px">
+            <div style="position: absolute; left: 6px; top: 8px; width: 120px; height: 28px; background: var(--line2); border-radius: 2px; opacity: .6"></div>
+            <div style="position: absolute; left: 6px; top: 42px; width: 120px; height: 10px; background: var(--line); border-radius: 2px"></div>
+            <div style="position: absolute; left: 4px; top: 4px; width: 92px; height: 52px; border: 1.5px solid var(--blue); border-radius: 3px"></div>
+          </div>
+        </div>
+      </div>
+      <div style="width: 248px; border-left: 1px solid var(--line); padding: 12px; background: var(--raised)">
+        <div class="cap" style="padding: 0 6px 6px">Show on the map</div>
+        <sc-for list="{{types}}" as="ty" hint-placeholder-count="6">
+          <label class="chk"><input type="checkbox" checked="{{ty.on}}" onChange="{{ty.toggle}}"><i style="width: 10px; height: 10px; border-radius: 3px; background: {{ty.c}}"></i><span style="flex: 1">{{ty.label}}</span><span class="mono t3">{{ty.count}}</span></label>
+        </sc-for>
+        <div class="t3" style="font-size: 11.5px; padding: 8px 6px 0">{{hiddenNote}}</div>
+      </div>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":2100}}'>
+const TC = { sk: 'var(--sk)', cm: 'var(--cm)', sa: 'var(--sa)', wf: 'var(--wf)', mc: 'var(--mc)', ru: 'var(--ru)' };
+const TL = { sk: 'Skills', cm: 'Commands', sa: 'Subagents', wf: 'Workflows', mc: 'MCP servers', ru: 'Rules' };
+const COLS = [
+  ['Idea', [['write-a-prd','sk'],['idea-refine','sk'],['/brainstorm','cm']]],
+  ['Spec', [['/spec','cm'],['spec-driven-dev','sk'],['api-design','sk'],['adr-writer','sa']]],
+  ['Plan', [['/plan','cm'],['task-breakdown','sk'],['estimator','sa']]],
+  ['Build', [['/build','cm'],['incremental-impl','sk'],['frontend-ui','sk'],['backend-api','sk'],['db-migrator','sa'],['codegen','wf']]],
+  ['Test', [['tdd','sk'],['test-engineer','sa'],['e2e-runner','sa'],['/flaky','cm'],['fixtures','sk']]],
+  ['Review', [['/review','cm'],['code-review','sk'],['code-reviewer','sa'],['security-auditor','sa'],['a11y-check','sk']]],
+  ['Docs', [['doc-writer','sk'],['/changelog','cm'],['api-docs','sa']]],
+  ['Ship', [['/ship','cm'],['release','wf'],['canary','wf'],['rollback','sk']]],
+  ['Operate', [['oncall','sk'],['/incident','cm'],['postmortem','sk'],['sentry','mc'],['pagerduty','mc']]]
+];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { send: false, off: { sa: true, wf: true } }; }
+  renderVals() {
+    const s = this.state;
+    const counts = {};
+    COLS.forEach(([, ns]) => ns.forEach(([, t]) => { counts[t] = (counts[t] || 0) + 1; }));
+    counts.ru = 4;
+    let hidden = 0;
+    const cols = COLS.map(([name, ns]) => ({
+      name,
+      nodes: ns.filter(([, t]) => { if (s.off[t]) { hidden++; return false; } return true; }).map(([n, t]) => ({ n, c: TC[t], op: '1' }))
+    }));
+    const types = Object.keys(TL).map((t) => ({
+      label: TL[t], c: TC[t], count: counts[t] || 0, on: !s.off[t],
+      toggle: () => { const o = Object.assign({}, s.off); if (o[t]) delete o[t]; else o[t] = true; this.setState({ off: o }); }
+    }));
+    return {
+      theme: this.props.theme ?? 'auto',
+      send: s.send, sendCls: s.send ? 'on' : '', drawOff: !s.send, drawOpacity: s.send ? '1' : '0.45',
+      toggleSend: () => this.setState({ send: !s.send }),
+      cols, types,
+      hiddenNote: hidden + ' nodes hidden on the line. Hidden nodes stay in the profile; the toolbelt layer is off too.'
+    };
+  }
+}
+</script>
+</body>
+</html>

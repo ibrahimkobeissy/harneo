@@ -15,8 +15,9 @@ Approved 2026-10-18. This is the index of Harneo's modules and their specs. The 
 | `drift` | Live rescan, drift check, re-apply or promote | `install-engine` | [`drift.md`](drift.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
 | `usage` | Usage stats from Claude's session logs, activity graph, cleanup suggestions | `library`, `install-engine` | [`usage.md`](usage.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
 | `cli` | `harneo scaffold`, `harneo status`, `harneo update` | `install-engine`, `updates` | [`cli.md`](cli.md) (pre-approved 2026-10-23; built, awaiting the user's review) |
+| `harnmap` | Profile categories and templates; the Harnmap (a profile drawn as a factory by Claude, edited by the user, kept in a history, exported with the profile); Harnfit (a verdict on one new artifact against the map) | `profiles`, `bundles` | [`harnmap.md`](harnmap.md) (pre-approved 2026-11-07; built on `feat/harnmap`) |
 
-**Build order:** `app-shell`, `artifact-model` → `library` → `audit`, `bundles` → `profiles` → `install-engine` → `updates`, `drift`, `usage` → `cli`
+**Build order:** `app-shell`, `artifact-model` → `library` → `audit`, `bundles` → `profiles` → `install-engine` → `updates`, `drift`, `usage` → `cli` → `harnmap`
 
 ## Decisions
 

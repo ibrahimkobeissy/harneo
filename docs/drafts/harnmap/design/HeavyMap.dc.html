@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heavy factory diagram</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div class="app {{quiet}}" data-theme="{{theme}}" role="group" aria-label="Heavy Harnmap: Software development" style="position: relative; width: 1040px; height: 664px; background: transparent">
+
+<sc-if value="{{show.line}}" hint-placeholder-val="{{ true }}">
+<svg width="1040" height="664" viewBox="0 0 1040 664" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none">
+  <path class="pipe o" d="M 60 28 H 1028"></path>
+  <path class="pipe i" d="M 60 28 H 1028"></path>
+  <path d="M 1022 20 L 1034 28 L 1022 36" fill="none" stroke="var(--line2)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<div class="intake" style="left: 0; top: 10px"><b>24</b><small>HEAVY</small></div>
+<div class="chute" style="left: 86px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 230px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 374px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 518px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 662px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 806px; top: 32px; height: 32px"></div>
+<div class="chute" style="left: 950px; top: 32px; height: 32px"></div>
+</sc-if>
+
+<sc-if value="{{show.arrows}}" hint-placeholder-val="{{ true }}">
+<svg width="1040" height="664" viewBox="0 0 1040 664" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; opacity: .5">
+  <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-dasharray: 110 140; opacity: .14; animation-delay: -3.456s"></path>
+  <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-dasharray: 50 200; opacity: .32; animation-delay: -1.296s"></path>
+  <path class="beam" pathLength="1000" d="M 60 28 H 1028" style="stroke-dasharray: 14 236"></path>
+</svg>
+</sc-if>
+
+<sc-if value="{{show.line}}" hint-placeholder-val="{{ true }}">
+<div class="valve on" style="left: 82px; top: 22px"></div>
+<div class="valve on" style="left: 226px; top: 22px"></div>
+<div class="valve on" style="left: 370px; top: 22px"></div>
+<div class="valve on" style="left: 514px; top: 22px"></div>
+<div class="valve on" style="left: 658px; top: 22px"></div>
+<div class="valve on" style="left: 802px; top: 22px"></div>
+<div class="valve on" style="left: 946px; top: 22px"></div>
+<div class="mach" style="left: 20px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 164px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 308px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 452px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 596px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 740px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mach" style="left: 884px; top: 64px; width: 136px; height: 300px"></div>
+<div class="mh" style="left: 32px; top: 76px"><span class="n">01</span>{{nm.a}}</div>
+<div class="mh" style="left: 176px; top: 76px"><span class="n">02</span>{{nm.b}}</div>
+<div class="mh" style="left: 320px; top: 76px"><span class="n">03</span>{{nm.c}}</div>
+<div class="mh" style="left: 464px; top: 76px"><span class="n">04</span>{{nm.d}}</div>
+<div class="mh" style="left: 608px; top: 76px"><span class="n">05</span>{{nm.e}}</div>
+<div class="mh" style="left: 752px; top: 76px"><span class="n">06</span>{{nm.f}}</div>
+<div class="mh" style="left: 896px; top: 76px"><span class="n">07</span>{{nm.g}}</div>
+<div class="mct" style="left: 110px; top: 78px; width: 24px">1</div>
+<div class="mct" style="left: 254px; top: 78px; width: 24px">2</div>
+<div class="mct" style="left: 398px; top: 78px; width: 24px">1</div>
+<div class="mct" style="left: 542px; top: 78px; width: 24px">3</div>
+<div class="mct" style="left: 686px; top: 78px; width: 24px">{{testCount}}</div>
+<div class="mct" style="left: 830px; top: 78px; width: 24px">4</div>
+<div class="mct" style="left: 974px; top: 78px; width: 24px">2</div>
+<div class="lt on" style="left: 140px; top: 82px"></div>
+<div class="lt on" style="left: 284px; top: 82px"></div>
+<div class="lt on" style="left: 428px; top: 82px"></div>
+<div class="lt on" style="left: 572px; top: 82px"></div>
+<div class="lt on" style="left: 716px; top: 82px"></div>
+<div class="lt on" style="left: 860px; top: 82px"></div>
+<div class="lt on" style="left: 1004px; top: 82px"></div>
+</sc-if>
+
+<sc-if value="{{show.loop}}" hint-placeholder-val="{{ true }}">
+<svg width="1040" height="664" viewBox="0 0 1040 664" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none">
+  <path d="M 808 364 V 390 H 520 V 370" fill="none" stroke="var(--t3)" stroke-width="2" stroke-dasharray="5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+  <path d="M 514 377 L 520 369 L 526 377" fill="none" stroke="var(--t3)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<div class="zlab" style="left: 560px; top: 396px; width: 208px; text-align: center">changes requested · Claude’s reading</div>
+</sc-if>
+
+<sc-if value="{{show.gate}}" hint-placeholder-val="{{ true }}">
+<div style="position: absolute; left: 64px; top: 6px; width: 964px; height: 2px; background: var(--t2); border-radius: 1px"></div>
+<div style="position: absolute; left: 64px; top: 2px; width: 2px; height: 10px; background: var(--t2)"></div>
+<div style="position: absolute; left: 1026px; top: 2px; width: 2px; height: 10px; background: var(--t2)"></div>
+<button type="button" class="mono" onClick="{{pk.se}}" style="position: absolute; left: 72px; top: -20px; height: 18px; padding: 0 6px; border: 1px solid var(--line2); border-radius: 5px; background: var(--raised); color: var(--t2); font-size: 10px; cursor: pointer; white-space: nowrap">hook · PreToolUse · Write|Edit · path-guard · fires at every stage</button>
+</sc-if>
+
+
+
+<sc-if value="{{show.bundle}}" hint-placeholder-val="{{ true }}">
+<div class="bnd" style="left: 168px; top: 104px; width: 128px; height: 128px"></div>
+<div class="bnd" style="left: 456px; top: 104px; width: 128px; height: 128px"></div>
+<div class="bnd" style="left: 744px; top: 104px; width: 128px; height: 190px"></div>
+<div class="bnd" style="left: 888px; top: 104px; width: 128px; height: 128px"></div>
+</sc-if>
+
+<sc-if value="{{show.wires}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 951px; top: 364px; width: 2px; height: 92px; background: var(--t3)"></div>
+<div class="zlab" style="left: 960px; top: 404px">PRs</div>
+</sc-if>
+
+<sc-if value="{{show.line}}" hint-placeholder-val="{{ true }}">
+<button type="button" class="nd {{cls.prd}}" onClick="{{pk.prd}}" onKeyDown="{{nk.prd}}" aria-keyshortcuts="i" style="left: 28px; top: 108px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>write-a-prd</b><i>Idea into a PRD</i></span></button>
+<button type="button" class="hb {{dc.prd}}" onClick="{{dk.prd}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.prd}}" style="left: 129px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.spec}}" onClick="{{pk.spec}}" onKeyDown="{{nk.spec}}" aria-keyshortcuts="i" style="left: 172px; top: 108px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/spec</b><i>Opens the spec</i></span></button>
+<button type="button" class="hb {{dc.spec}}" onClick="{{dk.spec}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.spec}}" style="left: 273px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.sdd}}" onClick="{{pk.sdd}}" onKeyDown="{{nk.sdd}}" aria-keyshortcuts="i" style="left: 172px; top: 170px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>spec-driven-development</b><i>Spec before code</i></span></button>
+<button type="button" class="hb {{dc.sdd}}" onClick="{{dk.sdd}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.sdd}}" style="left: 273px; top: 205px"><i></i></button>
+<button type="button" class="nd {{cls.plan}}" onClick="{{pk.plan}}" onKeyDown="{{nk.plan}}" aria-keyshortcuts="i" style="left: 316px; top: 108px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/plan</b><i>Spec into tasks</i></span></button>
+<button type="button" class="hb {{dc.plan}}" onClick="{{dk.plan}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.plan}}" style="left: 417px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.build}}" onClick="{{pk.build}}" onKeyDown="{{nk.build}}" aria-keyshortcuts="i" style="left: 460px; top: 108px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/build</b><i>Runs the next task</i></span></button>
+<button type="button" class="hb {{dc.build}}" onClick="{{dk.build}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.build}}" style="left: 561px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.inc}}" onClick="{{pk.inc}}" onKeyDown="{{nk.inc}}" aria-keyshortcuts="i" style="left: 460px; top: 170px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>incremental-implementation</b><i>Thin, verified slices</i></span></button>
+<button type="button" class="hb {{dc.inc}}" onClick="{{dk.inc}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.inc}}" style="left: 561px; top: 205px"><i></i></button>
+<button type="button" class="nd {{cls.fe}}" onClick="{{pk.fe}}" onKeyDown="{{nk.fe}}" aria-keyshortcuts="i" style="left: 460px; top: 232px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>frontend-ui-engineering<svg class="pin" viewBox="0 0 24 24" role="img" aria-label="pinned"><path d="M12 17v5M5 17h14l-2-4V6h1V2H6v4h1v7z"></path></svg></b><i>UI tasks only</i></span></button>
+<button type="button" class="hb {{dc.fe}}" onClick="{{dk.fe}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.fe}}" style="left: 561px; top: 267px"><i></i></button>
+<button type="button" class="nd {{cls.tdd}}" onClick="{{pk.tdd}}" onKeyDown="{{nk.tdd}}" aria-keyshortcuts="i" style="left: 604px; top: 108px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>test-driven-development</b><i>Failing test first</i></span></button>
+<button type="button" class="hb {{dc.tdd}}" onClick="{{dk.tdd}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.tdd}}" style="left: 705px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.te}}" onClick="{{pk.te}}" onKeyDown="{{nk.te}}" aria-keyshortcuts="i" style="left: 604px; top: 170px"><svg class="ti sa" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2"></path></svg><span><b>test-engineer</b><i>Fills coverage gaps</i></span></button>
+<button type="button" class="hb {{dc.te}}" onClick="{{dk.te}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.te}}" style="left: 705px; top: 205px"><i></i></button>
+<button type="button" class="nd {{cls.wp}}" onClick="{{pk.wp}}" onKeyDown="{{nk.wp}}" aria-keyshortcuts="i" style="left: 604px; top: 232px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>webperf<svg class="pin" viewBox="0 0 24 24" role="img" aria-label="pinned"><path d="M12 17v5M5 17h14l-2-4V6h1V2H6v4h1v7z"></path></svg></b><i>{{wpNote}}</i></span></button>
+<button type="button" class="hb {{dc.wp}}" onClick="{{dk.wp}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.wp}}" style="left: 705px; top: 267px"><i></i></button>
+<button type="button" class="nd {{cls.rev}}" onClick="{{pk.rev}}" onKeyDown="{{nk.rev}}" aria-keyshortcuts="i" style="left: 748px; top: 108px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/review</b><i>Five-axis review</i></span></button>
+<button type="button" class="hb {{dc.rev}}" onClick="{{dk.rev}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.rev}}" style="left: 849px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.crq}}" onClick="{{pk.crq}}" onKeyDown="{{nk.crq}}" aria-keyshortcuts="i" style="left: 748px; top: 170px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>code-review-and-quality</b><i>The checklist</i></span></button>
+<button type="button" class="hb {{dc.crq}}" onClick="{{dk.crq}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.crq}}" style="left: 849px; top: 205px"><i></i></button>
+<button type="button" class="nd {{cls.cr}}" onClick="{{pk.cr}}" onKeyDown="{{nk.cr}}" aria-keyshortcuts="i" style="left: 748px; top: 232px"><svg class="ti sa" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2"></path></svg><span><b>code-reviewer</b><i>Reads the diff cold</i></span></button>
+<button type="button" class="hb {{dc.cr}}" onClick="{{dk.cr}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.cr}}" style="left: 849px; top: 267px"><i></i></button>
+<button type="button" class="nd {{cls.sa}}" onClick="{{pk.sa}}" onKeyDown="{{nk.sa}}" aria-keyshortcuts="i" style="left: 748px; top: 294px"><svg class="ti sa" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2"></path></svg><span><b>security-auditor</b><i>Auth and input code</i></span></button>
+<button type="button" class="hb {{dc.sa}}" onClick="{{dk.sa}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.sa}}" style="left: 849px; top: 329px"><i></i></button>
+<button type="button" class="nd {{cls.ship}}" onClick="{{pk.ship}}" onKeyDown="{{nk.ship}}" aria-keyshortcuts="i" style="left: 892px; top: 108px"><svg class="ti cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg><span><b>/ship</b><i>Pre-launch checklist</i></span></button>
+<button type="button" class="hb {{dc.ship}}" onClick="{{dk.ship}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.ship}}" style="left: 993px; top: 143px"><i></i></button>
+<button type="button" class="nd {{cls.rel}}" onClick="{{pk.rel}}" onKeyDown="{{nk.rel}}" aria-keyshortcuts="i" style="left: 892px; top: 170px"><svg class="ti wf" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3h8v8H3zM13 13h8v8h-8zM7 11v4a2 2 0 0 0 2 2h4"></path></svg><span><b>release</b><i>Tag, check, publish</i></span></button>
+<button type="button" class="hb {{dc.rel}}" onClick="{{dk.rel}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.rel}}" style="left: 993px; top: 205px"><i></i></button>
+</sc-if>
+
+<sc-if value="{{show.tool}}" hint-placeholder-val="{{ true }}">
+<div class="zlab" style="left: 20px; top: 424px"><b>TOOLBELT</b> · any stage</div>
+<div class="rack" style="left: 20px; top: 444px; width: 1000px"></div>
+<div class="peg" style="left: 77px; top: 442px"></div>
+<div class="peg" style="left: 209px; top: 442px"></div>
+<div class="peg" style="left: 949px; top: 442px"></div>
+<button type="button" class="nd {{cls.grill}}" onClick="{{pk.grill}}" onKeyDown="{{nk.grill}}" aria-keyshortcuts="i" style="left: 20px; top: 456px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>grill-me</b><i>Skill · any stage</i></span></button>
+<button type="button" class="hb {{dc.grill}}" onClick="{{dk.grill}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.grill}}" style="left: 121px; top: 491px"><i></i></button>
+<button type="button" class="nd {{cls.sentry}}" onClick="{{pk.sentry}}" onKeyDown="{{nk.sentry}}" aria-keyshortcuts="i" style="left: 152px; top: 456px"><svg class="ti mc" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"></path></svg><span><b>sentry</b><i>MCP · errors</i></span></button>
+<button type="button" class="hb {{dc.sentry}}" onClick="{{dk.sentry}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.sentry}}" style="left: 253px; top: 491px"><i></i></button>
+<button type="button" class="nd {{cls.sec}}" onClick="{{pk.sec}}" onKeyDown="{{nk.sec}}" aria-keyshortcuts="i" style="left: 284px; top: 456px"><svg class="ti sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg><span><b>security-and-hardening<svg class="pin" viewBox="0 0 24 24" role="img" aria-label="pinned"><path d="M12 17v5M5 17h14l-2-4V6h1V2H6v4h1v7z"></path></svg></b><i>{{secNote}}</i></span></button>
+<button type="button" class="hb {{dc.sec}}" onClick="{{dk.sec}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.sec}}" style="left: 385px; top: 491px"><i></i></button>
+<button type="button" class="nd {{cls.gh}}" onClick="{{pk.gh}}" onKeyDown="{{nk.gh}}" aria-keyshortcuts="i" style="left: 892px; top: 456px"><svg class="ti mc" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z"></path></svg><span><b>github</b><i>MCP · PRs, issues</i></span></button>
+<button type="button" class="hb {{dc.gh}}" onClick="{{dk.gh}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.gh}}" style="left: 993px; top: 491px"><i></i></button>
+</sc-if>
+
+<sc-if value="{{show.floor}}" hint-placeholder-val="{{ true }}">
+<div class="slab" style="left: 20px; top: 530px; width: 1000px; height: 120px"></div>
+<div class="zlab" style="left: 36px; top: 542px"><b>FLOOR</b> · always on</div>
+<button type="button" class="nd {{cls.md}}" onClick="{{pk.md}}" onKeyDown="{{nk.md}}" aria-keyshortcuts="i" style="left: 36px; top: 572px"><svg class="ti md" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8"></path></svg><span><b>rust-service CLAUDE.md</b><i>Project memory</i></span></button>
+<button type="button" class="hb {{dc.md}}" onClick="{{dk.md}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.md}}" style="left: 137px; top: 607px"><i></i></button>
+<button type="button" class="nd {{cls.ru}}" onClick="{{pk.ru}}" onKeyDown="{{nk.ru}}" aria-keyshortcuts="i" style="left: 168px; top: 572px"><svg class="ti ru" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M7 21h10M3 7h18M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"></path></svg><span><b>rust-conventions</b><i>Rule · *.rs</i></span></button>
+<button type="button" class="hb {{dc.ru}}" onClick="{{dk.ru}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.ru}}" style="left: 269px; top: 607px"><i></i></button>
+<button type="button" class="nd {{cls.se}}" onClick="{{pk.se}}" onKeyDown="{{nk.se}}" aria-keyshortcuts="i" style="left: 300px; top: 572px"><svg class="ti se" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"></path></svg><span><b>strict-guard</b><i>Fence + hook</i></span></button>
+<button type="button" class="hb {{dc.se}}" onClick="{{dk.se}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.se}}" style="left: 401px; top: 607px"><i></i></button>
+<button type="button" class="nd {{cls.os}}" onClick="{{pk.os}}" onKeyDown="{{nk.os}}" aria-keyshortcuts="i" style="left: 432px; top: 572px"><svg class="ti os" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-1.4-1-1.6-1-2.6 0-1.1.9-2 2-2h2.3A5.2 5.2 0 0 0 22 10.2C22 5.7 17.5 2 12 2zM8 8h.01M12 6h.01M16 8h.01M7 12h.01"></path></svg><span><b>terse</b><i>Output style</i></span></button>
+<button type="button" class="hb {{dc.os}}" onClick="{{dk.os}}" tabIndex="-1" onKeyDown="{{dkey}}" aria-label="How it takes part in the flow" aria-expanded="{{dx.os}}" style="left: 533px; top: 607px"><i></i></button>
+</sc-if>
+<div class="legend" style="left: 640px; top: 606px"><span><i class="lb"></i>bundle · from the files</span><span><i class="lc"></i>Claude’s reading</span></div>
+<sc-if value="{{tipOpen}}" hint-placeholder-val="{{ false }}">
+<div style="position: absolute; left: 0; top: 0; width: 1040px; height: 664px; z-index: 15" onClick="{{closeTip}}"></div>
+<div class="tip" role="dialog" aria-label="How it takes part in the flow" tabIndex="-1" ref="{{tipRef}}" onKeyDown="{{dkey}}" style="left: {{tip.x}}px; top: {{tip.y}}px">
+<div class="tn"><i></i>{{tip.n}}</div>
+<dl><dt>Role</dt><dd>{{tip.role}} <span class="src c">Claude</span></dd><dt>When</dt><dd>{{tip.when}} <span class="src {{tip.ws}}">{{tip.wl}}</span></dd><dt>Hands off</dt><dd><span class="m">{{tip.to}}</span> <span class="src {{tip.ts}}">{{tip.tl}}</span></dd></dl>
+<div class="note">“{{tip.note}}” · Claude’s note · <span class="t3">i opens this on a focused node</span></div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"cls":{"editor":null},"show":{"editor":null},"names":{"editor":null},"notes":{"editor":null},"onPick":{"editor":null},"$preview":{"width":1040,"height":664}}'>
+const IDS = ['prd','spec','sdd','plan','build','inc','fe','tdd','te','wp','rev','crq','cr','sa','ship','rel','grill','sentry','sec','gh','md','ru','se','os'];
+const DEF_HID = { wp: true, sec: true };
+const SHOW = { line: true, tool: true, floor: true, arrows: true, loop: true, wires: false, gate: true, bundle: true, quiet: false };
+const NAMES = { a: 'Idea', b: 'Spec', c: 'Plan', d: 'Build', e: 'Test', f: 'Review', g: 'Ship' };
+// node position, then [name, role, when, hands off to, Claude's note]
+const POS = { prd:[28,108], spec:[172,108], sdd:[172,170], plan:[316,108], build:[460,108], inc:[460,170], fe:[460,232], tdd:[604,108], te:[604,170], wp:[604,232], rev:[748,108], crq:[748,170], cr:[748,232], sa:[748,294], ship:[892,108], rel:[892,170], grill:[20,456], sentry:[152,456], sec:[284,456], gh:[892,456], md:[36,572], ru:[168,572], se:[300,572], os:[432,572] };
+const TIP = {
+  prd: ['write-a-prd','Turns a rough idea into a PRD','You ask for it, first thing','/spec','Idea into a PRD'],
+  spec: ['/spec','Starts the spec for a feature','You run it once the PRD exists','spec-driven-development','Opens the spec'],
+  sdd: ['spec-driven-development','Writes the spec before any code','Called by /spec','/plan','Spec before code'],
+  plan: ['/plan','Splits the spec into ordered tasks','You run it after the spec','/build','Spec into tasks'],
+  build: ['/build','Runs the next task from the plan','You run it; path-guard checks its writes','incremental-implementation','Runs the next task'],
+  inc: ['incremental-implementation','Keeps each change thin and verified','Loaded by /build for every task','test-driven-development','Thin, verified slices'],
+  fe: ['frontend-ui-engineering','Handles the UI tasks','Auto-triggered on UI files','test-driven-development','UI tasks only'],
+  tdd: ['test-driven-development','Writes the failing test before any code','Auto-triggered when /build starts a task','test-engineer','Failing test first'],
+  te: ['test-engineer','Fills the coverage gaps','Called once TDD passes','/review','Fills coverage gaps'],
+  wp: ['webperf','Checks the perf budget','You placed it: runs before review','/review',''],
+  rev: ['/review','Runs the five-axis review','You run it when a task is done','code-review-and-quality · or back to /build','Five-axis review'],
+  crq: ['code-review-and-quality','Gives the review its checklist','Loaded by /review','code-reviewer','The checklist'],
+  cr: ['code-reviewer','Reads the diff cold','Called by /review','/ship · or back to /build','Reads the diff cold'],
+  sa: ['security-auditor','Threat pass on auth and input code','Called by /review when the diff touches auth','/ship','Auth and input code'],
+  ship: ['/ship','Runs the pre-launch checklist','You run it after review passes','release','Pre-launch checklist'],
+  rel: ['release','Tags, waits for CI, publishes','Called by /ship','end of the line','Tag, check, publish'],
+  grill: ['grill-me','Grills you on a plan until it holds','You ask, at any stage','back to the stage you came from','Skill · any stage'],
+  sentry: ['sentry','Brings error data into the session','Any artifact can call it','whoever asked','MCP · errors'],
+  sec: ['security-and-hardening','Security checklist on demand','You placed it: any stage','whoever asked',''],
+  gh: ['github','Opens PRs, issues and releases','Called by /review and /ship','release','MCP · PRs, issues'],
+  md: ['rust-service CLAUDE.md','Project memory for every session','Always loaded','every stage','Project memory'],
+  ru: ['rust-conventions','Rust rules for *.rs files','Auto-applied to *.rs','everything that writes Rust','Rule · *.rs'],
+  se: ['strict-guard','Permissions fence and the path-guard hook','Always on; the hook fires on file writes','every stage','Fence + hook'],
+  os: ['terse','Keeps every answer short','Always on','every reply','Output style']
+};
+const SRC = {"prd": "cc", "spec": "cf", "sdd": "fc", "plan": "cc", "build": "cf", "inc": "fc", "fe": "cc", "tdd": "cc", "te": "cc", "wp": "cc", "rev": "cf", "crq": "fc", "cr": "fc", "sa": "cc", "ship": "cf", "rel": "fc", "grill": "cc", "sentry": "cc", "sec": "cc", "gh": "fc", "md": "fc", "ru": "fc", "se": "fc", "os": "fc"};
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { tip: null }; }
+  renderVals() {
+    const p = this.props;
+    const given = p.cls || null;
+    const notes = p.notes || {};
+    const tipId = this.state.tip;
+    const cls = {}, pk = {}, dc = {}, dk = {}, dx = {}, nk = {};
+    IDS.forEach((i) => {
+      cls[i] = given ? (given[i] || '') : (DEF_HID[i] ? 'hid' : '');
+      pk[i] = () => { if (p.onPick) p.onPick(i); };
+      dc[i] = (cls[i].indexOf('hid') >= 0 ? 'hid' : '') + (tipId === i ? ' on' : '');
+      dx[i] = tipId === i ? 'true' : 'false';
+      nk[i] = (ev) => { if (ev['key'] === 'i') { ev.preventDefault(); this.setState({ tip: tipId === i ? null : i }); } else if (ev['key'] === 'Escape') this.setState({ tip: null }); };
+      dk[i] = (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState({ tip: tipId === i ? null : i }); };
+    });
+    let tip = {};
+    if (tipId) {
+      const t = TIP[tipId], pos = POS[tipId];
+      const left = pos[0] >= 800 ? pos[0] - 252 : pos[0] + 128;
+      const note = notes[tipId] || t[4] || (tipId === 'wp' ? 'Perf budget before review' : 'Threat checklist');
+      const sr = SRC[tipId];
+      tip = { n: t[0], role: t[1], when: t[2], to: t[3], note, ws: sr[0], ts: sr[1], wl: sr[0] === 'f' ? 'files' : 'Claude', tl: sr[1] === 'f' ? 'files' : 'Claude', x: left, y: pos[1] >= 500 ? pos[1] - 84 : pos[1] - 4 };
+    }
+    const show = Object.assign({}, SHOW, p.show || {});
+    return {
+      theme: p.theme ?? 'auto',
+      cls, pk, dc, dk, dx, nk, show,
+      quiet: show.quiet ? 'quiet' : '',
+      nm: Object.assign({}, NAMES, p.names || {}),
+      testCount: cls.wp.indexOf('hid') >= 0 ? '2' : '3',
+      wpNote: notes.wp || 'Perf budget before review',
+      secNote: notes.sec || 'Threat checklist',
+      tipOpen: !!tipId, tip,
+      tipRef: (el) => { if (el && el !== this._tipEl) { this._tipEl = el; el.focus({ preventScroll: true }); } },
+      closeTip: () => this.setState({ tip: null }),
+      dkey: (ev) => { if (ev['key'] === 'Escape') { ev.stopPropagation(); this.setState({ tip: null }); } }
+    };
+  }
+}
+</script>
+</body>
+</html>

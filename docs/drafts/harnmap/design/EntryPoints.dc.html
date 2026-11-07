@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harnfit entry points</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+.mi{display:flex;align-items:center;gap:8px;width:100%;padding:7px 8px;border-radius:6px;color:var(--t1);text-decoration:none;font-size:12.5px}
+.mi:hover{background:var(--sunk);color:var(--t1)}
+.irow{display:grid;grid-template-columns:30px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line)}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="width: 1440px; height: 760px; padding: 56px 64px; background: var(--bg); display: flex; flex-direction: column; gap: 24px">
+  <div>
+    <h1 class="h1">Two ways into Harnfit</h1>
+    <p class="t2" style="margin: 6px 0 0">From a library artifact that isn’t in a profile, and from the import review, right after something new comes in. Both open one candidate against one profile’s map.</p>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; flex: 1">
+
+    <section aria-label="From the library" style="display: flex; flex-direction: column; gap: 12px">
+      <div class="row"><span class="badge">Library</span><span class="t3" style="font-size: 12px">card menu on an artifact not in the profile</span></div>
+      <div class="panel" style="padding: 20px; background: var(--side); flex: 1; position: relative">
+        <div class="panel row" style="padding: 12px 14px; gap: 12px; max-width: 420px">
+          <svg class="ti l sk" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"></path></svg>
+          <div style="flex: 1; min-width: 0"><div class="mono" style="font-weight: 600; font-size: 13px">tdd-lite</div><div class="t3" style="font-size: 12px">quick-kit · trust 100</div><div class="row" style="margin-top: 4px; gap: 6px"><span class="badge rd" style="font-size: 11px">Heavy · conflicts</span></div></div>
+          <button type="button" class="icb" aria-label="More actions" aria-expanded="true" style="background: var(--sunk)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6h.01M12 12h.01M12 18h.01"></path></svg></button>
+        </div>
+        <div class="pop" role="menu" style="position: absolute; left: 280px; top: 92px; width: 200px; padding: 6px">
+          <a class="mi" role="menuitem" href="#">Add to profile…</a>
+          <a class="mi" role="menuitem" href="#" style="background: var(--sunk)"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path></svg>Harnfit in…<span style="flex: 1"></span><svg class="ico s t3" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a>
+          <a class="mi" role="menuitem" href="#">Show files</a>
+          <div class="hr" style="margin: 4px 0"></div>
+          <a class="mi" role="menuitem" href="#" style="color: var(--red)">Delete</a>
+        </div>
+        <div class="pop" role="menu" aria-label="Pick a profile" style="position: absolute; left: 486px; top: 126px; width: 264px; padding: 6px">
+          <div class="cap" style="padding: 4px 8px">Pick a profile</div>
+          <a class="mi" role="menuitem" href="Harnfit.dc.html"><span style="flex: 1"><b>Heavy</b><br><span class="t3" style="font-size: 11.5px">Software development · fit saved 4 Nov</span></span><span class="badge rd" style="font-size: 11px">conflicts</span></a>
+          <a class="mi" role="menuitem" href="Harnfit.dc.html"><span style="flex: 1"><b>Light</b><br><span class="t3" style="font-size: 11.5px">Software development · not fitted yet</span></span></a>
+          <a class="mi" role="menuitem" href="Harnfit.dc.html"><span style="flex: 1"><b>Studio videos</b><br><span class="t3" style="font-size: 11.5px">Video production · not fitted yet</span></span></a>
+          <div class="hr" style="margin: 4px 0"></div>
+          <div class="t3" style="font-size: 11.5px; padding: 4px 8px">A saved fit opens at once. A new one asks Claude: usually 30–90 s.</div>
+        </div>
+      </div>
+    </section>
+
+    <section aria-label="From the import review" style="display: flex; flex-direction: column; gap: 12px">
+      <div class="row"><span class="badge">Import</span><span class="t3" style="font-size: 12px">review step, after scanning a source</span></div>
+      <div class="panel" style="flex: 1; display: flex; flex-direction: column">
+        <div style="padding: 14px 16px">
+          <h2 class="h3">Review 2 new artifacts</h2>
+          <p class="t2" style="margin: 4px 0 0; font-size: 12.5px">From <span class="mono">github.com/addyosmani/agent-skills</span>. Check them, then import.</p>
+        </div>
+        <div class="row" style="margin: 0 16px 12px; padding: 10px 12px; border-radius: 8px; background: var(--side); border: 1px solid var(--line); gap: 10px; flex-wrap: wrap">
+          <svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="color: var(--t2)"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path></svg>
+          <span style="font-size: 12.5px; flex: 1">Try them against a profile before you add them</span>
+          <label class="t3" for="fitp" style="font-size: 12px">Profile</label>
+          <select id="fitp" class="input" style="width: 160px; height: 28px"><option>Heavy</option><option>Light</option><option>Studio videos</option></select>
+        </div>
+        <div class="irow">
+          <svg class="ti l pl" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 9.4 7.5 4.2M21 16V8l-9-5-9 5v8l9 5zM3.3 7 12 12l8.7-5M12 22V12"></path></svg>
+          <div><div class="mono" style="font-weight: 600">agent-skills</div><div class="t3" style="font-size: 12px">Plugin · 6 parts · trust 100 · 2 already in your library</div></div>
+          <div class="row"><a class="btn sm" href="Harnfit.dc.html">Harnfit</a><input type="checkbox" checked aria-label="Import agent-skills" style="accent-color: var(--blue); width: 16px; height: 16px"></div>
+        </div>
+        <div class="irow">
+          <svg class="ti l cm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17l6-6-6-6M12 19h8"></path></svg>
+          <div><div class="mono" style="font-weight: 600">/commit-helper</div><div class="t3" style="font-size: 12px">Command · trust 100 · not fitted yet</div></div>
+          <div class="row"><a class="btn sm" href="Harnfit.dc.html">Harnfit</a><input type="checkbox" checked aria-label="Import commit-helper" style="accent-color: var(--blue); width: 16px; height: 16px"></div>
+        </div>
+        <div style="flex: 1"></div>
+        <div class="row" style="justify-content: space-between; padding: 12px 16px; border-top: 1px solid var(--line)">
+          <span class="t3" style="font-size: 12px">Harnfit runs only when you click it. Automatic fits at import: off, in Settings. Fits are saved with the profile.</span>
+          <button type="button" class="btn p">Import 2</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.theme ?? 'auto' }; }
+}
+</script>
+</body>
+</html>

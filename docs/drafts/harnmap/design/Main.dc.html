@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Heavy · profile builder</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:var(--blue)}a:hover{color:var(--blue-h)}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="min-height: 100vh; display: flex; flex-wrap: wrap; background: var(--bg)">
+  <nav class="side" aria-label="Main" style="flex: 1 1 220px; max-width: 220px; min-height: 100vh; padding: 16px 10px; display: flex; flex-direction: column; gap: 2px">
+    <div class="row" style="padding: 4px 8px 18px; gap: 10px">
+      <span style="width: 26px; height: 26px; border-radius: 7px; background: var(--blue); color: var(--on-blue); display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px">H</span>
+      <b style="font-size: 16px">Harneo</b>
+    </div>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>Library</a>
+    <a class="nav on" href="#" aria-current="page"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"></path><path d="m2 17 10 5 10-5"></path><path d="m2 12 10 5 10-5"></path></svg>Profiles</a>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.7-.9l-.8-1.2A2 2 0 0 0 7.9 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"></path></svg>Projects</a>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>Security</a>
+    <div class="cap" style="padding: 18px 8px 6px">Actions</div>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path><path d="M12 15V3"></path></svg>Import</a>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Scaffold project</a>
+    <a class="nav" href="#"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>Refit project</a>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; padding: 22px 28px 40px">
+    <a href="#" class="t2" style="text-decoration: none; display: inline-flex; gap: 6px; align-items: center; color: var(--t2)"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>Profiles</a>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 24px; margin-top: 10px">
+      <div style="flex: 1 1 320px; min-width: 0">
+        <h1 class="h1">Heavy</h1>
+        <div class="row" style="margin-top: 6px; flex-wrap: wrap; position: relative">
+          <span class="cap">Category</span>
+          <button type="button" class="btn sm" onClick="{{toggleCat}}" aria-haspopup="menu" aria-expanded="{{catOpen}}">
+            <svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg>{{catName}}
+            <svg class="ico s" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg>
+          </button>
+          <span class="t3" style="font-size: 12px">24 artifacts · v3</span>
+          <sc-if value="{{catOpen}}" hint-placeholder-val="{{ false }}">
+            <div class="pop" role="menu" style="position: absolute; top: 34px; left: 62px; width: 280px; padding: 6px; z-index: 5">
+              <sc-for list="{{cats}}" as="c" hint-placeholder-count="8">
+                <button type="button" role="menuitem" class="btn g" onClick="{{c.pick}}" style="width: 100%; justify-content: space-between; color: var(--t1)">{{c.name}}<span class="t3" style="font-size: 11.5px">{{c.mark}}</span></button>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+      <div class="row" style="flex-wrap: wrap">
+        <a class="btn" href="Harnmap.dc.html"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path><path d="M9 3v15M15 6v15"></path></svg>Harnmap</a>
+        <button type="button" class="btn p">Save</button>
+      </div>
+    </div>
+
+    <sc-if value="{{pending}}" hint-placeholder-val="{{ false }}">
+      <div class="panel" role="alertdialog" aria-label="Change category" style="margin-top: 16px; padding: 14px 16px; border-color: var(--amber-fill); background: var(--amber-soft); display: flex; flex-wrap: wrap; gap: 12px; align-items: center">
+        <div style="flex: 1 1 360px; color: var(--t1)"><b>Switch Heavy to {{pendingName}}?</b> Nothing is sent now. The map is marked out of date, and you re-draw it on the {{pendingName}} template when you’re ready. Draw 3 stays in Map history.</div>
+        <button type="button" class="btn" onClick="{{cancelCat}}">Keep {{catName}}</button>
+        <button type="button" class="btn p" onClick="{{confirmCat}}">Switch category</button>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; margin-top: 22px; align-items: flex-start">
+      <section style="flex: 999 1 420px; min-width: 0">
+        <div class="row" style="justify-content: space-between"><h2 class="h3">In this profile</h2><span class="t3 mono">24</span></div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 10px">
+          <sc-for list="{{items}}" as="it" hint-placeholder-count="12">
+            <div class="panel row" style="padding: 10px 12px; gap: 10px">
+              <svg class="ti {{it.t}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{it.d}}"></path></svg>
+              <div style="min-width: 0"><div class="mono" style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{it.n}}</div><div class="t3" style="font-size: 11.5px">{{it.tl}}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 300px; max-width: 420px; display: flex; flex-direction: column; gap: 12px">
+        <div class="panel" style="padding: 14px 16px">
+          <div class="row" style="justify-content: space-between">
+            <h2 class="h4">Harnmap</h2>
+            <span class="badge {{mapCls}}">{{mapState}}</span>
+          </div>
+          <a href="Harnmap.dc.html" aria-label="Open the Harnmap" style="display: block; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; padding: 14px 12px" class="dots">
+            <svg viewBox="0 0 300 78" width="100%" height="78" aria-hidden="true" style="display: block; overflow: visible">
+              <path class="pipe o s" d="M 6 10 H 294"></path><path class="pipe i s" d="M 6 10 H 294"></path>
+              <path class="beam s" pathLength="1000" d="M 6 10 H 294" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 6s; animation-delay: -.624s"></path>
+              <path class="beam s" pathLength="1000" d="M 6 10 H 294" style="stroke-dasharray: 14 236; animation-duration: 6s"></path>
+              <path class="pipe o s" d="M 236 62 V 72 H 152 V 62" style="stroke-width: 5"></path>
+              <g fill="var(--line)"><rect x="20" y="13" width="2" height="9"></rect><rect x="62" y="13" width="2" height="9"></rect><rect x="104" y="13" width="2" height="9"></rect><rect x="151" y="13" width="2" height="9"></rect><rect x="193" y="13" width="2" height="9"></rect><rect x="235" y="13" width="2" height="9"></rect><rect x="277" y="13" width="2" height="9"></rect></g>
+              <g fill="var(--raised)" stroke="var(--line)" stroke-width="1"><rect x="4" y="22" width="34" height="40" rx="5"></rect><rect x="46" y="22" width="34" height="40" rx="5"></rect><rect x="88" y="22" width="34" height="40" rx="5"></rect><rect x="135" y="22" width="34" height="40" rx="5"></rect><rect x="177" y="22" width="34" height="40" rx="5"></rect><rect x="219" y="22" width="34" height="40" rx="5"></rect><rect x="261" y="22" width="34" height="40" rx="5"></rect></g>
+              <g fill="var(--t1)"><circle cx="33" cy="27" r="1.6"></circle><circle cx="75" cy="27" r="1.6"></circle><circle cx="117" cy="27" r="1.6"></circle><circle cx="164" cy="27" r="1.6"></circle><circle cx="206" cy="27" r="1.6"></circle><circle cx="248" cy="27" r="1.6"></circle><circle cx="290" cy="27" r="1.6"></circle></g>
+              <g fill="var(--sunk)"><rect x="9" y="33" width="24" height="7" rx="2"></rect><rect x="51" y="33" width="24" height="7" rx="2"></rect><rect x="51" y="43" width="24" height="7" rx="2"></rect><rect x="93" y="33" width="24" height="7" rx="2"></rect><rect x="140" y="33" width="24" height="7" rx="2"></rect><rect x="140" y="43" width="24" height="7" rx="2"></rect><rect x="140" y="53" width="24" height="7" rx="2"></rect><rect x="182" y="33" width="24" height="7" rx="2"></rect><rect x="182" y="43" width="24" height="7" rx="2"></rect><rect x="224" y="33" width="24" height="7" rx="2"></rect><rect x="224" y="43" width="24" height="7" rx="2"></rect><rect x="224" y="53" width="24" height="7" rx="2"></rect><rect x="266" y="33" width="24" height="7" rx="2"></rect><rect x="266" y="43" width="24" height="7" rx="2"></rect></g>
+            </svg>
+          </a>
+          <div class="t2" style="margin-top: 10px">Drawn 4 Nov, 14:12 · 3 drawings in history · 22 of 24 artifacts placed</div>
+          <a class="btn" href="Harnmap.dc.html" style="margin-top: 10px">Open Harnmap</a>
+        </div>
+        <div class="panel" style="padding: 14px 16px">
+          <div class="row" style="justify-content: space-between"><h2 class="h4">The project it produces</h2><span class="t3 mono">31 files</span></div>
+          <div class="mono t2" style="margin-top: 10px; line-height: 1.9; white-space: pre">.claude/
+  agents/        3
+  commands/      5
+  skills/        9
+  workflows/     1
+  settings.json
+  output-styles/ 1
+.mcp.json
+CLAUDE.md</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":900}}'>
+const P = {
+  sk: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z',
+  cm: 'M4 17l6-6-6-6M12 19h8',
+  sa: 'M12 8V4H8M4 8h16v12H4zM2 14h2M20 14h2M15 13v2M9 13v2',
+  wf: 'M3 3h8v8H3zM13 13h8v8h-8zM7 11v4a2 2 0 0 0 2 2h4',
+  ru: 'M12 3v18M7 21h10M3 7h18M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z',
+  se: 'M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4',
+  mc: 'M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8z',
+  os: 'M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-1.4-1-1.6-1-2.6 0-1.1.9-2 2-2h2.3A5.2 5.2 0 0 0 22 10.2C22 5.7 17.5 2 12 2zM8 8h.01M12 6h.01M16 8h.01M7 12h.01',
+  md: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8'
+};
+const TL = {sk:'Skill',cm:'Command',sa:'Subagent',wf:'Workflow',ru:'Rule',se:'Settings',mc:'MCP server',os:'Output style',md:'CLAUDE.md'};
+const ITEMS = [
+  ['/spec','cm'],['/plan','cm'],['/build','cm'],['/review','cm'],['/ship','cm'],
+  ['spec-driven-development','sk'],['incremental-implementation','sk'],['test-driven-development','sk'],['code-review-and-quality','sk'],['frontend-ui-engineering','sk'],['security-and-hardening','sk'],['webperf','sk'],['grill-me','sk'],['write-a-prd','sk'],
+  ['code-reviewer','sa'],['test-engineer','sa'],['security-auditor','sa'],['release','wf'],
+  ['github','mc'],['sentry','mc'],['strict-guard','se'],['rust-conventions','ru'],['terse','os'],['rust-service CLAUDE.md','md']
+];
+const CATS = ['Software development','Research','Writing & content','Video production','Social media','Data & analytics','Design (UI, brand)','Custom'];
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { cat: 'Software development', catOpen: false, pending: null }; }
+  renderVals() {
+    const s = this.state;
+    return {
+      theme: this.props.theme ?? 'auto',
+      catName: s.cat, catOpen: s.catOpen, pending: !!s.pending, pendingName: s.pending || '',
+      toggleCat: () => this.setState({ catOpen: !s.catOpen }),
+      cats: CATS.map((c) => ({ name: c, mark: c === s.cat ? 'current' : '', pick: () => this.setState({ catOpen: false, pending: c === s.cat ? null : c }) })),
+      cancelCat: () => this.setState({ pending: null }),
+      confirmCat: () => this.setState({ cat: s.pending, pending: null, stale: true }),
+      mapState: s.stale ? 'Out of date · category changed' : 'Up to date', mapCls: s.stale ? 'am' : 'gr',
+      items: ITEMS.map(([n, t]) => ({ n, t, d: P[t], tl: TL[t] }))
+    };
+  }
+}
+</script>
+</body>
+</html>

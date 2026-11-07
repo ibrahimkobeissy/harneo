@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Harnmap templates</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.tp{display:flex;flex-direction:column;gap:10px;padding:16px;height:360px}
+.sk{position:relative;width:608px;height:196px;border-radius:8px}
+.sb{position:absolute;height:40px;border:1px solid var(--line);background:var(--raised);border-radius:8px;display:flex;align-items:center;justify-content:center;text-align:center;font-size:11.5px;font-weight:600;line-height:1.2;padding:0 6px;color:var(--t1)}
+.sb::after{content:"";position:absolute;top:5px;right:5px;width:5px;height:5px;border-radius:3px;background:var(--t1)}
+.sb.sm{height:24px;font-weight:500;font-size:11px;background:var(--raised);border-color:var(--line)}
+.sb.sm::after{display:none}
+.ph{position:absolute;top:0;height:196px;border:1px solid var(--line2);border-radius:12px}
+.phl{position:absolute;top:6px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;font-weight:500;color:var(--t3);letter-spacing:.06em}
+.cn text{font:500 10.5px "JetBrains Mono",ui-monospace,monospace;fill:var(--t3);paint-order:stroke;stroke:var(--raised);stroke-width:4px}
+.strips{display:flex;gap:6px}
+.strips span{flex:1;height:24px;font-family:"JetBrains Mono",ui-monospace,monospace;font-size:10px;font-weight:500;letter-spacing:.06em;color:var(--t3);display:flex;align-items:center;padding:0 8px}
+.strips .tb{border-top:2px solid var(--line2);background:radial-gradient(circle,var(--line2) 2.5px,transparent 3px) 24px -3px/64px 6px repeat-x}
+.strips .fl{border-radius:8px;border:1px solid var(--line);border-top:2px solid var(--line2);background:repeating-linear-gradient(135deg,var(--sunk) 0 1px,transparent 1px 9px),var(--side)}
+.chg{font-size:11.5px;color:var(--t3)}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="width: 1440px; height: 1700px; padding: 56px 64px; background: var(--bg)">
+  <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px">
+    <div>
+      <h1 class="h1">Harnmap templates</h1>
+      <p class="t2" style="margin: 6px 0 0">The empty factory for each category: stages and the shape of flow, before anything is placed. Every template keeps the same three layers: the line, the toolbelt, the floor.</p>
+    </div>
+    <span class="badge">8 categories</span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; margin-top: 28px">
+
+    <section class="panel tp" aria-label="Software development">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Software development</h2><span class="badge">line + loop</span></div>
+      <div class="chg">Unchanged. The loop runs from Review back to Build, not to Test: a change request means new code.</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 60H592"></path><path class="pipe i s" d="M16 60H592"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M472 80V124H304V80"></path><path class="pipe i s" d="M472 80V124H304V80"></path><path class="beam s" pathLength="300" d="M472 80V124H304V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M472 80V124H304V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="388" y="142" text-anchor="middle">changes requested</text></svg>
+        <div class="sb" style="left: 16px; top: 40px; width: 72px">Idea</div>
+        <div class="sb" style="left: 100px; top: 40px; width: 72px">Spec</div>
+        <div class="sb" style="left: 184px; top: 40px; width: 72px">Plan</div>
+        <div class="sb" style="left: 268px; top: 40px; width: 72px">Build</div>
+        <div class="sb" style="left: 352px; top: 40px; width: 72px">Test</div>
+        <div class="sb" style="left: 436px; top: 40px; width: 72px">Review</div>
+        <div class="sb" style="left: 520px; top: 40px; width: 72px">Ship</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Research">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Research</h2><span class="badge">inner loop + check</span></div>
+      <div class="chg"><b>Changed:</b> added a second loop, Verify back to Sources when it finds a gap.</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M8 60H600"></path><path class="pipe i s" d="M8 60H600"></path><path class="beam s" pathLength="1000" d="M8 60H600" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M8 60H600" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M304 40V20H212V40"></path><path class="pipe i s" d="M304 40V20H212V40"></path><path class="beam s" pathLength="300" d="M304 40V20H212V40" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M304 40V20H212V40" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M480 80V124H122V80"></path><path class="pipe i s" d="M480 80V124H122V80"></path><path class="beam s" pathLength="300" d="M480 80V124H122V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M480 80V124H122V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="258" y="13" text-anchor="middle">until the question is answered</text><text x="300" y="142" text-anchor="middle">gap found: more sources</text></svg>
+        <div class="sb" style="left: 8px; top: 40px; width: 68px">Question</div>
+        <div class="sb" style="left: 88px; top: 40px; width: 68px">Sources</div>
+        <div class="sb" style="left: 168px; top: 40px; width: 88px">Read &amp; extract</div>
+        <div class="sb" style="left: 268px; top: 40px; width: 72px">Analyse</div>
+        <div class="sb" style="left: 352px; top: 40px; width: 80px">Synthesise</div>
+        <div class="sb" style="left: 444px; top: 40px; width: 72px">Verify</div>
+        <div class="sb" style="left: 528px; top: 40px; width: 72px">Report</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Writing and content">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Writing &amp; content</h2><span class="badge">line + editorial loops</span></div>
+      <div class="chg">Same stages. The editorial loop is two loops into Draft: Edit (revise) and Fact-check (wrong facts).</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 60H592"></path><path class="pipe i s" d="M16 60H592"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M388 40V20H304V40"></path><path class="pipe i s" d="M388 40V20H304V40"></path><path class="beam s" pathLength="300" d="M388 40V20H304V40" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M388 40V20H304V40" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M472 80V124H304V80"></path><path class="pipe i s" d="M472 80V124H304V80"></path><path class="beam s" pathLength="300" d="M472 80V124H304V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M472 80V124H304V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="346" y="13" text-anchor="middle">revise</text><text x="388" y="142" text-anchor="middle">fails fact-check</text></svg>
+        <div class="sb" style="left: 16px; top: 40px; width: 72px">Brief</div>
+        <div class="sb" style="left: 100px; top: 40px; width: 72px">Research</div>
+        <div class="sb" style="left: 184px; top: 40px; width: 72px">Outline</div>
+        <div class="sb" style="left: 268px; top: 40px; width: 72px">Draft</div>
+        <div class="sb" style="left: 352px; top: 40px; width: 72px">Edit</div>
+        <div class="sb" style="left: 436px; top: 40px; width: 72px">Fact-check</div>
+        <div class="sb" style="left: 520px; top: 40px; width: 72px">Publish</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Video production">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Video production</h2><span class="badge">three phases, parallel post</span></div>
+      <div class="chg"><b>Changed:</b> Assets renamed Shoot &amp; assets, so Production has a real stage.</div>
+      <div class="sk">
+        <div class="ph" style="left: 8px; width: 252px"></div><div class="phl" style="left: 16px">PRE-PRODUCTION</div>
+        <div class="ph" style="left: 264px; width: 88px"></div><div class="phl" style="left: 272px">PRODUCTION</div>
+        <div class="ph" style="left: 356px; width: 244px"></div><div class="phl" style="left: 364px">POST-PRODUCTION</div>
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 96H364"></path><path class="pipe i s" d="M16 96H364"></path><path class="beam s" pathLength="1000" d="M16 96H364" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 96H364" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M364 96V56H512V96H592"></path><path class="pipe i s" d="M364 96V56H512V96H592"></path><path class="beam s" pathLength="300" d="M364 96V56H512V96H592" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M364 96V56H512V96H592" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M364 96V140H512V96"></path><path class="pipe i s" d="M364 96V140H512V96"></path><path class="beam s" pathLength="300" d="M364 96V140H512V96" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M364 96V140H512V96" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="440" y="102" text-anchor="middle">in parallel</text></svg>
+        <div class="sb" style="left: 16px; top: 76px; width: 64px">Concept</div>
+        <div class="sb" style="left: 96px; top: 76px; width: 64px">Script</div>
+        <div class="sb" style="left: 176px; top: 76px; width: 76px">Storyboard</div>
+        <div class="sb" style="left: 272px; top: 76px; width: 72px">Shoot &amp; assets</div>
+        <div class="sb" style="left: 384px; top: 36px; width: 112px">Edit</div>
+        <div class="sb" style="left: 384px; top: 120px; width: 112px">Sound &amp; captions</div>
+        <div class="sb" style="left: 528px; top: 76px; width: 64px">Publish</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Social media">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Social media</h2><span class="badge">cycle + fan-out</span></div>
+      <div class="chg"><b>Changed:</b> v1 draws platforms as plain stages grouped under Adapt. Real per-profile lanes come in v1.1.</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 44H356"></path><path class="pipe i s" d="M16 44H356"></path><path class="beam s" pathLength="1000" d="M16 44H356" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 44H356" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M356 44L384 20H456L484 44"></path><path class="pipe i s" d="M356 44L384 20H456L484 44"></path><path class="beam s" pathLength="300" d="M356 44L384 20H456L484 44" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M356 44L384 20H456L484 44" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M356 44H484"></path><path class="pipe i s" d="M356 44H484"></path><path class="beam s" pathLength="300" d="M356 44H484" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M356 44H484" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M356 44L384 68H456L484 44"></path><path class="pipe i s" d="M356 44L384 68H456L484 44"></path><path class="beam s" pathLength="300" d="M356 44L384 68H456L484 44" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M356 44L384 68H456L484 44" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M484 44H520V148H52V64"></path><path class="pipe i s" d="M484 44H520V148H52V64"></path><path class="beam s" pathLength="300" d="M484 44H520V148H52V64" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M484 44H520V148H52V64" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="160" y="138" text-anchor="middle">next cycle</text></svg>
+        <div class="sb" style="left: 16px; top: 24px; width: 72px">Plan</div>
+        <div class="sb" style="left: 100px; top: 24px; width: 72px">Ideate</div>
+        <div class="sb" style="left: 184px; top: 24px; width: 72px">Create</div>
+        <div class="sb" style="left: 268px; top: 24px; width: 88px">Adapt per platform</div>
+        <div class="sb sm" style="left: 384px; top: 8px; width: 72px">LinkedIn</div>
+        <div class="sb sm" style="left: 384px; top: 32px; width: 72px">Instagram</div>
+        <div class="sb sm" style="left: 384px; top: 56px; width: 72px">YouTube</div>
+        <div class="sb" style="left: 484px; top: 24px; width: 72px">Schedule</div>
+        <div class="sb" style="left: 484px; top: 128px; width: 72px">Engage</div>
+        <div class="sb" style="left: 268px; top: 128px; width: 88px">Measure</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Data and analytics">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Data &amp; analytics</h2><span class="badge">line + back-and-forth</span></div>
+      <div class="chg"><b>Changed:</b> added a loop, Model back to Explore when it doesn’t hold.</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 60H592"></path><path class="pipe i s" d="M16 60H592"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 60H592" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M220 40V20H304V40"></path><path class="pipe i s" d="M220 40V20H304V40"></path><path class="beam s" pathLength="300" d="M220 40V20H304V40" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M220 40V20H304V40" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M304 80V100H220V80"></path><path class="pipe i s" d="M304 80V100H220V80"></path><path class="beam s" pathLength="300" d="M304 80V100H220V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M304 80V100H220V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><path class="pipe o s" d="M388 80V128H316V80"></path><path class="pipe i s" d="M388 80V128H316V80"></path><path class="beam s" pathLength="300" d="M388 80V128H316V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M388 80V128H316V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="262" y="13" text-anchor="middle">until it makes sense</text><text x="352" y="146" text-anchor="middle">model fails</text></svg>
+        <div class="sb" style="left: 16px; top: 40px; width: 72px">Question</div>
+        <div class="sb" style="left: 100px; top: 40px; width: 72px">Collect</div>
+        <div class="sb" style="left: 184px; top: 40px; width: 72px">Clean</div>
+        <div class="sb" style="left: 268px; top: 40px; width: 72px">Explore</div>
+        <div class="sb" style="left: 352px; top: 40px; width: 72px">Model</div>
+        <div class="sb" style="left: 436px; top: 40px; width: 72px">Visualise</div>
+        <div class="sb" style="left: 520px; top: 40px; width: 72px">Report</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Design">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Design (UI, brand)</h2><span class="badge">double diamond</span></div>
+      <div class="chg"><b>Changed:</b> Define added between the diamonds; Critique and Refine merged into a Prototype loop.</div>
+      <div class="sk">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M8 98H84L190 14L296 98L410 14L524 98H600"></path><path class="pipe i s" d="M8 98H84L190 14L296 98L410 14L524 98H600"></path><path class="beam s" pathLength="1000" d="M8 98H84L190 14L296 98L410 14L524 98H600" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M8 98H84L190 14L296 98L410 14L524 98H600" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M84 98L190 182L296 98L410 182L524 98"></path><path class="pipe i s" d="M84 98L190 182L296 98L410 182L524 98"></path><path class="beam s" pathLength="1000" d="M84 98L190 182L296 98L410 182L524 98" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M84 98L190 182L296 98L410 182L524 98" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><text x="190" y="150" text-anchor="middle">diverge, then converge</text><text x="410" y="176" text-anchor="middle">diverge, then converge</text></svg>
+        <div class="sb" style="left: 8px; top: 78px; width: 64px">Brief</div>
+        <div class="sb" style="left: 150px; top: 40px; width: 80px">Research</div>
+        <div class="sb" style="left: 264px; top: 78px; width: 64px">Define</div>
+        <div class="sb" style="left: 374px; top: 40px; width: 72px">Concepts</div>
+        <div class="sb" style="left: 356px; top: 108px; width: 108px; height: 44px">Prototype ⇄ Critique</div>
+        <div class="sb" style="left: 536px; top: 78px; width: 64px">Hand-off</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+
+    <section class="panel tp" aria-label="Custom">
+      <div class="row" style="justify-content: space-between"><h2 class="h3">Custom</h2><span class="badge">proposed by Claude</span></div>
+      <div class="chg">From “Weekly climate newsletter: collect news, pick 5 stories, write, a friend reviews, send on Fridays.” Claude picked a known shape (line + loop) and named the stages. It never invents a shape.</div>
+      <div class="sk" style="border: 1px dashed var(--line2)">
+        <svg class="cn" width="608" height="196" viewBox="0 0 608 196" aria-hidden="true" style="position: absolute; left: 0; top: 0; overflow: visible"><path class="pipe o s" d="M16 60H576"></path><path class="pipe i s" d="M16 60H576"></path><path class="beam s" pathLength="1000" d="M16 60H576" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 7s; animation-delay: -0.728s"></path><path class="beam s" pathLength="1000" d="M16 60H576" style="stroke-dasharray: 14 236; animation-duration: 7s"></path><path class="pipe o s" d="M412 80V120H296V80"></path><path class="pipe i s" d="M412 80V120H296V80"></path><path class="beam s" pathLength="300" d="M412 80V120H296V80" style="stroke-dasharray: 40 210; opacity: .25; animation-duration: 5s; animation-delay: -0.52s"></path><path class="beam s" pathLength="300" d="M412 80V120H296V80" style="stroke-dasharray: 14 236; animation-duration: 5s"></path><text x="354" y="138" text-anchor="middle">edits</text></svg>
+        <div class="sb" style="left: 16px; top: 40px; width: 96px">Collect</div>
+        <div class="sb" style="left: 132px; top: 40px; width: 96px">Pick 5</div>
+        <div class="sb" style="left: 248px; top: 40px; width: 96px">Write</div>
+        <div class="sb" style="left: 364px; top: 40px; width: 96px">Friend review</div>
+        <div class="sb" style="left: 480px; top: 40px; width: 96px">Send</div>
+      </div>
+      <div class="strips"><span class="tb">TOOLBELT</span><span class="fl">FLOOR</span></div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1440,"height":1700}}'>
+class Component extends DCLogic {
+  renderVals() { return { theme: this.props.theme ?? 'auto' }; }
+}
+</script>
+</body>
+</html>

@@ -499,3 +499,17 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#200](https://github.com/ibrahimkobeissy/harneo/issues/200) Import: keep a plugin's unpack choice on its source, whole and parts exclusive
 - [#201](https://github.com/ibrahimkobeissy/harneo/issues/201) Import screen: choose whole plugin or pick its parts
 - [#206](https://github.com/ibrahimkobeissy/harneo/issues/206) Ship prebuilt Linux packages (AppImage, .deb) with each release
+
+## harnmap (`spec/harnmap.md`, branch `feat/harnmap`)
+- [#225](https://github.com/ibrahimkobeissy/harneo/issues/225) Harnmap core: profile categories, templates and schema V12
+- [#226](https://github.com/ibrahimkobeissy/harneo/issues/226) Harnmap core: map document, facts and bundles
+- [#227](https://github.com/ibrahimkobeissy/harneo/issues/227) Harnmap app: choose a category in New profile and the builder
+- [#228](https://github.com/ibrahimkobeissy/harneo/issues/228) Harnmap app: layout functions for the four shapes
+- [#229](https://github.com/ibrahimkobeissy/harneo/issues/229) Harnmap core: draw the map with Claude
+- [#230](https://github.com/ibrahimkobeissy/harneo/issues/230) Harnmap app: the map canvas
+- [#231](https://github.com/ibrahimkobeissy/harneo/issues/231) Harnmap core: edits, history, restore and staleness
+- [#232](https://github.com/ibrahimkobeissy/harneo/issues/232) Harnmap app: screen, first draw, re-draw and states
+- [#233](https://github.com/ibrahimkobeissy/harneo/issues/233) Harnfit core: verdict on one candidate
+- [#234](https://github.com/ibrahimkobeissy/harneo/issues/234) Harnmap app: side panel, editing, stages, history and list view
+- [#235](https://github.com/ibrahimkobeissy/harneo/issues/235) Harnfit app: screen and entry points
+- [#236](https://github.com/ibrahimkobeissy/harneo/issues/236) Harnmap: export, import and clone carry the map and fits

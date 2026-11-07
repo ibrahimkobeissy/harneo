@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Export, import, clone</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="./harneo.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+.inc{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;padding:9px 0;border-top:1px solid var(--line);font-size:12.5px}
+.ok{color:var(--green)}
+.sw{position:relative;width:30px;height:18px;border-radius:9px;background:var(--blue);border:0;padding:0;flex:none;cursor:pointer}
+.sw span{position:absolute;top:2px;left:14px;width:14px;height:14px;border-radius:7px;background:var(--on-blue)}
+.sw.off{background:var(--line2)}.sw.off span{left:2px}
+</style>
+</helmet>
+<div class="app" data-theme="{{theme}}" style="width: 1200px; height: 760px; padding: 56px 64px; background: var(--side); display: flex; flex-direction: column; gap: 24px">
+  <div>
+    <h1 class="h1">Nothing is lost</h1>
+    <p class="t2" style="margin: 6px 0 0">Every drawing costs tokens and time, so the map travels with the profile.</p>
+  </div>
+  <div style="display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 24px; flex: 1; align-items: start">
+    <div class="pop" role="dialog" aria-label="Export Heavy">
+      <div class="row" style="justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--line)"><h2 class="h3">Export Heavy</h2><span class="mono t3">heavy.harneo-profile.json · format v2 · {{size}}</span></div>
+      <div style="padding: 6px 18px 12px">
+        <div class="inc"><svg class="ico s ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span>24 artifacts and their bundles</span><span class="mono t3">31 files</span></div>
+        <div class="inc"><svg class="ico s ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><span><b>Harnmap</b>, draw 3<br><span class="t3">Stages, placements, notes, pins, hidden nodes</span></span><span class="mono t3">14 KB</span></div>
+        <div class="inc"><svg class="ico s {{histIco}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{histPath}}"></path></svg><span><b>Map history</b>, 2 earlier drawings<br><span class="t3">With the description each one used</span></span><button type="button" class="sw {{histSw}}" role="switch" aria-checked="{{hist}}" aria-label="Include map history" onClick="{{toggleHist}}"><span></span></button></div>
+        <div class="inc"><svg class="ico s {{fitIco}}" viewBox="0 0 24 24" aria-hidden="true"><path d="{{fitPath}}"></path></svg><span><b>Saved fits</b>, 4<br><span class="t3">tdd-lite, commit-helper, db-migrator, agent-skills</span></span><button type="button" class="sw {{fitSw}}" role="switch" aria-checked="{{fits}}" aria-label="Include saved fits" onClick="{{toggleFits}}"><span></span></button></div>
+        <p class="t3" style="font-size: 12px; margin: 10px 0 0">Format v2 adds the map, its history and saved fits as new fields. The map points to artifacts by type, name and content hash, so it survives the import. Whoever imports this gets the map ready to use and spends no tokens until they re-draw.</p>
+      </div>
+      <div class="row" style="justify-content: flex-end; padding: 12px 18px; border-top: 1px solid var(--line)"><button type="button" class="btn g">Cancel</button><button type="button" class="btn p">Export</button></div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 16px">
+      <div class="pop" role="status" style="padding: 14px 16px">
+        <div class="row" style="gap: 8px"><svg class="ico ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg><h2 class="h4">Imported Heavy</h2></div>
+        <p class="t2" style="margin: 6px 0 10px; font-size: 12.5px">24 artifacts added to your library and matched to the map by type, name and content hash. The map was checked (size and schema) and its notes are shown as plain text. 3 drawings, 4 saved fits, no tokens spent.</p>
+        <div class="row"><a class="btn sm" href="Harnmap.dc.html">Open Harnmap</a><a class="btn sm g" href="Main.dc.html">Open profile</a></div>
+      </div>
+      <div class="pop" role="dialog" aria-label="Clone Heavy">
+        <div style="padding: 14px 16px; display: flex; flex-direction: column; gap: 10px">
+          <h2 class="h4">Clone Heavy</h2>
+          <div><label class="lbl" for="cn">Name</label><input id="cn" class="input" value="Heavy (copy)" style="margin-top: 6px"></div>
+          <div class="row t2" style="gap: 8px; font-size: 12.5px; align-items: flex-start"><svg class="ico s" viewBox="0 0 24 24" aria-hidden="true" style="margin-top: 2px"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path></svg><span>The copy gets Heavy’s map, its history and its saved fits. Edits to one never touch the other.</span></div>
+        </div>
+        <div class="row" style="justify-content: flex-end; padding: 10px 16px; border-top: 1px solid var(--line)"><button type="button" class="btn g">Cancel</button><button type="button" class="btn p">Clone</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["auto","light","dark"],"default":"auto"},"$preview":{"width":1200,"height":760}}'>
+const CHECK = 'M20 6 9 17l-5-5';
+const DASH = 'M5 12h14';
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { hist: true, fits: true }; }
+  renderVals() {
+    const s = this.state;
+    const kb = 182 + 14 + (s.hist ? 26 : 0) + (s.fits ? 9 : 0);
+    return {
+      theme: this.props.theme ?? 'auto',
+      hist: s.hist, fits: s.fits,
+      histSw: s.hist ? '' : 'off', fitSw: s.fits ? '' : 'off',
+      histIco: s.hist ? 'ok' : 't3', fitIco: s.fits ? 'ok' : 't3',
+      histPath: s.hist ? CHECK : DASH, fitPath: s.fits ? CHECK : DASH,
+      toggleHist: () => this.setState({ hist: !s.hist }),
+      toggleFits: () => this.setState({ fits: !s.fits }),
+      size: kb + ' KB'
+    };
+  }
+}
+</script>
+</body>
+</html>
