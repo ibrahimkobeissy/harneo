@@ -82,7 +82,10 @@ fn staleness_reports_added_removed_changed_and_category() -> TestResult {
     assert_eq!(stale.removed.len(), 1);
     assert_eq!(stale.removed[0].id, tdd);
     assert_eq!(stale.removed[0].name, "tdd");
-    assert_eq!(stale.removed[0].kind, Some(crate::artifact::ArtifactKind::Skill));
+    assert_eq!(
+        stale.removed[0].kind,
+        Some(crate::artifact::ArtifactKind::Skill)
+    );
     assert!(view.doc.placements.iter().all(|p| p.artifact != tdd));
     // Edits still work while a placement is orphaned.
     f.library.harnmap_edit(
