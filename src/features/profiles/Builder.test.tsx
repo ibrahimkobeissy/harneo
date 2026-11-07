@@ -353,6 +353,10 @@ describe("Builder: picker and cart", () => {
       screen.getByRole("button", { name: "Added review, remove" }),
     ).toBeVisible();
     expect(screen.getByText(/not audited/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "Harnmap" })).toHaveAttribute(
+      "href",
+      "/profiles/4/harnmap",
+    );
   });
 
   it("filters by text and by type segment", async () => {

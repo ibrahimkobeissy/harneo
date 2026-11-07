@@ -18,6 +18,7 @@ import styles from "./Settings.module.css";
 import { Switch } from "./Switch";
 
 const MODEL_KEY = "bundles.model";
+const HARNMAP_KEY = "harnmap.model";
 const AT_IMPORT_KEY = "bundles.atImport";
 
 const INSTALL_URL = "https://code.claude.com";
@@ -33,6 +34,9 @@ const models = [
 export function ClaudeSettings() {
   const [cli, setCli] = useState<CliStatus | undefined>(undefined);
   const [model, setModel] = useState("haiku");
+  const [harnmap, setHarnmap] = useState("opus");
+  const harnmapId = useId();
+  const harnmapHelpId = useId();
   const [atImport, setAtImport] = useState(false);
   const [confirm, setConfirm] = useState(true);
   const [layout, setLayout] = useState(true);
@@ -64,6 +68,12 @@ export function ClaudeSettings() {
     settingsGet(MODEL_KEY).then(
       (value) => {
         if (live && typeof value === "string" && value !== "") setModel(value);
+      },
+      () => undefined,
+    );
+    settingsGet(HARNMAP_KEY).then(
+      (value) => {
+        if (live && (value === "opus" || value === "sonnet")) setHarnmap(value);
       },
       () => undefined,
     );
@@ -212,6 +222,33 @@ export function ClaudeSettings() {
               {m.label}
             </option>
           ))}
+        </select>
+      </div>
+      <div className={styles.row}>
+        <div className={styles.grow}>
+          <label htmlFor={harnmapId}>
+            <b>Harnmap and Harnfit model</b>
+          </label>
+          <div id={harnmapHelpId} className={styles.sec}>
+            Which model draws a profile&apos;s map. Opus is the default and
+            reads best; Sonnet is quicker. Never Haiku.
+            {notFound && " Needs the Claude CLI."}
+          </div>
+        </div>
+        <select
+          id={harnmapId}
+          className={styles.select}
+          value={harnmap}
+          disabled={notFound}
+          aria-describedby={harnmapHelpId}
+          onChange={(e) => {
+            const previous = harnmap;
+            setHarnmap(e.target.value);
+            void save(HARNMAP_KEY, e.target.value, () => setHarnmap(previous));
+          }}
+        >
+          <option value="opus">Opus (the default)</option>
+          <option value="sonnet">Sonnet</option>
         </select>
       </div>
       <div className={styles.row}>

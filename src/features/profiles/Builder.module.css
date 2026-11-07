@@ -698,3 +698,15 @@
   color: var(--t2);
   font-size: var(--text-label);
 }
+.harnmap {
+  display: inline-flex;
+  align-items: center;
+  height: var(--size-control-sm);
+  padding: 0 var(--space-md);
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius-sm);
+  color: var(--t1);
+  font-size: var(--text-label);
+  font-weight: 500;
+  text-decoration: none;
+}

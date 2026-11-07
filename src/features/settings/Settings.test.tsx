@@ -255,3 +255,24 @@ describe("Settings: confirm security findings", () => {
     );
   });
 });
+
+describe("Settings: Harnmap model", () => {
+  it("defaults to Opus, shows the stored value and stores a change", async () => {
+    const user = userEvent.setup();
+    const sets = setup(
+      { found: true, path: "/bin/claude", version: "2" },
+      { "harnmap.model": "sonnet" },
+    );
+    const select = await screen.findByRole("combobox", {
+      name: "Harnmap and Harnfit model",
+    });
+    await waitFor(() => expect(select).toHaveValue("sonnet"));
+    expect(
+      screen.getAllByRole("option", { name: /Opus/ }).length,
+    ).toBeGreaterThan(0);
+    await user.selectOptions(select, "opus");
+    await waitFor(() =>
+      expect(sets).toContainEqual({ key: "harnmap.model", value: "opus" }),
+    );
+  });
+});

@@ -453,6 +453,13 @@ function Builder({
       badge={
         dirty ? <span className={styles.unsaved}>Unsaved</span> : undefined
       }
+      actions={
+        saved.id !== null ? (
+          <Link to={`/profiles/${saved.id}/harnmap`} className={styles.harnmap}>
+            Harnmap
+          </Link>
+        ) : undefined
+      }
     >
       {notice && (
         <div
