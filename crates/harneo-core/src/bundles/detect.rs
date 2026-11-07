@@ -365,7 +365,7 @@ pub(crate) fn validate(
     Ok(out)
 }
 
-fn is_flagged(audit: &Audit) -> bool {
+pub(crate) fn is_flagged(audit: &Audit) -> bool {
     audit
         .findings
         .iter()

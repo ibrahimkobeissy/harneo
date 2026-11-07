@@ -6,6 +6,9 @@ import {
   profileCreate,
   profileSetCategory,
   templatesList,
+  harnmapCancel,
+  harnmapDraw,
+  harnmapGet,
   profileDelete,
   profileDescribe,
   profileFromCollection,
@@ -37,6 +40,9 @@ describe("profile wrappers", () => {
     await profileSetCategory(5n, "custom", "note");
     await profileSetCategory(5n, "video");
     await templatesList();
+    await harnmapDraw(5n, "Spec first");
+    await harnmapCancel(5n);
+    await harnmapGet(5n);
     expect(await profileClone(5n, "B")).toBe(5n);
     await profileGet(5n);
     await profileGet(5n, 2);
@@ -74,6 +80,9 @@ describe("profile wrappers", () => {
       ["profile_set_category", { id: 5, category: "custom", note: "note" }],
       ["profile_set_category", { id: 5, category: "video", note: null }],
       ["templates_list", {}],
+      ["harnmap_draw", { profileId: 5, description: "Spec first" }],
+      ["harnmap_cancel", { profileId: 5 }],
+      ["harnmap_get", { profileId: 5 }],
       ["profile_clone", { id: 5, name: "B" }],
       ["profile_get", { id: 5, version: null }],
       ["profile_get", { id: 5, version: 2 }],

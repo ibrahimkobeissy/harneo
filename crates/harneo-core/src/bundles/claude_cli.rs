@@ -11,6 +11,8 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -49,6 +51,8 @@ pub struct ClaudeConfig {
     pub timeout: Duration,
     /// Where the empty working folder is made; the system temp folder when `None`.
     pub scratch: Option<PathBuf>,
+    /// When set to `true`, a running call is killed and fails with [`Error::Cancelled`].
+    pub cancel: Option<Arc<AtomicBool>>,
 }
 
 impl Default for ClaudeConfig {
@@ -59,6 +63,7 @@ impl Default for ClaudeConfig {
             model: DEFAULT_MODEL.to_owned(),
             timeout: DEFAULT_TIMEOUT,
             scratch: None,
+            cancel: None,
         }
     }
 }
@@ -139,6 +144,13 @@ pub(crate) fn run_subcommand(
     run_in(config, args, None, timeout, cwd)
 }
 
+fn is_cancelled(config: &ClaudeConfig) -> bool {
+    config
+        .cancel
+        .as_ref()
+        .is_some_and(|c| c.load(Ordering::SeqCst))
+}
+
 fn read_all(file: &mut File, limit: u64) -> std::io::Result<String> {
     file.seek(SeekFrom::Start(0))?;
     let mut bytes = Vec::new();
@@ -190,6 +202,9 @@ fn run_in(
     if let Some(path) = &config.path {
         command.env("PATH", path);
     }
+    if is_cancelled(config) {
+        return Err(Error::Cancelled);
+    }
     let mut attempts = 0;
     let mut child = loop {
         match command.spawn() {
@@ -232,6 +247,11 @@ fn run_in(
             return Err(Error::ClaudeBadOutput {
                 message: "the answer is larger than 1 MiB".to_owned(),
             });
+        }
+        if is_cancelled(config) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(Error::Cancelled);
         }
         if started.elapsed() >= timeout {
             let _ = child.kill();

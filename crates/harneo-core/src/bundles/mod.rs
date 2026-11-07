@@ -19,7 +19,7 @@ mod links_tests;
 pub(crate) use claude_cli::run as run_claude;
 pub(crate) use claude_cli::run_subcommand;
 pub use claude_cli::{cli_status, ClaudeConfig, CliStatus, FailureKind, DEFAULT_MODEL};
-pub(crate) use detect::{model_of, store_accepted};
+pub(crate) use detect::{is_flagged, model_of, store_accepted};
 pub use detect::{
     AcceptedLink, Confidence, DetectProgress, Detection, DetectionJob, ProposedLink, TagSuggestion,
 };

@@ -47,6 +47,8 @@ import type { ProfileSpec } from "../bindings/ProfileSpec";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { CategoryId } from "../bindings/CategoryId";
 import type { Template } from "../bindings/Template";
+import type { DrawOutcome } from "../bindings/DrawOutcome";
+import type { MapView } from "../bindings/MapView";
 import type { ProfileView } from "../bindings/ProfileView";
 import type { ProfileUse } from "../bindings/ProfileUse";
 import type { Resolved } from "../bindings/Resolved";
@@ -620,6 +622,32 @@ export function profileSetCategory(
 /** The eight Harnmap category templates. */
 export function templatesList(): Promise<Template[]> {
   return invoke<Template[]>("templates_list");
+}
+
+/**
+ * Asks Claude (through the user's `claude` CLI) to place the profile's artifacts on its map and
+ * saves the result as the next draw. Rejects with a `DrawFailure`.
+ */
+export function harnmapDraw(
+  profileId: bigint,
+  description: string,
+): Promise<DrawOutcome> {
+  return invoke<DrawOutcome>("harnmap_draw", {
+    profileId: Number(profileId),
+    description,
+  });
+}
+
+/** Stops the draw running for a profile; nothing is saved. */
+export function harnmapCancel(profileId: bigint): Promise<void> {
+  return invoke<void>("harnmap_cancel", { profileId: Number(profileId) });
+}
+
+/** The profile's current map, or `null` before its first draw. */
+export function harnmapGet(profileId: bigint): Promise<MapView | null> {
+  return invoke<MapView | null>("harnmap_get", {
+    profileId: Number(profileId),
+  });
 }
 
 /** Saves the spec as the next version; resolves with the version now current. */

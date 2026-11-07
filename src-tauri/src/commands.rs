@@ -1,6 +1,6 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
-use harneo_core::harnmap::{CategoryId, Template};
+use harneo_core::harnmap::{CategoryId, DrawFailure, DrawOutcome, DrawRegistry, MapView, Template};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -1297,6 +1297,63 @@ pub fn templates_list(state: State<'_, LibraryState>) -> Result<Vec<Template>, S
     state.with(|library| Ok(library.templates()))
 }
 
+/// The draws running now, so `harnmap_cancel` can reach them.
+static DRAWS: DrawRegistry = DrawRegistry::new();
+
+/// Prepares, runs and saves one draw; the library is not held while Claude works.
+fn run_draw<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    profile_id: ProfileId,
+    description: &str,
+) -> Result<DrawOutcome, DrawFailure> {
+    let other = |message: String| DrawFailure::Other { message };
+    let state = app.state::<LibraryState>();
+    let cancel = DRAWS.start(profile_id);
+    let result = (|| {
+        let job = state
+            .with(|library| Ok(library.prepare_draw(profile_id, description, cancel)))
+            .map_err(other)?
+            .map_err(|e| DrawFailure::from(&e))?;
+        let drawn = job.run().map_err(|e| DrawFailure::from(&e))?;
+        state
+            .with(|library| Ok(library.save_draw(&job, drawn)))
+            .map_err(other)?
+            .map_err(|e| DrawFailure::from(&e))
+    })();
+    DRAWS.finish(profile_id);
+    result
+}
+
+/// Asks Claude to place a profile's artifacts on its template and saves the result as the next
+/// draw. Pressing the button is the user's consent.
+#[tauri::command]
+pub async fn harnmap_draw(
+    app: AppHandle,
+    profile_id: ProfileId,
+    description: String,
+) -> Result<DrawOutcome, DrawFailure> {
+    tauri::async_runtime::spawn_blocking(move || run_draw(&app, profile_id, &description))
+        .await
+        .map_err(|e| DrawFailure::Other {
+            message: e.to_string(),
+        })?
+}
+
+/// Stops the draw running for a profile: the `claude` process is killed and nothing is saved.
+#[tauri::command]
+pub fn harnmap_cancel(profile_id: ProfileId) {
+    DRAWS.cancel(profile_id);
+}
+
+/// A profile's current map with what was recorded when it was drawn; `null` before the first draw.
+#[tauri::command]
+pub fn harnmap_get(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+) -> Result<Option<MapView>, String> {
+    state.with(|library| library.harnmap(profile_id))
+}
+
 /// Saves the spec as the next version; resolves with the version now current.
 #[tauri::command]
 pub fn profile_save(
@@ -2037,6 +2094,66 @@ mod tests {
         }
         assert!(profiles_list(state())?.is_empty());
         assert!(profile_get(state(), id, None).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn a_map_is_drawn_read_and_a_failure_comes_back_as_its_kind(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        use std::os::unix::fs::PermissionsExt;
+        let data = tempfile::tempdir()?;
+        let bin = tempfile::tempdir()?;
+        let source = tempfile::tempdir()?;
+        std::fs::create_dir_all(source.path().join("skills/tdd"))?;
+        std::fs::write(
+            source.path().join("skills/tdd/SKILL.md"),
+            "---\nname: tdd\ndescription: Test first\n---\nBody\n",
+        )?;
+        let mut library = Library::open(data.path())?;
+        let preview = library.preview(&Source::Local {
+            path: source.path().to_path_buf(),
+        })?;
+        let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
+        library.import(&preview, &ids, &HashMap::new())?;
+        let spec = ProfileSpec {
+            items: ids,
+            ..ProfileSpec::default()
+        };
+        let id = library.create_profile("P", "", &spec, CategoryId::Software, None)?;
+        let program = bin.path().join("claude");
+        let write_claude = |body: &str| -> std::io::Result<()> {
+            std::fs::write(&program, format!("#!/bin/sh\ncat > /dev/null\n{body}\n"))?;
+            std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))
+        };
+        library.use_claude(ClaudeConfig {
+            program: program.clone().into(),
+            ..ClaudeConfig::default()
+        });
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(library)));
+        let handle = app.handle().clone();
+        let state = app.state::<LibraryState>();
+        assert!(harnmap_get(app.state::<LibraryState>(), id)?.is_none());
+
+        write_claude("echo 'Not logged in - /login' >&2\nexit 1")?;
+        let failed = run_draw(&handle, id, "Go").err();
+        assert!(matches!(
+            failed,
+            Some(DrawFailure::ClaudeFailed { kind, .. })
+                if kind == harneo_core::bundles::FailureKind::NotLoggedIn
+        ));
+        let missing = run_draw(&handle, 999, "");
+        assert!(matches!(missing, Err(DrawFailure::Other { .. })));
+        assert!(harnmap_get(app.state::<LibraryState>(), id)?.is_none());
+
+        write_claude(
+            "printf '%s' '{\"is_error\":false,\"structured_output\":{\"stages\":[{\"name\":\"Build\"}],\"loops\":[],\"placements\":[]}}'",
+        )?;
+        let outcome = run_draw(&handle, id, "Go").map_err(|e| format!("{e:?}"))?;
+        assert_eq!((outcome.no, outcome.model.as_str()), (1, "opus"));
+        let view = harnmap_get(state, id)?.ok_or("map")?;
+        assert_eq!(view.description, "Go");
+        harnmap_cancel(id);
         Ok(())
     }
 

@@ -210,6 +210,18 @@ pub enum Error {
         /// What is wrong with it.
         message: String,
     },
+    /// The user cancelled a draw; nothing was saved.
+    #[error("cancelled")]
+    Cancelled,
+    /// Claude's map did not pass the checks twice; nothing was saved.
+    #[error("Answer didn't check out: {}", reasons.join("; "))]
+    BadAnswer {
+        /// Every reason the last answer failed, in plain words.
+        reasons: Vec<String>,
+    },
+    /// The profile has no artifacts to put on a map.
+    #[error("the profile has no artifacts to draw")]
+    EmptyProfile,
     /// A profile name or spec is not acceptable.
     #[error("invalid profile: {reason}")]
     InvalidProfile {

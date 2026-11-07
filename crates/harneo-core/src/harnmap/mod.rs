@@ -1,5 +1,8 @@
 //! Harnmap: a profile seen as a factory. A profile's category picks a [template](templates).
 
+mod draw;
+#[cfg(test)]
+mod draw_tests;
 mod facts;
 #[cfg(test)]
 mod facts_tests;
@@ -10,6 +13,10 @@ mod templates;
 #[cfg(test)]
 mod templates_tests;
 
+pub use draw::{
+    Basis, BasisArtifact, DrawFailure, DrawJob, DrawOutcome, DrawRegistry, DrawResult, MapView,
+    DRAW_TIMEOUT,
+};
 pub use facts::{Fact, FactKind, Facts};
 pub use map::{
     Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageId, StageOrigin, TemplateChange, Zone,
