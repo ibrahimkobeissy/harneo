@@ -315,7 +315,7 @@ impl Claimed {
         self.files.insert(own.to_owned());
         self.files.extend(a.files.iter().cloned());
         let whole = matches!(a.kind, ArtifactKind::Plugin | ArtifactKind::Skill);
-        if whole && !a.path.contains('#') {
+        if whole && !crate::plugin::is_remote_path(&a.path) {
             self.folders.push(PathBuf::from(&a.path));
             self.folders.extend(copies.iter().map(PathBuf::from));
         }

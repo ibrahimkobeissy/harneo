@@ -39,17 +39,16 @@ type Identity = (String, String);
 
 fn identity(artifact: &Artifact) -> Option<Identity> {
     let (name, market) = if artifact.kind == ArtifactKind::Plugin {
-        (artifact.name.clone(), artifact.metadata.get("marketplace"))
+        (
+            artifact.name.clone(),
+            crate::plugin::marketplace_of(artifact),
+        )
     } else {
         let from = artifact.metadata.get("fromPlugin")?;
         let name = part_of(artifact)?.0;
-        (name, from.get("marketplace"))
+        (name, from.get("marketplace").and_then(Value::as_str))
     };
-    let market = market
-        .and_then(Value::as_str)
-        .unwrap_or_default()
-        .to_owned();
-    Some((name, market))
+    Some((name, market.unwrap_or_default().to_owned()))
 }
 
 fn exclusive(plugin: &str, detail: String) -> Error {

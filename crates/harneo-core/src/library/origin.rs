@@ -20,7 +20,7 @@ pub(crate) fn derive_plugin_origin(
     if artifact.kind != ArtifactKind::Plugin || artifact.origin != Origin::Own {
         return None;
     }
-    let name = artifact.metadata.get("marketplace")?.as_str()?;
+    let name = crate::plugin::marketplace_of(artifact)?;
     let repo = if kind == "git" {
         github_repo(location)?
     } else {

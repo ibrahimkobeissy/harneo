@@ -124,6 +124,11 @@ pub struct Candidate {
     #[serde(default)]
     #[ts(optional)]
     pub must_stay_whole: Option<crate::plugin::WholeReason>,
+    /// The sentence for `must_stay_whole` (`WholeReason::text`), so the UI words it as the core
+    /// does.
+    #[serde(default)]
+    #[ts(optional)]
+    pub must_stay_whole_text: Option<String>,
 }
 
 /// What [`Library::reaudit_all`] did.
@@ -469,15 +474,21 @@ gone or no longer parses",
         Ok(artifacts
             .into_iter()
             .zip(ids)
-            .map(|(artifact, id)| Candidate {
-                already_in_library: known.contains(&id),
-                replaced_secret_keys: copy::replaced_secret_keys(&artifact),
-                suggested_tags: tags::suggestions(&artifact),
-                copies: Vec::new(),
-                audit: audit::audit(&artifact, root, &scan_options),
-                must_stay_whole: crate::plugin::must_stay_whole(&mut walker, &artifact),
-                id,
-                artifact,
+            .map(|(artifact, id)| {
+                let must_stay_whole = crate::plugin::must_stay_whole(&mut walker, &artifact);
+                Candidate {
+                    already_in_library: known.contains(&id),
+                    replaced_secret_keys: copy::replaced_secret_keys(&artifact),
+                    suggested_tags: tags::suggestions(&artifact),
+                    copies: Vec::new(),
+                    audit: audit::audit(&artifact, root, &scan_options),
+                    must_stay_whole_text: must_stay_whole
+                        .as_ref()
+                        .map(crate::plugin::WholeReason::text),
+                    must_stay_whole,
+                    id,
+                    artifact,
+                }
             })
             .collect())
     }

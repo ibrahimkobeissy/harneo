@@ -22,6 +22,7 @@ use crate::audit;
 use crate::bundles::{is_flagged, run_claude, ClaudeConfig};
 use crate::error::{Error, Result};
 use crate::library::{ids, readout, records, ArtifactId, Library, Preview};
+use crate::plugin;
 use crate::profiles::{McpChoice, ProfileId, ResolvedItem};
 
 /// Characters of the candidate's files that are sent, all files together.
@@ -712,9 +713,7 @@ impl Library {
         cancel: Arc<AtomicBool>,
     ) -> Result<FitJob> {
         let data = self.candidate_data(candidate)?;
-        if data.info.kind == ArtifactKind::Plugin {
-            return Err(Error::HarnfitPluginUnsupported);
-        }
+        plugin::ensure_fits_harnfit(data.info.kind)?;
         let view = self.profile(profile, None)?;
         let map = self.latest_draw(profile)?.ok_or(Error::NoMap)?.doc;
         let resolved = self.resolve(&view.spec)?;
@@ -863,9 +862,7 @@ impl Library {
                 let detail = records::load(&self.store.conn, id)?
                     .ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
                 let artifact = &detail.artifact;
-                if artifact.kind == ArtifactKind::Plugin {
-                    return Err(Error::HarnfitPluginUnsupported);
-                }
+                plugin::ensure_fits_harnfit(artifact.kind)?;
                 let folder = self.store.artifacts_dir().join(id);
                 let withheld = is_flagged(&audit::audit_stored(
                     &readout::stored_view_of(artifact)?,
@@ -911,9 +908,7 @@ impl Library {
                     kind_name(artifact.kind),
                     artifact.name
                 );
-                if artifact.kind == ArtifactKind::Plugin {
-                    return Err(Error::HarnfitPluginUnsupported);
-                }
+                plugin::ensure_fits_harnfit(artifact.kind)?;
                 let (files, withheld) = self.with_preview_root(preview, |root| {
                     // The audit that came with the preview is not trusted: audit the files here.
                     let withheld = is_flagged(&audit::audit(artifact, root, &options));
@@ -1075,9 +1070,9 @@ impl Library {
                 name: detail.artifact.name,
             });
         }
+        plugin::ensure_fits_harnfit(detail.artifact.kind)?;
         let mut spec = view.spec.clone();
         match detail.artifact.kind {
-            ArtifactKind::Plugin => return Err(Error::HarnfitPluginUnsupported),
             ArtifactKind::Settings => {
                 if spec.settings.is_some() {
                     return Err(Error::InvalidProfile {
