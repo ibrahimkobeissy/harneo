@@ -132,7 +132,7 @@ const pick = () => screen.getByRole("radio", { name: "Pick parts" });
 const wholeRadio = () => screen.getByRole("radio", { name: "Whole plugin" });
 
 describe("choosing a plugin's parts", () => {
-  it("lists the parts nested and unticked, imports only the ticked ones and goes back to the whole plugin", async () => {
+  it("lists the parts nested and ticked, imports only the ticked ones and goes back to the whole plugin", async () => {
     const user = userEvent.setup();
     const calls = setup();
     await toChoose(user);
@@ -144,18 +144,22 @@ describe("choosing a plugin's parts", () => {
     expect(previews[1]?.args.unpack).toEqual([""]);
     const skills = screen.getByRole("region", { name: /Skills of toolbox, 4/ });
     expect(within(skills).getAllByRole("checkbox")).toHaveLength(4);
-    for (const box of within(skills).getAllByRole("checkbox")) {
-      expect(box).not.toBeChecked();
+    // Every part that can be picked starts ticked; the one that needs its plugin can't be.
+    for (const name of [/alpha/, /beta/, /gamma/]) {
+      expect(within(skills).getByRole("checkbox", { name })).toBeChecked();
     }
+    expect(
+      within(skills).getByRole("checkbox", { name: /needy/ }),
+    ).not.toBeChecked();
     expect(
       screen.getByRole("region", { name: /MCP servers of toolbox/ }),
     ).toBeInTheDocument();
     expect(screen.getByText(/come only with the whole plugin/)).toBeVisible();
-    // The loose skill keeps its own tick.
-    expect(screen.getByText(/1 to import/)).toBeInTheDocument();
+    // The loose skill keeps its own tick, next to the three skills and the MCP server.
+    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("checkbox", { name: /alpha/ }));
-    await user.click(screen.getByRole("checkbox", { name: /beta/ }));
+    await user.click(screen.getByRole("checkbox", { name: /gamma/ }));
+    await user.click(screen.getByRole("checkbox", { name: /db/ }));
     expect(screen.getByText(/3 to import/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: /^Import 3/ }));
@@ -200,7 +204,7 @@ describe("choosing a plugin's parts", () => {
     expect(needy).toHaveFocus();
     await user.click(needy);
     expect(needy).not.toBeChecked();
-    expect(screen.getByText(/1 to import/)).toBeInTheDocument();
+    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
   });
 
   it("makes Pick parts unavailable, with the reason, while the plugin is in the library whole", async () => {

@@ -21,7 +21,7 @@ import {
 } from "../../lib/ipc";
 import { resolveNames } from "../../lib/names";
 import { Button, Screen, useProposals, WizardActions } from "../../ui";
-import { ChooseStep, Scanning } from "./ChooseStep";
+import { ChooseStep, hasErrors, Scanning } from "./ChooseStep";
 import { Done } from "./Done";
 import {
   describeFailure,
@@ -349,8 +349,9 @@ function ImportFlow({
     };
   }, [proposedLinks, preview]);
 
-  /** Takes a re-scan of the same source in: only candidates new to the choices start excluded
-   * (a part of `parts` always does); the user's choices on the rest stand. */
+  /** Takes a re-scan of the same source in: only candidates the audit holds back start excluded,
+   * and the parts of `parts` start ticked unless they can't be picked; the user's choices on
+   * the rest stand. */
   function retake(found: PreviewTicket, parts: string | null = null) {
     setReasons((prev) => new Map([...prev, ...reasonsOf(found)]));
     const seen = everSeen.current;
@@ -358,7 +359,10 @@ function ImportFlow({
     const out = new Set(criticalIds(fresh));
     for (const id of out) autoExcluded.current.add(id);
     const picked = found.candidates
-      .filter((c) => parts !== null && fromPlugin(c)?.folder === parts)
+      .filter(
+        (c) =>
+          parts !== null && fromPlugin(c)?.folder === parts && hasErrors(c),
+      )
       .map((c) => c.id);
     for (const c of found.candidates) seen.add(c.id);
     setExcluded((prev) => new Set([...prev, ...out, ...picked]));
