@@ -1,4 +1,6 @@
+import type { ArtifactFit } from "../../bindings/ArtifactFit";
 import type { LibraryItem } from "../../bindings/LibraryItem";
+import { FitBadges } from "./FitBadges";
 import {
   CardBadge,
   CardCounts,
@@ -22,9 +24,12 @@ export function ItemCard({
   item,
   onOpen,
   indexed = true,
+  fits = [],
 }: {
   item: LibraryItem;
   onOpen: (item: LibraryItem) => void;
+  /** Saved Harnfit verdicts of this artifact, one per profile. */
+  fits?: ArtifactFit[];
   /** False until an index run has completed: unused is not shown before then. */
   indexed?: boolean;
 }) {
@@ -54,6 +59,7 @@ export function ItemCard({
         <ManualChip item={item} />
         <TagChips tags={item.tags} />
       </span>
+      <FitBadges fits={fits} />
       <span className={styles.tileFoot}>
         <span className={styles.srcline} title={sourceText(item)}>
           <span className={styles.srcText}>{sourceText(item)}</span>

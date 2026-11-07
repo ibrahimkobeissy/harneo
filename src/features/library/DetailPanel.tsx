@@ -46,6 +46,7 @@ import {
   TrustMeter,
 } from "../../ui";
 import { AddToMenu } from "./AddToMenu";
+import { HarnfitMenu } from "./HarnfitMenu";
 import { LocalEditDialog, UpdateDialog, versionStep } from "./UpdateDialogs";
 import updates from "./Updates.module.css";
 import { BundleSection } from "./BundleSection";
@@ -727,6 +728,11 @@ export function DetailPanel({
                 artifactKind={detail.artifact.kind}
                 onChanged={onMembershipChanged}
                 onProfileChanged={() => setProfilesRev((n) => n + 1)}
+              />
+              <HarnfitMenu
+                artifactId={id}
+                artifactName={detail.artifact.name}
+                artifactKind={detail.artifact.kind}
               />
               <Button small onClick={() => setFinding(true)}>
                 <Boxes size={14} aria-hidden="true" />

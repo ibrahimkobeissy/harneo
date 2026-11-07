@@ -10,6 +10,7 @@ import { Button, Tag, TagPicker } from "../../ui";
 import styles from "./Import.module.css";
 import { AuditSummary } from "./AuditSummary";
 import { DetectionSection } from "./DetectionSection";
+import { HarnfitSection } from "./HarnfitSection";
 import { LargeFilesChoice } from "./LargeFiles";
 import type { DetectionControl } from "./useDetection";
 import type { ProposalState } from "../../ui";
@@ -39,11 +40,14 @@ export function ReviewStep({
   detection,
   proposals,
   names,
+  token,
 }: {
   chosen: Candidate[];
   detection: DetectionControl;
   proposals: ProposalState;
   names: ReadonlyMap<string, string>;
+  /** The preview's cache token, for Harnfit on a candidate that is not imported yet. */
+  token: string | null;
   heldBack: number;
   phase1Only: { cliMissing: boolean } | null;
   confirming: ConfirmProgress | null;
@@ -190,6 +194,7 @@ export function ReviewStep({
           );
         })}
       </div>
+      <HarnfitSection chosen={chosen} token={token} />
       {withSecrets.length > 0 && (
         <>
           <h2 className={styles.h}>Secrets that will be replaced</h2>

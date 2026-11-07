@@ -599,3 +599,42 @@
 .nd[draggable="true"] {
   cursor: grab;
 }
+
+/* Harnfit: the profile's map recedes; the candidate is a dashed node; clashes are red lines. */
+.scene[data-faded="true"] .nd {
+  opacity: 0.42;
+  filter: saturate(0.4);
+  pointer-events: none;
+}
+.ghost {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 8px;
+  border: var(--hairline-strong) dashed var(--t2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--t1);
+  text-align: left;
+  cursor: grab;
+}
+.newTag {
+  position: absolute;
+  top: -9px;
+  right: 6px;
+  padding: 0 6px;
+  border: var(--hairline) dashed var(--t2);
+  border-radius: var(--radius-xs);
+  background: var(--bg);
+  color: var(--t2);
+  font-size: var(--text-label);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.clash {
+  stroke: var(--red-fill);
+  stroke-width: 2;
+  stroke-linecap: round;
+}

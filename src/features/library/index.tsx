@@ -46,6 +46,7 @@ import { FindBundlesButton, FindBundlesDialog } from "./FindBundles";
 import { onGridKeyDown } from "./gridNav";
 import { Insights } from "./Insights";
 import { ItemCard } from "./ItemCard";
+import { useArtifactFits } from "./useArtifactFits";
 import { ItemTable } from "./ItemTable";
 import cstyles from "./Collections.module.css";
 import styles from "./Library.module.css";
@@ -155,6 +156,9 @@ export function LibraryScreen({
     }),
   );
   const page = load.status === "error" ? null : load.page;
+  const fits = useArtifactFits(
+    params.view === "cards" ? (page?.items.map((i) => i.id) ?? []) : [],
+  );
   const perPage = PER_PAGE[params.view];
   // Artifacts left behind by following references, newest last; Back pops one.
   const narrow = useNarrow();
@@ -635,6 +639,7 @@ export function LibraryScreen({
                   item={item}
                   onOpen={openItem}
                   indexed={indexed}
+                  fits={fits.get(item.id)}
                 />
               ))}
             </div>

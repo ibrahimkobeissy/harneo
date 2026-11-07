@@ -10,6 +10,7 @@ import {
   QUIET_BELOW,
   ZOOM_STEP,
   type Dnd,
+  type Ghost,
   type MapData,
   type MapViewState,
 } from "./types";
@@ -51,6 +52,8 @@ export function MapCanvas({
   onSelect,
   onView,
   dnd,
+  ghost,
+  faded,
 }: {
   data: MapData;
   selected: string | null;
@@ -59,6 +62,10 @@ export function MapCanvas({
   onView: (view: MapViewState) => void;
   /** Present when nodes can be dragged and dropped onto zones. */
   dnd?: Dnd;
+  /** Harnfit: the candidate as a dashed NEW node. */
+  ghost?: Ghost;
+  /** Harnfit: the map's own nodes drawn faded. */
+  faded?: boolean;
 }) {
   const viewport = useRef<HTMLDivElement>(null);
   const [pan, setPan] = useState<Pan>({ x: 0, y: 0 });
@@ -235,6 +242,8 @@ export function MapCanvas({
             onSelect={onSelect}
             onOpen={(id, keyboard) => setOpen(id ? { id, keyboard } : null)}
             dnd={dnd}
+            ghost={ghost}
+            faded={faded}
           />
         </div>
       </div>

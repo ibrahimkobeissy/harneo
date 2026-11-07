@@ -70,3 +70,12 @@ export interface Dnd {
   onEnd: () => void;
   onDrop: (zone: Zone) => void;
 }
+
+/** The candidate Harnfit proposes, drawn as a dashed "NEW" node over a faded map. */
+export interface Ghost {
+  name: string;
+  kind: ArtifactKind;
+  zone: Zone;
+  /** Artifact ids on the map the candidate clashes with: red lines run to them. */
+  conflicts: string[];
+}

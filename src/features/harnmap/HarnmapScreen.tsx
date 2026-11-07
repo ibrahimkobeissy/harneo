@@ -1,6 +1,6 @@
 import { Check, FileQuestion, History, ListTree, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import type { DrawFailure } from "../../bindings/DrawFailure";
 import type { DrawOutcome } from "../../bindings/DrawOutcome";
 import type { DrawSummary } from "../../bindings/DrawSummary";
@@ -207,7 +207,9 @@ function Loaded({
     artifact: string;
     zone: Zone;
   } | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  // Harnfit's Add lands here with its toast in the route state.
+  const arrived = (useLocation().state as { toast?: string } | null)?.toast;
+  const [toast, setToast] = useState<string | null>(arrived ?? null);
   const [edited, setEdited] = useState(false);
   const [focusFilter, setFocusFilter] = useState(0);
   const filter = useRef<HTMLInputElement>(null);

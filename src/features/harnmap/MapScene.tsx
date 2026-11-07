@@ -7,7 +7,9 @@ import styles from "./MapCanvas.module.css";
 import { Node } from "./Node";
 import { Tooltip } from "./Tooltip";
 import { zoneKey } from "./place";
-import type { Dnd, HookInfo, Layers, MapData } from "./types";
+import { ghostBox } from "./ghost";
+import { kinds } from "../../ui";
+import type { Dnd, Ghost, HookInfo, Layers, MapData } from "./types";
 
 export const TOOLTIP_W = 248;
 const HB = 20;
@@ -54,6 +56,8 @@ export function MapScene({
   onSelect,
   onOpen,
   dnd,
+  ghost,
+  faded = false,
 }: {
   data: MapData;
   layout: Layout;
@@ -67,6 +71,10 @@ export function MapScene({
   onOpen: (id: string | null, fromKeyboard: boolean) => void;
   /** Present when the map can be edited by dragging. */
   dnd?: Dnd;
+  /** Harnfit: the proposed node, dashed, with red lines to what it clashes with. */
+  ghost?: Ghost;
+  /** Harnfit: the profile's own nodes are drawn faded and cannot be touched. */
+  faded?: boolean;
 }) {
   const arrow = useId();
   const [over, setOver] = useState<string | null>(null);
@@ -108,9 +116,12 @@ export function MapScene({
         ? openBox.x + openBox.w + 8
         : 0;
 
+  const box = ghost ? ghostBox(layout, ghost.zone) : null;
+  const GhostIcon = ghost ? kinds[ghost.kind].icon : null;
   return (
     <div
       className={styles.scene}
+      data-faded={faded || undefined}
       style={{ width: layout.width, height: layout.height }}
     >
       <svg
@@ -188,6 +199,24 @@ export function MapScene({
             ))}
           </>
         )}
+        {ghost &&
+          box &&
+          ghost.conflicts.flatMap((id) => {
+            const other = layout.nodes.find((n) => n.id === id);
+            return other
+              ? [
+                  <line
+                    key={id}
+                    className={styles.clash}
+                    data-testid="conflict-line"
+                    x1={box.x + box.w / 2}
+                    y1={box.y + box.h / 2}
+                    x2={other.x + other.w / 2}
+                    y2={other.y + other.h / 2}
+                  />,
+                ]
+              : [];
+          })}
       </svg>
 
       {layers.line &&
@@ -305,7 +334,7 @@ export function MapScene({
             onSelect={() => onSelect(n.id)}
             onInfo={() => onOpen(n.id, true)}
             drag={
-              dnd
+              dnd && !faded
                 ? { onStart: () => dnd.onStart(n.id), onEnd: dnd.onEnd }
                 : undefined
             }
@@ -313,20 +342,44 @@ export function MapScene({
           />
         );
       })}
-      {shown.map((n) => {
-        const info = data.artifacts[n.id];
-        if (!info) return null;
-        return (
-          <Heartbeat
-            key={n.id}
-            name={info.name}
-            x={n.x + n.w - HB - 2}
-            y={n.y + n.h - HB - 2}
-            open={open === n.id}
-            onToggle={() => onOpen(open === n.id ? null : n.id, false)}
-          />
-        );
-      })}
+      {!faded &&
+        shown.map((n) => {
+          const info = data.artifacts[n.id];
+          if (!info) return null;
+          return (
+            <Heartbeat
+              key={n.id}
+              name={info.name}
+              x={n.x + n.w - HB - 2}
+              y={n.y + n.h - HB - 2}
+              open={open === n.id}
+              onToggle={() => onOpen(open === n.id ? null : n.id, false)}
+            />
+          );
+        })}
+      {ghost && box && GhostIcon && (
+        <div
+          className={styles.ghost}
+          data-testid="ghost"
+          draggable={dnd ? true : undefined}
+          aria-label={`${ghost.name}, new`}
+          style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
+          onDragStart={(ev) => {
+            ev.dataTransfer?.setData("text/plain", "ghost");
+            dnd?.onStart("ghost");
+          }}
+          onDragEnd={dnd?.onEnd}
+          onPointerDown={(ev) => ev.stopPropagation()}
+        >
+          <span className={styles.ic} aria-hidden="true">
+            <GhostIcon size={12} />
+          </span>
+          <span className={styles.txt}>
+            <b>{ghost.name}</b>
+          </span>
+          <span className={styles.newTag}>NEW</span>
+        </div>
+      )}
       {openBox && openPlacement && openInfo && (
         <Tooltip
           name={openInfo.name}

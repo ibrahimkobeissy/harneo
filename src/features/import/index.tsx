@@ -666,6 +666,7 @@ function ImportFlow({
             detection={detection}
             proposals={proposals}
             names={names}
+            token={preview?.token ?? null}
             onReviewHeldBack={() => setStep(1)}
             largeFiles={largeFiles}
             onLargeFiles={setLargeFiles}

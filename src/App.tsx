@@ -7,7 +7,7 @@ import {
 } from "react-router";
 import { Layout } from "./app/Layout";
 import { CleanupScreen } from "./features/cleanup";
-import { HarnmapScreen } from "./features/harnmap";
+import { HarnfitScreen, HarnmapScreen } from "./features/harnmap";
 import { ImportScreen } from "./features/import";
 import { CollectionScreen, LibraryScreen } from "./features/library";
 import { ProfileBuilder, ProfilesScreen } from "./features/profiles";
@@ -27,6 +27,10 @@ export function AppRoutes() {
         <Route path="profiles" element={<ProfilesScreen />} />
         <Route path="profiles/:id" element={<ProfileBuilder />} />
         <Route path="profiles/:id/harnmap" element={<HarnmapScreen />} />
+        <Route
+          path="profiles/:id/harnfit/:candidate"
+          element={<HarnfitScreen />}
+        />
         <Route path="projects" element={<ProjectsScreen />} />
         <Route path="projects/:id" element={<ProjectScreen />} />
         <Route path="security" element={<SecurityScreen />} />

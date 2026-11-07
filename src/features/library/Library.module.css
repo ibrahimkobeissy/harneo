@@ -937,3 +937,8 @@
   color: var(--red);
   font-size: var(--text-label);
 }
+.tileFits {
+  display: flex;
+  gap: var(--space-xs);
+  overflow: hidden;
+}
