@@ -11,6 +11,7 @@ pub mod host_env;
 pub mod install;
 pub mod library;
 pub mod paths;
+pub mod plugin;
 pub mod profiles;
 pub mod updates;
 pub mod usage;

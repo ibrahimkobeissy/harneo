@@ -6,6 +6,7 @@ mod installed;
 mod kinds;
 
 pub(crate) use kinds::plugin::github_repo;
+pub(crate) use kinds::plugin_parts::unpack as unpack_plugin;
 mod layout;
 mod proposed;
 mod unplaced;

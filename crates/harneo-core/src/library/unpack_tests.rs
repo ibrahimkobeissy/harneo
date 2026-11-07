@@ -365,3 +365,23 @@ fn a_listed_part_names_its_plugin() -> TestResult {
     assert_eq!(page.items[0].from_plugin.as_deref(), Some("toolbox"));
     Ok(())
 }
+
+#[test]
+fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
+    let s = setup()?;
+    let whole = s.library.preview(&s.source)?;
+    let plugin = whole
+        .candidates
+        .iter()
+        .find(|c| c.artifact.kind == ArtifactKind::Plugin)
+        .ok_or("no plugin")?;
+    assert_eq!(
+        plugin.must_stay_whole,
+        Some(crate::plugin::WholeReason::PluginRootTie {
+            parts: vec![crate::plugin::PluginPart::Skills]
+        })
+    );
+    let parts = s.parts()?;
+    assert!(parts.candidates.iter().all(|c| c.must_stay_whole.is_none()));
+    Ok(())
+}

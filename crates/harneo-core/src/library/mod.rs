@@ -114,6 +114,10 @@ pub struct Candidate {
     /// The security audit of the artifact in its source (for a git source, inside the clone).
     /// `import` stores this one.
     pub audit: Audit,
+    /// For a Plugin: why it can only be taken whole, when it can (`plugin::must_stay_whole`).
+    #[serde(default)]
+    #[ts(optional)]
+    pub must_stay_whole: Option<crate::plugin::WholeReason>,
 }
 
 /// What [`Library::reaudit_all`] did.
@@ -408,6 +412,7 @@ gone or no longer parses",
         let id_refs: Vec<&str> = ids.iter().map(String::as_str).collect();
         let known = records::existing(&self.store.conn, &id_refs)?;
         let scan_options = ScanOptions::default();
+        let mut walker = crate::artifact::walk::Walker::new(root, &scan_options);
         Ok(artifacts
             .into_iter()
             .zip(ids)
@@ -417,6 +422,7 @@ gone or no longer parses",
                 suggested_tags: tags::suggestions(&artifact),
                 copies: Vec::new(),
                 audit: audit::audit(&artifact, root, &scan_options),
+                must_stay_whole: crate::plugin::must_stay_whole(&mut walker, &artifact),
                 id,
                 artifact,
             })
