@@ -73,7 +73,7 @@ fn without_import(project: &[u8], stored: &[u8]) -> Vec<u8> {
 }
 
 /// The keys of `settings.json` where an install merges the profile's plugins.
-const MERGED_KEYS: [&str; 2] = ["enabledPlugins", "extraKnownMarketplaces"];
+const MERGED_KEYS: [&str; 2] = crate::plugin::MERGED_SETTINGS_KEYS;
 
 fn object_at<'a>(root: &'a Value, key: &str) -> Option<&'a Map<String, Value>> {
     root.get(key).and_then(Value::as_object)

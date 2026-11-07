@@ -109,17 +109,10 @@ fn clean(name: &str) -> Option<&str> {
     ok.then_some(name)
 }
 
-/// The plugin in `plugin:name`, when the name is namespaced.
-fn plugin_of(name: &str) -> Option<&str> {
-    name.split_once(':')
-        .map(|(plugin, _)| plugin)
-        .filter(|p| !p.is_empty())
-}
-
 fn push_named(kind: ArtifactKind, name: &str, out: &mut Vec<(ArtifactKind, String)>) {
     let Some(name) = clean(name) else { return };
     out.push((kind, name.to_string()));
-    if let Some(plugin) = plugin_of(name) {
+    if let Some(plugin) = crate::plugin::namespaced_plugin(name) {
         out.push((ArtifactKind::Plugin, plugin.to_string()));
     }
 }
