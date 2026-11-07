@@ -238,14 +238,22 @@ describe("the heartbeat", () => {
   });
 
   it("gives every dot the same beat, from the shared clock", () => {
-    render(<Harness />);
-    const dots = screen
-      .getAllByRole("button", { name: /takes part in the flow/ })
-      .map((b) => (b.firstElementChild as HTMLElement).style.animationDelay);
-    expect(
-      new Set(dots.map((d) => Math.round(parseInt(d, 10) / 1000))).size,
-    ).toBeLessThanOrEqual(2);
-    expect(dots.every((d) => /^-\d+ms$/.test(d))).toBe(true);
+    // The page clock moves a whole number of beats while the dots mount, so every dot must land
+    // on the same phase. A fixed clock keeps the test independent of machine load.
+    let tick = 0;
+    const now = vi
+      .spyOn(performance, "now")
+      .mockImplementation(() => 1234 + 2000 * tick++);
+    try {
+      render(<Harness />);
+      const dots = screen
+        .getAllByRole("button", { name: /takes part in the flow/ })
+        .map((b) => (b.firstElementChild as HTMLElement).style.animationDelay);
+      expect(dots.length).toBeGreaterThan(1);
+      expect(new Set(dots)).toEqual(new Set(["-1234ms"]));
+    } finally {
+      now.mockRestore();
+    }
   });
 });
 
