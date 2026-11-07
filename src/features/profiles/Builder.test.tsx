@@ -12,6 +12,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { ResolvedItem } from "../../bindings/ResolvedItem";
+import type { CategoryId } from "../../bindings/CategoryId";
+import type { Template } from "../../bindings/Template";
 import { dropDraft } from "./drafts";
 import { ProfileBuilder } from ".";
 
@@ -169,6 +171,9 @@ interface Opts {
   failSave?: boolean;
   failBundle?: boolean;
   failList?: boolean;
+  /** Opens /profiles/new as the app does, so the New profile dialog shows. */
+  fresh?: boolean;
+  failSetCategory?: boolean;
 }
 
 const base: ProfileSpec = {
@@ -177,6 +182,34 @@ const base: ProfileSpec = {
   mcp: [],
   manualOnly: {},
 };
+
+const ids: [CategoryId, string][] = [
+  ["software", "Software development"],
+  ["research", "Research"],
+  ["writing", "Writing & content"],
+  ["video", "Video production"],
+  ["social", "Social media"],
+  ["data", "Data & analytics"],
+  ["design", "Design (UI, brand)"],
+  ["custom", "Custom"],
+];
+
+const templates: Template[] = ids.map(([id, label]) => ({
+  id,
+  label,
+  shape: id === "custom" ? null : "line",
+  stages:
+    id === "custom"
+      ? [{ id: "open", name: "Open" }]
+      : [
+          { id: "a", name: `${label} first` },
+          { id: "b", name: `${label} second` },
+        ],
+  loops: [],
+  phases: [],
+  parallel: [],
+  suggestions: ["", "", ""],
+}));
 
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
@@ -188,12 +221,19 @@ async function setup(path: string, opts: Opts = {}) {
     const args = (raw ?? {}) as Record<string, unknown>;
     calls.push({ cmd, args });
     switch (cmd) {
+      case "templates_list":
+        return templates;
+      case "profile_set_category":
+        if (opts.failSetCategory) throw new Error("db locked");
+        return null;
       case "profile_get":
         if (opts.failGet) throw new Error("no such profile");
         return {
           id: 4,
           name: "Heavy",
           description: "",
+          category: "software",
+          categoryNote: null,
           version: 2,
           currentVersion: 2,
           spec: opts.spec ?? base,
@@ -256,7 +296,14 @@ async function setup(path: string, opts: Opts = {}) {
         ],
       },
     ],
-    { initialEntries: [path] },
+    {
+      initialEntries: [
+        {
+          pathname: path,
+          state: opts.fresh ? undefined : { chosen: true },
+        },
+      ],
+    },
   );
   render(<RouterProvider router={router} />);
   if (!opts.failGet) {
@@ -813,5 +860,164 @@ describe("Builder: leaving with unsaved changes", () => {
     await within(cart()).findByText("v2");
     await user.click(screen.getByRole("link", { name: "Go elsewhere" }));
     expect(await screen.findByText("Elsewhere page")).toBeVisible();
+  });
+});
+
+describe("Builder: category", () => {
+  it("creates a profile with the category picked in the New profile dialog", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/new", { fresh: true });
+    const dialog = await screen.findByRole("dialog", { name: "New profile" });
+    const radios = await within(dialog).findAllByRole("radio");
+    expect(radios).toHaveLength(8);
+    expect(radios[0]).toBeChecked();
+    expect(
+      within(dialog).getByText(
+        "A line, with a loop from Review back to Build.",
+      ),
+    ).toBeVisible();
+    await user.click(
+      within(dialog).getByRole("radio", { name: /Video production/ }),
+    );
+    expect(within(dialog).getByText("Video production first")).toBeVisible();
+    await user.type(within(dialog).getByLabelText("Name"), "Studio");
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create profile" }),
+    );
+    expect(screen.queryByRole("dialog", { name: "New profile" })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Video production/ }),
+    ).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: "Add tdd" }));
+    await user.click(within(cart()).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(callsOf(calls, "profile_create")).toHaveLength(1),
+    );
+    const create = callsOf(calls, "profile_create")[0]?.args;
+    expect(create?.["name"]).toBe("Studio");
+    expect(create?.["category"]).toBe("video");
+    expect(create?.["categoryNote"]).toBeNull();
+  });
+
+  it("keeps Custom's description and previews its stage", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/new", { fresh: true });
+    const dialog = await screen.findByRole("dialog", { name: "New profile" });
+    await user.click(
+      await within(dialog).findByRole("radio", { name: /Custom/ }),
+    );
+    expect(
+      within(dialog).getByText("Proposed by Claude from your description"),
+    ).toBeVisible();
+    await user.type(
+      within(dialog).getByLabelText("Describe the work in a few lines"),
+      "A weekly newsletter",
+    );
+    await user.click(
+      within(dialog).getByRole("button", { name: "Create profile" }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Add tdd" }));
+    await user.click(within(cart()).getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(callsOf(calls, "profile_create")).toHaveLength(1),
+    );
+    const create = callsOf(calls, "profile_create")[0]?.args;
+    expect(create?.["category"]).toBe("custom");
+    expect(create?.["categoryNote"]).toBe("A weekly newsletter");
+  });
+
+  it("goes back to Profiles when the dialog is cancelled", async () => {
+    const user = userEvent.setup();
+    const { router } = await setup("/profiles/new", { fresh: true });
+    const dialog = await screen.findByRole("dialog", { name: "New profile" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe("/profiles"),
+    );
+  });
+
+  it("asks before a change, keeps the category on Keep", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/4");
+    await user.click(
+      await screen.findByRole("button", { name: /Software development/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Research/ }));
+    const ask = screen.getByRole("alertdialog", { name: "Change category" });
+    expect(ask).toHaveTextContent("Switch Heavy to Research?");
+    expect(ask).toHaveTextContent(
+      "Nothing is sent now. The map is marked out of date, and you re-draw it on the Research template when you\u2019re ready.",
+    );
+    await user.click(
+      within(ask).getByRole("button", { name: "Keep Software development" }),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(callsOf(calls, "profile_set_category")).toHaveLength(0);
+  });
+
+  it("stores the change on confirm", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/4");
+    await user.click(
+      await screen.findByRole("button", { name: /Software development/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Research/ }));
+    await user.click(screen.getByRole("button", { name: "Switch category" }));
+    await waitFor(() =>
+      expect(callsOf(calls, "profile_set_category")).toHaveLength(1),
+    );
+    expect(callsOf(calls, "profile_set_category")[0]?.args).toMatchObject({
+      id: 4,
+      category: "research",
+      note: null,
+    });
+    expect(
+      await screen.findByRole("button", { name: /Research/ }),
+    ).toBeVisible();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("asks for Custom's description and says so when storing fails", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/4", { failSetCategory: true });
+    await user.click(
+      await screen.findByRole("button", { name: /Software development/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Custom/ }));
+    await user.type(
+      screen.getByLabelText("Describe the work in a few lines"),
+      "Newsletter",
+    );
+    await user.click(screen.getByRole("button", { name: "Switch category" }));
+    expect(
+      await screen.findByText(/Could not change the category: .*db locked/),
+    ).toBeVisible();
+    expect(callsOf(calls, "profile_set_category")[0]?.args).toMatchObject({
+      category: "custom",
+      note: "Newsletter",
+    });
+  });
+
+  it("choosing the current category asks nothing; a new profile changes it at once", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/4");
+    await user.click(
+      await screen.findByRole("button", { name: /Software development/ }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /Software development/ }),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("changes a new profile's category from the menu without asking", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/new");
+    await user.click(
+      await screen.findByRole("button", { name: /Software development/ }),
+    );
+    await user.click(await screen.findByRole("menuitem", { name: /Research/ }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Research/ })).toBeVisible();
   });
 });

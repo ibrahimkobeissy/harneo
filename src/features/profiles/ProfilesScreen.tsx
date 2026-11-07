@@ -9,6 +9,7 @@ import {
   profilesList,
 } from "../../lib/ipc";
 import { Button, EmptyState, Kbd, Screen } from "../../ui";
+import { labelOf, useTemplates } from "./category";
 import { CloneDialog } from "./CloneDialog";
 import { ImportDialog } from "./ImportDialog";
 import { DeleteDialog, RenameDialog } from "./ProfileDialogs";
@@ -38,6 +39,7 @@ export function exportFileName(name: string): string {
 
 export function ProfilesScreen() {
   const navigate = useNavigate();
+  const templates = useTemplates();
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const [notice, setNotice] = useState<Notice | null>(null);
   const [cloning, setCloning] = useState<ProfileSummary | null>(null);
@@ -199,6 +201,7 @@ export function ProfilesScreen() {
             <ProfileCard
               key={String(p.id)}
               profile={p}
+              categoryLabel={labelOf(templates, p.category)}
               onClone={setCloning}
               onExport={(profile) => void exportProfile(profile)}
               onRename={setRenaming}

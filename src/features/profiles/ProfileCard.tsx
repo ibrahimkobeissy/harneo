@@ -92,12 +92,15 @@ function CardMenu({
 
 export function ProfileCard({
   profile,
+  categoryLabel,
   onClone,
   onExport,
   onRename,
   onDelete,
 }: {
   profile: ProfileSummary;
+  /** The category's display name; its id until the templates load. */
+  categoryLabel: string;
   onClone: (profile: ProfileSummary) => void;
   onExport: (profile: ProfileSummary) => void;
   onRename: (profile: ProfileSummary) => void;
@@ -117,6 +120,7 @@ export function ProfileCard({
             </span>
             <span className={styles.ver}>v{profile.version}</span>
           </h2>
+          <p className={styles.category}>{categoryLabel}</p>
           {profile.description && (
             <p
               className={`${clamp.two} ${styles.desc}`}

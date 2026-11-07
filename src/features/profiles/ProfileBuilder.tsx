@@ -1,6 +1,7 @@
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
+import type { CategoryId } from "../../bindings/CategoryId";
 import type { Layout } from "../../bindings/Layout";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
@@ -13,12 +14,15 @@ import {
   profileLayout,
   profileRename,
   profileResolve,
+  profileSetCategory,
   profileSave,
   profilesList,
 } from "../../lib/ipc";
 import { Button, EmptyState, Screen } from "../../ui";
 import styles from "./Builder.module.css";
 import { Cart } from "./Cart";
+import { CategoryConfirm, CategoryMenu, NewProfileDialog } from "./Category";
+import { labelOf, useTemplates } from "./category";
 import { RemoveDialog, type RemoveAsk } from "./RemoveDialog";
 import { dropDraft, draftFor, keepDraft } from "./drafts";
 import { LeaveGuard } from "./LeaveGuard";
@@ -39,6 +43,8 @@ interface Saved {
   name: string;
   spec: ProfileSpec;
   version: number;
+  category: CategoryId;
+  categoryNote: string | null;
 }
 
 type Load =
@@ -56,6 +62,8 @@ export interface Notice {
 /** Router state a screen can hand to the builder it navigates to. */
 export interface BuilderState {
   notice?: Notice;
+  /** A new profile's name and category are already chosen: skip the New profile dialog. */
+  chosen?: boolean;
 }
 
 /** Trust scores under this line get a warning in the cart. */
@@ -90,7 +98,14 @@ function Loader({ id }: { id: string }) {
       if (id === "new") {
         return {
           status: "ready",
-          saved: { id: null, name: "", spec: emptySpec, version: 0 },
+          saved: {
+            id: null,
+            name: "",
+            spec: emptySpec,
+            version: 0,
+            category: "software",
+            categoryNote: null,
+          },
           projectCount: 0,
         } as const;
       }
@@ -109,6 +124,8 @@ function Loader({ id }: { id: string }) {
           name: view.name,
           spec: view.spec,
           version: view.currentVersion,
+          category: view.category,
+          categoryNote: view.categoryNote,
         },
         projectCount,
       } as const;
@@ -192,11 +209,22 @@ function Builder({
   const kept = draftFor(routeId);
   const [name, setName] = useState(kept?.name ?? initial.name);
   const [spec, setSpec] = useState(kept?.spec ?? initial.spec);
+  const [category, setCategory] = useState(kept?.category ?? initial.category);
+  const [categoryNote, setCategoryNote] = useState(
+    kept?.categoryNote ?? initial.categoryNote,
+  );
+  const [pending, setPending] = useState<CategoryId | null>(null);
+  const templates = useTemplates();
   const [liveResolved, setResolved] = useState<Resolved | null>(null);
   const [liveLayout, setLayout] = useState<Layout | null>(null);
   const location = useLocation();
   const [notice, setNotice] = useState<Notice | null>(
     (location.state as BuilderState | null)?.notice ?? null,
+  );
+  const [naming, setNaming] = useState(
+    initial.id === null &&
+      !kept &&
+      !(location.state as BuilderState | null)?.chosen,
   );
   const [ask, setAsk] = useState<RemoveAsk | null>(null);
   const [busy, setBusy] = useState(false);
@@ -211,9 +239,9 @@ function Builder({
 
   // Unsaved edits survive leaving the screen.
   useEffect(() => {
-    if (dirty) keepDraft(routeId, { name, spec });
+    if (dirty) keepDraft(routeId, { name, spec, category, categoryNote });
     else dropDraft(routeId);
-  }, [routeId, dirty, name, spec]);
+  }, [routeId, dirty, name, spec, category, categoryNote]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -339,7 +367,13 @@ function Builder({
     setBusy(true);
     try {
       if (saved.id === null) {
-        const created = await profileCreate(finalName, "", spec);
+        const created = await profileCreate(
+          finalName,
+          "",
+          spec,
+          category,
+          categoryNote,
+        );
         bypass.current = true;
         dropDraft(routeId);
         const state: BuilderState = {
@@ -356,7 +390,7 @@ function Builder({
       const version = specChanged
         ? await profileSave(saved.id, spec)
         : saved.version;
-      setSaved({ id: saved.id, name: finalName, spec, version });
+      setSaved({ ...saved, name: finalName, spec, version });
       setName(finalName);
       setNotice({ text: `Saved ${finalName} v${version}`, tone: "ok" });
     } catch (err) {
@@ -364,6 +398,39 @@ function Builder({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Stores a saved profile's new category. Not a version; nothing is sent. */
+  async function switchCategory(target: CategoryId, note: string | null) {
+    if (saved.id === null) return;
+    setBusy(true);
+    try {
+      await profileSetCategory(saved.id, target, note);
+      setSaved({ ...saved, category: target, categoryNote: note });
+      setCategory(target);
+      setCategoryNote(note);
+      setPending(null);
+      setNotice({
+        text: `Category is now ${labelOf(templates, target)}. Re-draw the map when you're ready.`,
+        tone: "ok",
+      });
+    } catch (err) {
+      setNotice({
+        text: `Could not change the category: ${String(err)}`,
+        tone: "bad",
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function pickCategory(target: CategoryId) {
+    if (isNew) {
+      setCategory(target);
+      setCategoryNote(null);
+      return;
+    }
+    setPending(target === saved.category ? null : target);
   }
 
   function discard() {
@@ -398,6 +465,23 @@ function Builder({
           </Button>
         </div>
       )}
+      <CategoryMenu
+        templates={templates}
+        current={isNew ? category : saved.category}
+        onPick={pickCategory}
+      />
+      {pending && (
+        <CategoryConfirm
+          key={pending}
+          profile={saved.name}
+          currentLabel={labelOf(templates, saved.category)}
+          targetLabel={labelOf(templates, pending)}
+          custom={pending === "custom"}
+          busy={busy}
+          onKeep={() => setPending(null)}
+          onSwitch={(note) => void switchCategory(pending, note)}
+        />
+      )}
       <div className={styles.builder}>
         <Picker picked={picked} onAdd={(i) => void add(i)} onRemove={remove} />
         <Cart
@@ -430,6 +514,19 @@ function Builder({
           onConfirm={(ids) => {
             change((s) => dropItems(s, ids));
             setAsk(null);
+          }}
+        />
+      )}
+      {naming && (
+        <NewProfileDialog
+          templates={templates}
+          initialName={name}
+          onCancel={() => void navigate("/profiles")}
+          onCreate={(choice) => {
+            setName(choice.name);
+            setCategory(choice.category);
+            setCategoryNote(choice.note);
+            setNaming(false);
           }}
         />
       )}

@@ -1,0 +1,209 @@
+/* Category choice: the New profile cards, the builder's menu and confirm. */
+.cap {
+  color: var(--t3);
+  font-size: var(--text-label-quiet);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.askRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-xs) var(--space-md);
+}
+.ask {
+  margin: 0;
+  font-size: var(--text-section);
+}
+.askHint {
+  color: var(--t3);
+  font-size: var(--text-label);
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+.cat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-height: 172px;
+  padding: var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cat b {
+  font-size: var(--text-section);
+}
+.cat span {
+  color: var(--t2);
+  font-size: var(--text-label);
+  line-height: var(--leading);
+}
+.cat:hover {
+  border-color: var(--line2);
+}
+.cat[aria-checked="true"] {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+.cat:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: var(--hairline-strong);
+}
+.thumb {
+  flex: none;
+  padding: var(--space-sm) var(--space-xs);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--side);
+}
+.flow {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dashed {
+  stroke-dasharray: 3 5;
+}
+.rail {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 1;
+}
+.node {
+  fill: var(--raised);
+  stroke: var(--line2);
+  stroke-width: 1.5;
+}
+.cat[aria-checked="true"] .node {
+  stroke: var(--t2);
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+.field label {
+  font-size: var(--text-label);
+  font-weight: 600;
+}
+.ta {
+  min-height: 84px;
+  padding: var(--space-sm) var(--space-md);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--raised);
+  color: var(--t1);
+  font: inherit;
+  resize: vertical;
+}
+.ta:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px var(--blue-ring);
+}
+.stages {
+  padding: var(--space-md) var(--space-lg);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--side);
+}
+.stageList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: var(--space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-mono);
+}
+.stageList li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  color: var(--t3);
+}
+.stage {
+  padding: var(--space-xxs) var(--space-sm);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--raised);
+  color: var(--t1);
+}
+.menuRow {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+.menu {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-xxs));
+  inset-inline-start: 0;
+  z-index: 30;
+  width: 280px;
+  padding: var(--space-xs);
+  border: var(--hairline) solid var(--line);
+  border-radius: var(--radius);
+  background: var(--raised);
+  box-shadow: var(--shadow-md);
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.menuItem:hover {
+  background: var(--sunk);
+}
+.menuItem:focus-visible {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: calc(-1 * var(--hairline-strong));
+}
+.mark {
+  color: var(--t3);
+  font-size: var(--text-label-quiet);
+}
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: var(--hairline) solid var(--amber-fill);
+  border-radius: var(--radius);
+  background: var(--amber-soft);
+  color: var(--t1);
+}
+.confirmText {
+  flex: 1 1 360px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}

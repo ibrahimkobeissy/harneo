@@ -66,6 +66,25 @@ function show() {
 }
 
 describe("Profiles list states", () => {
+  it("shows each card's category by its template name", async () => {
+    mockIPC((cmd) => {
+      if (cmd === "profiles_list")
+        return [
+          summary(1, "Light"),
+          { ...summary(2, "Studio"), category: "video" },
+        ];
+      if (cmd === "templates_list")
+        return [
+          { id: "video", label: "Video production", stages: [] },
+          { id: "software", label: "Software development", stages: [] },
+        ];
+      return null;
+    });
+    show();
+    expect(await screen.findByText("Video production")).toBeVisible();
+    expect(await screen.findByText("Software development")).toBeVisible();
+  });
+
   it("is busy while loading", async () => {
     mockIPC((cmd) => {
       if (cmd === "profiles_list") return new Promise(() => undefined);

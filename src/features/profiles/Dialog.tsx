@@ -12,6 +12,7 @@ export function Dialog({
   canSubmit = true,
   danger = false,
   cancel = "Cancel",
+  wide = false,
   onSubmit,
   onClose,
   children,
@@ -25,6 +26,8 @@ export function Dialog({
   danger?: boolean;
   /** The dismiss button's label ("Stay" for the leave guard). */
   cancel?: string;
+  /** Room for side-by-side content (the category cards). */
+  wide?: boolean;
   onSubmit: () => void;
   onClose: () => void;
   children?: ReactNode;
@@ -43,7 +46,7 @@ export function Dialog({
     onSubmit();
   }
   return (
-    <Modal label={title} onClose={onClose}>
+    <Modal label={title} wide={wide} onClose={onClose}>
       <form className={styles.dlg} onSubmit={submitForm}>
         <div className={styles.dhead}>
           <h2>{title}</h2>

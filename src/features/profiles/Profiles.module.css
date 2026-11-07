@@ -332,3 +332,8 @@
 .calloutWrap > div {
   margin-bottom: 0;
 }
+.category {
+  margin: var(--space-xxs) 0 0;
+  color: var(--t3);
+  font-size: var(--text-label);
+}
