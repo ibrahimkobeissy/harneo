@@ -20,6 +20,17 @@ export const MIN_WIDTH = 480;
 /** Stage names longer than this are cut and end in an ellipsis (`ellipsize`). */
 export const MAX_LABEL_CHARS = 18;
 
+/** The renderer writes this after the loop's name; the label box is sized for it. */
+export const LOOP_SUFFIX = " · Claude’s reading";
+/** Estimated text width per character at the canvas label font (10.5 px sans). */
+export const LABEL_CHAR_W = 6.5;
+export const LABEL_H = 16;
+const LABEL_PAD = 8;
+/** Vertical distance between the arcs of nested loops. */
+const LOOP_LEVEL = 32;
+const LABEL_STEP = 24;
+const LABEL_MARGIN = 4;
+
 export interface Point {
   x: number;
   y: number;
@@ -67,7 +78,10 @@ export interface LoopArc {
   c1: Point;
   c2: Point;
   end: Point;
+  /** Top centre of `labelBox`. */
   labelAt: Point;
+  /** Where the label text sits: it overlaps no other label, loop path or stage frame. */
+  labelBox: Rect;
 }
 
 export interface BundleGroup {
@@ -280,7 +294,6 @@ export function assemble(
     frames.length === 0
       ? PAD
       : Math.max(...frames.map((f) => f.frame.x + f.frame.w));
-  const width = Math.max(MIN_WIDTH, contentRight + PAD);
   const bottom =
     frames.length === 0
       ? stageTop
@@ -288,11 +301,26 @@ export function assemble(
   const ctx: Context = { top: stageTop, bottom };
   const ex = extras(frames, ctx);
 
-  const loops = drawLoops(input.loops, frames, bottom, ex.loopsInside === true);
-  const loopSpace =
-    loops.length === 0 || ex.loopsInside
-      ? 0
-      : Math.max(...loops.map((l) => l.c1.y - bottom)) * 0.75 + GAP * 2;
+  const loops = drawLoops(
+    input.loops,
+    frames,
+    bottom,
+    ex.loopsInside === true,
+    stageTop,
+  );
+  const lowest = Math.max(
+    bottom,
+    ...loops.flatMap((l) => [
+      l.labelBox.y + l.labelBox.h,
+      ...curve(l).map((p) => p.y),
+    ]),
+  );
+  const loopSpace = lowest === bottom ? 0 : lowest - bottom + GAP * 2;
+  const width = Math.max(
+    MIN_WIDTH,
+    contentRight + PAD,
+    ...loops.map((l) => l.labelBox.x + l.labelBox.w + PAD),
+  );
 
   const bandW = width - 2 * PAD;
   const toolbelt = band(
@@ -364,11 +392,92 @@ function band(
   return { x, y, w, h: 2 * BAND_PAD + rows * (nh + GAP) - GAP };
 }
 
+function bezierAt(l: LoopArc, t: number): Point {
+  const u = 1 - t;
+  const f = (a: number, b: number, c: number, d: number) =>
+    u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+  return {
+    x: f(l.start.x, l.c1.x, l.c2.x, l.end.x),
+    y: f(l.start.y, l.c1.y, l.c2.y, l.end.y),
+  };
+}
+
+/** The arc as 65 points, dense enough that no label box slips between two of them. */
+function curve(l: LoopArc): Point[] {
+  return Array.from({ length: 65 }, (_, i) => bezierAt(l, i / 64));
+}
+
+/** The label box the loop's text needs: its estimated width, `LABEL_H` high. */
+export function labelSize(label: string): { w: number; h: number } {
+  return {
+    w: (label.length + LOOP_SUFFIX.length) * LABEL_CHAR_W + LABEL_PAD,
+    h: LABEL_H,
+  };
+}
+
+/**
+ * Puts each label under its arc's lowest point, or the middle of an inside loop, shortest span first.
+ * A label that would touch an earlier label, another loop's path or a stage frame moves sideways, then
+ * down a row at a time until it is clear; the whole search is deterministic.
+ */
+function placeLabels(
+  arcs: Array<Omit<LoopArc, "labelAt" | "labelBox">>,
+  order: number[],
+  frames: StageFrame[],
+  top: number,
+): LoopArc[] {
+  const full = arcs.map((a) => ({
+    ...a,
+    labelAt: a.start,
+    labelBox: { x: 0, y: 0, w: 0, h: 0 },
+  }));
+  const paths = full.map(curve);
+  const taken: Rect[] = frames.map((f) => f.frame);
+  for (const i of order) {
+    const arc = pick(full, i);
+    const { w, h } = labelSize(arc.label);
+    const mid = bezierMid(arc.start, arc.c1, arc.c2, arc.end);
+    const clear = (r: Rect): boolean =>
+      r.x >= LABEL_MARGIN &&
+      r.y >= top &&
+      !taken.some((t) => overlaps(r, t)) &&
+      !paths.some(
+        (path, j) =>
+          j !== i &&
+          path.some(
+            (p) =>
+              p.x > r.x - 2 &&
+              p.x < r.x + r.w + 2 &&
+              p.y > r.y - 2 &&
+              p.y < r.y + r.h + 2,
+          ),
+      );
+    let box: Rect | null = null;
+    for (let row = 0; box === null; row++) {
+      for (let k = 0; k < 9 && box === null; k++) {
+        const shift = (k % 2 === 0 ? 1 : -1) * Math.ceil(k / 2) * LABEL_STEP;
+        const r = {
+          x: mid.x - w / 2 + shift,
+          y: mid.y + 2 + row * (h + 2),
+          w,
+          h,
+        };
+        if (clear(r)) box = r;
+      }
+    }
+    arc.labelBox = box;
+    arc.labelAt = { x: box.x + box.w / 2, y: box.y };
+    taken.push(box);
+  }
+  return full;
+}
+
 function drawLoops(
   loops: Loop[],
   frames: StageFrame[],
   bottom: number,
   inside: boolean,
+  top: number,
 ): LoopArc[] {
   const index = new Map(frames.map((f, i) => [f.id, i]));
   const heads = frames.map((f) => center(f.header));
@@ -376,11 +485,13 @@ function drawLoops(
     x: heads.reduce((s, p) => s + p.x, 0) / (heads.length || 1),
     y: heads.reduce((s, p) => s + p.y, 0) / (heads.length || 1),
   };
-  const arcs: LoopArc[] = [];
-  for (const l of loops) {
+  const valid = loops.flatMap((l) => {
     const a = index.get(l.from);
     const b = index.get(l.to);
-    if (a === undefined || b === undefined) continue;
+    return a === undefined || b === undefined ? [] : [{ l, a, b }];
+  });
+  const sorted = order(valid.map((v) => Math.abs(v.a - v.b)));
+  const arcs = valid.map(({ l, a, b }, n) => {
     let start: Point;
     let end: Point;
     let c1: Point;
@@ -391,8 +502,8 @@ function drawLoops(
       c1 = middle;
       c2 = middle;
     } else {
-      const span = Math.abs(a - b);
-      const depth = 28 + 14 * span;
+      // Shorter spans nest inside longer ones; each rank adds one level of depth.
+      const depth = 28 + 14 * Math.abs(a - b) + LOOP_LEVEL * sorted.indexOf(n);
       const spread = a === b ? 30 : 0;
       start = {
         x: pick(frames, a).frame.x + pick(frames, a).frame.w / 2,
@@ -405,18 +516,17 @@ function drawLoops(
       c1 = { x: start.x + spread, y: bottom + depth };
       c2 = { x: end.x - spread, y: bottom + depth };
     }
-    arcs.push({
-      from: l.from,
-      to: l.to,
-      label: l.label,
-      start,
-      c1,
-      c2,
-      end,
-      labelAt: bezierMid(start, c1, c2, end),
-    });
-  }
-  return arcs;
+    return { from: l.from, to: l.to, label: l.label, start, c1, c2, end };
+  });
+  return placeLabels(arcs, sorted, frames, top);
+}
+
+/** Loop indexes, shortest span first, ties in input order. */
+function order(spans: number[]): number[] {
+  return spans
+    .map((span, i) => ({ span, i }))
+    .sort((a, b) => a.span - b.span || a.i - b.i)
+    .map((e) => e.i);
 }
 
 const BUNDLE_MARGIN = 3;

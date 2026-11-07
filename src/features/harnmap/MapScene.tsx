@@ -2,7 +2,7 @@ import { useId, useState, type HTMLAttributes } from "react";
 import type { Zone } from "../../bindings/Zone";
 import type { Placement } from "../../bindings/Placement";
 import { Heartbeat } from "./Heartbeat";
-import type { Layout, Point } from "./layout";
+import { LOOP_SUFFIX, type Layout, type Point } from "./layout";
 import styles from "./MapCanvas.module.css";
 import { Node } from "./Node";
 import { Tooltip } from "./Tooltip";
@@ -192,8 +192,13 @@ export function MapScene({
                   d={`M ${l.start.x} ${l.start.y} C ${l.c1.x} ${l.c1.y} ${l.c2.x} ${l.c2.y} ${l.end.x} ${l.end.y}`}
                   markerEnd={`url(#${arrow})`}
                 />
-                <text x={l.labelAt.x} y={l.labelAt.y + 14} textAnchor="middle">
-                  {l.label} · Claude’s reading
+                <text
+                  x={l.labelBox.x + l.labelBox.w / 2}
+                  y={l.labelBox.y + 12}
+                  textAnchor="middle"
+                >
+                  {l.label}
+                  {LOOP_SUFFIX}
                 </text>
               </g>
             ))}

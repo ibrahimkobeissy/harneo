@@ -7,6 +7,7 @@ import {
   layoutDiamond,
   layoutLine,
   layoutParallel,
+  LOOP_SUFFIX,
   overlaps,
   pick,
   type Layout,
@@ -347,5 +348,104 @@ describe("parallel", () => {
     }
     expect(pick(l.stages, 0).frame.y).toBeGreaterThanOrEqual(pre.rect.y + 24);
     expect(l.hookRail!.y + l.hookRail!.h).toBeLessThanOrEqual(pre.rect.y);
+  });
+});
+
+function curvePoints(a: Layout["loops"][number]) {
+  return Array.from({ length: 401 }, (_, i) => {
+    const t = i / 400;
+    const u = 1 - t;
+    const f = (p0: number, p1: number, p2: number, p3: number) =>
+      u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
+    return {
+      x: f(a.start.x, a.c1.x, a.c2.x, a.end.x),
+      y: f(a.start.y, a.c1.y, a.c2.y, a.end.y),
+    };
+  });
+}
+
+function labelsClear(l: Layout) {
+  l.loops.forEach((a, i) => {
+    const box = a.labelBox;
+    expect(box.w).toBeGreaterThanOrEqual(
+      (a.label.length + LOOP_SUFFIX.length) * 6.5,
+    );
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.w).toBeLessThanOrEqual(l.width);
+    expect(box.y + box.h).toBeLessThanOrEqual(l.toolbelt.y);
+    for (const s of l.stages) expect(overlaps(box, s.frame)).toBe(false);
+    l.loops.forEach((b, j) => {
+      if (j > i) expect(overlaps(box, b.labelBox), `${i} vs ${j}`).toBe(false);
+      if (j !== i)
+        for (const p of curvePoints(b)) {
+          const hit =
+            p.x > box.x &&
+            p.x < box.x + box.w &&
+            p.y > box.y &&
+            p.y < box.y + box.h;
+          expect(hit, `label ${i} on path ${j}`).toBe(false);
+        }
+    });
+  });
+}
+
+describe.each(SHAPES)("%s loop labels", (shape) => {
+  const lab = (from: number, to: number, label: string) => ({
+    from: `s${from}`,
+    to: `s${to}`,
+    label,
+  });
+  const cases: Array<[string, LayoutInput["loops"]]> = [
+    [
+      "two loops into one stage",
+      [lab(2, 0, "tests fail"), lab(1, 0, "changes requested")],
+    ],
+    [
+      "three loops into one stage",
+      [
+        lab(3, 0, "tests fail"),
+        lab(2, 0, "changes requested"),
+        lab(1, 0, "needs rework"),
+      ],
+    ],
+    [
+      "crossing loops",
+      [lab(0, 2, "back and forth"), lab(1, 3, "crossing over")],
+    ],
+    [
+      "opposite loops and a self loop",
+      [lab(0, 1, "a"), lab(1, 0, "b"), lab(1, 1, "retry")],
+    ],
+  ];
+  it.each(cases)("keeps %s apart", (_, loops) => {
+    const l = layout(input(shape, 4, 2, { loops }));
+    expect(l.loops).toHaveLength(loops.length);
+    labelsClear(l);
+    const arcs = l.loops.map((a) => `${a.c1.y}/${a.start.x}/${a.end.x}`);
+    if (shape !== "cycle") expect(new Set(arcs).size).toBe(arcs.length);
+  });
+
+  it("moves the bands below the deepest label", () => {
+    const loops = [lab(2, 0, "tests fail"), lab(1, 0, "changes requested")];
+    const l = layout(input(shape, 3, 1, { loops }));
+    for (const a of l.loops)
+      expect(l.toolbelt.y).toBeGreaterThan(a.labelBox.y + a.labelBox.h);
+  });
+});
+
+describe("line loop depth", () => {
+  it("gives nested loops distinct depths and levels the outer one below the inner one", () => {
+    const one = layout(input("line", 3, 1));
+    const two = layout(
+      input("line", 3, 1, {
+        loops: [
+          { from: "s2", to: "s0", label: "x" },
+          { from: "s1", to: "s0", label: "y" },
+        ],
+      }),
+    );
+    expect(pick(two.loops, 0).c1.y - pick(one.loops, 0).c1.y).toBe(32);
+    expect(pick(two.loops, 1).c1.y).toBeLessThan(pick(two.loops, 0).c1.y);
+    expect(two.toolbelt.y).toBeGreaterThan(one.toolbelt.y);
   });
 });
