@@ -110,6 +110,8 @@ pub struct Template {
     pub stages: Vec<TemplateStage>,
     pub loops: Vec<TemplateLoop>,
     pub phases: Vec<TemplatePhase>,
+    /// Stage ids drawn side by side, as parallel tracks between a fork and a join.
+    pub parallel: Vec<&'static str>,
     /// Three starters for the draw description.
     pub suggestions: [&'static str; 3],
 }
@@ -140,6 +142,7 @@ fn template(
         stages,
         loops,
         phases: Vec::new(),
+        parallel: Vec::new(),
         suggestions,
     }
 }
@@ -215,6 +218,7 @@ pub fn templates() -> Vec<Template> {
             ],
         ),
         Template {
+            parallel: vec!["edit", "sound-captions"],
             phases: vec![
                 TemplatePhase {
                     name: "Pre-production",

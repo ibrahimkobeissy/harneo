@@ -27,6 +27,9 @@ fn stage_ids_are_unique_and_loops_point_at_real_stages() {
                 assert!(ids.contains(s), "{}: phase stage {s}", t.label);
             }
         }
+        for id in &t.parallel {
+            assert!(ids.contains(id), "{}: parallel stage {id}", t.label);
+        }
         assert!(t.suggestions.iter().all(|s| !s.is_empty()));
     }
 }
@@ -59,4 +62,16 @@ fn category_ids_round_trip_through_text() {
         assert_eq!(CategoryId::from_str(id.as_str()).ok(), Some(id));
     }
     assert!(CategoryId::from_str("nope").is_err());
+}
+
+#[test]
+fn only_video_has_parallel_tracks() {
+    for t in templates() {
+        let expected: &[&str] = if t.id == CategoryId::Video {
+            &["edit", "sound-captions"]
+        } else {
+            &[]
+        };
+        assert_eq!(t.parallel, expected, "{}", t.label);
+    }
 }

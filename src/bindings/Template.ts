@@ -14,6 +14,10 @@ export type Template = { id: CategoryId, label: string,
  */
 shape: Shape | null, stages: Array<TemplateStage>, loops: Array<TemplateLoop>, phases: Array<TemplatePhase>, 
 /**
+ * Stage ids drawn side by side, as parallel tracks between a fork and a join.
+ */
+parallel: Array<string>, 
+/**
  * Three starters for the draw description.
  */
 suggestions: [string, string, string], };
