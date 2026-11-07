@@ -155,7 +155,7 @@ fn has_files(plugin: &Artifact, rel: &str) -> bool {
 }
 
 /// The parts that only work inside a plugin, which `plugin` holds.
-fn whole_only_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
+fn whole_only_parts(walker: &mut Walker, plugin: &Artifact) -> Vec<PluginPart> {
     let present = [
         (PluginPart::Hooks, "hooks", "hooks/hooks.json"),
         (PluginPart::Monitors, "monitors", "monitors/monitors.json"),
@@ -170,9 +170,20 @@ fn whole_only_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
         .filter(|(_, field, default)| declared(plugin, field) || has_files(plugin, default))
         .map(|(part, _, _)| part)
         .collect();
-    // Mods are outside the plugin's scoped files, so their folder is looked for on disk.
-    if declared(plugin, "mods") || walker.is_dir(&Path::new(&plugin.path).join("mods")) {
+    // A mod is a hooks module: Claude Code reads it from `hooks/hooks.json`'s `modules` list
+    // (`{ "modules": ["./register.tsx"] }`), next to or instead of ordinary hooks.
+    let hooks_json = Path::new(&plugin.path).join("hooks/hooks.json");
+    let json = walker
+        .read_text(&hooks_json, &mut Vec::new())
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
+    if json.as_ref().is_some_and(|j| j.get("modules").is_some()) {
         out.push(PluginPart::Mods);
+        // A `hooks.json` that only lists modules holds mods, not ordinary hooks.
+        let ordinary =
+            declared(plugin, "hooks") || json.as_ref().is_some_and(|j| j.get("hooks").is_some());
+        if !ordinary {
+            out.retain(|p| *p != PluginPart::Hooks);
+        }
     }
     out.sort();
     out

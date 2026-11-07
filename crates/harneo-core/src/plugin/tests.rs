@@ -103,7 +103,11 @@ fn a_mixed_plugin_lists_both_kinds_and_every_whole_only_part() -> TestResult {
     )?;
     skill(dir.path(), "a", "Body")?;
     write(dir.path(), "bin/tool", "#!/bin/sh")?;
-    write(dir.path(), "mods/panel/mod.json", "{}")?;
+    write(
+        dir.path(),
+        "hooks/hooks.json",
+        r#"{"modules":["./register.tsx"]}"#,
+    )?;
     write(dir.path(), "settings.json", "{}")?;
     write(dir.path(), "themes/dark.json", "{}")?;
     write(dir.path(), "workflows/w.md", "w")?;
@@ -203,5 +207,28 @@ fn reasons_read_as_sentences_and_cross_the_wire_tagged() -> TestResult {
     assert!(one.text().starts_with("Its skills refer"));
     assert!(WholeReason::RemoteOnly.text().contains("another repo"));
     assert_eq!(join(&[]), "");
+    Ok(())
+}
+
+/// A mod is a hooks module (`hooks/hooks.json` → `modules`); with ordinary hooks beside it, the
+/// plugin holds both.
+#[test]
+fn hooks_json_with_modules_and_hooks_holds_mods_and_hooks() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    manifest(dir.path())?;
+    skill(dir.path(), "a", "Body")?;
+    write(
+        dir.path(),
+        "hooks/hooks.json",
+        r#"{"hooks":{"Stop":[]},"modules":["./register.tsx"]}"#,
+    )?;
+    let (held, whole) = ask(dir.path())?;
+    assert_eq!(held.whole_only, [PluginPart::Hooks, PluginPart::Mods]);
+    assert_eq!(
+        whole,
+        Some(WholeReason::WholeOnlyParts {
+            parts: vec![PluginPart::Hooks, PluginPart::Mods]
+        })
+    );
     Ok(())
 }
