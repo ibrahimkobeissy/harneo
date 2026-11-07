@@ -150,7 +150,7 @@ pub fn templates() -> Vec<Template> {
     vec![
         template(
             CategoryId::Software,
-            "Software",
+            "Software development",
             line,
             vec![
                 st("idea", "Idea"),
@@ -193,7 +193,7 @@ pub fn templates() -> Vec<Template> {
         ),
         template(
             CategoryId::Writing,
-            "Writing",
+            "Writing & content",
             line,
             vec![
                 st("brief", "Brief"),
@@ -231,7 +231,7 @@ pub fn templates() -> Vec<Template> {
             ],
             ..template(
                 CategoryId::Video,
-                "Video",
+                "Video production",
                 Some(Shape::Parallel),
                 vec![
                     st("concept", "Concept"),
@@ -272,7 +272,7 @@ pub fn templates() -> Vec<Template> {
         ),
         template(
             CategoryId::Data,
-            "Data",
+            "Data & analytics",
             line,
             vec![
                 st("question", "Question"),
@@ -296,7 +296,7 @@ pub fn templates() -> Vec<Template> {
         ),
         template(
             CategoryId::Design,
-            "Design",
+            "Design (UI, brand)",
             Some(Shape::Diamond),
             vec![
                 st("brief", "Brief"),
