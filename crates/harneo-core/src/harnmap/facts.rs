@@ -197,7 +197,7 @@ struct Profile<'a> {
 impl Profile<'_> {
     fn has_server(&self, server: &str) -> bool {
         let wanted = normalise(server);
-        self.mcp.iter().any(|m| *m == wanted)
+        self.mcp.contains(&wanted)
     }
 
     fn name_of(&self, id: &str) -> Option<&str> {
