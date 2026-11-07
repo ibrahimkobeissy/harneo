@@ -7,6 +7,7 @@ import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import type { Template } from "../../bindings/Template";
 import { harnfitForArtifact, profilesList, templatesList } from "../../lib/ipc";
 import { Badge, Button, harnfitUrl, verdictLabel, verdictTone } from "../../ui";
+import { isPlugin } from "../../ui/plugin";
 import styles from "./Collections.module.css";
 import { formatDate } from "./ItemMeta";
 
@@ -32,7 +33,7 @@ export function HarnfitMenu({
   const [fits, setFits] = useState<ArtifactFit[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const wrap = useRef<HTMLDivElement>(null);
-  const plugin = artifactKind === "plugin";
+  const plugin = isPlugin(artifactKind);
 
   useEffect(() => {
     if (!open) return;

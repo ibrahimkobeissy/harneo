@@ -11,7 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AuditSeverity } from "../../bindings/AuditSeverity";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
-import type { WholeReason } from "../../bindings/WholeReason";
+import type { WholeNote } from "../../ui/plugin";
 import type { Preview } from "../../bindings/Preview";
 import {
   Badge,
@@ -335,7 +335,7 @@ export function ChooseStep({
   /** What the library already holds of the preview's plugins. */
   holds: PluginHold[];
   /** Why each plugin (by folder) is proposed whole, kept after it is unpacked. */
-  reasons: ReadonlyMap<string, WholeReason>;
+  reasons: ReadonlyMap<string, WholeNote>;
   /** Switches a plugin between the whole plugin and its parts: the preview is taken again. */
   onPluginMode: (folder: string, mode: PluginMode) => void;
 }) {

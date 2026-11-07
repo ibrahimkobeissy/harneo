@@ -32,4 +32,9 @@ audit: Audit,
 /**
  * For a Plugin: why it can only be taken whole, when it can (`plugin::must_stay_whole`).
  */
-mustStayWhole?: WholeReason, };
+mustStayWhole?: WholeReason, 
+/**
+ * The sentence for `must_stay_whole` (`WholeReason::text`), so the UI words it as the core
+ * does.
+ */
+mustStayWholeText?: string, };

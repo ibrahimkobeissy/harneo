@@ -8,7 +8,6 @@ import {
   partsRefusal,
   pluginGroups,
   remoteOnly,
-  wholeReasonText,
   wholeRefusal,
 } from "./plugins";
 
@@ -71,21 +70,18 @@ describe("plugin helpers", () => {
 });
 
 describe("why a plugin stays whole", () => {
-  it("words each reason like the core and lists what unpacking loses", () => {
-    const hooks: WholeReason = {
-      type: "wholeOnlyParts",
-      parts: ["hooks", "mods"],
+  it("lists what unpacking loses", () => {
+    const hooks = {
+      reason: {
+        type: "wholeOnlyParts",
+        parts: ["hooks", "mods"],
+      } satisfies WholeReason,
+      text: "Has hooks and mods: they only work inside the plugin.",
     };
-    expect(wholeReasonText(hooks)).toBe(
-      "Has hooks, mods: they only work inside the plugin.",
-    );
-    expect(wholeReasonText({ type: "pluginRootTie", parts: ["skills"] })).toBe(
-      "Its skills refer to files outside themselves: they only work inside the plugin.",
-    );
-    expect(wholeReasonText({ type: "remoteOnly" })).toMatch(/never fetched/);
-    expect(wholeReasonText({ type: "noParts" })).toMatch(/no skills/);
     expect(lostIfUnpacked(hooks)).toBe("hooks, mods");
-    expect(lostIfUnpacked({ type: "remoteOnly" })).toBeNull();
+    expect(
+      lostIfUnpacked({ reason: { type: "remoteOnly" }, text: "" }),
+    ).toBeNull();
     expect(lostIfUnpacked(null)).toBeNull();
   });
 });

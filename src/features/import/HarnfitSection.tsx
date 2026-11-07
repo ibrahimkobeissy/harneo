@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import type { Candidate } from "../../bindings/Candidate";
 import { harnmapGet, profilesList } from "../../lib/ipc";
 import { Button, harnfitUrl, PREVIEW_PREFIX } from "../../ui";
+import { isPlugin } from "../../ui/plugin";
 import styles from "./Import.module.css";
 
 interface MappedProfile {
@@ -94,7 +95,7 @@ export function HarnfitSection({
           </div>
           <div className={styles.group}>
             {chosen.map((c) => {
-              const plugin = c.artifact.kind === "plugin";
+              const plugin = isPlugin(c.artifact.kind);
               return (
                 <div key={c.id} className={styles.row} role="group">
                   <span className={styles.artifactName} title={c.artifact.name}>

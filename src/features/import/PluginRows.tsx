@@ -1,8 +1,8 @@
 import { Info } from "lucide-react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
-import type { WholeReason } from "../../bindings/WholeReason";
 import { Badge } from "../../ui";
+import type { WholeNote } from "../../ui/plugin";
 import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
 import {
@@ -11,7 +11,6 @@ import {
   partsRefusal,
   type PluginGroup,
   WHOLE_ONLY,
-  wholeReasonText,
   wholeRefusal,
 } from "./plugins";
 import styles from "./Import.module.css";
@@ -37,7 +36,7 @@ export function PluginChoice({
   group: PluginGroup;
   hold: PluginHold | undefined;
   /** Why the plugin is proposed whole, when it must be (ADR-004). */
-  reason: WholeReason | null;
+  reason: WholeNote | null;
   busy: boolean;
   onChange: (mode: PluginMode) => void;
 }) {
@@ -83,7 +82,7 @@ export function PluginChoice({
       })}
       {mode === "whole" && reason && (
         <p className={`${styles.muted} ${styles.wholeOnly}`}>
-          <Info size={12} aria-hidden="true" /> {wholeReasonText(reason)}
+          <Info size={12} aria-hidden="true" /> {reason.text}
         </p>
       )}
       {mode === "parts" && (

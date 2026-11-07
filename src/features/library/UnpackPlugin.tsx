@@ -5,6 +5,7 @@ import type { UnpackOutcome } from "../../bindings/UnpackOutcome";
 import { Modal } from "../../app/Modal";
 import { libraryUnpackPlan, libraryUnpackPlugin } from "../../lib/ipc";
 import { Button, announce } from "../../ui";
+import { isPlugin } from "../../ui/plugin";
 import styles from "./Detail.module.css";
 
 /**
@@ -21,7 +22,7 @@ export function useUnpackPlan(
     plan: UnpackOutcome | null;
   }>({ id: "", plan: null });
   useEffect(() => {
-    if (kind !== "plugin") return;
+    if (!isPlugin(kind)) return;
     let current = true;
     libraryUnpackPlan(id).then(
       (plan) => {
@@ -35,7 +36,7 @@ export function useUnpackPlan(
       current = false;
     };
   }, [id, kind, tick]);
-  return kind === "plugin" && state.id === id ? state.plan : null;
+  return isPlugin(kind) && state.id === id ? state.plan : null;
 }
 
 /** The reason a plugin has no Unpack button. */

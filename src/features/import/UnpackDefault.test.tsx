@@ -42,7 +42,11 @@ function candidate(
       dismissed: [],
       confirmation: null,
     },
-    ...(mustStayWhole && { mustStayWhole }),
+    ...(mustStayWhole && {
+      mustStayWhole,
+      // The sentence the core sends with the reason.
+      mustStayWholeText: "Has hooks, mods: they only work inside the plugin.",
+    }),
   };
 }
 

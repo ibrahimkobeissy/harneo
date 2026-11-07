@@ -4,7 +4,6 @@ import { Link, useLocation, useNavigate } from "react-router";
 import type { Audit } from "../../bindings/Audit";
 import type { ImportReport } from "../../bindings/ImportReport";
 import type { PluginHold } from "../../bindings/PluginHold";
-import type { WholeReason } from "../../bindings/WholeReason";
 import type { PreviewTicket } from "../../bindings/PreviewTicket";
 import type { TagColor } from "../../bindings/TagColor";
 import type { Source } from "../../bindings/Source";
@@ -21,6 +20,7 @@ import {
 } from "../../lib/ipc";
 import { resolveNames } from "../../lib/names";
 import { Button, Screen, useProposals, WizardActions } from "../../ui";
+import { isPlugin, type WholeNote } from "../../ui/plugin";
 import { ChooseStep, hasErrors, Scanning } from "./ChooseStep";
 import { Done } from "./Done";
 import {
@@ -132,7 +132,7 @@ function ImportFlow({
   // Whether the Claude-managed folders are in. The plugins' choices are read off the preview.
   const managed = useRef(false);
   // Why each plugin (by folder) is proposed whole; kept once it is unpacked, to list what it loses.
-  const [reasons, setReasons] = useState<ReadonlyMap<string, WholeReason>>(
+  const [reasons, setReasons] = useState<ReadonlyMap<string, WholeNote>>(
     new Map(),
   );
   // Every candidate id any preview of this source showed: only new ones get a default choice.
@@ -768,11 +768,14 @@ function choicesOf(
 }
 
 /** Why each plugin of a preview (by folder) must stay whole, for the ones that must. */
-function reasonsOf(found: PreviewTicket): Map<string, WholeReason> {
-  const out = new Map<string, WholeReason>();
+function reasonsOf(found: PreviewTicket): Map<string, WholeNote> {
+  const out = new Map<string, WholeNote>();
   for (const c of found.candidates) {
-    if (c.artifact.kind === "plugin" && c.mustStayWhole) {
-      out.set(c.artifact.path, c.mustStayWhole);
+    if (isPlugin(c.artifact.kind) && c.mustStayWhole) {
+      out.set(c.artifact.path, {
+        reason: c.mustStayWhole,
+        text: c.mustStayWholeText ?? "",
+      });
     }
   }
   return out;
