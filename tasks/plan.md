@@ -513,3 +513,11 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#234](https://github.com/ibrahimkobeissy/harneo/issues/234) Harnmap app: side panel, editing, stages, history and list view
 - [#235](https://github.com/ibrahimkobeissy/harneo/issues/235) Harnfit app: screen and entry points
 - [#236](https://github.com/ibrahimkobeissy/harneo/issues/236) Harnmap: export, import and clone carry the map and fits
+
+## plugins unpacked by default (ADR-004, branch `feat/harnmap`)
+- [#237](https://github.com/ibrahimkobeissy/harneo/issues/237) Plugins: one core module answers what a plugin holds and whether it must stay whole
+- [#238](https://github.com/ibrahimkobeissy/harneo/issues/238) Import: plugins are unpacked by default, whole only when they must be
+- [#239](https://github.com/ibrahimkobeissy/harneo/issues/239) Library: unpack a whole plugin in one click
+- [#240](https://github.com/ibrahimkobeissy/harneo/issues/240) Plugins: route every special case through the plugin module
+- [#242](https://github.com/ibrahimkobeissy/harneo/issues/242) Plugins: deep regression tests after unpack-by-default
+- [#241](https://github.com/ibrahimkobeissy/harneo/issues/241) Harnmap: loop labels never overlap

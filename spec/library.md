@@ -137,8 +137,9 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 ## Unpacking a plugin
 
 > Decided 2026-11-01 (#198, [ADR-002](../docs/decisions/ADR-002-unpack-plugins.md)). Tickets #199 (scan), #200 (import, storage, updates), #201 (screen).
+> **Amended 2026-11-07 ([ADR-004](../docs/decisions/ADR-004-unpack-by-default.md)): unpacked is the default.** A plugin is proposed whole only when it must be (a whole-only part, a part tied by `${CLAUDE_PLUGIN_ROOT}`, or a remote-only marketplace entry), with the reason shown; a whole plugin in the library can be unpacked in one click; plugin handling lives in one core module. Points 1–7 below still hold except the default.
 
-**What.** At import, each plugin is taken **whole** (the default, as before) **or unpacked**: the user picks some of its parts, which become ordinary library artifacts. Never both for one plugin.
+**What.** At import, each plugin is taken **unpacked** (the default since ADR-004) **or whole**: the user picks some of its parts, which become ordinary library artifacts. Never both for one plugin.
 
 1. **Pickable parts:** skills, agents, commands, output styles, and each MCP server of the plugin's `mcpServers` / `.mcp.json`. They are the components tier 1 resolves from the manifest (`plugin_scope.rs`), so no Claude call is involved. Each part carries `metadata.fromPlugin` (plugin name, folder, marketplace) and `layoutBy: "plugin.json"`.
 2. **Only with the whole plugin:** hooks, monitors, LSP servers, `bin/`, themes, workflows and the plugin's `settings.json`. They are not listed as parts; the screen says they need the whole plugin.
