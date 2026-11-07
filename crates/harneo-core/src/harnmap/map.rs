@@ -151,7 +151,7 @@ pub struct MapPhase {
 }
 
 /// `text` cut to at most `max` characters, on a character boundary.
-fn cut(text: &mut String, max: usize) {
+pub(super) fn cut(text: &mut String, max: usize) {
     if let Some((at, _)) = text.char_indices().nth(max) {
         text.truncate(at);
     }

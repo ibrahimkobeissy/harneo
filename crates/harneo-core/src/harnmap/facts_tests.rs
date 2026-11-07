@@ -308,3 +308,34 @@ fn helpers_read_lists_and_names() {
     assert_eq!(rules_text(1, "deny").as_deref(), Some("1 deny rule"));
     assert_eq!(rules_text(0, "deny"), None);
 }
+
+#[test]
+fn the_view_carries_hooks_bundles_and_facts_for_the_rail_and_groups() -> TestResult {
+    let f = fixture()?;
+    let tester = f.id(ArtifactKind::Agent, "tester")?;
+    let tdd = f.id(ArtifactKind::Skill, "tdd")?;
+    f.library
+        .add_link(&tester, &tdd, crate::bundles::LinkOrigin::Manual, "")?;
+    let profile = full_profile(&f)?;
+    let view = f.library.harnmap(profile)?;
+    assert_eq!(
+        view.hooks,
+        vec![
+            Hook {
+                event: "PreToolUse".to_owned(),
+                matcher: "Write|Edit".to_owned()
+            },
+            Hook {
+                event: "SessionStart".to_owned(),
+                matcher: String::new()
+            },
+        ]
+    );
+    assert!(view
+        .bundles
+        .iter()
+        .any(|g| g.contains(&tester) && g.contains(&tdd)));
+    assert!(view.facts.contains_key(&tester));
+    assert!(view.stale.is_none() && !view.drawn);
+    Ok(())
+}

@@ -32,11 +32,11 @@ pub const TEXT_CHARS: usize = 4000;
 /// Characters of the user's description that are sent.
 const DESCRIPTION_CHARS: usize = 2000;
 /// Most stages a map holds.
-const MAX_STAGES: usize = 12;
+pub(super) const MAX_STAGES: usize = 12;
 /// Longest loop label.
 const MAX_LABEL: usize = 60;
 /// Longest stage name.
-const MAX_STAGE_NAME: usize = 40;
+pub(super) const MAX_STAGE_NAME: usize = 40;
 /// The model used when Settings holds none.
 pub const DEFAULT_DRAW_MODEL: &str = "opus";
 
@@ -95,22 +95,6 @@ pub struct DrawOutcome {
     #[ts(type = "number")]
     pub duration_ms: u64,
     pub changes: Vec<TemplateChange>,
-}
-
-/// A profile's current map with what was recorded when it was drawn.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export, rename_all = "camelCase")]
-pub struct MapView {
-    pub doc: MapDoc,
-    pub no: u32,
-    /// Unix seconds.
-    #[ts(type = "number")]
-    pub created_at: i64,
-    pub model: String,
-    #[ts(type = "number")]
-    pub duration_ms: u64,
-    pub description: String,
 }
 
 /// Why a draw failed, in a form screens can match.
@@ -261,7 +245,7 @@ fn parse_shape(text: &str) -> Option<Shape> {
 }
 
 /// A stage id made of lowercase letters, digits and dashes, unique among `taken`.
-fn slug(name: &str, taken: &HashSet<String>) -> String {
+pub(super) fn slug(name: &str, taken: &HashSet<String>) -> String {
     let mut base: String = name
         .chars()
         .map(|c| {
@@ -871,7 +855,7 @@ impl Library {
             category_note: view.category_note.clone(),
             description: description.trim().to_owned(),
             inputs,
-            current: self.harnmap(profile)?.map(|m| m.doc),
+            current: self.latest_draw(profile)?.map(|d| d.doc),
             basis: Basis {
                 profile_version: view.version,
                 artifacts: basis,
@@ -929,39 +913,5 @@ impl Library {
         let job = self.prepare_draw(profile, description, Arc::new(AtomicBool::new(false)))?;
         let result = job.run()?;
         self.save_draw(&job, result)
-    }
-
-    /// The profile's current map (its latest draw), or `None` when it was never drawn.
-    pub fn harnmap(&self, profile: ProfileId) -> Result<Option<MapView>> {
-        let row = self
-            .store
-            .conn
-            .query_row(
-                "SELECT no, created_at, model, duration_ms, description, map
-                 FROM harnmap_draws WHERE profile_id = ?1 ORDER BY no DESC LIMIT 1",
-                params![profile],
-                |r| {
-                    Ok((
-                        r.get::<_, u32>(0)?,
-                        r.get::<_, i64>(1)?,
-                        r.get::<_, String>(2)?,
-                        r.get::<_, i64>(3)?,
-                        r.get::<_, String>(4)?,
-                        r.get::<_, String>(5)?,
-                    ))
-                },
-            )
-            .optional()?;
-        row.map(|(no, created_at, model, duration_ms, description, map)| {
-            Ok(MapView {
-                doc: serde_json::from_str(&map)?,
-                no,
-                created_at,
-                model,
-                duration_ms: u64::try_from(duration_ms).unwrap_or(0),
-                description,
-            })
-        })
-        .transpose()
     }
 }

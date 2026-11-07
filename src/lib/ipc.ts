@@ -48,6 +48,9 @@ import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { CategoryId } from "../bindings/CategoryId";
 import type { Template } from "../bindings/Template";
 import type { DrawOutcome } from "../bindings/DrawOutcome";
+import type { DrawSummary } from "../bindings/DrawSummary";
+import type { MapDoc } from "../bindings/MapDoc";
+import type { MapEdit } from "../bindings/MapEdit";
 import type { MapView } from "../bindings/MapView";
 import type { ProfileView } from "../bindings/ProfileView";
 import type { ProfileUse } from "../bindings/ProfileUse";
@@ -643,10 +646,45 @@ export function harnmapCancel(profileId: bigint): Promise<void> {
   return invoke<void>("harnmap_cancel", { profileId: Number(profileId) });
 }
 
-/** The profile's current map, or `null` before its first draw. */
-export function harnmapGet(profileId: bigint): Promise<MapView | null> {
-  return invoke<MapView | null>("harnmap_get", {
+/**
+ * The profile's current map with facts, unplaced artifacts and staleness. Before its first draw
+ * it is the template skeleton: `drawn` is false and `no` is 0.
+ */
+export function harnmapGet(profileId: bigint): Promise<MapView> {
+  return invoke<MapView>("harnmap_get", { profileId: Number(profileId) });
+}
+
+/** Applies one edit to the current draw (autosaved); resolves with the map as it is now. */
+export function harnmapEdit(
+  profileId: bigint,
+  edit: MapEdit,
+): Promise<MapView> {
+  return invoke<MapView>("harnmap_edit", {
     profileId: Number(profileId),
+    edit,
+  });
+}
+
+/** Every draw of the profile, newest first, with the computed change line. */
+export function harnmapHistory(profileId: bigint): Promise<DrawSummary[]> {
+  return invoke<DrawSummary[]>("harnmap_history", {
+    profileId: Number(profileId),
+  });
+}
+
+/** The map of an earlier draw, for a preview. */
+export function harnmapDrawAt(profileId: bigint, no: number): Promise<MapDoc> {
+  return invoke<MapDoc>("harnmap_draw_at", {
+    profileId: Number(profileId),
+    no,
+  });
+}
+
+/** Copies an earlier draw as a new draw; resolves with its number. */
+export function harnmapRestore(profileId: bigint, no: number): Promise<number> {
+  return invoke<number>("harnmap_restore", {
+    profileId: Number(profileId),
+    no,
   });
 }
 

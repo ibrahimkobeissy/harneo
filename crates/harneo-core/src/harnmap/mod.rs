@@ -3,6 +3,9 @@
 mod draw;
 #[cfg(test)]
 mod draw_tests;
+mod edit;
+#[cfg(test)]
+mod edit_tests;
 mod facts;
 #[cfg(test)]
 mod facts_tests;
@@ -12,12 +15,15 @@ mod map_tests;
 mod templates;
 #[cfg(test)]
 mod templates_tests;
+mod view;
+#[cfg(test)]
+mod view_tests;
 
 pub use draw::{
-    Basis, BasisArtifact, DrawFailure, DrawJob, DrawOutcome, DrawRegistry, DrawResult, MapView,
-    DRAW_TIMEOUT,
+    Basis, BasisArtifact, DrawFailure, DrawJob, DrawOutcome, DrawRegistry, DrawResult, DRAW_TIMEOUT,
 };
-pub use facts::{Fact, FactKind, Facts};
+pub use edit::MapEdit;
+pub use facts::{Fact, FactKind, Facts, Hook};
 pub use map::{
     Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageId, StageOrigin, TemplateChange, Zone,
     MAX_NOTE, MAX_TOOLTIP, MAX_WHY,
@@ -25,3 +31,4 @@ pub use map::{
 pub use templates::{
     templates, Category, CategoryId, Shape, Template, TemplateLoop, TemplatePhase, TemplateStage,
 };
+pub use view::{ArtifactInfo, CategoryChange, DrawSummary, MapView, Staleness};

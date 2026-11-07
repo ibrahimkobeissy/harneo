@@ -143,17 +143,15 @@ fn command_of(v: &Value) -> Option<String> {
     Some(words.join(" "))
 }
 
-fn settings_facts(metadata: &Map<String, Value>, out: &mut Vec<Fact>) {
-    let counts: Vec<String> = ["deny", "allow", "ask"]
-        .iter()
-        .filter_map(|l| rules_text(count_rules(metadata, l), l))
-        .collect();
-    if !counts.is_empty() {
-        out.push(fact(
-            FactKind::Permissions,
-            format!("settings.json: {}", counts.join(" · ")),
-        ));
-    }
+/// One hook command of a settings template.
+struct HookEntry {
+    event: String,
+    matcher: Option<String>,
+    command: String,
+}
+
+fn hook_entries(metadata: &Map<String, Value>) -> Vec<HookEntry> {
+    let mut out = Vec::new();
     if let Some(Value::Object(events)) = metadata.get("hooks") {
         for (event, groups) in events {
             for group in groups.as_array().into_iter().flatten() {
@@ -168,14 +166,68 @@ fn settings_facts(metadata: &Map<String, Value>, out: &mut Vec<Fact>) {
                     .flatten()
                     .filter_map(command_of)
                 {
-                    let at = match matcher {
-                        Some(m) => format!("{event} · {m}"),
-                        None => event.clone(),
-                    };
-                    out.push(fact(FactKind::Hook, format!("Hook: {at} → {command}")));
+                    out.push(HookEntry {
+                        event: event.clone(),
+                        matcher: matcher.map(str::to_owned),
+                        command,
+                    });
                 }
             }
         }
+    }
+    out
+}
+
+/// A hook of the settings template, labelled on the rail along the line.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct Hook {
+    pub event: String,
+    /// Empty when the hook has no matcher.
+    pub matcher: String,
+}
+
+/// The hooks of the settings template among `items`, once per event and matcher.
+pub(crate) fn hooks(conn: &Connection, items: &[ResolvedItem]) -> Result<Vec<Hook>> {
+    let mut out: Vec<Hook> = Vec::new();
+    for item in items.iter().filter(|i| i.kind == ArtifactKind::Settings) {
+        let Some(detail) = records::load(conn, &item.id)? else {
+            continue;
+        };
+        for h in hook_entries(&detail.artifact.metadata) {
+            let hook = Hook {
+                event: h.event,
+                matcher: h.matcher.unwrap_or_default(),
+            };
+            if !out.contains(&hook) {
+                out.push(hook);
+            }
+        }
+    }
+    Ok(out)
+}
+
+fn settings_facts(metadata: &Map<String, Value>, out: &mut Vec<Fact>) {
+    let counts: Vec<String> = ["deny", "allow", "ask"]
+        .iter()
+        .filter_map(|l| rules_text(count_rules(metadata, l), l))
+        .collect();
+    if !counts.is_empty() {
+        out.push(fact(
+            FactKind::Permissions,
+            format!("settings.json: {}", counts.join(" · ")),
+        ));
+    }
+    for hook in hook_entries(metadata) {
+        let at = match &hook.matcher {
+            Some(m) => format!("{} · {m}", hook.event),
+            None => hook.event.clone(),
+        };
+        out.push(fact(
+            FactKind::Hook,
+            format!("Hook: {at} → {}", hook.command),
+        ));
     }
     if let Some(status) = metadata.get("statusLine") {
         out.push(fact(

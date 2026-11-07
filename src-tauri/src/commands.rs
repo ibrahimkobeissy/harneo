@@ -1,6 +1,9 @@
 //! Thin IPC commands: convert arguments and results, never hold logic (that is `harneo-core`).
 
-use harneo_core::harnmap::{CategoryId, DrawFailure, DrawOutcome, DrawRegistry, MapView, Template};
+use harneo_core::harnmap::{
+    CategoryId, DrawFailure, DrawOutcome, DrawRegistry, DrawSummary, MapDoc, MapEdit, MapView,
+    Template,
+};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
@@ -1345,13 +1348,53 @@ pub fn harnmap_cancel(profile_id: ProfileId) {
     DRAWS.cancel(profile_id);
 }
 
-/// A profile's current map with what was recorded when it was drawn; `null` before the first draw.
+/// A profile's current map with what was recorded when it was drawn, its facts and how out of
+/// date it is. Before the first draw it is the category's template skeleton (`drawn: false`).
 #[tauri::command]
 pub fn harnmap_get(
     state: State<'_, LibraryState>,
     profile_id: ProfileId,
-) -> Result<Option<MapView>, String> {
+) -> Result<MapView, String> {
     state.with(|library| library.harnmap(profile_id))
+}
+
+/// Applies one edit to the current draw, saves it, and returns the map as it is now.
+#[tauri::command]
+pub fn harnmap_edit(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+    edit: MapEdit,
+) -> Result<MapView, String> {
+    state.with(|library| library.harnmap_edit(profile_id, edit))
+}
+
+/// Every draw of a profile, newest first, with the computed line of what changed.
+#[tauri::command]
+pub fn harnmap_history(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+) -> Result<Vec<DrawSummary>, String> {
+    state.with(|library| library.harnmap_history(profile_id))
+}
+
+/// The map of one earlier draw, for a preview.
+#[tauri::command]
+pub fn harnmap_draw_at(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+    no: u32,
+) -> Result<MapDoc, String> {
+    state.with(|library| library.harnmap_draw_at(profile_id, no))
+}
+
+/// Copies an earlier draw as a new draw; resolves with the new number.
+#[tauri::command]
+pub fn harnmap_restore(
+    state: State<'_, LibraryState>,
+    profile_id: ProfileId,
+    no: u32,
+) -> Result<u32, String> {
+    state.with(|library| library.harnmap_restore(profile_id, no))
 }
 
 /// Saves the spec as the next version; resolves with the version now current.
@@ -2133,7 +2176,7 @@ mod tests {
         app.manage(LibraryState::from_result(Ok(library)));
         let handle = app.handle().clone();
         let state = app.state::<LibraryState>();
-        assert!(harnmap_get(app.state::<LibraryState>(), id)?.is_none());
+        assert!(!harnmap_get(app.state::<LibraryState>(), id)?.drawn);
 
         write_claude("echo 'Not logged in - /login' >&2\nexit 1")?;
         let failed = run_draw(&handle, id, "Go").err();
@@ -2144,15 +2187,32 @@ mod tests {
         ));
         let missing = run_draw(&handle, 999, "");
         assert!(matches!(missing, Err(DrawFailure::Other { .. })));
-        assert!(harnmap_get(app.state::<LibraryState>(), id)?.is_none());
+        assert!(!harnmap_get(app.state::<LibraryState>(), id)?.drawn);
 
         write_claude(
             "printf '%s' '{\"is_error\":false,\"structured_output\":{\"stages\":[{\"name\":\"Build\"}],\"loops\":[],\"placements\":[]}}'",
         )?;
         let outcome = run_draw(&handle, id, "Go").map_err(|e| format!("{e:?}"))?;
         assert_eq!((outcome.no, outcome.model.as_str()), (1, "opus"));
-        let view = harnmap_get(state, id)?.ok_or("map")?;
+        let view = harnmap_get(state, id)?;
         assert_eq!(view.description, "Go");
+        let edited = harnmap_edit(
+            app.state::<LibraryState>(),
+            id,
+            MapEdit::AddStage {
+                after: None,
+                name: "Demo".to_owned(),
+            },
+        )?;
+        assert_eq!(edited.doc.stages.len(), 2);
+        assert_eq!(harnmap_history(app.state::<LibraryState>(), id)?.len(), 1);
+        assert_eq!(
+            harnmap_draw_at(app.state::<LibraryState>(), id, 1)?
+                .stages
+                .len(),
+            1
+        );
+        assert_eq!(harnmap_restore(app.state::<LibraryState>(), id, 1)?, 2);
         harnmap_cancel(id);
         Ok(())
     }

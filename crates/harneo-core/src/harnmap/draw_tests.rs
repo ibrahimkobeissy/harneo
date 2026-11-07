@@ -19,11 +19,11 @@ use crate::profiles::ProfileSpec;
 
 type TestResult = std::result::Result<(), Box<dyn std::error::Error>>;
 
-struct Fixture {
+pub(super) struct Fixture {
     _data: tempfile::TempDir,
     bin: tempfile::TempDir,
-    library: Library,
-    profile: i64,
+    pub(super) library: Library,
+    pub(super) profile: i64,
 }
 
 fn write(root: &Path, rel: &str, text: &str) -> std::io::Result<()> {
@@ -34,7 +34,7 @@ fn write(root: &Path, rel: &str, text: &str) -> std::io::Result<()> {
     fs::write(path, text)
 }
 
-fn fixture(
+pub(super) fn fixture(
     category: CategoryId,
     note: Option<&str>,
 ) -> std::result::Result<Fixture, Box<dyn std::error::Error>> {
@@ -103,7 +103,7 @@ fn fixture(
 impl Fixture {
     /// Claude answers with `answers` in turn (the last one repeats); each call is recorded as
     /// `in-N.txt` and `args-N.txt`.
-    fn claude(&mut self, answers: &[Value]) -> std::io::Result<()> {
+    pub(super) fn claude(&mut self, answers: &[Value]) -> std::io::Result<()> {
         let d = self.bin.path().display().to_string();
         for entry in fs::read_dir(self.bin.path())? {
             fs::remove_file(entry?.path())?;
@@ -146,7 +146,7 @@ impl Fixture {
         fs::read_to_string(self.bin.path().join(format!("in-{n}.txt")))
     }
 
-    fn id(&self, name: &str) -> String {
+    pub(super) fn id(&self, name: &str) -> String {
         let kind = if name == "CLAUDE.md" {
             ArtifactKind::ClaudeMd
         } else {
@@ -175,11 +175,11 @@ fn stage_names() -> Vec<Value> {
         .collect()
 }
 
-fn placement(short: &str, zone: &str) -> Value {
+pub(super) fn placement(short: &str, zone: &str) -> Value {
     json!({"artifact": short, "zone": zone, "note": "n", "why": "w", "role": "r", "when": "t", "hands_off": "h"})
 }
 
-fn valid() -> Value {
+pub(super) fn valid() -> Value {
     json!({
         "stages": stage_names(),
         "loops": [],
@@ -191,7 +191,7 @@ fn invalid() -> Value {
     json!({"stages": stage_names(), "loops": [], "placements": [placement("a99", "stage:Build")]})
 }
 
-fn draw(f: &Fixture) -> Result<DrawOutcome> {
+pub(super) fn draw(f: &Fixture) -> Result<DrawOutcome> {
     f.library.harnmap_draw(f.profile, "Spec first")
 }
 
@@ -204,7 +204,7 @@ fn a_valid_answer_is_saved_as_the_next_draw_with_model_and_duration() -> TestRes
     assert_eq!((first.no, first.model.as_str()), (1, "opus"));
     let second = draw(&f)?;
     assert_eq!(second.no, 2);
-    let view = f.library.harnmap(f.profile)?.ok_or("map")?;
+    let view = f.library.harnmap(f.profile)?;
     assert_eq!((view.no, view.model.as_str()), (2, "opus"));
     assert_eq!(view.description, "Spec first");
     assert!(view.created_at > 0);
@@ -240,7 +240,9 @@ fn a_valid_answer_is_saved_as_the_next_draw_with_model_and_duration() -> TestRes
 #[test]
 fn nothing_is_drawn_yet_for_a_new_profile() -> TestResult {
     let f = fixture(CategoryId::Software, None)?;
-    assert!(f.library.harnmap(f.profile)?.is_none());
+    let view = f.library.harnmap(f.profile)?;
+    assert!(!view.drawn && view.no == 0 && view.doc.stages.len() == 7);
+    assert_eq!(view.unplaced.len(), 4);
     Ok(())
 }
 
@@ -278,7 +280,7 @@ fn changes_from_the_template_are_computed() -> TestResult {
         label: "lessons".into()
     }));
     assert!(c.contains(&TemplateChange::Unplaced { count: 3 }));
-    let view = f.library.harnmap(f.profile)?.ok_or("map")?;
+    let view = f.library.harnmap(f.profile)?;
     let added = view
         .doc
         .stages
@@ -402,7 +404,7 @@ fn over_long_text_is_cut_not_refused() -> TestResult {
     p["why"] = json!("w".repeat(900));
     f.claude(&[json!({"stages": stage_names(), "loops": [], "placements": [p]})])?;
     draw(&f)?;
-    let doc = f.library.harnmap(f.profile)?.ok_or("map")?.doc;
+    let doc = f.library.harnmap(f.profile)?.doc;
     assert_eq!(doc.placements[0].note.chars().count(), MAX_NOTE);
     assert_eq!(doc.placements[0].why.chars().count(), MAX_WHY);
     Ok(())
@@ -414,7 +416,7 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
     draw(&f)?;
     // The user pins tdd on Test, adds their own stage "Demo" with review pinned on it, and
     // renames Plan.
-    let mut view = f.library.harnmap(f.profile)?.ok_or("map")?;
+    let mut view = f.library.harnmap(f.profile)?;
     let tdd = f.id("tdd");
     let review = f.id("review");
     view.doc.placements.clear();
@@ -461,7 +463,7 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
         "{sent}"
     );
     assert!(sent.contains("stage:demo"), "{sent}");
-    let doc = f.library.harnmap(f.profile)?.ok_or("map")?.doc;
+    let doc = f.library.harnmap(f.profile)?.doc;
     let at = |a: &str| {
         doc.placements
             .iter()
@@ -490,7 +492,7 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
 fn a_pin_keeps_the_stage_it_sits_on_even_when_claude_removed_it() -> TestResult {
     let mut f = fixture(CategoryId::Software, None)?;
     draw(&f)?;
-    let mut view = f.library.harnmap(f.profile)?.ok_or("map")?;
+    let mut view = f.library.harnmap(f.profile)?;
     view.doc.placements = vec![Placement {
         artifact: f.id("tdd"),
         zone: Zone::Stage { id: "test".into() },
@@ -511,7 +513,7 @@ fn a_pin_keeps_the_stage_it_sits_on_even_when_claude_removed_it() -> TestResult 
     stages.remove(4);
     f.claude(&[json!({"stages": stages, "loops": [], "placements": []})])?;
     draw(&f)?;
-    let doc = f.library.harnmap(f.profile)?.ok_or("map")?.doc;
+    let doc = f.library.harnmap(f.profile)?.doc;
     let at = doc
         .stages
         .iter()
@@ -604,7 +606,7 @@ fn custom_asks_for_a_shape_and_sends_its_description() -> TestResult {
     assert!(sent.contains("Make a podcast") && sent.contains("shapeIsYours"));
     f.claude(&[json!({"shape": "Diamond", "stages": [{"id": "open", "name": "Record"}, {"name": "Publish"}], "loops": [], "placements": [placement("a1", "stage:record")]})])?;
     draw(&f)?;
-    let doc = f.library.harnmap(f.profile)?.ok_or("map")?.doc;
+    let doc = f.library.harnmap(f.profile)?.doc;
     assert_eq!(doc.shape, Shape::Diamond);
     assert_eq!(doc.category, CategoryId::Custom);
     assert_eq!(doc.stages[0].id, "open");
@@ -816,7 +818,7 @@ fn the_slug_of_a_new_stage_is_unique() -> TestResult {
         "placements": []
     })])?;
     draw(&f)?;
-    let doc = f.library.harnmap(f.profile)?.ok_or("map")?.doc;
+    let doc = f.library.harnmap(f.profile)?.doc;
     let ids: Vec<&str> = doc.stages.iter().map(|s| s.id.as_str()).collect();
     assert_eq!(ids, ["build", "build-it", "stage", "stage-2"]);
     Ok(())

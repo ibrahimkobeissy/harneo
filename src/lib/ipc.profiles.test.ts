@@ -8,7 +8,11 @@ import {
   templatesList,
   harnmapCancel,
   harnmapDraw,
+  harnmapDrawAt,
+  harnmapEdit,
   harnmapGet,
+  harnmapHistory,
+  harnmapRestore,
   profileDelete,
   profileDescribe,
   profileFromCollection,
@@ -43,6 +47,10 @@ describe("profile wrappers", () => {
     await harnmapDraw(5n, "Spec first");
     await harnmapCancel(5n);
     await harnmapGet(5n);
+    await harnmapEdit(5n, { type: "hide", artifact: "a" });
+    await harnmapHistory(5n);
+    await harnmapDrawAt(5n, 2);
+    await harnmapRestore(5n, 2);
     expect(await profileClone(5n, "B")).toBe(5n);
     await profileGet(5n);
     await profileGet(5n, 2);
@@ -83,6 +91,10 @@ describe("profile wrappers", () => {
       ["harnmap_draw", { profileId: 5, description: "Spec first" }],
       ["harnmap_cancel", { profileId: 5 }],
       ["harnmap_get", { profileId: 5 }],
+      ["harnmap_edit", { profileId: 5, edit: { type: "hide", artifact: "a" } }],
+      ["harnmap_history", { profileId: 5 }],
+      ["harnmap_draw_at", { profileId: 5, no: 2 }],
+      ["harnmap_restore", { profileId: 5, no: 2 }],
       ["profile_clone", { id: 5, name: "B" }],
       ["profile_get", { id: 5, version: null }],
       ["profile_get", { id: 5, version: 2 }],

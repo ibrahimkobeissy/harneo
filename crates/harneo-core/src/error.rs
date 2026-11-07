@@ -219,6 +219,21 @@ pub enum Error {
         /// Every reason the last answer failed, in plain words.
         reasons: Vec<String>,
     },
+    /// The profile has no drawn map yet, so there is nothing to edit.
+    #[error("the profile has no map yet: draw it first")]
+    NoMap,
+    /// The profile has no draw with this number.
+    #[error("draw {no} does not exist")]
+    DrawNotFound {
+        /// The number that was asked for.
+        no: u32,
+    },
+    /// A map edit was refused; nothing was changed.
+    #[error("map edit refused: {reason}")]
+    InvalidMapEdit {
+        /// What is wrong, ready to show.
+        reason: String,
+    },
     /// The profile has no artifacts to put on a map.
     #[error("the profile has no artifacts to draw")]
     EmptyProfile,
