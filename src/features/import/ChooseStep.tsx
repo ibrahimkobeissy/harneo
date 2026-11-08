@@ -700,8 +700,8 @@ export function ChooseStep({
                     <PluginParts
                       group={g}
                       excluded={excluded}
-                      onToggle={(id, on) =>
-                        on ? onRestore([id]) : onExclude([id])
+                      onSet={(ids, on) =>
+                        on ? onRestore(ids) : onExclude(ids)
                       }
                     />
                   </div>

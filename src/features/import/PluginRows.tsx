@@ -1,4 +1,5 @@
-import { Info } from "lucide-react";
+import { ChevronRight, Info } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
 import { Badge } from "../../ui";
@@ -147,39 +148,168 @@ function Part({
   );
 }
 
-/** The parts of an unpacked plugin, nested under it and grouped by kind. */
+/** A plugin with more parts than this starts folded. */
+export const FOLD_OVER = 8;
+
+/** A checkbox for many parts at once: ticked when all are, mixed when some are. */
+function AllBox({
+  label,
+  ticked,
+  total,
+  onSet,
+}: {
+  label: string;
+  ticked: number;
+  total: number;
+  onSet: (on: boolean) => void;
+}) {
+  const box = useRef<HTMLInputElement>(null);
+  const some = ticked > 0 && ticked < total;
+  useEffect(() => {
+    if (box.current) box.current.indeterminate = some;
+  }, [some]);
+  return (
+    <input
+      ref={box}
+      type="checkbox"
+      aria-label={label}
+      aria-checked={some ? "mixed" : ticked === total && total > 0}
+      checked={ticked === total && total > 0}
+      disabled={total === 0}
+      onChange={() => onSet(ticked < total)}
+    />
+  );
+}
+
+/** A kind's plural title in running text: "skills", "1 command", but "MCP servers" kept as is. */
+function kindWord(plural: string, n: number): string {
+  const word = n === 1 && plural.endsWith("s") ? plural.slice(0, -1) : plural;
+  const second = word.charAt(1);
+  return second && second === second.toLowerCase()
+    ? word.charAt(0).toLowerCase() + word.slice(1)
+    : word;
+}
+
+/** What a folded plugin holds, in one line: "7 of 9 ticked · 9 commands, 14 skills". */
+export function partsSummary(
+  groups: [string, Candidate[]][],
+  ticked: number,
+  pickable: number,
+): string {
+  const kinds = groups
+    .map(([plural, list]) => `${list.length} ${kindWord(plural, list.length)}`)
+    .join(", ");
+  return `${ticked} of ${pickable} ticked · ${kinds}`;
+}
+
+/**
+ * The parts of an unpacked plugin, nested under it and grouped by kind. The list and each kind
+ * fold; a plugin with many parts starts folded unless a part needs attention. The boxes on the
+ * plugin and on each kind tick or untick every part that can be picked.
+ */
 export function PluginParts({
   group,
   excluded,
-  onToggle,
+  onSet,
 }: {
   group: PluginGroup;
   excluded: ReadonlySet<string>;
-  onToggle: (id: string, on: boolean) => void;
+  onSet: (ids: string[], on: boolean) => void;
 }) {
+  const pickable = group.parts.filter((c) => needsPlugin(c) === null);
+  const attention = pickable.length < group.parts.length;
+  const [open, setOpen] = useState(
+    group.parts.length <= FOLD_OVER || attention,
+  );
+  const [shut, setShut] = useState<ReadonlySet<string>>(new Set());
+  const bodyId = useId();
+  const byKind = groupByKind(group.parts).map(
+    ([kind, list]) => [kindPlurals[kind], list] as [string, Candidate[]],
+  );
+  const tickedOf = (list: Candidate[]) =>
+    list.filter((c) => needsPlugin(c) === null && !excluded.has(c.id)).length;
+  const ids = (list: Candidate[]) =>
+    list.filter((c) => needsPlugin(c) === null).map((c) => c.id);
+  const ticked = tickedOf(pickable);
   return (
     <div className={styles.parts}>
-      {groupByKind(group.parts).map(([kind, list]) => (
-        <section
-          key={kind}
-          aria-label={`${kindPlurals[kind]} of ${group.name}, ${list.length}`}
+      <div className={styles.partsHead}>
+        <AllBox
+          label={`All parts of ${group.name}`}
+          ticked={ticked}
+          total={pickable.length}
+          onSet={(on) => onSet(ids(pickable), on)}
+        />
+        <button
+          type="button"
+          className={styles.toggle}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={() => setOpen(!open)}
         >
-          <h4 className={styles.subhead}>
-            {kindPlurals[kind]}{" "}
-            <span className={styles.count}>{list.length}</span>
-          </h4>
-          <ul className={styles.plain}>
-            {list.map((c) => (
-              <Part
-                key={c.id}
-                candidate={c}
-                ticked={!excluded.has(c.id)}
-                onToggle={onToggle}
-              />
-            ))}
-          </ul>
-        </section>
-      ))}
+          <ChevronRight size={14} aria-hidden="true" data-open={open} />
+          <span>{open ? "Parts" : `${group.parts.length} parts`}</span>
+        </button>
+        <span className={styles.muted} aria-live="polite">
+          {partsSummary(byKind, ticked, pickable.length)}
+        </span>
+      </div>
+      {open && (
+        <div id={bodyId}>
+          {byKind.map(([plural, list]) => {
+            const folded = shut.has(plural);
+            const kindId = `${bodyId}-${plural}`;
+            return (
+              <section
+                key={plural}
+                aria-label={`${plural} of ${group.name}, ${list.length}`}
+              >
+                <div className={styles.kindHead}>
+                  <AllBox
+                    label={`All ${plural.toLowerCase()} of ${group.name}`}
+                    ticked={tickedOf(list)}
+                    total={ids(list).length}
+                    onSet={(on) => onSet(ids(list), on)}
+                  />
+                  <button
+                    type="button"
+                    className={`${styles.toggle} ${styles.subhead}`}
+                    aria-expanded={!folded}
+                    aria-controls={kindId}
+                    onClick={() =>
+                      setShut((prev) => {
+                        const next = new Set(prev);
+                        if (folded) next.delete(plural);
+                        else next.add(plural);
+                        return next;
+                      })
+                    }
+                  >
+                    <ChevronRight
+                      size={12}
+                      aria-hidden="true"
+                      data-open={!folded}
+                    />
+                    {plural} <span className={styles.count}>{list.length}</span>
+                  </button>
+                </div>
+                {!folded && (
+                  <ul id={kindId} className={styles.plain}>
+                    {list.map((c) => (
+                      <Part
+                        key={c.id}
+                        candidate={c}
+                        ticked={!excluded.has(c.id)}
+                        onToggle={(id, on) => onSet([id], on)}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

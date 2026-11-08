@@ -936,3 +936,19 @@ h3.subhead {
 .part > .reason {
   margin: var(--space-xxs) 0 0 calc(var(--space-sm) + 16px);
 }
+.partsHead,
+.kindHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.partsHead {
+  padding: var(--space-xs) 0;
+}
+.kindHead {
+  margin-top: var(--space-xs);
+}
+.kindHead .subhead {
+  margin: 0;
+}

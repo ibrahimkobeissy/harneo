@@ -7,6 +7,7 @@ import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
 import type { Preview } from "../../bindings/Preview";
 import { ImportScreen } from ".";
+import { FOLD_OVER, PluginParts, partsSummary } from "./PluginRows";
 
 function candidate(
   name: string,
@@ -143,7 +144,9 @@ describe("choosing a plugin's parts", () => {
     const previews = calls.filter((c) => c.cmd === "library_preview");
     expect(previews[1]?.args.unpack).toEqual([""]);
     const skills = screen.getByRole("region", { name: /Skills of toolbox, 4/ });
-    expect(within(skills).getAllByRole("checkbox")).toHaveLength(4);
+    expect(
+      within(within(skills).getByRole("list")).getAllByRole("checkbox"),
+    ).toHaveLength(4);
     // Every part that can be picked starts ticked; the one that needs its plugin can't be.
     for (const name of [/alpha/, /beta/, /gamma/]) {
       expect(within(skills).getByRole("checkbox", { name })).toBeChecked();
@@ -241,5 +244,108 @@ describe("choosing a plugin's parts", () => {
     // Pick parts stays open: the library holds parts, not the whole.
     await user.click(pick());
     await screen.findByRole("checkbox", { name: /alpha/ });
+  });
+});
+
+describe("folding a plugin's parts", () => {
+  const many = Array.from({ length: FOLD_OVER + 1 }, (_, i) =>
+    candidate(`s${i}`, "skill", `skills/s${i}`, from),
+  ).concat([candidate("cmd", "command", "commands/cmd.md", from)]);
+  const group = { name: "pack", folder: "", whole: null, parts: many };
+
+  function show(excluded: string[] = [], parts = many) {
+    const sets: [string[], boolean][] = [];
+    const view = render(
+      <PluginParts
+        group={{ ...group, parts }}
+        excluded={new Set(excluded)}
+        onSet={(ids, on) => sets.push([ids, on])}
+      />,
+    );
+    return { sets, view };
+  }
+
+  it("starts a big plugin folded, with what it holds in one line", async () => {
+    const user = userEvent.setup();
+    show(["id-s0"]);
+    const toggle = screen.getByRole("button", { name: /10 parts/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByText("9 of 10 ticked · 9 skills, 1 command"),
+    ).toBeVisible();
+    expect(screen.queryByRole("checkbox", { name: /^s1/ })).toBeNull();
+    await user.click(toggle);
+    expect(screen.getByRole("button", { name: "Parts" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByRole("checkbox", { name: /^s1/ })).toBeChecked();
+  });
+
+  it("starts a small plugin, or one with a part that needs attention, open", () => {
+    const { view } = show([], many.slice(0, 3));
+    expect(screen.getByRole("button", { name: "Parts" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    view.unmount();
+    const needy = candidate("needy", "skill", "skills/needy", from, [
+      {
+        severity: "error",
+        code: "plugin.part-needs-plugin",
+        message: "uses ${CLAUDE_PLUGIN_ROOT}/x",
+        file: "skills/needy/SKILL.md",
+      },
+    ]);
+    show([], [...many, needy]);
+    expect(screen.getByRole("button", { name: "Parts" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  it("ticks and unticks every pickable part from the plugin and from a kind", async () => {
+    const user = userEvent.setup();
+    const { sets } = show(["id-s0"]);
+    const all = screen.getByRole("checkbox", { name: "All parts of pack" });
+    expect(all).toHaveAttribute("aria-checked", "mixed");
+    expect((all as HTMLInputElement).indeterminate).toBe(true);
+    await user.click(all);
+    expect(sets.at(-1)).toEqual([many.map((c) => c.id), true]);
+    await user.click(screen.getByRole("button", { name: /10 parts/ }));
+    await user.click(
+      screen.getByRole("checkbox", { name: "All commands of pack" }),
+    );
+    expect(sets.at(-1)).toEqual([["id-cmd"], false]);
+    await user.click(screen.getByRole("checkbox", { name: /^s1/ }));
+    expect(sets.at(-1)).toEqual([["id-s1"], false]);
+  });
+
+  it("folds one kind on its own", async () => {
+    const user = userEvent.setup();
+    show([], many.slice(0, 3).concat([many.at(-1)!]));
+    const skills = screen.getByRole("button", { name: /Skills/ });
+    await user.click(skills);
+    expect(skills).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: /^s0/ })).toBeNull();
+    expect(screen.getByRole("checkbox", { name: /^cmd/ })).toBeVisible();
+  });
+});
+
+describe("the folded summary", () => {
+  it("names kinds in running text", () => {
+    const of = (n: number) => Array.from({ length: n }) as never[];
+    expect(
+      partsSummary(
+        [
+          ["Skills", of(2)],
+          ["MCP servers", of(1)],
+          ["CLAUDE.md", of(1)],
+          ["Commands", of(1)],
+        ],
+        3,
+        5,
+      ),
+    ).toBe("3 of 5 ticked · 2 skills, 1 MCP server, 1 CLAUDE.md, 1 command");
   });
 });
