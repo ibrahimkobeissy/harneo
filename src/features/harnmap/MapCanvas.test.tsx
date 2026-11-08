@@ -465,3 +465,21 @@ describe("animation", () => {
     state.mockRestore();
   });
 });
+
+describe("node notes", () => {
+  it("drop the artifact's own name in front of the note", async () => {
+    const { noteText } = await import("./Node");
+    expect(noteText("/spec", "/spec — writes the spec")).toBe(
+      "Writes the spec",
+    );
+    expect(noteText("plan", "plan: tasks from the spec")).toBe(
+      "Tasks from the spec",
+    );
+    expect(noteText("build", "Build · runs the next task")).toBe(
+      "Runs the next task",
+    );
+    expect(noteText("tdd", "Failing test first")).toBe("Failing test first");
+    expect(noteText("a.b", "axb — not a match")).toBe("axb — not a match");
+    expect(noteText("x", "x — ")).toBe("x — ");
+  });
+});

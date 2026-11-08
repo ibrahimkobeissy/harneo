@@ -5,6 +5,21 @@ import { kinds } from "../../ui";
 import styles from "./MapCanvas.module.css";
 import type { ArtifactInfo } from "./types";
 
+/**
+ * The note without the artifact's own name in front ("/spec — writes the spec" → "writes the
+ * spec"), so the one line a note has says what it does here.
+ */
+export function noteText(name: string, note: string): string {
+  const bare = name.replace(/^\//, "");
+  const head = new RegExp(
+    `^/?${bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*(?:[—–:-]|·)\\s*`,
+    "i",
+  );
+  const rest = note.replace(head, "");
+  if (rest === note || rest.length === 0) return note;
+  return rest.charAt(0).toUpperCase() + rest.slice(1);
+}
+
 /** One artifact on the map: type icon, name, note, pin mark; `i` opens its tooltip. */
 export function Node({
   info,
@@ -73,7 +88,7 @@ export function Node({
             />
           )}
         </b>
-        <i>{placement.note}</i>
+        <i>{noteText(info.name, placement.note)}</i>
       </span>
     </button>
   );

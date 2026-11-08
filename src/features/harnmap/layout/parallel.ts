@@ -1,10 +1,8 @@
 import {
   pick,
   assemble,
-  frameWidth,
   GAP,
   phaseZones,
-  size,
   ZONE_LABEL_H,
   type Layout,
   type LayoutInput,
@@ -18,18 +16,27 @@ const TRACK_GAP = 16;
  * and a join; phases are zones behind their stages.
  */
 export function layoutParallel(input: LayoutInput): Layout {
-  const pitch = frameWidth(size(input).w) + GAP;
   const isTrack = input.stages.map((s) => input.parallel.includes(s.id));
   const firstTrack = isTrack.indexOf(true);
   return assemble(
     input,
-    (heights) => {
-      let column = 0;
+    (heights, widths) => {
+      // The tracks share one column, as wide as the widest of them.
+      const trackW = Math.max(0, ...widths.filter((_, i) => isTrack[i]));
+      let x = 0;
+      let trackX = 0;
       let trackY = 0;
       return heights.map((h, i) => {
-        if (!isTrack[i]) return { x: column++ * pitch, y: 0 };
-        if (i === firstTrack) column++;
-        const p: Point = { x: (column - 1) * pitch, y: trackY };
+        if (!isTrack[i]) {
+          const p: Point = { x, y: 0 };
+          x += pick(widths, i) + GAP;
+          return p;
+        }
+        if (i === firstTrack) {
+          trackX = x;
+          x += trackW + GAP;
+        }
+        const p: Point = { x: trackX, y: trackY };
         trackY += h + TRACK_GAP;
         return p;
       });

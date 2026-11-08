@@ -6,8 +6,10 @@ import type { Stage } from "../../../bindings/Stage";
 import type { Zone } from "../../../bindings/Zone";
 
 /** Pixel constants shared by every shape. */
-export const NODE_W = 128;
-export const NODE_H = 44;
+export const NODE_W = 176;
+export const NODE_H = 52;
+/** A stage with more stations than this stacks them in two columns, so one busy stage doesn't stretch the map. */
+export const MAX_STACK = 6;
 export const GAP = 8;
 export const PAD = 24;
 export const FRAME_PAD = 4;
@@ -122,7 +124,7 @@ export interface Layout {
   bundles: BundleGroup[];
   toolbelt: Rect;
   floor: Rect;
-  /** The line the stage lights sit on, through the stage headers. */
+  /** The rail through the top edge of every stage frame. */
   beam: Point[];
   zones: PhaseZone[];
   forkJoin: ForkJoin | null;
@@ -160,12 +162,24 @@ export function pick<T>(items: T[], i: number): T {
   return item;
 }
 
-export function frameWidth(nodeW: number): number {
-  return nodeW + 2 * FRAME_PAD;
+/** How many columns a stage with `count` stations uses. */
+export function columnsFor(count: number): number {
+  return count > MAX_STACK ? 2 : 1;
+}
+
+/** Rows per column for `count` stations. */
+function rowsFor(count: number): number {
+  return Math.ceil(count / columnsFor(count));
+}
+
+export function frameWidth(nodeW: number, count = 0): number {
+  const cols = columnsFor(count);
+  return cols * nodeW + (cols - 1) * GAP + 2 * FRAME_PAD;
 }
 
 export function frameHeight(count: number, nodeH: number): number {
-  const stack = count === 0 ? 0 : count * (nodeH + GAP) - GAP;
+  const rows = rowsFor(count);
+  const stack = rows === 0 ? 0 : rows * (nodeH + GAP) - GAP;
   return HEADER_H + FRAME_PAD + stack + FRAME_PAD;
 }
 
@@ -184,6 +198,24 @@ export function stageHeights(input: LayoutInput): number[] {
   return stacks(input).stages.map((ids) =>
     frameHeight(ids.length, size(input).h),
   );
+}
+
+/** Stage frame widths in stage order: one column, or two for a busy stage. */
+export function stageWidths(input: LayoutInput): number[] {
+  return stacks(input).stages.map((ids) =>
+    frameWidth(size(input).w, ids.length),
+  );
+}
+
+/** Left edges for frames of `widths` laid left to right, `GAP` apart. */
+export function rowOf(widths: number[]): number[] {
+  const xs: number[] = [];
+  let x = 0;
+  for (const w of widths) {
+    xs.push(x);
+    x += w + GAP;
+  }
+  return xs;
 }
 
 interface Stacks {
@@ -248,15 +280,15 @@ function bounds(rects: Rect[]): Rect {
  */
 export function assemble(
   input: LayoutInput,
-  place: (heights: number[]) => Point[],
+  place: (heights: number[], widths: number[]) => Point[],
   extras: (frames: StageFrame[], ctx: Context) => Extras,
   topExtra = 0,
 ): Layout {
   const { w: nw, h: nh } = size(input);
   const st = stacks(input);
   const heights = stageHeights(input);
-  const fw = frameWidth(nw);
-  const raw = place(heights);
+  const widths = stageWidths(input);
+  const raw = place(heights, widths);
   const stageTop = PAD + (input.hasHooks ? HOOK_H + GAP * 2 : 0) + topExtra;
   const dx = raw.length === 0 ? 0 : PAD - Math.min(...raw.map((p) => p.x));
   const dy = raw.length === 0 ? 0 : stageTop - Math.min(...raw.map((p) => p.y));
@@ -265,25 +297,28 @@ export function assemble(
     const frame = {
       x: pick(raw, i).x + dx,
       y: pick(raw, i).y + dy,
-      w: fw,
+      w: pick(widths, i),
       h: pick(heights, i),
     };
     return {
       id: s.id,
       label: ellipsize(s.name),
       frame,
-      header: { x: frame.x, y: frame.y, w: fw, h: HEADER_H },
+      header: { x: frame.x, y: frame.y, w: frame.w, h: HEADER_H },
     };
   });
 
   const nodes: NodeBox[] = [];
   frames.forEach((f, s) => {
-    pick(st.stages, s).forEach((id, i) => {
+    const ids = pick(st.stages, s);
+    const rows = rowsFor(ids.length);
+    // Column by column: the first column reads top to bottom, then the second.
+    ids.forEach((id, i) => {
       nodes.push({
         id,
         zone: { type: "stage", id: f.id },
-        x: f.frame.x + FRAME_PAD,
-        y: f.frame.y + HEADER_H + FRAME_PAD + i * (nh + GAP),
+        x: f.frame.x + FRAME_PAD + Math.floor(i / rows) * (nw + GAP),
+        y: f.frame.y + HEADER_H + FRAME_PAD + (i % rows) * (nh + GAP),
         w: nw,
         h: nh,
       });
@@ -344,9 +379,13 @@ export function assemble(
     nh,
   );
 
-  const heads = frames.map((f) => center(f.header));
+  // The rail runs along the top edge of the stage frames, so it reads as one line through them.
+  const tops = frames.map((f) => ({
+    x: f.frame.x + f.frame.w / 2,
+    y: f.frame.y,
+  }));
   const beam =
-    ex.closedBeam && heads.length > 0 ? [...heads, pick(heads, 0)] : heads;
+    ex.closedBeam && tops.length > 0 ? [...tops, pick(tops, 0)] : tops;
   return {
     shape: input.shape,
     width,
@@ -505,14 +544,11 @@ function drawLoops(
       // Shorter spans nest inside longer ones; each rank adds one level of depth.
       const depth = 28 + 14 * Math.abs(a - b) + LOOP_LEVEL * sorted.indexOf(n);
       const spread = a === b ? 30 : 0;
-      start = {
-        x: pick(frames, a).frame.x + pick(frames, a).frame.w / 2,
-        y: bottom,
-      };
-      end = {
-        x: pick(frames, b).frame.x + pick(frames, b).frame.w / 2,
-        y: bottom,
-      };
+      // Each end leaves from its own stage's frame, so an arc never hangs in empty space.
+      const fa = pick(frames, a).frame;
+      const fb = pick(frames, b).frame;
+      start = { x: fa.x + fa.w / 2, y: fa.y + fa.h };
+      end = { x: fb.x + fb.w / 2, y: fb.y + fb.h };
       c1 = { x: start.x + spread, y: bottom + depth };
       c2 = { x: end.x - spread, y: bottom + depth };
     }

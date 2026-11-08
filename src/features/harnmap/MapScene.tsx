@@ -192,6 +192,13 @@ export function MapScene({
                   d={`M ${l.start.x} ${l.start.y} C ${l.c1.x} ${l.c1.y} ${l.c2.x} ${l.c2.y} ${l.end.x} ${l.end.y}`}
                   markerEnd={`url(#${arrow})`}
                 />
+                <rect
+                  x={l.labelBox.x}
+                  y={l.labelBox.y}
+                  width={l.labelBox.w}
+                  height={l.labelBox.h}
+                  rx={4}
+                />
                 <text
                   x={l.labelBox.x + l.labelBox.w / 2}
                   y={l.labelBox.y + 12}
@@ -278,12 +285,13 @@ export function MapScene({
               <div className={styles.mh} title={name}>
                 <span className={styles.n}>{stageNumber(i)}</span>
                 <span className={styles.nm}>{s.label}</span>
-                <span className={styles.ct}>{count}</span>
                 <span
-                  className={styles.lt}
+                  className={styles.ct}
                   data-on={count > 0}
                   data-testid="light"
-                />
+                >
+                  {count}
+                </span>
               </div>
             </div>
           );

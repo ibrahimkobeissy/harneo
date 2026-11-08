@@ -1,10 +1,9 @@
 import {
   pick,
   assemble,
+  rowOf,
   center,
-  frameWidth,
   GAP,
-  size,
   type Layout,
   type LayoutInput,
   type Point,
@@ -23,22 +22,23 @@ export function pinchIndex(input: LayoutInput): number {
  * Stages sit on the edges, alternating above and below the axis, and the pinch is on it.
  */
 export function layoutDiamond(input: LayoutInput): Layout {
-  const pitch = frameWidth(size(input).w) + GAP;
   const n = input.stages.length;
   const p = pinchIndex(input);
   return assemble(
     input,
-    (heights) =>
-      heights.map((_, i) => {
+    (heights, widths) => {
+      const xs = rowOf(widths);
+      return heights.map((_, i) => {
         const start = i <= p ? 0 : p;
         const end = i <= p ? p : n - 1;
         const t = end === start ? 0 : (i - start) / (end - start);
         const sign = (i - start) % 2 === 0 ? -1 : 1;
         return {
-          x: i * pitch,
+          x: pick(xs, i),
           y: Math.round(sign * AMPLITUDE * Math.sin(Math.PI * t)),
         };
-      }),
+      });
+    },
     (frames) => {
       const heads = frames.map((f) => center(f.header));
       const outline = (a: number, b: number): Point[] => {

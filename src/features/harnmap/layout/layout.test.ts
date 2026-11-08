@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { Shape } from "../../../bindings/Shape";
 import {
   ellipsize,
+  FRAME_PAD,
+  GAP,
+  MAX_STACK,
+  NODE_W,
   layout,
   layoutCycle,
   layoutDiamond,
@@ -248,9 +252,15 @@ describe("ellipsize", () => {
 });
 
 describe("line", () => {
-  it("puts stages left to right on a 144 px pitch with a straight beam", () => {
+  it("puts stages left to right, one frame and a gap apart, with a straight beam", () => {
     const l = layoutLine(input("line", 4, 2));
-    expect(l.stages.map((s) => s.frame.x)).toEqual([24, 168, 312, 456]);
+    const pitch = NODE_W + 2 * FRAME_PAD + GAP;
+    expect(l.stages.map((s) => s.frame.x)).toEqual([
+      24,
+      24 + pitch,
+      24 + 2 * pitch,
+      24 + 3 * pitch,
+    ]);
     expect(new Set(l.stages.map((s) => s.frame.y)).size).toBe(1);
     expect(new Set(l.beam.map((p) => p.y)).size).toBe(1);
     expect(l.forkJoin).toBeNull();
@@ -316,7 +326,7 @@ describe("parallel", () => {
     const b = pick(l.stages, 2);
     expect(a.frame.x).toBe(b.frame.x);
     expect(b.frame.y).toBeGreaterThan(a.frame.y + a.frame.h);
-    expect(pick(l.stages, 3).frame.x).toBe(a.frame.x + 144);
+    expect(pick(l.stages, 3).frame.x).toBe(a.frame.x + a.frame.w + GAP);
     expect(l.forkJoin?.tracks).toHaveLength(2);
     expect(l.forkJoin!.fork.x).toBeLessThan(a.frame.x);
     expect(l.forkJoin!.join.x).toBeGreaterThan(a.frame.x + a.frame.w);
@@ -447,5 +457,53 @@ describe("line loop depth", () => {
     expect(pick(two.loops, 0).c1.y - pick(one.loops, 0).c1.y).toBe(32);
     expect(pick(two.loops, 1).c1.y).toBeLessThan(pick(two.loops, 0).c1.y);
     expect(two.toolbelt.y).toBeGreaterThan(one.toolbelt.y);
+  });
+});
+
+describe("busy stages and loop ends", () => {
+  it("stacks a stage with more than MAX_STACK stations in two columns, read column by column", () => {
+    const n = MAX_STACK + 4;
+    for (const shape of SHAPES) {
+      const l = layout(input(shape, 3, n));
+      const frame = pick(l.stages, 0).frame;
+      expect(frame.w).toBe(2 * NODE_W + GAP + 2 * FRAME_PAD);
+      const mine = l.nodes.filter(
+        (b) => b.zone.type === "stage" && b.zone.id === "s0",
+      );
+      expect(new Set(mine.map((b) => b.x)).size).toBe(2);
+      const rows = Math.ceil(n / 2);
+      // The first `rows` stations fill the left column, top to bottom.
+      expect(new Set(mine.slice(0, rows).map((b) => b.x)).size).toBe(1);
+      for (const b of mine) {
+        expect(b.x + b.w).toBeLessThanOrEqual(frame.x + frame.w);
+        expect(b.y + b.h).toBeLessThanOrEqual(frame.y + frame.h);
+      }
+    }
+  });
+
+  it("keeps a stage at MAX_STACK stations in one column", () => {
+    const l = layoutLine(input("line", 3, MAX_STACK));
+    expect(pick(l.stages, 0).frame.w).toBe(NODE_W + 2 * FRAME_PAD);
+  });
+
+  it("starts and ends each loop below the line at its own stage's frame", () => {
+    const base = input("line", 4, 1);
+    const l = layoutLine({
+      ...base,
+      placements: [
+        ...base.placements,
+        ...Array.from({ length: 5 }, (_, k) => ({
+          artifact: `x${k}`,
+          zone: { type: "stage" as const, id: "s2" },
+          order: 10 + k,
+        })),
+      ],
+      loops: [{ from: "s1", to: "s0", label: "back" }],
+    });
+    const loop = pick(l.loops, 0);
+    const from = pick(l.stages, 1).frame;
+    const to = pick(l.stages, 0).frame;
+    expect(loop.start).toEqual({ x: from.x + from.w / 2, y: from.y + from.h });
+    expect(loop.end).toEqual({ x: to.x + to.w / 2, y: to.y + to.h });
   });
 });

@@ -113,6 +113,8 @@
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: grab;
   touch-action: none;
   background: var(--bg);
@@ -141,7 +143,7 @@
 .pipe {
   fill: none;
   stroke: var(--line2);
-  stroke-width: 4;
+  stroke-width: 6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -162,8 +164,13 @@
   stroke-linecap: round;
 }
 .loopG text {
-  fill: var(--t3);
+  fill: var(--t2);
   font-size: 10.5px;
+}
+.loopG rect {
+  fill: var(--bg);
+  stroke: var(--line);
+  stroke-width: 1;
 }
 .outline {
   fill: none;
@@ -211,22 +218,23 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* The stage's count as a pill: tinted when the stage holds something (its light). */
 .ct {
+  min-width: 20px;
+  padding: 0 6px;
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius-pill);
   font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 500;
+  line-height: 16px;
+  text-align: center;
   color: var(--t3);
 }
-.lt {
-  width: 8px;
-  height: 8px;
-  border-radius: 4px;
-  border: 1.5px solid var(--line2);
-  box-sizing: border-box;
-}
-.lt[data-on="true"] {
-  background: var(--t1);
-  border-color: var(--t1);
+.ct[data-on="true"] {
+  border-color: var(--t2);
+  background: var(--sunk);
+  color: var(--t1);
 }
 .zone {
   position: absolute;
@@ -249,7 +257,7 @@
 .bnd {
   position: absolute;
   border-radius: 11px;
-  background: var(--sunk);
+  background: var(--line);
   pointer-events: none;
 }
 .band {
@@ -359,8 +367,9 @@
 .txt b {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   overflow: hidden;
+  overflow-wrap: anywhere;
   font-family: var(--font-mono);
   font-size: 10.5px;
   font-weight: 500;
@@ -369,7 +378,7 @@
 .txt i {
   display: block;
   margin-top: 1px;
-  padding-right: 14px;
+  padding-right: 22px;
   overflow: hidden;
   font-style: normal;
   font-size: 10px;
@@ -409,12 +418,8 @@
   animation: hb 2s ease-in-out infinite;
 }
 .hb i::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: 50%;
-  border: 1.5px solid var(--t3);
-  animation: hbr 2s ease-out infinite;
+  /* One dot style: the beat is the dot's own pulse, no ring around it. */
+  content: none;
 }
 .hb:hover i {
   background: var(--t2);
@@ -580,8 +585,8 @@
   width: 14px;
   height: 10px;
   border-radius: 3px;
-  background: var(--sunk);
-  border: var(--hairline) solid var(--line);
+  background: var(--line);
+  border: var(--hairline) solid var(--line2);
 }
 .lf {
   border-top: var(--hairline-strong) solid var(--t2);

@@ -2,10 +2,8 @@ import {
   pick,
   assemble,
   center,
-  frameWidth,
   GAP,
   overlaps,
-  size,
   type Layout,
   type LayoutInput,
   type Point,
@@ -16,10 +14,9 @@ import {
  * The ellipse grows by 15 % until no two frames touch, so any number of stations fits.
  */
 export function layoutCycle(input: LayoutInput): Layout {
-  const fw = frameWidth(size(input).w);
   return assemble(
     input,
-    (heights) => ellipse(heights, fw),
+    (heights, widths) => ellipse(heights, widths),
     (frames) => {
       const heads = frames.map((f) => center(f.header));
       if (heads.length === 0) return { loopsInside: true };
@@ -46,21 +43,22 @@ export function layoutCycle(input: LayoutInput): Layout {
   );
 }
 
-function ellipse(heights: number[], fw: number): Point[] {
+function ellipse(heights: number[], widths: number[]): Point[] {
   const n = heights.length;
+  const fw = Math.max(0, ...widths);
   let r = Math.max(120, ((fw + GAP) * n) / (2 * Math.PI));
   for (;;) {
     const pts = heights.map((_, i) => {
       const a = -Math.PI / 2 + (2 * Math.PI * i) / n;
       return {
-        x: Math.round(r * Math.cos(a) - fw / 2),
+        x: Math.round(r * Math.cos(a) - pick(widths, i) / 2),
         y: Math.round(0.7 * r * Math.sin(a)),
       };
     });
     const rects = pts.map((p, i) => ({
       x: p.x - GAP / 2,
       y: p.y - GAP / 2,
-      w: fw + GAP,
+      w: pick(widths, i) + GAP,
       h: pick(heights, i) + GAP,
     }));
     const clash = rects.some((a, i) =>
