@@ -1,6 +1,6 @@
 # Harnmap design boards
 
-The validated Claude Design prototype for Harnmap and Harnfit (2026-11-07, three review passes in `../design-review.md`). Visual reference for `spec/harnmap.md`.
+The validated Claude Design prototype for Harnmap and Harnfit (2026-11-07, after three review passes; the review notes were retired with the drafts in #267). Visual reference for `spec/harnmap.md`.
 
 These are the project files of a Claude Design artifact: `*.dc.html` boards with their markup, sample data and interaction logic, `harneo.css`, and `canvas.json` (board order, titles and the decisions note). They need the Claude Design runtime (`support.js`) to render, so read them as source, or open the original artifact.
 

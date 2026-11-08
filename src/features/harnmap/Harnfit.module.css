@@ -1,4 +1,4 @@
-/* The Harnfit verdict card and the saved-fits list. Reference: docs/drafts/harnmap/design
+/* The Harnfit verdict card and the saved-fits list. Reference: design/harnmap
    (Harnfit). Verdicts wear state colours (green, amber, red), never blue. Tokens only. */
 .verdict {
   display: flex;

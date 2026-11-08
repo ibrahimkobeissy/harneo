@@ -7,12 +7,13 @@
 <p align="center">
   <strong>A harness manager for Claude Code.</strong><br>
   Keep every skill, command, subagent, setting and MCP server you trust in one library,<br>
-  compose profiles from it, and install the right profile into any project: previewed, backed up, reversible.
+  compose profiles from it, and install the right profile into any project: previewed, backed up, reversible.<br>
+  See your factory on a map, and test any new skill against it before you install it.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-2563eb"></a>
-  <img alt="Version 0.2.2" src="https://img.shields.io/badge/version-0.2.2-475569">
+  <img alt="Version 0.3.0" src="https://img.shields.io/badge/version-0.3.0-475569">
   <img alt="Platforms: Linux, macOS, Windows" src="https://img.shields.io/badge/platforms-Linux%20%7C%20macOS%20%7C%20Windows-475569">
   <img alt="Built with Tauri 2" src="https://img.shields.io/badge/Tauri-2-24C8DB">
   <img alt="Rust and TypeScript" src="https://img.shields.io/badge/Rust%20%2B%20TypeScript-0f172a">
@@ -23,6 +24,11 @@
   <a href="#how-it-works">How it works</a> ·
   <a href="#cli">CLI</a> ·
   <a href="#contributing">Contributing</a>
+</p>
+
+<p align="center">
+  Videos: <a href="docs/brag/02-harnmap-harnfit/brag.mp4">Harnmap and Harnfit (32 s)</a> ·
+  <a href="docs/brag/01-launch/brag.mp4">the library, audit and refit (24 s)</a>
 </p>
 
 ![The library: every imported artifact with its type, tags, trust score and usage](docs/screenshots/library.png)
@@ -36,13 +42,15 @@ Harneo keeps the library **outside** your projects and ships it **into** them:
 - **One library** for the whole harness, not only skills: skills, commands, subagents, settings, MCP servers, output styles, workflows, plugins, `CLAUDE.md` and rules.
 - **A security audit on import.** Every artifact gets a trust score, findings by severity and what it can reach (network, shell, environment variables, files). Risky ones start excluded.
 - **Profiles.** Compose a light or heavy setup once, clone it, export it as one file.
+- **Harnmap.** Claude draws a profile as the workflow it is (software, research, writing, video…): which artifact sits at which stage, what is always on, what you reach for anytime, and what naturally comes next. Edit it like a diagram.
+- **Harnfit.** Found a new skill online? Fit it into a profile's map before it touches a project: it fits, fits with changes (and which), or conflicts, quoting the lines that clash with what you already run.
 - **Safe writes.** Every write is previewed first, every replaced file is backed up, and removing a profile restores the originals. Losing a project's own `CLAUDE.md` or `settings.json` lines is flagged in red.
 - **Drift and cleanup.** See which projects diverged from their profile, which artifacts are outdated, unused or duplicated.
 - **Local first.** No account, no server, no analytics. A desktop app and a CLI share the same library. See [Privacy](#privacy) for what the optional Claude features send.
 
 ## Status
 
-Harneo is **v0.2, early and moving fast**. It is a personal tool shared openly, under the MIT license.
+Harneo is **v0.3, early and moving fast**. It is a personal tool shared openly, under the MIT license.
 
 | Platform | State |
 | -------- | ----- |
@@ -266,7 +274,13 @@ Harneo writes nothing else outside the projects you point it at. Projects keep t
 
    ![Cleanup: risky, unused, repeated and duplicate artifacts, each with a fix](docs/screenshots/cleanup.png)
 
-The screenshots use dummy data. [MANUAL.md](MANUAL.md) walks through every screen: the command palette and shortcuts, plugins taken whole or in parts, large and Claude-managed files at import, smart collections, the project page and its backups, and every setting.
+6. **Map and fit.** **Harnmap** sends a profile to your `claude` CLI, which lays it out on its category's template: stages on the line, a toolbelt of anytime tools, a floor of always-on settings and rules, the loops back, and for each artifact why it sits there and its natural next steps. Move, pin, hide or re-draw; every drawing is kept in the map's history. **Harnfit** (from a library artifact or the import review) shows a candidate as a dashed *NEW* node where it would go, with a verdict, the change it needs, and the quoted lines that clash; **Add to profile** when you agree.
+
+   ![Harnmap: a software profile drawn as seven stages, with review selected and its next steps](docs/screenshots/harnmap.png)
+
+   ![Harnfit: a code-review skill conflicts with three review tools already on the line, with the quotes](docs/screenshots/harnfit.png)
+
+The screenshots use dummy data, except the Harnmap and Harnfit ones, which show public skill packs (`addyosmani/agent-skills`, `mattpocock/skills`) and the verdicts Claude returned for them. [MANUAL.md](MANUAL.md) walks through every screen: the command palette and shortcuts, plugins taken whole or in parts, large and Claude-managed files at import, smart collections, the project page and its backups, and every setting.
 
 ## CLI
 

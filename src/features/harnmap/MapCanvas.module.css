@@ -1,5 +1,5 @@
 /* The map canvas. Only transform and opacity are animated. Colours come from the design tokens,
-   so light and dark both work. See design/prototype and docs/drafts/harnmap/design for the reference. */
+   so light and dark both work. See design/prototype and design/harnmap for the reference. */
 .canvas {
   position: relative;
   display: flex;

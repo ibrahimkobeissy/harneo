@@ -2,7 +2,7 @@
 
 > Module `harnmap` of the [capability map](capabilities.md). Status: **pre-approved by the user (2026-11-07): "create the spec and let's start devving"**, after the UX was validated in Claude Design. Ticket [#224](https://github.com/ibrahimkobeissy/harneo/issues/224) (UX phase). Built on the `feat/harnmap` branch, merged to `main` when the user accepts it.
 > Product context: [`CONTEXT.md`](../CONTEXT.md) §1 (glossary: category, Harnmap, Harnfit), §3 Stage 3.7–3.9, §4, §6 (harness check: this is its judgement half).
-> Visual reference: **`docs/drafts/harnmap/design/`** (the validated Claude Design boards: `Main`, `NewProfile`, `FirstDraw`, `Harnmap`, `HeavyMap`, `Harnfit`, `Templates`, `VideoMap`, `EntryPoints`, `Export`, `States`, and `canvas.json` for the decisions note). Background: `docs/drafts/harnmap/idea.md` (the idea and its decisions), `docs/drafts/harnmap/design-review.md` (feasibility review; every item there is settled below).
+> Visual reference: **`design/harnmap/`** (the validated Claude Design boards: `Main`, `NewProfile`, `FirstDraw`, `Harnmap`, `HeavyMap`, `Harnfit`, `Templates`, `VideoMap`, `EntryPoints`, `Export`, `States`, and `canvas.json` for the decisions note). Background: the first idea and its feasibility review were drafts, retired in #267 once built (git history has them); every decision in them is settled below.
 > Conventions: [`app-shell.md`](app-shell.md). Builds on [`profiles.md`](profiles.md) (profiles, versions, export file), [`bundles.md`](bundles.md) (links, `claude_cli`, settings store), [`library.md`](library.md) (artifacts, import preview).
 
 ## Objective
@@ -240,7 +240,7 @@ export function layoutLine(input: LayoutInput): Layout {
 4. Facts and Claude's reading are visibly apart on the map, in the tooltip and in the side panel.
 5. Harnfit gives a verdict with quotes that are all found in the files, and Add to profile places the artifact pinned.
 6. Export → import on a fresh data dir brings the map, its history and the fits with no Claude call.
-7. The screens match `docs/drafts/harnmap/design/` in light and dark, at 1440 px and 960 px; the map stays smooth with 47 artifacts on Linux.
+7. The screens match `design/harnmap/` in light and dark, at 1440 px and 960 px; the map stays smooth with 47 artifacts on Linux.
 8. `npm run check:full` passes and the coverage ratchet holds.
 
 ## Open Questions

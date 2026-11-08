@@ -1,5 +1,5 @@
 /* The Harnmap screen around the canvas: header, side panel, state cards, Re-draw dialog.
-   Reference: docs/drafts/harnmap/design (FirstDraw, Harnmap, States). Tokens only. */
+   Reference: design/harnmap (FirstDraw, Harnmap, States). Tokens only. */
 .screen {
   display: flex;
   flex-direction: column;
