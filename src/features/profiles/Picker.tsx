@@ -1,4 +1,4 @@
-import { Check, Plus, Search } from "lucide-react";
+import { Check, Minus, Plus, Search } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
 import type { LibraryItem } from "../../bindings/LibraryItem";
@@ -52,10 +52,16 @@ export function Picker({
   picked,
   onAdd,
   onRemove,
+  onAddAll,
+  onRemoveAll,
 }: {
   picked: Set<string>;
   onAdd: (item: LibraryItem) => void;
   onRemove: (id: string) => void;
+  /** Adds every given artifact, with its bundle. */
+  onAddAll: (items: LibraryItem[]) => void;
+  /** Removes every given artifact the user picked. */
+  onRemoveAll: (ids: string[]) => void;
 }) {
   const searchId = useId();
   const [text, setText] = useState("");
@@ -165,6 +171,8 @@ export function Picker({
           picked={picked}
           onAdd={onAdd}
           onRemove={onRemove}
+          onAddAll={onAddAll}
+          onRemoveAll={onRemoveAll}
           onMore={() => setLimit((n) => n + PAGE)}
         />
       )}
@@ -178,6 +186,8 @@ function Results({
   picked,
   onAdd,
   onRemove,
+  onAddAll,
+  onRemoveAll,
   onMore,
 }: {
   rows: { items: LibraryItem[]; total: number };
@@ -185,6 +195,8 @@ function Results({
   picked: Set<string>;
   onAdd: (item: LibraryItem) => void;
   onRemove: (id: string) => void;
+  onAddAll: (items: LibraryItem[]) => void;
+  onRemoveAll: (ids: string[]) => void;
   onMore: () => void;
 }) {
   const shown = rows.items.filter(
@@ -194,9 +206,31 @@ function Results({
     view === "all"
       ? `Showing ${rows.items.length} of ${rows.total}`
       : `${shown.length} of the ${rows.items.length} loaded shown (${rows.total} match)`;
+  const toAdd = shown.filter((i) => !picked.has(i.id));
+  const toRemove = shown.filter((i) => picked.has(i.id));
   return (
     <>
-      <p className={styles.count}>{count}</p>
+      <div className={styles.countRow}>
+        <p className={styles.count}>{count}</p>
+        <div className={styles.bulk}>
+          <Button
+            small
+            disabled={toAdd.length === 0}
+            onClick={() => onAddAll(toAdd)}
+          >
+            <Plus size={13} aria-hidden="true" />
+            Add all shown ({toAdd.length})
+          </Button>
+          <Button
+            small
+            disabled={toRemove.length === 0}
+            onClick={() => onRemoveAll(toRemove.map((i) => i.id))}
+          >
+            <Minus size={13} aria-hidden="true" />
+            Remove all shown ({toRemove.length})
+          </Button>
+        </div>
+      </div>
       {shown.length === 0 ? (
         <p className={styles.quiet}>
           {rows.items.length === 0 ? "No matches." : "Nothing here yet."}

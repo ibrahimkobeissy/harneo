@@ -321,6 +321,53 @@ function Builder({
     }
   }
 
+  /** Adds every given artifact, with its bundle, in one change and one notice. */
+  async function addAll(items: LibraryItem[]) {
+    if (items.length === 0) return;
+    const have = new Set(resolved?.artifacts.map((a) => a.id));
+    const adding = new Set(items.map((i) => i.id));
+    const pulled = new Set<string>();
+    await Promise.all(
+      items.map(async (item) => {
+        try {
+          for (const m of await bundleOf(item.id)) {
+            if (!have.has(m) && !adding.has(m)) pulled.add(m);
+          }
+        } catch {
+          // The bundle is pulled in by the core either way; only the notice loses its count.
+        }
+      }),
+    );
+    change((s) => items.reduce((acc, item) => addItem(acc, item.id), s));
+    const risky = items.filter(
+      (i) =>
+        i.trustScore !== null && i.trustScore < LOW_TRUST && i.findingCount > 0,
+    );
+    const what = `${items.length} ${items.length === 1 ? "artifact" : "artifacts"}`;
+    setNotice(
+      risky.length > 0
+        ? {
+            text: `Added ${what}. ${risky.length} of them ${risky.length === 1 ? "has" : "have"} low trust and security findings.`,
+            tone: "warn",
+          }
+        : {
+            text: `Added ${what}${pulled.size > 0 ? ` + ${pulled.size} bundled` : ""}`,
+            tone: "ok",
+          },
+    );
+  }
+
+  /** Removes every given artifact the user picked; bundle members others still need stay pulled in. */
+  function removeAll(ids: string[]) {
+    const mine = ids.filter((id) => spec.items.includes(id));
+    if (mine.length === 0) return;
+    change((s) => dropItems(s, mine));
+    setNotice({
+      text: `Removed ${mine.length} ${mine.length === 1 ? "artifact" : "artifacts"}`,
+      tone: "ok",
+    });
+  }
+
   /** Removes one artifact, asking first when a bundle is involved. */
   async function remove(itemId: string) {
     try {
@@ -490,7 +537,13 @@ function Builder({
         />
       )}
       <div className={styles.builder}>
-        <Picker picked={picked} onAdd={(i) => void add(i)} onRemove={remove} />
+        <Picker
+          picked={picked}
+          onAdd={(i) => void add(i)}
+          onRemove={remove}
+          onAddAll={(items) => void addAll(items)}
+          onRemoveAll={removeAll}
+        />
         <Cart
           name={name}
           onName={setName}

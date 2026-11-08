@@ -745,3 +745,19 @@
   color: var(--t2);
   font-size: var(--text-body);
 }
+.countRow {
+  margin: 0 0 var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+.countRow .count {
+  margin: 0;
+}
+.bulk {
+  display: flex;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}

@@ -31,8 +31,18 @@ function stub(all: LibraryItem[]) {
 function renderPicker(picked: string[] = []) {
   const onAdd = vi.fn();
   const onRemove = vi.fn();
-  render(<Picker picked={new Set(picked)} onAdd={onAdd} onRemove={onRemove} />);
-  return { onAdd, onRemove };
+  const onAddAll = vi.fn();
+  const onRemoveAll = vi.fn();
+  render(
+    <Picker
+      picked={new Set(picked)}
+      onAdd={onAdd}
+      onRemove={onRemove}
+      onAddAll={onAddAll}
+      onRemoveAll={onRemoveAll}
+    />,
+  );
+  return { onAdd, onRemove, onAddAll, onRemoveAll };
 }
 
 describe("Picker", () => {
@@ -131,5 +141,40 @@ describe("Picker", () => {
     });
     renderPicker();
     expect(await screen.findByRole("alert")).toHaveTextContent("did not load");
+  });
+
+  it("adds or removes every artifact shown, after the search, in one click", async () => {
+    const user = userEvent.setup();
+    stub([item("alpha"), item("alps"), item("beta")]);
+    const { onAddAll, onRemoveAll } = renderPicker([item("alps").id]);
+    await screen.findByText("Showing 3 of 3");
+    expect(
+      screen.getByRole("button", { name: "Add all shown (2)" }),
+    ).toBeEnabled();
+    await user.type(
+      screen.getByRole("textbox", { name: "Search library" }),
+      "al",
+    );
+    await screen.findByText("Showing 2 of 2");
+    await user.click(screen.getByRole("button", { name: "Add all shown (1)" }));
+    expect(onAddAll).toHaveBeenCalledWith([
+      expect.objectContaining({ name: "alpha" }),
+    ]);
+    await user.click(
+      screen.getByRole("button", { name: "Remove all shown (1)" }),
+    );
+    expect(onRemoveAll).toHaveBeenCalledWith([item("alps").id]);
+  });
+
+  it("disables a bulk button that would do nothing", async () => {
+    stub([item("alpha")]);
+    renderPicker([item("alpha").id]);
+    await screen.findByText("Showing 1 of 1");
+    expect(
+      screen.getByRole("button", { name: "Add all shown (0)" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Remove all shown (1)" }),
+    ).toBeEnabled();
   });
 });

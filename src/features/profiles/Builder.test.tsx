@@ -394,6 +394,48 @@ describe("Builder: picker and cart", () => {
     expect(screen.getByText("Unsaved")).toBeVisible();
   });
 
+  it("adds every shown artifact with its bundles, and warns about low trust among them", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/new");
+    await screen.findByRole("button", { name: "Add review" });
+    await user.click(screen.getByRole("button", { name: /^Add all shown/ }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /^Added \d+ artifacts\. 1 of them has low trust and security findings\./,
+    );
+    await within(cart()).findByText("trust 40");
+  });
+
+  it("adds the shown artifacts after a search, with the bundled count", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/new");
+    await screen.findByRole("button", { name: "Add review" });
+    await user.type(
+      screen.getByRole("textbox", { name: "Search library" }),
+      "review",
+    );
+    // Both review and its subagent match: adding both counts the subagent as picked, not bundled.
+    await screen.findByRole("button", { name: "Add all shown (2)" });
+    await user.click(screen.getByRole("button", { name: "Skills" }));
+    await user.click(
+      await screen.findByRole("button", { name: "Add all shown (1)" }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Added 1 artifact + 1 bundled",
+    );
+    await within(cart()).findByText("pulled in by review");
+  });
+
+  it("removes every shown artifact the profile picked", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/4", { spec: { ...base, items: ["T"] } });
+    await screen.findByRole("button", { name: "Added tdd, remove" });
+    await user.click(screen.getByRole("button", { name: /^Remove all shown/ }));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Removed 1 artifact",
+    );
+    await within(cart()).findByText(/Nothing yet/);
+  });
+
   it("warns when the added artifact has a low trust score", async () => {
     const user = userEvent.setup();
     await setup("/profiles/new");
