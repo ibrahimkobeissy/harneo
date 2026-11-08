@@ -15,6 +15,39 @@ function after(raw: string, pattern: RegExp, fallback: string): string {
 }
 
 /** The "nothing found" message, also used when a local scan comes back empty. */
+/** `git@host:owner/repo.git` for an HTTPS repo URL (a `/tree/<branch>/…` tail dropped), or null. */
+export function sshForm(url: string): string | null {
+  const m =
+    /^https?:\/\/([^/@\s]+)\/([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/.*)?$/.exec(
+      url.trim(),
+    );
+  return m ? `git@${m[1]}:${m[2]}/${m[3]}.git` : null;
+}
+
+/** The host of an SSH URL (`git@host:…` or `ssh://user@host/…`), or null. */
+function sshHost(url: string): string | null {
+  const m =
+    /^ssh:\/\/(?:[^@/]+@)?([^/:]+)/.exec(url.trim()) ??
+    /^[^@\s/]+@([^:/\s]+):/.exec(url.trim());
+  return m?.[1] ?? null;
+}
+
+/**
+ * What to do when a repo needs a login (or doesn't exist): the advice depends on the URL, since
+ * an SSH agent is only used for SSH URLs and Harneo never prompts for a password (#264).
+ */
+export function authAdvice(shown: string): string {
+  const host = sshHost(shown);
+  if (host) {
+    return `SSH could not log in to ${host} for ${shown}, or the repository does not exist. Check that your key is loaded (ssh-add -l), that “ssh -T git@${host}” works, and that Harneo was started from a session that sees your SSH agent.`;
+  }
+  const ssh = sshForm(shown);
+  const use = ssh
+    ? `its SSH form, ${ssh},`
+    : "its SSH form (git@host:owner/repo.git)";
+  return `Authentication required for ${shown}, or the repository does not exist. This is an HTTPS URL and Harneo never asks for a password. For a private repo, use ${use} with a key loaded in your SSH agent, or set up a git credential helper (for example “gh auth setup-git”).`;
+}
+
 export function nothingFound(shown: string): string {
   return `No artifacts found in ${shown}. Harneo looks for .claude/, CLAUDE.md, .mcp.json and loose SKILL.md files.`;
 }
@@ -35,9 +68,7 @@ export function describeFailure(
     );
   }
   if (raw.includes("needs credentials or does not exist")) {
-    return say(
-      `Authentication required for ${shown}. Harneo never asks for a password: use a public URL, or load an SSH key in your agent.`,
-    );
+    return say(authAdvice(shown));
   }
   if (raw.includes("cannot reach the git repository")) {
     return say(

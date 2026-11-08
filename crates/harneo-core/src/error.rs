@@ -113,8 +113,9 @@ pub enum Error {
     },
     /// The repository needs a login, or does not exist (hosts answer the same for both).
     #[error(
-        "{url} needs credentials or does not exist; Harneo never asks for a password, so use a \
-         public URL or an SSH key loaded in your agent"
+        "{url} needs credentials or does not exist; Harneo never asks for a password: for a \
+         private repo, use its SSH URL (git@host:owner/repo.git) with a key loaded in your SSH \
+         agent, or a git credential helper for HTTPS"
     )]
     GitAuthRequired {
         /// The URL, with credentials removed.

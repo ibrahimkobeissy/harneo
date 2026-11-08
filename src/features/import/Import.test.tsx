@@ -405,7 +405,7 @@ describe("Import screen", () => {
     ],
     [
       "https://x/y needs credentials or does not exist; Harneo never",
-      /Authentication required/,
+      /This is an HTTPS URL/,
     ],
     [
       "the repository has no branch or tag named dev",
