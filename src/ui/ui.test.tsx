@@ -6,11 +6,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   Badge,
   Button,
+  Checkbox,
   EmptyState,
   FileTree,
   Kbd,
   NavItem,
   Panel,
+  Radio,
   Screen,
   Tag,
 } from ".";
@@ -232,5 +234,57 @@ describe("FileTree collapsible options", () => {
     expect(
       screen.getByRole("treeitem", { name: /^a\// }),
     ).not.toHaveTextContent(/\d/);
+  });
+});
+
+describe("Checkbox", () => {
+  it("is a real checkbox named by its label, toggled by clicking the label", async () => {
+    const onChange = vi.fn();
+    render(
+      <label>
+        <Checkbox checked={false} onChange={onChange} />
+        Also delete backups
+      </label>,
+    );
+    const box = screen.getByRole("checkbox", { name: "Also delete backups" });
+    await userEvent.click(screen.getByText("Also delete backups"));
+    expect(onChange).toHaveBeenCalledOnce();
+    box.focus();
+    await userEvent.keyboard(" ");
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it("sets the native indeterminate state and cannot be used when disabled", async () => {
+    const onChange = vi.fn();
+    render(
+      <Checkbox aria-label="All" indeterminate disabled onChange={onChange} />,
+    );
+    const box = screen.getByRole("checkbox", { name: "All" });
+    expect(box).toBeDisabled();
+    expect((box as HTMLInputElement).indeterminate).toBe(true);
+    await userEvent.click(box);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("Radio", () => {
+  it("is a real radio that selects on click and by keyboard within its group", async () => {
+    const onChange = vi.fn();
+    render(
+      <fieldset>
+        <label>
+          <Radio name="g" defaultChecked onChange={() => onChange("a")} />
+          Whole plugin
+        </label>
+        <label>
+          <Radio name="g" onChange={() => onChange("b")} />
+          Pick parts
+        </label>
+      </fieldset>,
+    );
+    expect(screen.getByRole("radio", { name: "Whole plugin" })).toBeChecked();
+    await userEvent.click(screen.getByText("Pick parts"));
+    expect(screen.getByRole("radio", { name: "Pick parts" })).toBeChecked();
+    expect(onChange).toHaveBeenCalledWith("b");
   });
 });

@@ -1,8 +1,8 @@
 import { ChevronRight, Info } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
-import { Badge } from "../../ui";
+import { Badge, Checkbox, Radio } from "../../ui";
 import type { WholeNote } from "../../ui/plugin";
 import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
@@ -57,8 +57,7 @@ export function PluginChoice({
           const unavailable = why !== null;
           return (
             <label key={value} className={styles.choiceOption}>
-              <input
-                type="radio"
+              <Radio
                 name={base}
                 checked={mode === value}
                 aria-disabled={unavailable || busy}
@@ -115,8 +114,8 @@ function Part({
   return (
     <li className={styles.part}>
       <label className={styles.partLabel}>
-        <input
-          type="checkbox"
+        <span className={styles.slot} aria-hidden="true" />
+        <Checkbox
           checked={reason === null && ticked}
           aria-disabled={reason !== null}
           aria-describedby={reason ? reasonId : undefined}
@@ -163,18 +162,13 @@ function AllBox({
   total: number;
   onSet: (on: boolean) => void;
 }) {
-  const box = useRef<HTMLInputElement>(null);
   const some = ticked > 0 && ticked < total;
-  useEffect(() => {
-    if (box.current) box.current.indeterminate = some;
-  }, [some]);
   return (
-    <input
-      ref={box}
-      type="checkbox"
+    <Checkbox
       aria-label={label}
       aria-checked={some ? "mixed" : ticked === total && total > 0}
       checked={ticked === total && total > 0}
+      indeterminate={some}
       disabled={total === 0}
       onChange={() => onSet(ticked < total)}
     />
@@ -226,6 +220,13 @@ export function PluginParts({
   const byKind = groupByKind(group.parts).map(
     ([kind, list]) => [kindPlurals[kind], list] as [string, Candidate[]],
   );
+  const toggleKind = (plural: string) =>
+    setShut((prev) => {
+      const next = new Set(prev);
+      if (next.has(plural)) next.delete(plural);
+      else next.add(plural);
+      return next;
+    });
   const tickedOf = (list: Candidate[]) =>
     list.filter((c) => needsPlugin(c) === null && !excluded.has(c.id)).length;
   const ids = (list: Candidate[]) =>
@@ -234,6 +235,15 @@ export function PluginParts({
   return (
     <div className={styles.parts}>
       <div className={styles.partsHead}>
+        <button
+          type="button"
+          className={`${styles.chevron} ${styles.toggle}`}
+          aria-hidden="true"
+          tabIndex={-1}
+          onClick={() => setOpen(!open)}
+        >
+          <ChevronRight size={14} aria-hidden="true" data-open={open} />
+        </button>
         <AllBox
           label={`All parts of ${group.name}`}
           ticked={ticked}
@@ -247,7 +257,6 @@ export function PluginParts({
           aria-controls={bodyId}
           onClick={() => setOpen(!open)}
         >
-          <ChevronRight size={14} aria-hidden="true" data-open={open} />
           <span>{open ? "Parts" : `${group.parts.length} parts`}</span>
         </button>
         <span className={styles.muted} aria-live="polite">
@@ -265,6 +274,19 @@ export function PluginParts({
                 aria-label={`${plural} of ${group.name}, ${list.length}`}
               >
                 <div className={styles.kindHead}>
+                  <button
+                    type="button"
+                    className={`${styles.chevron} ${styles.toggle}`}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    onClick={() => toggleKind(plural)}
+                  >
+                    <ChevronRight
+                      size={12}
+                      aria-hidden="true"
+                      data-open={!folded}
+                    />
+                  </button>
                   <AllBox
                     label={`All ${plural.toLowerCase()} of ${group.name}`}
                     ticked={tickedOf(list)}
@@ -276,20 +298,8 @@ export function PluginParts({
                     className={`${styles.toggle} ${styles.subhead}`}
                     aria-expanded={!folded}
                     aria-controls={kindId}
-                    onClick={() =>
-                      setShut((prev) => {
-                        const next = new Set(prev);
-                        if (folded) next.delete(plural);
-                        else next.add(plural);
-                        return next;
-                      })
-                    }
+                    onClick={() => toggleKind(plural)}
                   >
-                    <ChevronRight
-                      size={12}
-                      aria-hidden="true"
-                      data-open={!folded}
-                    />
                     {plural} <span className={styles.count}>{list.length}</span>
                   </button>
                 </div>

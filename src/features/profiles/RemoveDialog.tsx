@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Checkbox } from "../../ui";
 import { Dialog } from "./Dialog";
 import styles from "./Builder.module.css";
 
@@ -58,8 +59,7 @@ export function RemoveDialog({
         You also picked {members.join(", ")}, which only {name} needs.
       </p>
       <label className={styles.check}>
-        <input
-          type="checkbox"
+        <Checkbox
           checked={alsoMembers}
           onChange={(e) => setAlsoMembers(e.target.checked)}
         />

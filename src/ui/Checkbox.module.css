@@ -1,0 +1,78 @@
+/* 15px box, 4px corners; the real input sits invisibly on top and takes the clicks and focus. */
+.box {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  /* centres the box on the first 13px text line */
+  margin-top: 2px;
+  vertical-align: text-bottom;
+}
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.mark {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: var(--hairline) solid var(--line2);
+  border-radius: var(--radius-xs);
+  background: var(--raised);
+  pointer-events: none;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.input:hover + .mark {
+  border-color: var(--t3);
+}
+.input:checked + .mark,
+.input:indeterminate + .mark {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.input:checked + .mark::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--on-blue);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.input:indeterminate + .mark::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  top: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--on-blue);
+}
+.input:focus-visible + .mark {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: 2px;
+}
+.input:disabled,
+.input[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.input:disabled + .mark,
+.input[aria-disabled="true"] + .mark {
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark {
+    transition: none;
+  }
+}

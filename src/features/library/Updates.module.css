@@ -212,9 +212,6 @@
   border-color: var(--blue);
   box-shadow: 0 0 0 3px var(--blue-ring);
 }
-.choice input {
-  margin-top: 3px;
-}
 .choice b {
   display: block;
   font-weight: 600;

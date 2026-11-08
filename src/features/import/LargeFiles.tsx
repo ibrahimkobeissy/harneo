@@ -1,5 +1,6 @@
 import { FileWarning } from "lucide-react";
 import type { Candidate } from "../../bindings/Candidate";
+import { Checkbox } from "../../ui";
 import styles from "./Import.module.css";
 
 /**
@@ -25,11 +26,7 @@ export function LargeFilesChoice({
       <FileWarning size={16} aria-hidden="true" />
       <div>
         <label className={styles.check}>
-          <input
-            type="checkbox"
-            checked={on}
-            onChange={(e) => onChange(e.target.checked)}
-          />
+          <Checkbox checked={on} onChange={(e) => onChange(e.target.checked)} />
           <span>
             <b>Copy large files too</b>{" "}
             {`${files} ${files === 1 ? "file" : "files"} over 1 MiB in ${names}`}

@@ -2,7 +2,7 @@ import { TriangleAlert } from "lucide-react";
 import { useId, useState, type FormEvent } from "react";
 import { Modal } from "../../app/Modal";
 import { resetHarneo } from "../../lib/ipc";
-import { Button } from "../../ui";
+import { Button, Checkbox } from "../../ui";
 import { Group } from "./Group";
 import styles from "./Settings.module.css";
 
@@ -99,8 +99,7 @@ function ResetDialog({
             Your project files and <code>~/.claude</code> are never touched.
           </p>
           <label className={styles.check}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={backups}
               disabled={busy}
               onChange={(e) => setBackups(e.target.checked)}

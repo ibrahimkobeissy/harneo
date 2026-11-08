@@ -1,0 +1,63 @@
+/* 15px round control; the real input sits invisibly on top and takes the clicks and focus. */
+.radio {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  /* centres the control on the first 13px text line */
+  margin-top: 2px;
+  vertical-align: text-bottom;
+}
+.input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.mark {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: var(--hairline) solid var(--line2);
+  border-radius: 50%;
+  background: var(--raised);
+  pointer-events: none;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
+}
+.input:hover + .mark {
+  border-color: var(--t3);
+}
+.input:checked + .mark {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.input:checked + .mark::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--on-blue);
+}
+.input:focus-visible + .mark {
+  outline: var(--hairline-strong) solid var(--blue);
+  outline-offset: 2px;
+}
+.input:disabled,
+.input[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+.input:disabled + .mark,
+.input[aria-disabled="true"] + .mark {
+  opacity: 0.6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mark {
+    transition: none;
+  }
+}

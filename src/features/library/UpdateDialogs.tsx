@@ -7,7 +7,7 @@ import type { UpdateChoice } from "../../bindings/UpdateChoice";
 import type { UpdateReport } from "../../bindings/UpdateReport";
 import { Modal } from "../../app/Modal";
 import { libraryList, updateAll, updateApply, updateDiff } from "../../lib/ipc";
-import { Button } from "../../ui";
+import { Button, Radio } from "../../ui";
 import styles from "./Updates.module.css";
 import { useEscape } from "./useEscape";
 
@@ -366,8 +366,7 @@ export function LocalEditDialog({
           <fieldset className={styles.choices} disabled={busy}>
             <legend className={styles.sr}>Which version to keep</legend>
             <label className={styles.choice} data-on={choice === "keepMine"}>
-              <input
-                type="radio"
+              <Radio
                 name="keep"
                 checked={choice === "keepMine"}
                 onChange={() => setChoice("keepMine")}
@@ -384,8 +383,7 @@ export function LocalEditDialog({
               className={styles.choice}
               data-on={choice === "takeUpstream"}
             >
-              <input
-                type="radio"
+              <Radio
                 name="keep"
                 checked={choice === "takeUpstream"}
                 onChange={() => setChoice("takeUpstream")}
