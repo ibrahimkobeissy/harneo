@@ -62,6 +62,24 @@
         ],
         "createdAt": "2026-10-21T18:56:24.196Z",
         "reason": "intentional: unchosen decision-round sketch with its own direction's fonts; spent hand, not shipped"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/brag/02-harnmap-harnfit/composition/compositions/harnmap.html"
+        ],
+        "createdAt": "2026-11-08T18:34:28.769Z",
+        "reason": "Claude: video state swaps; images start at opacity 0 and GSAP cuts them in on the beat (verified in rendered frames)"
+      },
+      {
+        "rule": "buried-raster",
+        "value": "*",
+        "files": [
+          "docs/brag/02-harnmap-harnfit/composition/compositions/harnfit.html"
+        ],
+        "createdAt": "2026-11-08T18:34:28.788Z",
+        "reason": "Claude: video state swaps; images start at opacity 0 and GSAP cuts them in on the beat (verified in rendered frames)"
       }
     ]
   }
