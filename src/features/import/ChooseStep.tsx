@@ -351,6 +351,9 @@ export function ChooseStep({
   const refocusRestore = useRef<string | null>(null);
   // Set by a bulk restore that left critical rows out.
   const [skipNote, setSkipNote] = useState<string | null>(null);
+  // Plugins in Pick parts mode taken out with their × (by folder): listed under Excluded
+  // as one row while every part stays excluded (#260).
+  const [dropped, setDropped] = useState<ReadonlySet<string>>(new Set());
 
   useEffect(() => {
     const id = refocusRestore.current;
@@ -371,6 +374,14 @@ export function ChooseStep({
   const shown = all.filter((c) => fromPlugin(c) === null);
   const plugins = pluginGroups(all);
   const unpacked = plugins.filter((g) => g.parts.length > 0);
+  /** The parts of an unpacked plugin that can be picked, the ones its × excludes. */
+  const partIds = (g: (typeof plugins)[number]) =>
+    g.parts.filter((c) => needsPlugin(c) === null).map((c) => c.id);
+  const isDropped = (g: (typeof plugins)[number]) =>
+    dropped.has(g.folder) &&
+    partIds(g).length > 0 &&
+    partIds(g).every((id) => excluded.has(id));
+  const droppedGroups = unpacked.filter(isDropped);
   const wholeGroups = new Map(
     plugins.flatMap((g) => (g.whole ? [[g.whole.id, g] as const] : [])),
   );
@@ -404,6 +415,7 @@ export function ChooseStep({
   const riskyBack = riskyIds.filter((c) => criticalRule(c) === null);
   const toImport = free.filter((c) => !excluded.has(c.id)).length;
   const gone = shown.filter((c) => excluded.has(c.id));
+  const goneCount = gone.length + droppedGroups.length;
   const excludedCount = all.filter((c) => excluded.has(c.id)).length;
   const note = managedNote(preview.diagnostics);
 
@@ -447,6 +459,21 @@ export function ChooseStep({
     const at = visible.indexOf(id);
     focusAfter.current = visible[at + 1] ?? visible[at - 1] ?? null;
     onExclude([id]);
+  }
+
+  /** Excludes every part of a plugin in Pick parts mode; it then shows under Excluded. */
+  function excludePlugin(g: (typeof plugins)[number]) {
+    setDropped((prev) => new Set(prev).add(g.folder));
+    onExclude(partIds(g));
+  }
+
+  function restorePlugin(g: (typeof plugins)[number]) {
+    setDropped((prev) => {
+      const next = new Set(prev);
+      next.delete(g.folder);
+      return next;
+    });
+    onRestore(partIds(g));
   }
 
   return (
@@ -544,7 +571,8 @@ export function ChooseStep({
         )}
         {groups.map(([kind, everyone]) => {
           const list = everyone.filter((c) => !excluded.has(c.id));
-          const nested = kind === "plugin" ? unpacked : [];
+          const nested =
+            kind === "plugin" ? unpacked.filter((g) => !isDropped(g)) : [];
           if (list.length + nested.length === 0) return null;
           const ids = list.filter((c) => !c.alreadyInLibrary).map((c) => c.id);
           const back = everyone.filter((c) => excluded.has(c.id));
@@ -689,6 +717,19 @@ export function ChooseStep({
                           </span>
                         </span>
                       </div>
+                      {partIds(g).length === 0 ? (
+                        <span className={styles.xslot} />
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.x}
+                          data-xid={`plugin:${g.folder}`}
+                          aria-label={`Exclude ${g.name}`}
+                          onClick={() => excludePlugin(g)}
+                        >
+                          <X size={14} aria-hidden="true" />
+                        </button>
+                      )}
                     </div>
                     <PluginChoice
                       group={g}
@@ -709,31 +750,63 @@ export function ChooseStep({
             </section>
           );
         })}
-        {gone.length > 0 && (
+        {goneCount > 0 && (
           <section
             className={styles.group}
-            aria-label={`Excluded, ${gone.length}`}
+            aria-label={`Excluded, ${goneCount}`}
           >
             <header className={styles.ghead}>
               <button
                 type="button"
                 className={styles.toggle}
-                aria-expanded={!isCollapsed(EXCLUDED, gone.length)}
-                aria-label={`${isCollapsed(EXCLUDED, gone.length) ? "Expand" : "Collapse"} Excluded`}
+                aria-expanded={!isCollapsed(EXCLUDED, goneCount)}
+                aria-label={`${isCollapsed(EXCLUDED, goneCount) ? "Expand" : "Collapse"} Excluded`}
                 onClick={() =>
-                  setCollapsed(EXCLUDED, !isCollapsed(EXCLUDED, gone.length))
+                  setCollapsed(EXCLUDED, !isCollapsed(EXCLUDED, goneCount))
                 }
               >
                 <ChevronRight
                   size={14}
                   aria-hidden="true"
-                  data-open={!isCollapsed(EXCLUDED, gone.length)}
+                  data-open={!isCollapsed(EXCLUDED, goneCount)}
                 />
                 <span>Excluded</span>
-                <span className={styles.count}>({gone.length})</span>
+                <span className={styles.count}>({goneCount})</span>
               </button>
             </header>
-            {!isCollapsed(EXCLUDED, gone.length) &&
+            {!isCollapsed(EXCLUDED, goneCount) &&
+              droppedGroups.map((g) => (
+                <div key={`dropped-${g.folder}`} className={styles.item}>
+                  <div className={styles.line1}>
+                    <div className={styles.pick} data-excluded="true">
+                      <span className={styles.grow}>
+                        <span className={styles.title}>
+                          <b>{g.name}</b>
+                          <span className={styles.origin}>
+                            Plugin, parts only
+                          </span>
+                          <span className={styles.origin}>
+                            {plural(partIds(g).length, "part")}
+                          </span>
+                        </span>
+                        <span className={`${styles.line} ${styles.block}`}>
+                          <span className={styles.mono}>{g.folder || "."}</span>
+                        </span>
+                      </span>
+                    </div>
+                    <Button
+                      small
+                      variant="ghost"
+                      data-rid={`plugin:${g.folder}`}
+                      aria-label={`Restore ${g.name}`}
+                      onClick={() => restorePlugin(g)}
+                    >
+                      Restore
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            {!isCollapsed(EXCLUDED, goneCount) &&
               gone.map((c) => {
                 const open = opened.has(c.id);
                 const wg = refused.has(c.id)

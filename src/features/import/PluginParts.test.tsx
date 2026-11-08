@@ -247,6 +247,43 @@ describe("choosing a plugin's parts", () => {
   });
 });
 
+describe("excluding a plugin in Pick parts mode (#260)", () => {
+  it("takes the plugin out with its ×, lists it under Excluded and restores every part", async () => {
+    const user = userEvent.setup();
+    const calls = setup();
+    await toChoose(user);
+    await user.click(pick());
+    await screen.findByRole("checkbox", { name: /alpha/ });
+    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Exclude toolbox" }));
+    // The plugin and its parts leave the list; only the loose skill is left to import.
+    expect(screen.queryByRole("checkbox", { name: /alpha/ })).toBeNull();
+    expect(screen.getByText(/1 to import/)).toBeInTheDocument();
+    const out = screen.getByRole("region", { name: "Excluded, 1" });
+    expect(within(out).getByText("toolbox")).toBeVisible();
+    expect(within(out).getByText("4 parts")).toBeVisible();
+
+    await user.click(
+      within(out).getByRole("button", { name: "Restore toolbox" }),
+    );
+    expect(
+      await screen.findByRole("checkbox", { name: /alpha/ }),
+    ).toBeChecked();
+    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: /^Excluded/ })).toBeNull();
+
+    // Unticking every part by hand keeps the plugin in place, still offering its boxes.
+    for (const name of [/alpha/, /beta/, /gamma/, /db/])
+      await user.click(screen.getByRole("checkbox", { name }));
+    expect(screen.getByRole("checkbox", { name: /alpha/ })).not.toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Exclude toolbox" }),
+    ).toBeVisible();
+    expect(calls.some((c) => c.cmd === "library_import")).toBe(false);
+  });
+});
+
 describe("folding a plugin's parts", () => {
   const many = Array.from({ length: FOLD_OVER + 1 }, (_, i) =>
     candidate(`s${i}`, "skill", `skills/s${i}`, from),
