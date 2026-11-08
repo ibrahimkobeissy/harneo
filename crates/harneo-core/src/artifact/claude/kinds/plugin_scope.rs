@@ -3,7 +3,12 @@
 //!
 //! The scope is the manifest (and a `marketplace.json` beside it), the components the manifest
 //! declares or Claude Code's default folders hold, the files those components reference through
-//! `${CLAUDE_PLUGIN_ROOT}`, and the root `README*` and `LICENSE*`. Nothing else in the folder.
+//! `${CLAUDE_PLUGIN_ROOT}`, and the root `README*` and `LICENSE*`.
+//!
+//! The scope no longer limits the files a whole plugin keeps: that is its whole folder, minus
+//! nested plugins and skipped folders (ADR-005, `plugin_folder`). The scope still decides the
+//! pickable parts when the plugin is unpacked, why it must stay whole and which components it
+//! shows; files outside it are the plugin's other files.
 //!
 //! Manifest fields read, combined with their defaults as Claude Code's plugin reference says
 //! ("How each key combines with its default location", checked 2026-10-25):
@@ -74,9 +79,10 @@ pub(super) struct Scope {
     pub(super) files: BTreeSet<PathBuf>,
 }
 
-/// The listed files of `folder` that belong to the plugin whose manifest metadata is `metadata`
-/// (what `plugin.json` holds besides `name` and `description`). Diagnostics about files outside
-/// the scope are dropped; escaping paths are reported in `diagnostics`.
+/// The listed files of `folder` in the component scope of the plugin whose manifest metadata is
+/// `metadata` (what `plugin.json` holds besides `name` and `description`). Diagnostics about files
+/// outside the scope are dropped; escaping paths are reported in `diagnostics`. A whole plugin
+/// keeps more than this (ADR-005).
 pub(super) fn scoped_files(
     walker: &mut Walker,
     folder: &Path,

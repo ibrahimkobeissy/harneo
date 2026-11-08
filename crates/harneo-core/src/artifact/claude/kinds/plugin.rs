@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{Map, Value};
 
-use super::plugin_scope;
+use super::{plugin_folder, plugin_scope};
 use crate::artifact::walk::{resolve_reference, Walker};
 use crate::artifact::{rel_string, Artifact, ArtifactKind, Diagnostic, ScanReport};
 
@@ -86,8 +86,9 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
     }
 }
 
-/// Reads the plugin folder `folder`, which holds a `plugin.json`. Its files are its manifest and
-/// components, not the whole folder (see [`plugin_scope`]).
+/// Reads the plugin folder `folder`, which holds a `plugin.json`. Its files are its whole folder
+/// minus nested plugins and skipped folders (ADR-005, see [`plugin_folder`]); the component scope
+/// ([`plugin_scope`]) decides the pickable parts and reports paths that leave the folder.
 pub(crate) fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
     let mut walk_diagnostics = Vec::new();
     let text = walker.read_text(&manifest_path(folder), &mut walk_diagnostics);
@@ -97,8 +98,8 @@ pub(crate) fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
         // Not parsed: the walk's diagnostic says why.
         artifact.diagnostics.clear();
     }
-    artifact.files =
-        plugin_scope::scoped_files(walker, folder, &artifact.metadata, &mut walk_diagnostics);
+    plugin_scope::scoped_files(walker, folder, &artifact.metadata, &mut walk_diagnostics);
+    artifact.files = plugin_folder::folder_files(walker, folder, &mut walk_diagnostics);
     artifact.diagnostics.extend(walk_diagnostics);
     artifact
 }

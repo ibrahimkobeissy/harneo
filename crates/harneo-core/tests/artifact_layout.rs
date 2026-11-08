@@ -309,8 +309,20 @@ fn plugin_files(report: &ScanReport) -> Result<Vec<&str>, Box<dyn std::error::Er
     Ok(plugin.files.iter().map(String::as_str).collect())
 }
 
+/// The names the plugin at the scan root offers when unpacked: its component scope.
+fn parts(root: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let options = ScanOptions {
+        unpack: vec![String::new()],
+        ..ScanOptions::default()
+    };
+    let report = ClaudeAdapter.scan(root, &options)?;
+    let mut names: Vec<String> = report.artifacts.iter().map(|a| a.name.clone()).collect();
+    names.sort();
+    Ok(names)
+}
+
 #[test]
-fn plugin_files_follow_the_manifest_not_the_whole_repo() -> TestResult {
+fn a_plugin_at_the_repo_root_keeps_the_whole_repo_but_unpacks_to_its_components() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(
@@ -339,23 +351,32 @@ fn plugin_files_follow_the_manifest_not_the_whole_repo() -> TestResult {
         write(r, f, "x")?;
     }
     let report = scan(r)?;
+    // ADR-005: the whole folder, as Claude Code installs it.
     assert_eq!(
         plugin_files(&report)?,
         [
+            ".changeset/x.md",
             ".claude-plugin/marketplace.json",
             ".claude-plugin/plugin.json",
+            ".github/ci.yml",
+            "CHANGELOG.md",
             "LICENSE",
             "README.md",
+            "SCOPE.md",
+            "docs/a.md",
             "skills/eng/a/SKILL.md",
             "skills/eng/a/notes.md",
             "skills/eng/b/SKILL.md",
+            "skills/misc/c/SKILL.md",
         ]
     );
+    // The manifest still decides the pickable parts.
+    assert_eq!(parts(r)?, ["a", "b"]);
     Ok(())
 }
 
 #[test]
-fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
+fn plugin_without_component_fields_unpacks_the_default_folders_and_keeps_the_rest() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(r, ".claude-plugin/plugin.json", r#"{"name":"p"}"#)?;
@@ -382,7 +403,8 @@ fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
     ] {
         assert!(files.contains(f), "{f} missing in {files}");
     }
-    assert!(!files.contains("docs/") && !files.contains("scripts/"));
+    assert!(files.contains("docs/x.md") && files.contains("scripts/unreferenced.sh"));
+    assert_eq!(parts(r)?, ["a", "c", "o", "s"]);
     Ok(())
 }
 
@@ -416,12 +438,16 @@ fn plugin_scope_follows_how_claude_code_combines_each_key() -> TestResult {
         write(r, f, "{}")?;
     }
     let files = plugin_files(&scan(r)?)?.join(",");
-    // `skills` adds to the default folder; `commands` and monitors replace theirs.
+    // Every file is kept (ADR-005); the component scope decides the parts: `skills` adds to the
+    // default folder, `commands` replaces its own.
     for f in [
         "skills/kept/SKILL.md",
+        "skills/group/nested/SKILL.md",
         "extra/x/SKILL.md",
         "cmds/a.md",
+        "commands/ignored.md",
         "mon.json",
+        "monitors/monitors.json",
         "scripts/poll.sh",
         "bin/tool",
         "settings.json",
@@ -429,13 +455,7 @@ fn plugin_scope_follows_how_claude_code_combines_each_key() -> TestResult {
     ] {
         assert!(files.contains(f), "{f} missing in {files}");
     }
-    for f in [
-        "skills/group/nested/SKILL.md",
-        "commands/ignored.md",
-        "monitors/monitors.json",
-    ] {
-        assert!(!files.contains(f), "{f} should be out of scope: {files}");
-    }
+    assert_eq!(parts(r)?, ["a", "kept", "x"]);
     Ok(())
 }
 
@@ -455,7 +475,7 @@ fn a_root_skill_plugin_keeps_its_whole_folder() -> TestResult {
 }
 
 #[test]
-fn hook_script_reference_is_included_and_an_escaping_one_is_reported() -> TestResult {
+fn a_plugin_keeps_its_folder_and_an_escaping_reference_is_reported() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(r, "outside.sh", "x")?;
@@ -472,7 +492,7 @@ fn hook_script_reference_is_included_and_an_escaping_one_is_reported() -> TestRe
     let report = scan(r)?;
     let files = plugin_files(&report)?;
     assert!(files.contains(&"p/scripts/x.sh"));
-    assert!(!files.contains(&"p/scripts/other.sh"));
+    assert!(files.contains(&"p/scripts/other.sh"));
     assert!(!files.contains(&"outside.sh"));
     let plugin = report.artifacts.first().ok_or("plugin")?;
     assert!(plugin
@@ -483,7 +503,7 @@ fn hook_script_reference_is_included_and_an_escaping_one_is_reported() -> TestRe
 }
 
 #[test]
-fn declared_paths_leaving_the_plugin_are_reported_and_skipped() -> TestResult {
+fn declared_paths_leaving_the_plugin_are_reported_and_not_included() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(r, "other/a.md", "x")?;
@@ -497,7 +517,7 @@ fn declared_paths_leaving_the_plugin_are_reported_and_skipped() -> TestResult {
     let report = scan(r)?;
     let files = plugin_files(&report)?;
     assert!(files.contains(&"p/cmd/x.md"));
-    assert!(!files.contains(&"p/commands/ignored.md"));
+    assert!(files.contains(&"p/commands/ignored.md"));
     assert!(!files.contains(&"other/a.md"));
     let plugin = report.artifacts.first().ok_or("plugin")?;
     assert!(plugin
@@ -508,7 +528,7 @@ fn declared_paths_leaving_the_plugin_are_reported_and_skipped() -> TestResult {
 }
 
 #[test]
-fn skills_naming_the_plugin_root_take_only_skill_folders() -> TestResult {
+fn skills_naming_the_plugin_root_unpack_to_skill_folders_only() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(
@@ -519,12 +539,13 @@ fn skills_naming_the_plugin_root_take_only_skill_folders() -> TestResult {
     skill(r, "one/SKILL.md")?;
     write(r, "docs/x.md", "x")?;
     let files = plugin_files(&scan(r)?)?.join(",");
-    assert!(files.contains("one/SKILL.md") && !files.contains("docs/"));
+    assert!(files.contains("one/SKILL.md") && files.contains("docs/x.md"));
+    assert_eq!(parts(r)?, ["one"]);
     Ok(())
 }
 
 #[test]
-fn audit_of_a_scoped_plugin_reads_no_file_outside_the_scope() -> TestResult {
+fn audit_of_a_whole_plugin_reads_every_file_of_its_folder() -> TestResult {
     use harneo_core::audit::AuditInput;
     let dir = tempfile::tempdir()?;
     let r = dir.path();
@@ -541,9 +562,7 @@ fn audit_of_a_scoped_plugin_reads_no_file_outside_the_scope() -> TestResult {
     let input = AuditInput::read(plugin, r, &ScanOptions::default());
     let read: Vec<&str> = input.files.iter().map(|f| f.path.as_str()).collect();
     assert!(read.contains(&"skills/a/SKILL.md"));
-    assert!(read
-        .iter()
-        .all(|p| !p.starts_with("docs/") && !p.starts_with("scripts/")));
+    assert!(read.contains(&"docs/guide.md") && read.contains(&"scripts/test.sh"));
     Ok(())
 }
 
