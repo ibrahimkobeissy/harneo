@@ -326,7 +326,10 @@ function Loaded({
       }
     : undefined;
 
-  const data = useMemo(() => toMapData(view), [view]);
+  const data = useMemo(
+    () => ({ ...toMapData(view), profile: name }),
+    [view, name],
+  );
   const viewState: MapViewState = {
     ...mapView,
     hidden: view.doc.hidden,
