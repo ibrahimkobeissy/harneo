@@ -59,10 +59,12 @@ is yours to choose.\n\
 Loops are return paths between two stages (`from`, `to` by stage id), with a short label.\n\
 Per placement: `note` (at most 60 characters, shown under the name), `why` (your reasoning, at \
 most 400 characters), and `role`, `when`, `hands_off` (at most 120 characters each: what it does, \
-when it runs, what it leaves to others), and `next`: the short ids of the artifacts that are the \
-natural next steps after this one in the workflow (for example a spec command's next steps are the \
-plan and then the build), most likely first, at most 4, or an empty list when none follows \
-naturally. Name only other artifacts of the profile, never the artifact itself.\n\
+when it runs, what it leaves to others), and `next`: the immediate next step, the short ids of \
+the artifacts a user reaches for right after finishing this one. They are alternatives, ranked \
+with the most likely first, at most 3, usually in the same stage or the next one. It is not the \
+rest of the workflow: never list a chain of steps in order (after a spec command, the plan is a \
+next step; the build that follows the plan is not). Use an empty list when nothing follows \
+directly. Name only other artifacts of the profile, never the artifact itself.\n\
 Optionally `parent`: the short id of the one command, skill or subagent that this skill or \
 subagent is run through, set only when it is not meant to be started on its own and runs through \
 that parent (a command that only runs a skill is that skill's parent). Leave it out otherwise. \

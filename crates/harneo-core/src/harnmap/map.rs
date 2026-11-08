@@ -16,7 +16,7 @@ pub type StageId = String;
 pub const MAX_NOTE: usize = 60;
 /// Longest `Placement::why`, in characters.
 pub const MAX_WHY: usize = 400;
-/// Most natural next steps kept per placement.
+/// Most next steps kept per placement (the prompt asks for 3; maps drawn before kept up to 4).
 pub const MAX_NEXT: usize = 4;
 /// Most "also run by" artifacts kept per placement.
 pub const MAX_ALSO_RUN_BY: usize = 3;
@@ -91,8 +91,8 @@ pub struct Placement {
     pub role: String,
     pub when: String,
     pub hands_off: String,
-    /// Claude's reading of the natural next steps after this artifact: other artifacts of the
-    /// profile, most likely first, at most [`MAX_NEXT`]. Empty in maps drawn before it existed.
+    /// Claude's reading of the immediate next step after this artifact: alternatives among the
+    /// profile's other artifacts, most likely first, at most [`MAX_NEXT`]; never a chain. Empty in maps drawn before it existed.
     #[serde(default)]
     #[ts(as = "Option<Vec<ArtifactId>>", optional)]
     pub next: Vec<ArtifactId>,

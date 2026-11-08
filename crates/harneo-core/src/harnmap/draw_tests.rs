@@ -867,7 +867,10 @@ fn next_steps_are_kept_as_ids_without_self_unknown_or_repeats() -> TestResult {
     assert_eq!(view.doc.placements[1].next, [ids[2]]);
     // An answer that names no next steps keeps an empty list.
     assert!(view.doc.placements[2].next.is_empty());
-    assert!(f.stdin(0)?.contains("natural next steps"));
+    let prompt = f.stdin(0)?;
+    assert!(prompt.contains("the immediate next step"));
+    assert!(prompt.contains("never list a chain of steps"));
+    assert!(prompt.contains("at most 3"));
     Ok(())
 }
 

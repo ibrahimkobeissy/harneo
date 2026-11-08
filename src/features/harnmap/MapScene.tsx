@@ -106,7 +106,7 @@ export function MapScene({
       counts.set(n.zone.id, (counts.get(n.zone.id) ?? 0) + 1);
     }
   }
-  // The natural next steps of the selected artifact, as Claude read them, in order.
+  // The immediate next steps of the selected artifact, as Claude read them, most likely first.
   const selectedBox = shown.find((n) => n.id === selected);
   const nextIds = (
     selected ? (placements.get(selected)?.next ?? []) : []
