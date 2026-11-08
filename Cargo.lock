@@ -1760,7 +1760,7 @@ dependencies = [
 
 [[package]]
 name = "harneo-app"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "getrandom 0.4.3",
  "harneo-core",
@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "harneo-cli"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1794,7 +1794,7 @@ dependencies = [
 
 [[package]]
 name = "harneo-core"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "base64 0.23.1",
  "dirs",
@@ -1813,7 +1813,7 @@ dependencies = [
 
 [[package]]
 name = "harneo-report"
-version = "0.2.2"
+version = "0.3.0"
 dependencies = [
  "dirs",
  "harneo-core",

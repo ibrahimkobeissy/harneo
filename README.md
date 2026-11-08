@@ -295,6 +295,13 @@ Harneo has no server, no account and no analytics. It talks to the network in tw
 | Ask Claude about repo layouts at import | **On** | Only when an import leaves files Harneo couldn't place: file paths, manifests and the first 40 lines of the unplaced Markdown files. Secret-looking files are listed by name, never read. |
 | Detect bundles and tags at import | Off | Artifact text, to propose bundles and tags. |
 
+**Sent to Claude when you press the button**, with no setting (the button is the go-ahead, and what it sends is listed next to it):
+
+| Feature | What is sent |
+| ------- | ------------ |
+| Harnmap **Draw** / **Re-draw** | The profile's category template and stages, your pinned places, the description you typed, and for each artifact: its name, type, description, what Harneo read from its files, and up to 4,000 characters of its main file. An artifact with a secret-looking audit finding goes with its name, type and description only. |
+| **Harnfit** / **Run again** | The profile's current map, the candidate artifact in full (up to 12,000 characters), and the profile's artifacts' main files (4,000 characters each, up to 120,000 in all). |
+
 If the `claude` CLI is not installed, none of these run. Each Settings row says exactly what it sends and to whom. The model that reads your artifacts is Haiku unless you pick Sonnet or Opus in Settings.
 
 **Other network access**, nothing from your library is sent:
