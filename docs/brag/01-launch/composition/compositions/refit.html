@@ -1,0 +1,195 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #rf-stage {
+      position: absolute;
+      inset: 0;
+    }
+    .rf-eyebrow {
+      position: absolute;
+      left: 240px;
+      top: 44px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 28px;
+      letter-spacing: 0.01em;
+      color: var(--color-accent);
+    }
+    .rf-cap {
+      position: absolute;
+      left: 240px;
+      top: 92px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 56px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .rf-cap .rf-blue {
+      color: var(--color-accent);
+    }
+    #rf-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 1084px 426px;
+    }
+    #rf-win {
+      position: absolute;
+      left: 240px;
+      top: 200px;
+      width: 1440px;
+      height: 922px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow:
+        0 0 0 1px #e2e8f0,
+        0 40px 90px rgba(15, 23, 42, 0.16);
+    }
+    #rf-win img {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1440px;
+      height: 922px;
+    }
+    #rf-kept {
+      opacity: 0;
+    }
+    #rf-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 40px;
+      height: 47px;
+      transform-origin: 0 0;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="refit"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="rf-stage"
+      class="clip"
+      data-start="0"
+      data-duration="6"
+      data-layout-allow-overflow
+      data-layout-allow-overlap
+    >
+      <div id="rf-eyebrow" class="rf-eyebrow">03 · Refit</div>
+      <h2 id="rf-cap1" class="rf-cap">Refit any project.</h2>
+      <div id="rf-cam">
+        <div id="rf-win">
+          <img
+            id="rf-warn"
+            src="assets/shots/refit-warning.png"
+            alt="Refit compare: settings.json, 1 permission rule will be lost"
+          />
+          <img
+            id="rf-kept"
+            src="assets/shots/refit-kept.png"
+            alt="Refit compare after Keep"
+          />
+        </div>
+      </div>
+      <h2 id="rf-cap2" class="rf-cap">
+        <span class="rf-blue">Previewed.</span> Backed up. Reversible.
+      </h2>
+      <svg id="rf-cursor" viewBox="0 0 34 40" aria-hidden="true">
+        <path
+          d="M2 2 L2 32 L10 25 L15.5 37 L21 34.5 L15.6 23 L26 23 Z"
+          fill="#0f172a"
+          stroke="#ffffff"
+          stroke-width="2.4"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo(
+        "#rf-win",
+        { y: 260, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: "expo.out" },
+        0,
+      );
+      tl.fromTo(
+        "#rf-eyebrow",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2 },
+        0.1,
+      );
+      tl.fromTo(
+        "#rf-cap1",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        0.2,
+      );
+      tl.to(
+        "#rf-cap1",
+        { opacity: 0, filter: "blur(8px)", duration: 0.16, ease: "power3.in" },
+        1.2,
+      );
+      // camera pushes into the red banner (15.3 -> 16.1 s), holds through the music dip
+      tl.fromTo(
+        "#rf-cam",
+        { scale: 1 },
+        { scale: 1.42, duration: 0.8, ease: "power2.inOut" },
+        1.3,
+      );
+      // cursor travels to "Keep my settings.json"; beat-locked click at film 18.00 s
+      tl.fromTo(
+        "#rf-cursor",
+        { x: 1500, y: 980, opacity: 0 },
+        { opacity: 1, duration: 0.15 },
+        3.2,
+      );
+      tl.to(
+        "#rf-cursor",
+        { x: 469, y: 479, duration: 0.7, ease: "power2.inOut" },
+        3.25,
+      );
+      tl.to(
+        "#rf-cursor",
+        { scale: 0.86, duration: 0.05, ease: "power2.out" },
+        4.0,
+      );
+      tl.to(
+        "#rf-cursor",
+        { scale: 1, duration: 0.08, ease: "power2.out" },
+        4.05,
+      );
+      // state swap on the click, camera pulls back
+      tl.fromTo(
+        "#rf-kept",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.034, ease: "none" },
+        4.0,
+      ); // a UI state change is a cut, on the click
+      tl.to("#rf-cam", { scale: 1, duration: 0.6, ease: "power3.inOut" }, 4.1);
+      tl.to("#rf-cursor", { opacity: 0, duration: 0.2 }, 4.3);
+      tl.fromTo(
+        "#rf-cap2",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        4.4,
+      );
+      // exit: everything lifts away for the logo
+      tl.to(
+        "#rf-stage > *",
+        { opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" },
+        5.78,
+      );
+      window.__timelines["refit"] = tl;
+    })();
+  </script>
+</template>

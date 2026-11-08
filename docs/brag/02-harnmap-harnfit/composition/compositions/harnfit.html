@@ -1,0 +1,264 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #hf-stage {
+      position: absolute;
+      inset: 0;
+    }
+    .hf-eyebrow {
+      position: absolute;
+      left: 240px;
+      top: 44px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 28px;
+      color: var(--color-accent);
+    }
+    .hf-cap {
+      position: absolute;
+      left: 240px;
+      top: 92px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 56px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .hf-cap .hf-blue {
+      color: var(--color-accent);
+    }
+    /* the verdict tag on the caption row: candidate name + verdict, one per cut */
+    .hf-tag {
+      position: absolute;
+      right: 240px;
+      top: 96px;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      opacity: 0;
+    }
+    .hf-name {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 34px;
+      color: var(--color-ink);
+    }
+    .hf-pill {
+      padding: 8px 22px;
+      border-radius: 999px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 32px;
+    }
+    .hf-fits {
+      background: #dcfce7;
+      color: #15803d;
+    }
+    .hf-changes {
+      background: #fef3c7;
+      color: #b45309;
+    }
+    .hf-conflicts {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+    #hf-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 1680px 660px;
+    }
+    #hf-win {
+      position: absolute;
+      left: 240px;
+      top: 200px;
+      width: 1440px;
+      height: 900px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow:
+        0 0 0 1px #e2e8f0,
+        0 40px 90px rgba(15, 23, 42, 0.16);
+    }
+    #hf-win img {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1440px;
+      height: 900px;
+    }
+    #hf-s2,
+    #hf-s3 {
+      opacity: 0;
+    }
+    /* dims the map so the red verdict card carries the frame during the push */
+    #hf-dim {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1140px;
+      height: 900px;
+      background: linear-gradient(
+        90deg,
+        rgba(248, 250, 252, 0.9),
+        rgba(248, 250, 252, 0.72)
+      );
+      opacity: 0;
+    }
+    #hf-cap2 {
+      position: absolute;
+      left: 120px;
+      top: 470px;
+      width: 760px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 76px;
+      letter-spacing: -0.035em;
+      line-height: 1.08;
+      color: var(--color-ink);
+      white-space: normal;
+    }
+    #hf-cap2 .hf-red {
+      color: #b91c1c;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="harnfit"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="hf-stage"
+      class="clip"
+      data-start="0"
+      data-duration="7.5"
+      data-layout-allow-overflow
+      data-layout-allow-overlap
+    >
+      <div id="hf-eyebrow" class="hf-eyebrow">02 · Harnfit</div>
+      <h2 id="hf-cap1" class="hf-cap">
+        Try it <span class="hf-blue">before</span> you add it.
+      </h2>
+      <div id="hf-t1" class="hf-tag">
+        <span class="hf-name">handoff</span
+        ><span class="hf-pill hf-fits">Fits</span>
+      </div>
+      <div id="hf-t2" class="hf-tag">
+        <span class="hf-name">pr</span
+        ><span class="hf-pill hf-changes">Fits with changes</span>
+      </div>
+      <div id="hf-t3" class="hf-tag">
+        <span class="hf-name">code-review</span
+        ><span class="hf-pill hf-conflicts">Conflicts</span>
+      </div>
+      <div id="hf-cam">
+        <div id="hf-win">
+          <img
+            id="hf-s1"
+            src="assets/shots/fit-fits.png"
+            alt="Harnfit: handoff fits, in the toolbelt"
+          />
+          <img
+            id="hf-s2"
+            src="assets/shots/fit-changes.png"
+            alt="Harnfit: pr fits with changes, at Review"
+          />
+          <img
+            id="hf-s3"
+            src="assets/shots/fit-conflicts.png"
+            alt="Harnfit: code-review conflicts with three review tools"
+          />
+          <div id="hf-dim"></div>
+        </div>
+      </div>
+      <h2 id="hf-cap2">
+        Claude quotes the lines that <span class="hf-red">clash.</span>
+      </h2>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const IN = {
+        opacity: 1,
+        y: 0,
+        filter: "blur(0px)",
+        duration: 0.2,
+        ease: "power4.out",
+      };
+      const OUT = {
+        opacity: 0,
+        filter: "blur(8px)",
+        duration: 0.12,
+        ease: "power3.in",
+      };
+      tl.fromTo(
+        "#hf-win",
+        { y: 260, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: "expo.out" },
+        0,
+      );
+      tl.fromTo(
+        "#hf-eyebrow",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2 },
+        0.1,
+      );
+      tl.fromTo("#hf-cap1", { opacity: 0, filter: "blur(8px)" }, IN, 0.2);
+      // verdicts cut on the beat: film 14.5 (fits), 16.5 (fits with changes), 18.5 (conflicts)
+      tl.fromTo("#hf-t1", { opacity: 0, y: 12, filter: "blur(6px)" }, IN, 0.45);
+      tl.to("#hf-t1", OUT, 1.88);
+      tl.fromTo(
+        "#hf-s2",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.034, ease: "none" },
+        2.0,
+      );
+      tl.fromTo("#hf-t2", { opacity: 0, y: 12, filter: "blur(6px)" }, IN, 2.0);
+      tl.to("#hf-t2", OUT, 3.88);
+      tl.fromTo(
+        "#hf-s3",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.034, ease: "none" },
+        4.0,
+      );
+      tl.fromTo("#hf-t3", { opacity: 0, y: 12, filter: "blur(6px)" }, IN, 4.0);
+      // film 19.0-19.8: push into the red card while the music drops out
+      tl.to(
+        ["#hf-eyebrow", "#hf-cap1"],
+        { opacity: 0, filter: "blur(8px)", duration: 0.2, ease: "power3.in" },
+        4.45,
+      );
+      tl.to("#hf-t3", { opacity: 0, duration: 0.2, ease: "power3.in" }, 4.45);
+      tl.fromTo(
+        "#hf-cam",
+        { scale: 1 },
+        { scale: 1.2, duration: 0.8, ease: "power2.inOut" },
+        4.5,
+      );
+      tl.fromTo(
+        "#hf-dim",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.6, ease: "power2.out" },
+        4.6,
+      );
+      // film 20.0: drums return with the line
+      tl.fromTo(
+        "#hf-cap2",
+        { opacity: 0, y: 16, filter: "blur(8px)" },
+        IN,
+        5.5,
+      );
+      tl.to(
+        "#hf-stage > *",
+        { opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" },
+        7.28,
+      );
+      window.__timelines["harnfit"] = tl;
+    })();
+  </script>
+</template>

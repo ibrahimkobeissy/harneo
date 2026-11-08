@@ -1,0 +1,149 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #ou-stage {
+      position: absolute;
+      inset: 0;
+    }
+    #ou-glow {
+      position: absolute;
+      left: 610px;
+      top: 70px;
+      width: 700px;
+      height: 560px;
+      background: radial-gradient(
+        closest-side,
+        rgba(37, 99, 235, 0.3),
+        rgba(37, 99, 235, 0) 100%
+      );
+    }
+    #ou-logo {
+      position: absolute;
+      left: 880px;
+      top: 230px;
+      width: 160px;
+      height: 160px;
+      border-radius: 40px;
+      box-shadow: 0 24px 70px rgba(37, 99, 235, 0.38);
+    }
+    .ou-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: var(--font-display), sans-serif;
+    }
+    #ou-name {
+      top: 432px;
+      font-weight: 700;
+      font-size: 120px;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: var(--color-ink);
+    }
+    #ou-tag {
+      top: 584px;
+      font-weight: 400;
+      font-size: 46px;
+      letter-spacing: -0.015em;
+      color: var(--color-muted);
+    }
+    #ou-meta {
+      top: 742px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 28px;
+      font-size: 30px;
+      color: var(--color-muted);
+    }
+    #ou-pill {
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #15803d;
+      font-weight: 700;
+      font-size: 28px;
+    }
+    #ou-url {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 30px;
+      color: var(--color-accent);
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="outro"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div id="ou-stage" class="clip" data-start="0" data-duration="4">
+      <div id="ou-glow"></div>
+      <img id="ou-logo" src="assets/img/logo.svg" alt="Harneo logo" />
+      <div id="ou-name" class="ou-line">Harneo</div>
+      <div id="ou-tag" class="ou-line">Map your factory. Fit what's new.</div>
+      <div id="ou-meta" class="ou-line">
+        <span id="ou-pill">Free and open source · MIT</span>
+        <span id="ou-url">github.com/ibrahimkobeissy/harneo</span>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const START = 22;
+      // beat-locked: logo lands at film 22.00 s
+      tl.fromTo(
+        "#ou-logo",
+        { scale: 0.5, opacity: 0, filter: "blur(12px)" },
+        {
+          scale: 1,
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.6,
+          ease: "expo.out",
+        },
+        0,
+      );
+      tl.fromTo(
+        "#ou-name",
+        { opacity: 0, y: 24, filter: "blur(10px)" },
+        {
+          opacity: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.5,
+          ease: "expo.out",
+        },
+        0.15,
+      );
+      tl.fromTo(
+        "#ou-tag",
+        { opacity: 0, filter: "blur(6px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.25, ease: "power2.out" },
+        0.5,
+      );
+      // beat-grid: meta row at 23.0 s
+      tl.fromTo(
+        "#ou-meta",
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.35, ease: "expo.out" },
+        1.0,
+      );
+      // audio-reactive glow behind the logo
+      const rms = window.HARNEO_RMS || [];
+      for (let f = 0; f < 120; f++) {
+        const v = rms[START * 30 + f] || 0;
+        tl.set(
+          "#ou-glow",
+          { opacity: 0.4 + v * 0.6, scale: 0.95 + v * 0.1 },
+          f / 30,
+        );
+      }
+      window.__timelines["outro"] = tl;
+    })();
+  </script>
+</template>

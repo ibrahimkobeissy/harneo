@@ -1,0 +1,17 @@
+{
+  "name": "harneo-brag-harnmap",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "mkdir -p assets/vendor && cp node_modules/gsap/dist/gsap.min.js assets/vendor/",
+    "music": "python3 ../music/compose.py assets/music/harneo-theme.wav assets/music/harneo-theme.cues.json",
+    "check": "DO_NOT_TRACK=1 HYPERFRAMES_NO_TELEMETRY=1 hyperframes check",
+    "preview": "DO_NOT_TRACK=1 HYPERFRAMES_NO_TELEMETRY=1 hyperframes preview",
+    "render": "DO_NOT_TRACK=1 HYPERFRAMES_NO_TELEMETRY=1 hyperframes render --quality delivery -o ../brag.mp4"
+  },
+  "type": "commonjs",
+  "devDependencies": {
+    "gsap": "^3.15.0",
+    "hyperframes": "^0.9.9"
+  },
+  "private": true
+}

@@ -1,0 +1,168 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #bf-stage {
+      position: absolute;
+      inset: 0;
+    }
+    #bf-cap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 150px;
+      text-align: center;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 76px;
+      letter-spacing: -0.03em;
+      color: var(--color-ink);
+    }
+    #bf-cap .bf-red {
+      color: #b91c1c;
+    }
+    #bf-term {
+      position: absolute;
+      left: 480px;
+      top: 330px;
+      width: 960px;
+      padding: 34px 44px 38px;
+      border-radius: 22px;
+      background: #0f172a;
+      box-shadow: 0 40px 90px rgba(15, 23, 42, 0.28);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 34px;
+      line-height: 1.75;
+      color: #cbd5e1;
+    }
+    #bf-dots {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    #bf-dots i {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #334155;
+    }
+    .bf-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 0 14px;
+      margin: 0 -14px;
+      border-radius: 10px;
+    }
+    .bf-root {
+      color: #94a3b8;
+    }
+    .bf-new {
+      margin-left: auto;
+      padding: 2px 14px;
+      border-radius: 999px;
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 28px;
+    }
+    .bf-flag {
+      position: absolute;
+      inset: 0;
+      border-radius: 10px;
+      background: rgba(239, 68, 68, 0.22);
+      box-shadow: inset 3px 0 0 #ef4444;
+      opacity: 0;
+    }
+    .bf-row {
+      position: relative;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="before"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="bf-stage"
+      class="clip"
+      data-start="0"
+      data-duration="2.5"
+      data-layout-allow-overflow
+      data-layout-allow-overlap
+    >
+      <h2 id="bf-cap">
+        You find out <span class="bf-red">after</span> you install it.
+      </h2>
+      <div id="bf-term">
+        <div id="bf-dots"><i></i><i></i><i></i></div>
+        <div class="bf-row bf-root" id="bf-r0">.claude/</div>
+        <div class="bf-row" id="bf-r1">
+          <span class="bf-flag"></span>├─ commands/review.md
+        </div>
+        <div class="bf-row" id="bf-r2">
+          <span class="bf-flag"></span>├─ skills/code-review-and-quality/
+        </div>
+        <div class="bf-row" id="bf-r3">
+          <span class="bf-flag"></span>├─ agents/code-reviewer.md
+        </div>
+        <div class="bf-row" id="bf-r4">
+          <span class="bf-flag"></span>└─ skills/code-review/<span
+            class="bf-new"
+            >new</span
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo(
+        "#bf-term",
+        { y: 60, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.35, ease: "expo.out" },
+        0,
+      );
+      // tree rows type in on the key ticks (film 3.75, 4.00, 4.25, 4.50 s)
+      tl.fromTo("#bf-r0", { opacity: 0 }, { opacity: 1, duration: 0.05 }, 0.1);
+      ["#bf-r1", "#bf-r2", "#bf-r3", "#bf-r4"].forEach((id, i) => {
+        tl.fromTo(
+          id,
+          { opacity: 0, x: -16 },
+          { opacity: 1, x: 0, duration: 0.15, ease: "power2.out" },
+          0.25 + i * 0.25,
+        );
+      });
+      // film 5.00 s: the four review tools flag red together
+      tl.fromTo(
+        ".bf-flag",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.12, stagger: 0.03 },
+        1.5,
+      );
+      tl.fromTo(
+        "#bf-cap",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.22, ease: "power4.out" },
+        0.2,
+      );
+      // exit: lift away for the logo on the kick at film 6.00 s
+      tl.to(
+        ["#bf-cap", "#bf-term"],
+        {
+          y: -40,
+          opacity: 0,
+          filter: "blur(10px)",
+          duration: 0.2,
+          ease: "power3.in",
+          stagger: 0.03,
+        },
+        2.27,
+      );
+      window.__timelines["before"] = tl;
+    })();
+  </script>
+</template>

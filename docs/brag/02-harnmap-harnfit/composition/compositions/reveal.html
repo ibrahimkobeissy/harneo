@@ -1,0 +1,156 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #rv-stage {
+      position: absolute;
+      inset: 0;
+    }
+    #rv-glow {
+      position: absolute;
+      left: 660px;
+      top: 60px;
+      width: 600px;
+      height: 520px;
+      background: radial-gradient(
+        closest-side,
+        rgba(37, 99, 235, 0.28),
+        rgba(37, 99, 235, 0) 100%
+      );
+    }
+    #rv-brand {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 250px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+    }
+    #rv-logo {
+      width: 112px;
+      height: 112px;
+      border-radius: 28px;
+      box-shadow: 0 18px 50px rgba(37, 99, 235, 0.35);
+    }
+    #rv-name {
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 88px;
+      letter-spacing: -0.035em;
+      color: var(--color-ink);
+    }
+    #rv-head {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 480px;
+      text-align: center;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 84px;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      color: var(--color-ink);
+    }
+    #rv-head .rv-w {
+      display: inline-block;
+    }
+    #rv-head .rv-accent {
+      color: var(--color-accent);
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="reveal"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div id="rv-stage" class="clip" data-start="0" data-duration="3">
+      <div id="rv-glow"></div>
+      <div id="rv-brand">
+        <img id="rv-logo" src="assets/img/logo.svg" alt="" />
+        <div id="rv-name">Harneo</div>
+      </div>
+      <h1 id="rv-head">
+        <span class="rv-w">Your</span> <span class="rv-w">Claude</span>
+        <span class="rv-w">Code</span> <span class="rv-w">harness,</span><br />
+        <span class="rv-w">fitted</span> <span class="rv-w">to</span>
+        <span class="rv-w rv-accent">every</span>
+        <span class="rv-w rv-accent">project.</span>
+      </h1>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      const START = 6; // this scene's start in film time, for the RMS lookup
+      // beat-locked: logo lands at film 6.00 s (the kick enters) (local 0)
+      tl.fromTo(
+        "#rv-logo",
+        { scale: 0.55, opacity: 0, filter: "blur(10px)" },
+        {
+          scale: 1,
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.55,
+          ease: "expo.out",
+        },
+        0,
+      );
+      tl.fromTo(
+        "#rv-name",
+        { opacity: 0, x: -24, filter: "blur(8px)" },
+        {
+          opacity: 1,
+          x: 0,
+          filter: "blur(0px)",
+          duration: 0.45,
+          ease: "expo.out",
+        },
+        0.12,
+      );
+      // headline: per word, 0.067 s apart, blur 6 -> 0
+      tl.fromTo(
+        "#rv-head .rv-w",
+        { opacity: 0, filter: "blur(6px)" },
+        {
+          opacity: 1,
+          filter: "blur(0px)",
+          duration: 0.14,
+          ease: "power2.out",
+          stagger: 0.067,
+        },
+        0.42,
+      );
+      // audio-reactive: the glow breathes with the track's RMS (subtle)
+      const rms = window.HARNEO_RMS || [];
+      for (let f = 0; f < 81; f++) {
+        const v = rms[START * 30 + f] || 0;
+        tl.set(
+          "#rv-glow",
+          { opacity: 0.45 + v * 0.55, scale: 0.96 + v * 0.08 },
+          f / 30,
+        );
+      }
+      // exit: lift and blur, the next scene's window rises underneath
+      tl.to(
+        ["#rv-brand", "#rv-head"],
+        {
+          y: -40,
+          opacity: 0,
+          filter: "blur(10px)",
+          duration: 0.25,
+          ease: "power3.in",
+          stagger: 0.04,
+        },
+        2.7,
+      );
+      tl.to("#rv-glow", { opacity: 0, duration: 0.25 }, 2.72);
+      window.__timelines["reveal"] = tl;
+    })();
+  </script>
+</template>

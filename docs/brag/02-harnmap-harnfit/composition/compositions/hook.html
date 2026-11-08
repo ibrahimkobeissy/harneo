@@ -1,0 +1,197 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #hk-stage {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    .hk-row {
+      position: absolute;
+      left: 0;
+      display: flex;
+      gap: 22px;
+      white-space: nowrap;
+      will-change: transform;
+    }
+    .hk-chip {
+      padding: 14px 24px;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow:
+        0 0 0 1px #e2e8f0,
+        0 8px 22px rgba(15, 23, 42, 0.06);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 30px;
+      color: #64748b;
+    }
+    .hk-chip b {
+      font-weight: 400;
+      color: var(--color-accent);
+    }
+    #hk-veil {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        1100px 360px at 50% 50%,
+        rgba(248, 250, 252, 1),
+        rgba(248, 250, 252, 0.92) 55%,
+        rgba(248, 250, 252, 0.45) 100%
+      );
+    }
+    .hk-line {
+      position: absolute;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 92px;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      color: var(--color-ink);
+    }
+    #hk-l1 {
+      top: 382px;
+    }
+    #hk-l2 {
+      top: 500px;
+    }
+    #hk-l2 .hk-blue {
+      color: var(--color-accent);
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="hook"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="hk-stage"
+      class="clip"
+      data-start="0"
+      data-duration="3.5"
+      data-layout-allow-overflow
+      data-layout-allow-overlap
+    >
+      <div id="hk-rows" data-layout-ignore></div>
+      <div id="hk-veil"></div>
+      <h1 id="hk-l1" class="hk-line">A new skill every day.</h1>
+      <h1 id="hk-l2" class="hk-line">
+        A new <span class="hk-blue">software factory</span> every week.
+      </h1>
+    </div>
+  </div>
+  <script>
+    (function () {
+      // Real artifact names from public packs in the captured library (texture, not read).
+      const names = [
+        "/plugin install agent-skills",
+        "spec-driven-development",
+        "/ship",
+        "code-review",
+        "tdd",
+        "handoff",
+        "/build auto",
+        "security-auditor",
+        "grill-me",
+        "/review",
+        "context-engineering",
+        "mattpocock/skills",
+        "interview-me",
+        "code-reviewer",
+        "incremental-implementation",
+        "addyosmani/agent-skills",
+        "/plan",
+        "pr",
+        "browser-testing-with-devtools",
+        "doubt-driven-development",
+        "/code-simplify",
+        "test-engineer",
+        "shipping-and-launch",
+        "wayfinder",
+        "web-performance-auditor",
+        "debugging-and-error-recovery",
+        "codebase-design",
+        "/spec",
+        "idea-refine",
+        "git-workflow-and-versioning",
+        "constraint-driven-development",
+        "/webperf",
+      ];
+      const rows = document.getElementById("hk-rows");
+      const N = 9;
+      for (let r = 0; r < N; r++) {
+        const row = document.createElement("div");
+        row.className = "hk-row";
+        row.id = "hk-row-" + r;
+        row.style.top = 18 + r * 118 + "px";
+        let html = "";
+        for (let k = 0; k < 14; k++) {
+          const n = names[(r * 5 + k * 3) % names.length];
+          html +=
+            '<span class="hk-chip" data-layout-ignore>' +
+            (n.startsWith("/") ? "<b>" + n + "</b>" : n) +
+            "</span>";
+        }
+        row.innerHTML = html;
+        rows.appendChild(row);
+      }
+      const tl = gsap.timeline({ paused: true });
+      // rows drift in opposite directions at different speeds; pure function of time
+      for (let r = 0; r < N; r++) {
+        const dir = r % 2 ? 1 : -1;
+        const from = dir > 0 ? -900 : -200;
+        tl.fromTo(
+          "#hk-row-" + r,
+          { x: from, opacity: 1 },
+          {
+            x: from + dir * (380 + (r % 3) * 160),
+            opacity: 1,
+            duration: 3.5,
+            ease: "none",
+          },
+          0,
+        );
+        tl.to("#hk-row-" + r, { opacity: 0.0001, duration: 0.01 }, 3.49);
+      }
+      tl.set("#hk-veil", { opacity: 1 }, 0);
+      // line 1 is on screen from frame 0 (the thumbnail), settling in place
+      tl.fromTo(
+        "#hk-l1",
+        { y: 10 },
+        { y: 0, duration: 0.4, ease: "expo.out" },
+        0,
+      );
+      tl.fromTo(
+        "#hk-l2",
+        { opacity: 0, y: 24, filter: "blur(8px)" },
+        {
+          opacity: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration: 0.3,
+          ease: "expo.out",
+        },
+        1.4,
+      );
+      // exit: lines and chips lift away; the tree types in next
+      tl.to(
+        ["#hk-l1", "#hk-l2", "#hk-rows"],
+        {
+          opacity: 0,
+          filter: "blur(10px)",
+          duration: 0.22,
+          ease: "power3.in",
+          stagger: 0.03,
+        },
+        3.22,
+      );
+      window.__timelines["hook"] = tl;
+    })();
+  </script>
+</template>

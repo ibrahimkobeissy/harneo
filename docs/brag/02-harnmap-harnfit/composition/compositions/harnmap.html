@@ -1,0 +1,194 @@
+<template>
+  <style>
+    #root {
+      position: absolute;
+      inset: 0;
+    }
+    #hm-stage {
+      position: absolute;
+      inset: 0;
+    }
+    .hm-eyebrow {
+      position: absolute;
+      left: 240px;
+      top: 44px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 28px;
+      color: var(--color-accent);
+    }
+    .hm-cap {
+      position: absolute;
+      left: 240px;
+      top: 92px;
+      font-family: var(--font-display), sans-serif;
+      font-weight: 700;
+      font-size: 56px;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      color: var(--color-ink);
+      white-space: nowrap;
+    }
+    .hm-cap .hm-blue {
+      color: var(--color-accent);
+    }
+    #hm-cam {
+      position: absolute;
+      inset: 0;
+      transform-origin: 1380px 200px;
+    }
+    #hm-win {
+      position: absolute;
+      left: 240px;
+      top: 200px;
+      width: 1440px;
+      height: 900px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #ffffff;
+      box-shadow:
+        0 0 0 1px #e2e8f0,
+        0 40px 90px rgba(15, 23, 42, 0.16);
+    }
+    #hm-win img {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1440px;
+      height: 900px;
+    }
+    #hm-after {
+      opacity: 0;
+    }
+    #hm-cursor {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 40px;
+      height: 47px;
+      transform-origin: 0 0;
+    }
+  </style>
+  <div
+    id="root"
+    data-composition-id="harnmap"
+    data-width="1920"
+    data-height="1080"
+  >
+    <div
+      id="hm-stage"
+      class="clip"
+      data-start="0"
+      data-duration="5.5"
+      data-layout-allow-overflow
+      data-layout-allow-overlap
+    >
+      <div id="hm-eyebrow" class="hm-eyebrow">01 · Harnmap</div>
+      <h2 id="hm-cap1" class="hm-cap">
+        See your <span class="hm-blue">factory</span> before you build it.
+      </h2>
+      <div id="hm-cam">
+        <div id="hm-win">
+          <img
+            id="hm-before"
+            src="assets/shots/harnmap-before.png"
+            alt="Harnmap of the SoftwareFactory profile: seven stages, toolbelt and floor"
+          />
+          <img
+            id="hm-after"
+            src="assets/shots/harnmap-node.png"
+            alt="The review node selected: why Claude put it here, and its natural next steps"
+          />
+        </div>
+      </div>
+      <h2 id="hm-cap2" class="hm-cap">
+        Each step placed. <span class="hm-blue">What comes next.</span>
+      </h2>
+      <svg id="hm-cursor" viewBox="0 0 34 40" aria-hidden="true">
+        <path
+          d="M2 2 L2 32 L10 25 L15.5 37 L21 34.5 L15.6 23 L26 23 Z"
+          fill="#0f172a"
+          stroke="#ffffff"
+          stroke-width="2.4"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo(
+        "#hm-win",
+        { y: 260, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.8, ease: "expo.out" },
+        0,
+      );
+      tl.fromTo(
+        "#hm-eyebrow",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.2 },
+        0.1,
+      );
+      tl.fromTo(
+        "#hm-cap1",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        0.2,
+      );
+      tl.to(
+        "#hm-cap1",
+        { opacity: 0, filter: "blur(8px)", duration: 0.16, ease: "power3.in" },
+        2.75,
+      );
+      // cursor travels to the review node; beat-locked click at film 12.00 s (local 3.0)
+      tl.fromTo(
+        "#hm-cursor",
+        { x: 1500, y: 1000, opacity: 0 },
+        { opacity: 1, duration: 0.15 },
+        2.15,
+      );
+      tl.to(
+        "#hm-cursor",
+        { x: 1030, y: 530, duration: 0.7, ease: "power2.inOut" },
+        2.2,
+      );
+      tl.to(
+        "#hm-cursor",
+        { scale: 0.86, duration: 0.05, ease: "power2.out" },
+        3.0,
+      );
+      tl.to(
+        "#hm-cursor",
+        { scale: 1, duration: 0.08, ease: "power2.out" },
+        3.05,
+      );
+      // the click is a cut: the node opens with Claude's reading and next steps 1-2-3
+      tl.fromTo(
+        "#hm-after",
+        { opacity: 0 },
+        { opacity: 1, duration: 0.034, ease: "none" },
+        3.0,
+      );
+      tl.to("#hm-cursor", { opacity: 0, duration: 0.2 }, 3.25);
+      // camera leans in on the selection and the side panel
+      tl.fromTo(
+        "#hm-cam",
+        { scale: 1 },
+        { scale: 1.18, duration: 0.9, ease: "power2.inOut" },
+        3.1,
+      );
+      tl.fromTo(
+        "#hm-cap2",
+        { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
+        3.1,
+      );
+      tl.to(
+        "#hm-stage > *",
+        { opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" },
+        5.28,
+      );
+      window.__timelines["harnmap"] = tl;
+    })();
+  </script>
+</template>

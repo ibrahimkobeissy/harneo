@@ -1,0 +1,1 @@
+A new Claude Code skill every day, and you only find out it clashes with your workflow after you install it. Harneo 0.3.0 draws your factory as a map (Harnmap) and tests any new skill against it before it touches a project (Harnfit): fits, fits with changes, or conflicts, with the lines that clash. Free and open source, MIT: github.com/ibrahimkobeissy/harneo
