@@ -22,6 +22,7 @@ fn placement(artifact: &str, zone: Zone, note: &str, pinned: bool) -> Placement 
         role: "r".to_owned(),
         when: "w".to_owned(),
         hands_off: "h".to_owned(),
+        next: Vec::new(),
         by: if pinned {
             PlacedBy::User
         } else {

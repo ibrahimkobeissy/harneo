@@ -26,6 +26,7 @@ export function Node({
   placement,
   box,
   selected,
+  nextRank,
   onSelect,
   onInfo,
   drag,
@@ -35,6 +36,8 @@ export function Node({
   placement: Placement;
   box: { x: number; y: number; w: number; h: number };
   selected: boolean;
+  /** Set when this artifact is a natural next step of the selected one: 1 is the most likely. */
+  nextRank?: number;
   onSelect: () => void;
   onInfo: () => void;
   /** Present when the node can be dragged to another zone. */
@@ -49,10 +52,11 @@ export function Node({
       type="button"
       className={styles.nd}
       data-selected={selected}
+      data-next={nextRank !== undefined || undefined}
       data-node={placement.artifact}
       aria-pressed={selected}
       aria-keyshortcuts="i"
-      aria-label={`${info.name}, ${meta.label}${placement.pinned ? ", pinned" : ""}`}
+      aria-label={`${info.name}, ${meta.label}${placement.pinned ? ", pinned" : ""}${nextRank !== undefined ? `, next step ${nextRank}` : ""}`}
       style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
       onClick={(ev) => {
         ev.stopPropagation();
@@ -73,6 +77,11 @@ export function Node({
         }
       }}
     >
+      {nextRank !== undefined && (
+        <span className={styles.nx} aria-hidden="true">
+          {nextRank}
+        </span>
+      )}
       <span className={styles.ic} data-tint={meta.tint} aria-hidden="true">
         <Icon size={12} />
       </span>

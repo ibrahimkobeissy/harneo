@@ -643,3 +643,33 @@
   stroke-width: 2;
   stroke-linecap: round;
 }
+
+/* Natural next steps of the selected artifact (Claude's reading): a dark ring, a rank badge and a
+   dashed arrow from the selection. Blue stays for the selection itself. */
+.nd[data-next="true"] {
+  border-color: var(--t1);
+  box-shadow: 0 0 0 2px var(--line2);
+}
+.nx {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--t1);
+  color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+}
+.nextArrow {
+  fill: none;
+  stroke: var(--t1);
+  stroke-width: 1.75;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+}

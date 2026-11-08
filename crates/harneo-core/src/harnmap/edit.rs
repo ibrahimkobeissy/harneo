@@ -88,6 +88,9 @@ impl MapDoc {
     pub(crate) fn drop_artifact(&mut self, artifact: &str) -> usize {
         let before = self.placements.len();
         self.placements.retain(|p| p.artifact != artifact);
+        for p in &mut self.placements {
+            p.next.retain(|n| n != artifact);
+        }
         self.hidden.retain(|a| a != artifact);
         self.renumber(None);
         before - self.placements.len()
@@ -177,6 +180,7 @@ impl MapDoc {
                     role: String::new(),
                     when: String::new(),
                     hands_off: String::new(),
+                    next: Vec::new(),
                     by: PlacedBy::User,
                     pinned: true,
                 });

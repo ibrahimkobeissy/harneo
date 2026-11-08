@@ -16,6 +16,8 @@ pub type StageId = String;
 pub const MAX_NOTE: usize = 60;
 /// Longest `Placement::why`, in characters.
 pub const MAX_WHY: usize = 400;
+/// Most natural next steps kept per placement.
+pub const MAX_NEXT: usize = 4;
 /// Longest `role`, `when` or `hands_off`, in characters.
 pub const MAX_TOOLTIP: usize = 120;
 
@@ -87,6 +89,11 @@ pub struct Placement {
     pub role: String,
     pub when: String,
     pub hands_off: String,
+    /// Claude's reading of the natural next steps after this artifact: other artifacts of the
+    /// profile, most likely first, at most [`MAX_NEXT`]. Empty in maps drawn before it existed.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<ArtifactId>>", optional)]
+    pub next: Vec<ArtifactId>,
     pub by: PlacedBy,
     pub pinned: bool,
 }
@@ -225,6 +232,7 @@ impl MapDoc {
             cut(&mut p.role, MAX_TOOLTIP);
             cut(&mut p.when, MAX_TOOLTIP);
             cut(&mut p.hands_off, MAX_TOOLTIP);
+            p.next.truncate(MAX_NEXT);
         }
     }
 
@@ -265,6 +273,14 @@ impl MapDoc {
             }
             if !placed.insert(&p.artifact) {
                 reasons.push(format!("the artifact {:?} is placed twice", p.artifact));
+            }
+            for n in &p.next {
+                if n == &p.artifact || !known.contains(n) {
+                    reasons.push(format!(
+                        "a next step of {:?} names {:?}, which is not another artifact of the profile",
+                        p.artifact, n
+                    ));
+                }
             }
             if let Zone::Stage { id } = &p.zone {
                 stage(

@@ -76,6 +76,7 @@ pub struct Placement {
     pub note: String,                // ≤ 60 chars, shown under the name
     pub why: String,                 // Claude's reasoning, ≤ 400 chars
     pub role: String, pub when: String, pub hands_off: String, // heartbeat tooltip, ≤ 120 chars each
+    pub next: Vec<ArtifactId>,       // Claude's natural next steps, most likely first, ≤ 4 (2026-11-08)
     pub by: PlacedBy,                // Claude | User
     pub pinned: bool,
 }
@@ -89,7 +90,7 @@ Unplaced artifacts are not stored: they are the profile's resolved artifacts wit
 - `draw(profile, description, model) -> Result<DrawOutcome>`, run on a worker thread like `bundles` detection, cancellable (the `claude` process is killed; nothing is saved).
 - The prompt holds: the template (or Custom's description and the five shapes), the current stages with the user's edits by id, pinned placements as constraints, the description, and per artifact a short id (`a1`…), kind, name, description, facts, and its main-file text cut to 4,000 characters (artifacts with a `plaintext-secrets` or `credential-theft` finding: kind, name and description only, as in `bundles`). Artifact text is data; the prompt says so.
 - `claude_cli::run` with `--json-schema` (the answer schema below), model from `harnmap.model` (`opus` by default; only `opus` and `sonnet` are accepted), a **300 s timeout**, no tools, the same flags as today.
-- **Answer:** `{ shape?, stages: [{ id?, name }], loops: [{ from, to, label }], placements: [{ artifact: "a3", zone: "stage:<name>" | "toolbelt" | "floor", note, why, role, when, hands_off }] }`.
+- **Answer:** `{ shape?, stages: [{ id?, name }], loops: [{ from, to, label }], placements: [{ artifact: "a3", zone: "stage:<name>" | "toolbelt" | "floor", note, why, role, when, hands_off, next: ["a4", "a7"] }] }`. `next` (added 2026-11-08) names the natural next steps after the artifact; unknown ids, the artifact itself and repeats are dropped, at most 4 kept.
 - **Validation:** every artifact id is known and placed at most once; every stage named in a placement or loop exists; the shape is one of the five; lengths are cut to the limits. An answer that fails is **retried once**; a second failure is `HarnmapError::BadAnswer { reasons }` (shown as "Answer didn't check out") and nothing is saved.
 - **Pins and stage edits win:** Harneo re-applies every pinned placement and every user-edited stage (by id) to the validated answer, whatever Claude returned.
 - **Changes from the template** are computed: stages kept, renamed, added, removed; loops added; count unplaced.
@@ -121,6 +122,7 @@ Unplaced artifacts are not stored: they are the profile's resolved artifacts wit
   - **Not drawn yet:** the template skeleton; the side panel with the description box, the template's three suggestion chips, the facts (Sends N artifacts · Through your claude CLI · Uses your plan · Opus · Takes usually 1–3 min), the "What is sent / Never" line, **Draw** (`Ctrl+Enter`).
   - **Drawing:** an honest wait ("Claude is working · Opus", elapsed clock, Cancel). When the answer lands and passes the checks, the placements **replay** onto the line in about 3 s (each artifact rides to its zone; the stage light comes on). Then "Draw N · saved", the computed changes from the template, *Open the map*.
   - **The map:** the layout per shape (below); stage blocks with number, name, count and light; loops as dashed arcs labelled "Claude's reading" unless the user drew them; the settings template's hooks as a rail along the whole line, labelled with event and matcher; bundles as shaded groups; the toolbelt and floor zones; nodes with type icon, name, note, pin mark; the **heartbeat dot** (slate, one shared 2 s beat, blue and still while its tooltip is open, not a tab stop; `i` on a focused node opens the tooltip; Escape closes); the tooltip with Role, When and Hands off, each tagged *files* or *Claude*; a legend (bundle · from the files, Claude's reading).
+  - **Next steps** (2026-11-08): selecting a node rings its natural next steps (Claude's reading), numbered by likelihood, with a dashed arrow from the selection to each.
   - Canvas: zoom 40–150 % (buttons, `Ctrl` + wheel), drag the background to pan, **Fit**; below 75 % the map turns into plain boxes (no beam, no rings); layers switch (Line, Toolbelt, Floor) and **Types** menu with counts.
   - **Side panel:** *Unplaced* (tree by type, filter, "Not everything is a step…", drag onto a stage, the toolbelt or the floor, then the "Why here?" popover; *Hidden on the map* with Show; *On the map* summary); **node detail** (Why Claude put it here / Why here, *From the files* facts, description, note (autosaves), *Move to* select, Remove from map, Hide, Unpin); **Map history** (each draw with date, model, description, change line; Preview, Restore).
   - **Stages** popover: rename, reorder by drag, add, remove, with the rules above.

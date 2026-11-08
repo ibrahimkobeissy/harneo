@@ -429,6 +429,7 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
         role: String::new(),
         when: String::new(),
         hands_off: String::new(),
+        next: Vec::new(),
         by: PlacedBy::User,
         pinned: true,
     };
@@ -502,6 +503,7 @@ fn a_pin_keeps_the_stage_it_sits_on_even_when_claude_removed_it() -> TestResult 
         role: String::new(),
         when: String::new(),
         hands_off: String::new(),
+        next: Vec::new(),
         by: PlacedBy::User,
         pinned: true,
     }];
@@ -832,4 +834,63 @@ fn the_registry_cancels_only_the_profile_asked_for() {
     registry.cancel(1);
     assert!(one.load(Ordering::SeqCst));
     assert!(!two.load(Ordering::SeqCst));
+}
+
+#[test]
+fn next_steps_are_kept_as_ids_without_self_unknown_or_repeats() -> TestResult {
+    let mut f = fixture(CategoryId::Software, None)?;
+    let mut first = placement("a1", "stage:Build");
+    first["next"] = json!(["a2", "a1", "a99", "a2", "a4", "a3", "a2"]);
+    let mut second = placement("a2", "stage:review");
+    second["next"] = json!(["a4"]);
+    f.claude(&[json!({
+        "stages": stage_names(),
+        "loops": [],
+        "placements": [first, second, placement("a4", "floor")],
+    })])?;
+    draw(&f)?;
+    let view = f.library.harnmap(f.profile)?;
+    let ids: Vec<&str> = view
+        .doc
+        .placements
+        .iter()
+        .map(|p| p.artifact.as_str())
+        .collect();
+    let next = &view.doc.placements[0].next;
+    assert_eq!(next.len(), 3, "a2, a4 and a3, in that order: {next:?}");
+    assert_eq!(&next[..2], [ids[1], ids[2]]);
+    assert!(!next.contains(&view.doc.placements[0].artifact));
+    assert_eq!(view.doc.placements[1].next, [ids[2]]);
+    // An answer that names no next steps keeps an empty list.
+    assert!(view.doc.placements[2].next.is_empty());
+    assert!(f.stdin(0)?.contains("natural next steps"));
+    Ok(())
+}
+
+#[test]
+fn at_most_four_next_steps_are_kept() -> TestResult {
+    let mut doc_next = vec!["x".to_owned(); 0];
+    for n in 0..7 {
+        doc_next.push(format!("id{n}"));
+    }
+    let mut p = Placement {
+        artifact: "me".into(),
+        zone: Zone::Floor,
+        order: 0,
+        note: String::new(),
+        why: String::new(),
+        role: String::new(),
+        when: String::new(),
+        hands_off: String::new(),
+        next: doc_next,
+        by: PlacedBy::Claude,
+        pinned: false,
+    };
+    let mut doc = MapDoc::from_template(CategoryId::Software);
+    doc.placements.push(p.clone());
+    doc.cut_to_limits();
+    p.next.truncate(super::MAX_NEXT);
+    assert_eq!(doc.placements[0].next, p.next);
+    assert_eq!(doc.placements[0].next.len(), 4);
+    Ok(())
 }

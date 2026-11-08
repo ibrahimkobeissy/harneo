@@ -17,4 +17,9 @@ why: string,
 /**
  * The heartbeat tooltip, each at most [`MAX_TOOLTIP`] characters.
  */
-role: string, when: string, handsOff: string, by: PlacedBy, pinned: boolean, };
+role: string, when: string, handsOff: string, 
+/**
+ * Claude's reading of the natural next steps after this artifact: other artifacts of the
+ * profile, most likely first, at most [`MAX_NEXT`]. Empty in maps drawn before it existed.
+ */
+next?: Array<string>, by: PlacedBy, pinned: boolean, };

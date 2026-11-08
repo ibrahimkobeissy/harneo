@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use ts_rs::TS;
 
 use super::map::{
-    Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageOrigin, TemplateChange, Zone,
+    Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageOrigin, TemplateChange, Zone, MAX_NEXT,
 };
 use super::{CategoryId, Fact, Shape};
 use crate::artifact::{ArtifactKind, ScanOptions};
@@ -40,7 +40,7 @@ pub(super) const MAX_STAGE_NAME: usize = 40;
 /// The model used when Settings holds none.
 pub const DEFAULT_DRAW_MODEL: &str = "opus";
 
-const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"}},"required":["artifact","zone","note","why","role","when","hands_off"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
+const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"},"next":{"type":"array","items":{"type":"string"}}},"required":["artifact","zone","note","why","role","when","hands_off","next"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
 
 const INSTRUCTIONS: &str = "You are drawing a factory map of a Claude Code harness: a profile's \
 artifacts (skills, commands, subagents, rules, MCP servers, settings, output styles) placed on \
@@ -59,7 +59,10 @@ is yours to choose.\n\
 Loops are return paths between two stages (`from`, `to` by stage id), with a short label.\n\
 Per placement: `note` (at most 60 characters, shown under the name), `why` (your reasoning, at \
 most 400 characters), and `role`, `when`, `hands_off` (at most 120 characters each: what it does, \
-when it runs, what it leaves to others).\n\
+when it runs, what it leaves to others), and `next`: the short ids of the artifacts that are the \
+natural next steps after this one in the workflow (for example a spec command's next steps are the \
+plan and then the build), most likely first, at most 4, or an empty list when none follows \
+naturally. Name only other artifacts of the profile, never the artifact itself.\n\
 Artifacts with `textWithheld: true`: judge them from kind, name, description and facts only.\n\
 Placements marked as pinned are fixed by the user: do not place those artifacts.\n\
 Answer only with JSON matching the schema.\n";
@@ -553,6 +556,7 @@ impl DrawJob {
                 role: p.role.trim().to_owned(),
                 when: p.when.trim().to_owned(),
                 hands_off: p.hands_off.trim().to_owned(),
+                next: next_steps(&p.next, &input.id, &by_short),
                 by: PlacedBy::Claude,
                 pinned: false,
             });
@@ -730,6 +734,30 @@ struct AnswerPlacement {
     when: String,
     #[serde(default)]
     hands_off: String,
+    #[serde(default)]
+    next: Vec<String>,
+}
+
+/// The next steps Claude named, as artifact ids: unknown short ids, the artifact itself and
+/// repeats are dropped rather than failing the answer, and at most [`MAX_NEXT`] are kept.
+fn next_steps(
+    named: &[String],
+    own: &ArtifactId,
+    by_short: &HashMap<&str, &DrawInput>,
+) -> Vec<ArtifactId> {
+    let mut out: Vec<ArtifactId> = Vec::new();
+    for short in named {
+        let Some(input) = by_short.get(short.trim()) else {
+            continue;
+        };
+        if &input.id != own && !out.contains(&input.id) {
+            out.push(input.id.clone());
+        }
+        if out.len() == MAX_NEXT {
+            break;
+        }
+    }
+    out
 }
 
 /// What differs between `doc` and its `template`, and how many of the `total` artifacts are

@@ -108,6 +108,7 @@ impl Setup {
             role: String::new(),
             when: String::new(),
             hands_off: String::new(),
+            next: Vec::new(),
             by: PlacedBy::Claude,
             pinned: false,
         });

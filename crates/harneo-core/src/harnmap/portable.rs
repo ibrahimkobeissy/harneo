@@ -152,6 +152,15 @@ fn rewrite_map(doc: &mut Value, swap: &dyn Fn(&Value) -> Result<Option<Value>>) 
             };
             if let Some(swapped) = swap(reference)? {
                 placement["artifact"] = swapped;
+                if let Some(next) = placement.get_mut("next").and_then(Value::as_array_mut) {
+                    let mut steps = Vec::new();
+                    for step in std::mem::take(next) {
+                        if let Some(swapped) = swap(&step)? {
+                            steps.push(swapped);
+                        }
+                    }
+                    *next = steps;
+                }
                 kept.push(placement);
             }
         }

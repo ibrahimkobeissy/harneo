@@ -18,6 +18,7 @@ fn place(artifact: &str, zone: Zone) -> Placement {
         role: String::new(),
         when: String::new(),
         hands_off: String::new(),
+        next: Vec::new(),
         by: PlacedBy::Claude,
         pinned: false,
     }
@@ -133,4 +134,37 @@ fn the_json_shape_is_camel_case_and_round_trips() -> Result<(), serde_json::Erro
     assert_eq!(json["changes"][0]["type"], "stageRenamed");
     assert_eq!(serde_json::from_value::<MapDoc>(json)?, doc);
     Ok(())
+}
+
+#[test]
+fn a_next_step_must_name_another_artifact_of_the_profile() {
+    let mut doc = MapDoc::from_template(CategoryId::Software);
+    let mut p = place("a", Zone::Floor);
+    p.next = vec!["b".into(), "a".into(), "ghost".into()];
+    doc.placements.push(p);
+    doc.placements.push(place("b", Zone::Toolbelt));
+    let reasons = doc.validate(&known(&["a", "b"]));
+    assert_eq!(reasons.len(), 2, "{reasons:?}");
+    assert!(reasons.iter().all(|r| r.contains("next step")));
+}
+
+#[test]
+fn a_map_drawn_before_next_steps_existed_still_reads() -> Result<(), serde_json::Error> {
+    let p: Placement = serde_json::from_value(serde_json::json!({
+        "artifact": "a", "zone": {"type": "floor"}, "order": 0, "note": "", "why": "",
+        "role": "", "when": "", "handsOff": "", "by": "claude", "pinned": false
+    }))?;
+    assert!(p.next.is_empty());
+    Ok(())
+}
+
+#[test]
+fn dropping_an_artifact_also_drops_it_from_next_steps() {
+    let mut doc = MapDoc::from_template(CategoryId::Software);
+    let mut p = place("a", Zone::Floor);
+    p.next = vec!["b".into(), "c".into()];
+    doc.placements.push(p);
+    doc.placements.push(place("b", Zone::Toolbelt));
+    doc.drop_artifact("b");
+    assert_eq!(doc.placements[0].next, ["c"]);
 }

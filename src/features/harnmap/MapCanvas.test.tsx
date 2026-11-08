@@ -483,3 +483,31 @@ describe("node notes", () => {
     expect(noteText("x", "x — ")).toBe("x — ");
   });
 });
+
+describe("next steps", () => {
+  it("rings the selected artifact's next steps in order and draws an arrow to each", async () => {
+    const user = userEvent.setup();
+    const data: MapData = {
+      ...heavy,
+      doc: {
+        ...heavy.doc,
+        placements: heavy.doc.placements.map((p) =>
+          p.artifact === "spec" ? { ...p, next: ["plan", "build", "gone"] } : p,
+        ),
+      },
+    };
+    render(<Harness data={data} />);
+    expect(screen.queryAllByTestId("next-arrow")).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: /^\/spec, Command/ }));
+    const plan = screen.getByRole("button", { name: /^\/plan, Command/ });
+    const build = screen.getByRole("button", { name: /^\/build, Command/ });
+    expect(plan).toHaveAccessibleName(/next step 1$/);
+    expect(build).toHaveAccessibleName(/next step 2$/);
+    expect(plan).toHaveAttribute("data-next", "true");
+    // A next step that isn't on the map is skipped.
+    expect(screen.getAllByTestId("next-arrow")).toHaveLength(2);
+    await user.click(plan);
+    expect(screen.queryAllByTestId("next-arrow")).toHaveLength(0);
+    expect(build).not.toHaveAttribute("data-next");
+  });
+});

@@ -106,6 +106,12 @@ export function MapScene({
       counts.set(n.zone.id, (counts.get(n.zone.id) ?? 0) + 1);
     }
   }
+  // The natural next steps of the selected artifact, as Claude read them, in order.
+  const selectedBox = shown.find((n) => n.id === selected);
+  const nextIds = (
+    selected ? (placements.get(selected)?.next ?? []) : []
+  ).filter((id) => shown.some((n) => n.id === id));
+  const nextRank = new Map(nextIds.map((id, i) => [id, i + 1]));
   const openBox = shown.find((n) => n.id === open);
   const openPlacement = open ? placements.get(open) : undefined;
   const openInfo = open ? data.artifacts[open] : undefined;
@@ -211,6 +217,40 @@ export function MapScene({
             ))}
           </>
         )}
+        {selectedBox &&
+          nextIds.map((id) => {
+            const to = shown.find((n) => n.id === id);
+            if (!to) return null;
+            const forward = to.x >= selectedBox.x + selectedBox.w;
+            const a = forward
+              ? {
+                  x: selectedBox.x + selectedBox.w,
+                  y: selectedBox.y + selectedBox.h / 2,
+                }
+              : {
+                  x: selectedBox.x + selectedBox.w / 2,
+                  y: selectedBox.y + selectedBox.h,
+                };
+            const b = forward
+              ? { x: to.x, y: to.y + to.h / 2 }
+              : { x: to.x + to.w / 2, y: to.y };
+            const bend = forward
+              ? { x: (a.x + b.x) / 2, y: 0 }
+              : { x: 0, y: 24 };
+            return (
+              <path
+                key={`next-${id}`}
+                className={styles.nextArrow}
+                data-testid="next-arrow"
+                d={
+                  forward
+                    ? `M ${a.x} ${a.y} C ${bend.x} ${a.y} ${bend.x} ${b.y} ${b.x} ${b.y}`
+                    : `M ${a.x} ${a.y} C ${a.x} ${a.y + bend.y} ${b.x} ${b.y - bend.y} ${b.x} ${b.y}`
+                }
+                markerEnd={`url(#${arrow})`}
+              />
+            );
+          })}
         {ghost &&
           box &&
           ghost.conflicts.flatMap((id) => {
@@ -344,6 +384,7 @@ export function MapScene({
             placement={placement}
             box={n}
             selected={selected === n.id}
+            nextRank={nextRank.get(n.id)}
             onSelect={() => onSelect(n.id)}
             onInfo={() => onOpen(n.id, true)}
             drag={
