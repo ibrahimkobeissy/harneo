@@ -17,7 +17,7 @@ import {
   type Layout,
   type LayoutInput,
 } from "./index";
-import { badgeWidth, BADGE_MAX_W, densify } from "./orthogonal";
+import { badgeWidth, BADGE_MAX_W, densify, LOOP_ARROW_GAP } from "./orthogonal";
 
 const SHAPES: Shape[] = ["line", "cycle", "diamond", "parallel"];
 
@@ -516,7 +516,11 @@ describe("busy stages and loop ends", () => {
     const from = pick(l.stages, 1).frame;
     const to = pick(l.stages, 0).frame;
     expect(loop.start).toEqual({ x: from.x + from.w / 2, y: from.y + from.h });
-    expect(loop.end).toEqual({ x: to.x + to.w / 2, y: to.y + to.h });
+    // The arrowhead stops a few pixels short of the frame, which would otherwise hide it.
+    expect(loop.end).toEqual({
+      x: to.x + to.w / 2,
+      y: to.y + to.h + LOOP_ARROW_GAP,
+    });
   });
 });
 
@@ -699,7 +703,8 @@ describe.each(SHAPES)("%s count badge", (shape) => {
 
   it("is only as wide as it needs to be for a short name", () => {
     expect(badgeWidth("HEAVY")).toBe(56);
-    expect(badgeWidth("SOFTWAREFACTORY")).toBeGreaterThan(100);
+    // 15 letter-spaced capitals measure about 6.5 px each in the app, plus the badge padding.
+    expect(badgeWidth("SOFTWAREFACTORY")).toBeGreaterThanOrEqual(15 * 6.5 + 16);
     expect(layout(input(shape, 0, 0)).badge).toBeNull();
   });
 });

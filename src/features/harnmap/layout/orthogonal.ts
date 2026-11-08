@@ -1,14 +1,17 @@
 import type { Point, Rect } from "./common";
 
-/** Horizontal gap between legs of loops that leave or enter the same stage. */
-const LEG_STEP = 10;
+/** Between the legs of loops at one stage: wider than an arrowhead (14 px) so they never overlap. */
+const LEG_STEP = 18;
 
 export const BADGE_H = 32;
 export const BADGE_MIN_W = 56;
-export const BADGE_MAX_W = 136;
-/** Estimated width per character of the badge name (9 px mono with letter spacing). */
-const BADGE_CHAR_W = 6.4;
-const BADGE_PAD = 16;
+export const BADGE_MAX_W = 160;
+/**
+ * Estimated width per character of the badge name (9 px mono with letter spacing): measured at
+ * about 6.5 px in the app; 7 leaves room so a name that fits is never cut by a pixel.
+ */
+const BADGE_CHAR_W = 7;
+const BADGE_PAD = 20;
 /** Clear space between the badge and the first valve. */
 export const BADGE_GAP = 10;
 
@@ -29,6 +32,9 @@ export function legOffsets(stageOf: string[]): number[] {
     return (k - ((total.get(s) ?? 1) - 1) / 2) * LEG_STEP;
   });
 }
+
+/** Space between a loop's arrowhead and the frame of the stage it returns to (design: 6 px). */
+export const LOOP_ARROW_GAP = 6;
 
 /** Straight down from the start, across at `runY`, straight up into the end (as the design draws it). */
 export function orthogonalPoints(

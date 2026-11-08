@@ -11,6 +11,7 @@ import {
   BADGE_H,
   densify,
   legOffsets,
+  LOOP_ARROW_GAP,
   orthogonalPoints,
 } from "./orthogonal";
 
@@ -692,7 +693,8 @@ function drawLoops(
         x: fa.x + fa.w / 2 + offA - (a === b ? 14 : 0),
         y: fa.y + fa.h,
       };
-      end = { x: fb.x + fb.w / 2 + offB, y: fb.y + fb.h };
+      // The arrowhead stops short of the target frame, as in the design, or the frame hides it.
+      end = { x: fb.x + fb.w / 2 + offB, y: fb.y + fb.h + LOOP_ARROW_GAP };
       points = orthogonalPoints(start, end, bottom + depth);
     }
     return {

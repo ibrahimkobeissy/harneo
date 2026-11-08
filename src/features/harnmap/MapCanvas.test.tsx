@@ -660,3 +660,15 @@ describe("next steps caption", () => {
     expect(screen.queryByTestId("next-caption")).toBeNull();
   });
 });
+
+describe("arrowheads (#262)", () => {
+  it("colour each marker with a token, since WebKitGTK has no context-stroke", () => {
+    const { container } = render(<Harness data={fixtures.line} />);
+    const heads = container.querySelectorAll("marker path");
+    expect(heads.length).toBe(2);
+    for (const head of heads) {
+      expect(head.getAttribute("stroke")).not.toBe("context-stroke");
+      expect(head.getAttribute("class")).toBeTruthy();
+    }
+  });
+});

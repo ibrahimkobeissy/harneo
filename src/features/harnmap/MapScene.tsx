@@ -142,6 +142,8 @@ export function MapScene({
         aria-hidden="true"
       >
         <defs>
+          {/* One marker per colour: WebKitGTK (Tauri on Linux) has no `context-stroke`, which
+              left the arrowheads invisible. */}
           <marker
             id={arrow}
             viewBox="0 0 10 10"
@@ -154,7 +156,25 @@ export function MapScene({
             <path
               d="M 1 1 L 9 5 L 1 9"
               fill="none"
-              stroke="context-stroke"
+              className={styles.arrowLoop}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </marker>
+          <marker
+            id={`${arrow}-next`}
+            viewBox="0 0 10 10"
+            refX="8"
+            refY="5"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path
+              d="M 1 1 L 9 5 L 1 9"
+              fill="none"
+              className={styles.arrowNext}
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -462,7 +482,7 @@ export function MapScene({
                     ? `M ${a.x} ${a.y} C ${bend.x} ${a.y} ${bend.x} ${b.y} ${b.x} ${b.y}`
                     : `M ${a.x} ${a.y} C ${a.x} ${a.y + bend.y} ${b.x} ${b.y - bend.y} ${b.x} ${b.y}`
                 }
-                markerEnd={`url(#${arrow})`}
+                markerEnd={`url(#${arrow}-next)`}
               />
             );
           })}
