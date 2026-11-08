@@ -28,6 +28,8 @@ pub enum FactKind {
     AllowedMcp,
     /// A skill only the user can start.
     ManualOnly,
+    /// A skill only Claude can start (`user-invocable: false`).
+    ModelOnly,
     /// A rule's `paths`.
     RulePaths,
     /// The settings template's permission rules.
@@ -357,6 +359,17 @@ fn item_facts(conn: &Connection, profile: &Profile, item: &ResolvedItem) -> Resu
                 out.push(fact(
                     FactKind::ManualOnly,
                     "Manual only: disable-model-invocation is set",
+                ));
+            }
+            let hidden_from_user = match metadata.get("user-invocable") {
+                Some(Value::Bool(on)) => !*on,
+                Some(Value::String(t)) => t.trim() == "false",
+                _ => false,
+            };
+            if item.kind == ArtifactKind::Skill && hidden_from_user {
+                out.push(fact(
+                    FactKind::ModelOnly,
+                    "Model only: user-invocable is false",
                 ));
             }
         }

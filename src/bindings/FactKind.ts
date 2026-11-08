@@ -3,4 +3,4 @@
 /**
  * What sort of fact it is, so the UI can tag it.
  */
-export type FactKind = { "type": "bundle" } | { "type": "skills" } | { "type": "mcpServers" } | { "type": "allowedMcp" } | { "type": "manualOnly" } | { "type": "rulePaths" } | { "type": "permissions" } | { "type": "hook" } | { "type": "statusLine" } | { "type": "alwaysLoaded" } | { "type": "outputStyle" } | { "type": "missingMcp", server: string, };
+export type FactKind = { "type": "bundle" } | { "type": "skills" } | { "type": "mcpServers" } | { "type": "allowedMcp" } | { "type": "manualOnly" } | { "type": "modelOnly" } | { "type": "rulePaths" } | { "type": "permissions" } | { "type": "hook" } | { "type": "statusLine" } | { "type": "alwaysLoaded" } | { "type": "outputStyle" } | { "type": "missingMcp", server: string, };

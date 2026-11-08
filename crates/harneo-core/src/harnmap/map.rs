@@ -18,6 +18,8 @@ pub const MAX_NOTE: usize = 60;
 pub const MAX_WHY: usize = 400;
 /// Most natural next steps kept per placement.
 pub const MAX_NEXT: usize = 4;
+/// Most "also run by" artifacts kept per placement.
+pub const MAX_ALSO_RUN_BY: usize = 3;
 /// Longest `role`, `when` or `hands_off`, in characters.
 pub const MAX_TOOLTIP: usize = 120;
 
@@ -94,6 +96,16 @@ pub struct Placement {
     #[serde(default)]
     #[ts(as = "Option<Vec<ArtifactId>>", optional)]
     pub next: Vec<ArtifactId>,
+    /// Claude's reading: the one artifact this runs only through (a skill behind a command, a
+    /// subagent behind a skill). A child sits in its parent's zone and moves with it.
+    #[serde(default)]
+    #[ts(optional)]
+    pub parent: Option<ArtifactId>,
+    /// Other artifacts that also run this one, at most [`MAX_ALSO_RUN_BY`]; empty without a
+    /// parent.
+    #[serde(default)]
+    #[ts(as = "Option<Vec<ArtifactId>>", optional)]
+    pub also_run_by: Vec<ArtifactId>,
     pub by: PlacedBy,
     pub pinned: bool,
 }
@@ -233,6 +245,7 @@ impl MapDoc {
             cut(&mut p.when, MAX_TOOLTIP);
             cut(&mut p.hands_off, MAX_TOOLTIP);
             p.next.truncate(MAX_NEXT);
+            p.also_run_by.truncate(MAX_ALSO_RUN_BY);
         }
     }
 
@@ -290,6 +303,7 @@ impl MapDoc {
                 );
             }
         }
+        reasons.extend(self.family_problems());
         reasons
     }
 }

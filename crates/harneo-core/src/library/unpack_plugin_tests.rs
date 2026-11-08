@@ -109,6 +109,8 @@ impl Setup {
             when: String::new(),
             hands_off: String::new(),
             next: Vec::new(),
+            parent: None,
+            also_run_by: Vec::new(),
             by: PlacedBy::Claude,
             pinned: false,
         });

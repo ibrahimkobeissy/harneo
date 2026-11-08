@@ -40,7 +40,7 @@ pub(super) const MAX_STAGE_NAME: usize = 40;
 /// The model used when Settings holds none.
 pub const DEFAULT_DRAW_MODEL: &str = "opus";
 
-const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"},"next":{"type":"array","items":{"type":"string"}}},"required":["artifact","zone","note","why","role","when","hands_off","next"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
+const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"},"next":{"type":"array","items":{"type":"string"}},"parent":{"type":"string"},"also_run_by":{"type":"array","items":{"type":"string"}}},"required":["artifact","zone","note","why","role","when","hands_off","next"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
 
 const INSTRUCTIONS: &str = "You are drawing a factory map of a Claude Code harness: a profile's \
 artifacts (skills, commands, subagents, rules, MCP servers, settings, output styles) placed on \
@@ -63,6 +63,12 @@ when it runs, what it leaves to others), and `next`: the short ids of the artifa
 natural next steps after this one in the workflow (for example a spec command's next steps are the \
 plan and then the build), most likely first, at most 4, or an empty list when none follows \
 naturally. Name only other artifacts of the profile, never the artifact itself.\n\
+Optionally `parent`: the short id of the one command, skill or subagent that this skill or \
+subagent is run through, set only when it is not meant to be started on its own and runs through \
+that parent (a command that only runs a skill is that skill's parent). Leave it out otherwise. \
+When several artifacts run it, name the main one as `parent` and the rest in `also_run_by` (at \
+most 3). Use the facts (manual only, model only, bundle links, a subagent's skills) as evidence. \
+Nest at most two levels. A child is placed with its parent, in the parent's zone.\n\
 Artifacts with `textWithheld: true`: judge them from kind, name, description and facts only.\n\
 Placements marked as pinned are fixed by the user: do not place those artifacts.\n\
 Answer only with JSON matching the schema.\n";
@@ -557,6 +563,12 @@ impl DrawJob {
                 when: p.when.trim().to_owned(),
                 hands_off: p.hands_off.trim().to_owned(),
                 next: next_steps(&p.next, &input.id, &by_short),
+                parent: p
+                    .parent
+                    .as_deref()
+                    .and_then(|short| by_short.get(short.trim()))
+                    .map(|i| i.id.clone()),
+                also_run_by: next_steps(&p.also_run_by, &input.id, &by_short),
                 by: PlacedBy::Claude,
                 pinned: false,
             });
@@ -592,6 +604,7 @@ impl DrawJob {
             hidden_types: base.hidden_types,
             changes: Vec::new(),
         };
+        doc.normalize_family(&self.kinds());
         doc.cut_to_limits();
         let known: HashSet<ArtifactId> = self.inputs.iter().map(|i| i.id.clone()).collect();
         reasons.extend(doc.validate(&known));
@@ -644,18 +657,17 @@ impl DrawJob {
             answer.placements.retain(|p| p.artifact != pin.artifact);
             answer.placements.push(pin);
         }
-        // Orders are positions within a zone: renumber after the pins joined.
-        let mut next: HashMap<String, u32> = HashMap::new();
-        for p in &mut answer.placements {
-            let key = match &p.zone {
-                Zone::Stage { id } => format!("stage:{id}"),
-                Zone::Toolbelt => "toolbelt".to_owned(),
-                Zone::Floor => "floor".to_owned(),
-            };
-            let n = next.entry(key).or_insert(0);
-            p.order = *n;
-            *n += 1;
+        // Pins keep their parent; a child follows its parent's zone. Orders are positions
+        // within a zone: renumber after the pins joined (the pins went last).
+        for (at, p) in answer.placements.iter_mut().enumerate() {
+            p.order = u32::try_from(at).unwrap_or(u32::MAX);
         }
+        answer.normalize_family(&self.kinds());
+    }
+
+    /// The kind of every artifact sent to Claude.
+    fn kinds(&self) -> HashMap<ArtifactId, ArtifactKind> {
+        self.inputs.iter().map(|i| (i.id.clone(), i.kind)).collect()
     }
 
     /// Asks Claude, checks the answer (one retry), re-applies the user's edits and computes the
@@ -736,6 +748,10 @@ struct AnswerPlacement {
     hands_off: String,
     #[serde(default)]
     next: Vec<String>,
+    #[serde(default)]
+    parent: Option<String>,
+    #[serde(default)]
+    also_run_by: Vec<String>,
 }
 
 /// The next steps Claude named, as artifact ids: unknown short ids, the artifact itself and

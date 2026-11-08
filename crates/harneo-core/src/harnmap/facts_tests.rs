@@ -68,7 +68,7 @@ fn fixture() -> std::result::Result<Fixture, Box<dyn std::error::Error>> {
     write(
         r,
         "skills/review/SKILL.md",
-        "---\nname: review\ndescription: review\ndisable-model-invocation: true\nallowed-tools: mcp__github__*, Read, mcp__ghost__lookup\n---\nBody.\n",
+        "---\nname: review\ndescription: review\ndisable-model-invocation: true\nuser-invocable: false\nallowed-tools: mcp__github__*, Read, mcp__ghost__lookup\n---\nBody.\n",
     )?;
     write(
         r,
@@ -170,6 +170,10 @@ fn every_fact_kind_comes_from_a_fixture_artifact() -> TestResult {
         "{review:?}"
     );
     assert!(review.contains(&"Manual only: disable-model-invocation is set"));
+    assert!(review.contains(&"Model only: user-invocable is false"));
+    assert!(!kinds(ArtifactKind::Skill, "tdd")
+        .iter()
+        .any(|t| t.starts_with("Model only")));
     let ship = kinds(ArtifactKind::Command, "ship");
     assert_eq!(ship, ["Allowed tools: mcp__github__create_pr"]);
 

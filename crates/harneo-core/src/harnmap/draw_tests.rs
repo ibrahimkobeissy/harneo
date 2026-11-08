@@ -430,6 +430,8 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
         when: String::new(),
         hands_off: String::new(),
         next: Vec::new(),
+        parent: None,
+        also_run_by: Vec::new(),
         by: PlacedBy::User,
         pinned: true,
     };
@@ -504,6 +506,8 @@ fn a_pin_keeps_the_stage_it_sits_on_even_when_claude_removed_it() -> TestResult 
         when: String::new(),
         hands_off: String::new(),
         next: Vec::new(),
+        parent: None,
+        also_run_by: Vec::new(),
         by: PlacedBy::User,
         pinned: true,
     }];
@@ -880,6 +884,8 @@ fn at_most_four_next_steps_are_kept() -> TestResult {
         when: String::new(),
         hands_off: String::new(),
         next: doc_next,
+        parent: None,
+        also_run_by: Vec::new(),
         by: PlacedBy::Claude,
         pinned: false,
     };

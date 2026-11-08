@@ -161,6 +161,22 @@ fn rewrite_map(doc: &mut Value, swap: &dyn Fn(&Value) -> Result<Option<Value>>) 
                     }
                     *next = steps;
                 }
+                if let Some(reference) = placement.get("parent").filter(|v| !v.is_null()) {
+                    match swap(reference)? {
+                        Some(swapped) => placement["parent"] = swapped,
+                        None => placement["parent"] = Value::Null,
+                    }
+                }
+                if let Some(runners) = placement.get_mut("alsoRunBy").and_then(Value::as_array_mut)
+                {
+                    let mut kept_runners = Vec::new();
+                    for runner in std::mem::take(runners) {
+                        if let Some(swapped) = swap(&runner)? {
+                            kept_runners.push(swapped);
+                        }
+                    }
+                    *runners = kept_runners;
+                }
                 kept.push(placement);
             }
         }

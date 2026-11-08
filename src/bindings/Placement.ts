@@ -22,4 +22,14 @@ role: string, when: string, handsOff: string,
  * Claude's reading of the natural next steps after this artifact: other artifacts of the
  * profile, most likely first, at most [`MAX_NEXT`]. Empty in maps drawn before it existed.
  */
-next?: Array<string>, by: PlacedBy, pinned: boolean, };
+next?: Array<string>, 
+/**
+ * Claude's reading: the one artifact this runs only through (a skill behind a command, a
+ * subagent behind a skill). A child sits in its parent's zone and moves with it.
+ */
+parent?: string, 
+/**
+ * Other artifacts that also run this one, at most [`MAX_ALSO_RUN_BY`]; empty without a
+ * parent.
+ */
+alsoRunBy?: Array<string>, by: PlacedBy, pinned: boolean, };

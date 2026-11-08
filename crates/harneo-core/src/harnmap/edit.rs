@@ -34,6 +34,10 @@ pub enum MapEdit {
     /// Takes an artifact off the map; it goes back to Unplaced.
     #[serde(rename_all = "camelCase")]
     Remove { artifact: ArtifactId },
+    /// Makes a child an ordinary placement again: it keeps its zone (right after its parent) and
+    /// is pinned.
+    #[serde(rename_all = "camelCase")]
+    Detach { artifact: ArtifactId },
     /// Lets a re-draw move the artifact again.
     #[serde(rename_all = "camelCase")]
     Unpin { artifact: ArtifactId },
@@ -87,9 +91,11 @@ impl MapDoc {
     /// Takes `artifact` off the map and out of the hidden list; returns how many placements went.
     pub(crate) fn drop_artifact(&mut self, artifact: &str) -> usize {
         let before = self.placements.len();
+        self.free_children(artifact);
         self.placements.retain(|p| p.artifact != artifact);
         for p in &mut self.placements {
             p.next.retain(|n| n != artifact);
+            p.also_run_by.retain(|n| n != artifact);
         }
         self.hidden.retain(|a| a != artifact);
         self.renumber(None);
@@ -133,6 +139,7 @@ impl MapDoc {
             self.placements[i].order = *n;
             *n += 1;
         }
+        self.group_families();
     }
 
     /// Applies `edit`. `known` is the profile's artifacts; `Place` takes one of those.
@@ -145,7 +152,17 @@ impl MapDoc {
                 order,
             } => {
                 let at = self.placed_at(&artifact)?;
+                // Moving a child on its own cuts it from its parent; moving a parent carries
+                // its children.
+                let carried = self.descendants(&artifact);
+                for p in &mut self.placements {
+                    if carried.contains(&p.artifact) {
+                        p.zone = zone.clone();
+                    }
+                }
                 let p = &mut self.placements[at];
+                p.parent = None;
+                p.also_run_by.clear();
                 if p.zone != zone {
                     p.why = "You moved it here.".to_owned();
                 }
@@ -181,13 +198,28 @@ impl MapDoc {
                     when: String::new(),
                     hands_off: String::new(),
                     next: Vec::new(),
+                    parent: None,
+                    also_run_by: Vec::new(),
                     by: PlacedBy::User,
                     pinned: true,
                 });
             }
             MapEdit::Remove { artifact } => {
                 let at = self.placed_at(&artifact)?;
+                self.free_children(&artifact);
                 self.placements.remove(at);
+                self.renumber(None);
+            }
+            MapEdit::Detach { artifact } => {
+                let at = self.placed_at(&artifact)?;
+                let p = &mut self.placements[at];
+                if p.parent.is_none() {
+                    return Err(refuse(format!("{artifact} has no parent on the map")));
+                }
+                p.parent = None;
+                p.also_run_by.clear();
+                p.by = PlacedBy::User;
+                p.pinned = true;
                 self.renumber(None);
             }
             MapEdit::Unpin { artifact } => {
@@ -201,6 +233,7 @@ impl MapDoc {
                 self.placements[at].note = text;
             }
             MapEdit::Hide { artifact } => {
+                self.free_children(&artifact);
                 if !self.hidden.contains(&artifact) {
                     self.hidden.push(artifact);
                 }

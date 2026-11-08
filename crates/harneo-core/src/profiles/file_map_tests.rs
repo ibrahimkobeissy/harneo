@@ -23,6 +23,8 @@ fn placement(artifact: &str, zone: Zone, note: &str, pinned: bool) -> Placement 
         when: "w".to_owned(),
         hands_off: "h".to_owned(),
         next: Vec::new(),
+        parent: None,
+        also_run_by: Vec::new(),
         by: if pinned {
             PlacedBy::User
         } else {
@@ -109,9 +111,12 @@ fn mapped() -> std::result::Result<Mapped, Box<dyn std::error::Error>> {
     add_draw(&lib, profile, 1, &first)?;
     let stage = first.stages.first().ok_or("a stage")?.id.clone();
     let mut second = first.clone();
+    let mut child = placement(&helper, Zone::Stage { id: stage.clone() }, "", false);
+    child.parent = Some(skill.clone());
+    child.also_run_by = vec![lib.id(ArtifactKind::Mcp, "api")?];
     second.placements = vec![
         placement(&skill, Zone::Stage { id: stage }, "mixes", true),
-        placement(&helper, Zone::Floor, "", false),
+        child,
     ];
     second.hidden = vec![lib.id(ArtifactKind::Mcp, "api")?];
     add_draw(&lib, profile, 2, &second)?;
@@ -177,6 +182,16 @@ fn a_round_trip_keeps_draws_pins_notes_fits_and_the_category() -> TestResult {
         ]
     );
     assert_eq!(map.doc.hidden, vec![two.id(ArtifactKind::Mcp, "api")?]);
+    // The parent and the "also run by" list came through as the new library's ids.
+    assert_eq!(
+        map.doc.placements[1].parent.as_deref(),
+        Some(skill.as_str())
+    );
+    assert_eq!(
+        map.doc.placements[1].also_run_by,
+        vec![two.id(ArtifactKind::Mcp, "api")?]
+    );
+    assert!(map.doc.placements[0].parent.is_none());
     assert_eq!(two.library.harnmap_history(report.profile_id)?.len(), 2);
 
     let fits = two.library.fits(report.profile_id)?;
