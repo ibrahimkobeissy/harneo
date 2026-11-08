@@ -1,4 +1,4 @@
-import { ChevronDown, Layers, ScanSearch } from "lucide-react";
+import { ChevronDown, Info, Layers, ScanSearch } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { ArtifactFit } from "../../bindings/ArtifactFit";
@@ -14,7 +14,7 @@ import { formatDate } from "./ItemMeta";
 /**
  * The detail panel's "Harnfit in…" menu: pick the profile to fit this artifact into. Each row
  * shows the profile's category and its saved verdict, or "not fitted yet". A plugin taken whole
- * can't be fitted yet. Picking opens the Harnfit screen (the click is the go-ahead); a saved fit
+ * can't be fitted yet: the menu says so and its rows show as disabled. Picking opens the Harnfit screen (the click is the go-ahead); a saved fit
  * opens there at once, without a Claude call.
  */
 export function HarnfitMenu({
@@ -94,11 +94,17 @@ export function HarnfitMenu({
       </Button>
       {open && (
         <div className={styles.menu} role="menu" aria-label="Harnfit in">
-          <p className={styles.menuHead}>
-            {plugin
-              ? "Harnfit for plugins comes later"
-              : "Fit it into a profile’s map"}
-          </p>
+          {plugin ? (
+            <div className={styles.menuNote} role="note">
+              <Info size={14} aria-hidden="true" />
+              <p>
+                <strong>A plugin kept whole can’t be fitted yet.</strong> Once a
+                plugin is unpacked, each of its parts can be fitted on its own.
+              </p>
+            </div>
+          ) : (
+            <p className={styles.menuHead}>Fit it into a profile’s map</p>
+          )}
           <div className={styles.menuScroll}>
             {profiles.map((p) => {
               const fit = fits.find((f) => f.profileId === p.id);
@@ -118,7 +124,9 @@ export function HarnfitMenu({
                     {p.name}
                     <span className={styles.menuTag}> · {category}</span>
                   </span>
-                  {fit ? (
+                  {plugin ? (
+                    <span className={styles.menuTag}>not available</span>
+                  ) : fit ? (
                     <>
                       <span className={styles.menuTag}>
                         fit saved {formatDate(fit.createdAt)}

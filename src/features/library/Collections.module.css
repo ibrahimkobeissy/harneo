@@ -295,8 +295,38 @@
   text-align: left;
   cursor: pointer;
 }
-.menuItem:hover {
+.menuItem:hover:not(:disabled) {
   background: var(--sunk);
+}
+.menuItem:disabled {
+  color: var(--t3);
+  cursor: default;
+}
+.menuItem:disabled svg {
+  opacity: 0.6;
+}
+/* Why the rows below can't be picked (#259). */
+.menuNote {
+  display: flex;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-xxs);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--t2);
+  font-size: var(--text-label);
+  line-height: 1.4;
+}
+.menuNote svg {
+  flex: none;
+  margin-top: 2px;
+}
+.menuNote p {
+  margin: 0;
+}
+.menuNote strong {
+  color: var(--t1);
+  font-weight: 600;
 }
 .menuItem:focus-visible {
   outline: var(--hairline-strong) solid var(--blue);

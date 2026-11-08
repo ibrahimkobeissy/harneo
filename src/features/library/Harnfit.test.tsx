@@ -96,11 +96,16 @@ describe("Harnfit in… menu", () => {
     const user = userEvent.setup();
     menu("plugin");
     await user.click(screen.getByRole("button", { name: /Harnfit in/ }));
-    expect(
-      await screen.findByText("Harnfit for plugins comes later"),
-    ).toBeVisible();
-    for (const row of await screen.findAllByRole("menuitem"))
+    expect(await screen.findByRole("note")).toHaveTextContent(
+      "A plugin kept whole can’t be fitted yet.",
+    );
+    const rows = await screen.findAllByRole("menuitem");
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
       expect(row).toBeDisabled();
+      expect(row).toHaveTextContent("not available");
+      expect(row).not.toHaveTextContent("not fitted yet");
+    }
   });
 
   it("closes on Escape and says when there are no profiles", async () => {
