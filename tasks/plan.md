@@ -521,3 +521,5 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#240](https://github.com/ibrahimkobeissy/harneo/issues/240) Plugins: route every special case through the plugin module
 - [#242](https://github.com/ibrahimkobeissy/harneo/issues/242) Plugins: deep regression tests after unpack-by-default
 - [#241](https://github.com/ibrahimkobeissy/harneo/issues/241) Harnmap: loop labels never overlap
+- [#251](https://github.com/ibrahimkobeissy/harneo/issues/251) Harnmap core: a command and the skill it only runs are stored as parent and child
+- [#253](https://github.com/ibrahimkobeissy/harneo/issues/253) Harnmap app: draw a parent and its children as one tree
