@@ -525,3 +525,5 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#253](https://github.com/ibrahimkobeissy/harneo/issues/253) Harnmap app: draw a parent and its children as one tree
 - [#255](https://github.com/ibrahimkobeissy/harneo/issues/255) Harnmap draw: next steps mean the immediate next step, not the rest of the workflow
 - [#254](https://github.com/ibrahimkobeissy/harneo/issues/254) Harnmap UI: the line and hook rail visible, plain loop labels, a hideable side panel, next steps explained
+- [#262](https://github.com/ibrahimkobeissy/harneo/issues/262) Harnmap: the pipe with its flowing beams, valves, a light hook rail, a badge that fits, right-angled loops
+- [#263](https://github.com/ibrahimkobeissy/harneo/issues/263) Harnmap: the side panel explains each natural next step with Claude's reason
