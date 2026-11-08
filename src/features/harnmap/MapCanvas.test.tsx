@@ -561,6 +561,69 @@ describe("the line above the stages", () => {
     expect(scene).toBeInTheDocument();
   });
 
+  it("draws the pipe with two flowing beams, valves lit by their stations, and chutes", () => {
+    const { container } = render(<Harness />);
+    const beams = screen.getAllByTestId("beam");
+    expect(beams).toHaveLength(2);
+    expect(beams.map((b) => b.getAttribute("pathLength"))).toEqual([
+      "1000",
+      "1000",
+    ]);
+    expect(beams.map((b) => b.style.strokeDasharray)).toEqual([
+      "110 140",
+      "50 200",
+    ]);
+    expect(container.querySelectorAll("path[class*='pipeOuter']")).toHaveLength(
+      1,
+    );
+    expect(container.querySelectorAll("path[class*='pipeInner']")).toHaveLength(
+      1,
+    );
+    const valves = screen.getAllByTestId("valve");
+    expect(valves).toHaveLength(screen.getAllByTestId("stage").length);
+    const lit = screen
+      .getAllByTestId("light")
+      .map((l) => l.dataset.on === "true");
+    expect(valves.map((v) => v.getAttribute("data-lit") === "true")).toEqual(
+      lit,
+    );
+  });
+
+  it("draws loops as right-angled dashed paths with an arrowhead", () => {
+    render(<Harness />);
+    const loops = screen.getAllByTestId("loop-path");
+    expect(loops.length).toBeGreaterThan(0);
+    for (const l of loops) {
+      expect(l.getAttribute("d")).toMatch(
+        /^M [\d.]+ [\d.]+( L [\d.]+ [\d.]+){3}$/,
+      );
+      expect(l.getAttribute("marker-end")).toMatch(/^url\(#/);
+    }
+  });
+
+  it("widens the badge for a long profile name, with the full name as its label", () => {
+    render(<Harness data={{ ...fixtures.line, profile: "SoftwareFactory" }} />);
+    const badge = screen.getByTestId("line-badge");
+    expect(Number.parseFloat(badge.style.width)).toBeGreaterThan(100);
+    expect(badge).toHaveAttribute(
+      "title",
+      expect.stringContaining("SoftwareFactory"),
+    );
+    expect(badge).toHaveAttribute(
+      "aria-label",
+      expect.stringContaining("SoftwareFactory"),
+    );
+    const first = screen.getAllByTestId("stage")[0] as HTMLElement;
+    expect(
+      Number.parseFloat(badge.style.left) +
+        Number.parseFloat(badge.style.width),
+    ).toBeLessThan(
+      Number.parseFloat(first.style.left) +
+        Number.parseFloat(first.style.width) / 2 -
+        6,
+    );
+  });
+
   it("hides the badge and dots with the line layer", () => {
     render(
       <Harness

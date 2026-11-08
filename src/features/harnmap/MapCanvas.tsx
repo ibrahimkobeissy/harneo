@@ -117,6 +117,7 @@ export function MapCanvas({
         placements: visible,
         bundles: data.bundles,
         hasHooks: data.hooks.length > 0,
+        badgeName: (data.profile ?? "STATIONS").toUpperCase(),
       }),
     [data, visible],
   );

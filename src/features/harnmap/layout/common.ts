@@ -5,6 +5,14 @@ import type { Shape } from "../../../bindings/Shape";
 import type { Stage } from "../../../bindings/Stage";
 import type { Zone } from "../../../bindings/Zone";
 import { groupsOf, splitColumns, type Entry, type Group } from "./groups";
+import {
+  badgeShift,
+  badgeWidth,
+  BADGE_H,
+  densify,
+  legOffsets,
+  orthogonalPoints,
+} from "./orthogonal";
 
 /** Pixel constants shared by every shape. */
 export const NODE_W = 176;
@@ -62,6 +70,8 @@ export interface LayoutInput {
   /** Artifact ids per bundle. */
   bundles: string[][];
   hasHooks: boolean;
+  /** The profile name shown in the count badge; the badge widens to fit it. */
+  badgeName?: string;
   nodeSize?: { w: number; h: number };
 }
 
@@ -93,11 +103,12 @@ export interface LoopArc {
   from: string;
   to: string;
   label: string;
-  /** Cubic Bezier: start, two control points, end. */
   start: Point;
-  c1: Point;
-  c2: Point;
   end: Point;
+  /** Right-angled path: down from the start, across, up into the end. Empty for an inside loop. */
+  points: Point[];
+  /** Inside loops only: the control points of the cubic Bezier from start to end. */
+  curve: { c1: Point; c2: Point } | null;
   /** Top centre of `labelBox`. */
   labelAt: Point;
   /** Where the label text sits: it overlaps no other label, loop path or stage frame. */
@@ -140,6 +151,8 @@ export interface Layout {
   links: ChildLink[];
   loops: LoopArc[];
   hookRail: Rect | null;
+  /** The count badge at the line's left; the first valve is clear of it. Null without stages. */
+  badge: Rect | null;
   bundles: BundleGroup[];
   toolbelt: Rect;
   floor: Rect;
@@ -329,8 +342,24 @@ export function assemble(
   const raw = place(heights, widths);
   const stageTop =
     PAD + (input.hasHooks ? HOOK_H + GAP * 2 : 0) + LINE_H + topExtra;
-  const dx = raw.length === 0 ? 0 : PAD - Math.min(...raw.map((p) => p.x));
+  const dx0 = raw.length === 0 ? 0 : PAD - Math.min(...raw.map((p) => p.x));
   const dy = raw.length === 0 ? 0 : stageTop - Math.min(...raw.map((p) => p.y));
+  // The badge sits left of the line; the map shifts right when its name needs more room than the first valve leaves.
+  const badgeW = badgeWidth(input.badgeName ?? "STATIONS");
+  const rawTops = raw.map((p, i) => ({
+    x: p.x + dx0 + pick(widths, i) / 2,
+    y: p.y + dy - LINE_RISE,
+  }));
+  const badgeAt: Rect | null =
+    rawTops.length === 0
+      ? null
+      : {
+          x: PAD,
+          y: Math.min(...rawTops.map((p) => p.y)) - 16,
+          w: badgeW,
+          h: BADGE_H,
+        };
+  const dx = dx0 + (badgeAt ? badgeShift(rawTops, badgeAt) : 0);
 
   const frames: StageFrame[] = input.stages.map((s, i) => {
     const frame = {
@@ -430,6 +459,7 @@ export function assemble(
     links: childLinks(nodes),
     loops,
     hookRail: input.hasHooks ? { x: PAD, y: PAD, w: bandW, h: HOOK_H } : null,
+    badge: badgeAt,
     bundles: bundleGroups(input.bundles, nodes),
     toolbelt,
     floor,
@@ -528,19 +558,29 @@ function band(
   return { x, y, w, h: groups.length === 0 ? 2 * BAND_PAD + nh : used };
 }
 
-function bezierAt(l: LoopArc, t: number): Point {
+function bezierAt(l: LoopArc, c: { c1: Point; c2: Point }, t: number): Point {
   const u = 1 - t;
-  const f = (a: number, b: number, c: number, d: number) =>
-    u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d;
+  const f = (a: number, b: number, k: number, d: number) =>
+    u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * k + t * t * t * d;
   return {
-    x: f(l.start.x, l.c1.x, l.c2.x, l.end.x),
-    y: f(l.start.y, l.c1.y, l.c2.y, l.end.y),
+    x: f(l.start.x, c.c1.x, c.c2.x, l.end.x),
+    y: f(l.start.y, c.c1.y, c.c2.y, l.end.y),
   };
 }
 
-/** The arc as 65 points, dense enough that no label box slips between two of them. */
+/** The loop's path as dense points, so no label box slips between two of them. */
 function curve(l: LoopArc): Point[] {
-  return Array.from({ length: 65 }, (_, i) => bezierAt(l, i / 64));
+  const c = l.curve;
+  return c
+    ? Array.from({ length: 65 }, (_, i) => bezierAt(l, c, i / 64))
+    : densify(l.points);
+}
+
+/** Where a loop's label hangs: the middle of its horizontal run, or the middle of an inside curve. */
+function anchor(l: Omit<LoopArc, "labelAt" | "labelBox">): Point {
+  if (l.curve) return bezierMid(l.start, l.curve.c1, l.curve.c2, l.end);
+  const run = l.points[1] ?? l.start;
+  return { x: (l.start.x + l.end.x) / 2, y: run.y };
 }
 
 /** The label box the loop's text needs: its estimated width, `LABEL_H` high. */
@@ -572,7 +612,7 @@ function placeLabels(
   for (const i of order) {
     const arc = pick(full, i);
     const { w, h } = labelSize(arc.label);
-    const mid = bezierMid(arc.start, arc.c1, arc.c2, arc.end);
+    const mid = anchor(arc);
     const clear = (r: Rect): boolean =>
       r.x >= LABEL_MARGIN &&
       r.y >= top &&
@@ -627,29 +667,43 @@ function drawLoops(
     return a === undefined || b === undefined ? [] : [{ l, a, b }];
   });
   const sorted = order(valid.map((v) => Math.abs(v.a - v.b)));
+  const legs = legOffsets(
+    valid.flatMap((v) => [pick(frames, v.a).id, pick(frames, v.b).id]),
+  );
   const arcs = valid.map(({ l, a, b }, n) => {
     let start: Point;
     let end: Point;
-    let c1: Point;
-    let c2: Point;
+    let points: Point[] = [];
+    let curveCtl: LoopArc["curve"] = null;
     if (inside) {
       start = pick(heads, a);
       end = pick(heads, b);
-      c1 = middle;
-      c2 = middle;
+      curveCtl = { c1: middle, c2: middle };
     } else {
       // Shorter spans nest inside longer ones; each rank adds one level of depth.
       const depth = 28 + 14 * Math.abs(a - b) + LOOP_LEVEL * sorted.indexOf(n);
-      const spread = a === b ? 30 : 0;
-      // Each end leaves from its own stage's frame, so an arc never hangs in empty space.
+      // Each end leaves from its own stage's frame, so a path never hangs in empty space.
       const fa = pick(frames, a).frame;
       const fb = pick(frames, b).frame;
-      start = { x: fa.x + fa.w / 2, y: fa.y + fa.h };
-      end = { x: fb.x + fb.w / 2, y: fb.y + fb.h };
-      c1 = { x: start.x + spread, y: bottom + depth };
-      c2 = { x: end.x - spread, y: bottom + depth };
+      // Self loops and loops sharing a stage get legs side by side; a lone leg is at the frame's centre.
+      const offA = pick(legs, 2 * n);
+      const offB = pick(legs, 2 * n + 1) + (a === b ? 14 : 0);
+      start = {
+        x: fa.x + fa.w / 2 + offA - (a === b ? 14 : 0),
+        y: fa.y + fa.h,
+      };
+      end = { x: fb.x + fb.w / 2 + offB, y: fb.y + fb.h };
+      points = orthogonalPoints(start, end, bottom + depth);
     }
-    return { from: l.from, to: l.to, label: l.label, start, c1, c2, end };
+    return {
+      from: l.from,
+      to: l.to,
+      label: l.label,
+      start,
+      end,
+      points,
+      curve: curveCtl,
+    };
   });
   return placeLabels(arcs, sorted, frames, top);
 }

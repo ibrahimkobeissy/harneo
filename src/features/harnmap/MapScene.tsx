@@ -13,6 +13,11 @@ import type { Dnd, Ghost, HookInfo, Layers, MapData } from "./types";
 
 export const TOOLTIP_W = 248;
 const HB = 20;
+/** The packets that flow inside the pipe (design: `.beam` x2): dash pattern over pathLength 1000, opacity, offset. */
+const BEAMS = [
+  { dash: "110 140", opacity: 0.14, delay: "-3.456s" },
+  { dash: "50 200", opacity: 0.32, delay: "-1.296s" },
+];
 
 function path(points: Point[]): string {
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
@@ -180,8 +185,22 @@ export function MapScene({
             )}
             {layout.beam.length > 1 && (
               <>
-                <path className={styles.pipe} d={path(layout.beam)} />
-                <path className={styles.beam} d={path(layout.beam)} />
+                <path className={styles.pipeOuter} d={path(layout.beam)} />
+                <path className={styles.pipeInner} d={path(layout.beam)} />
+                {BEAMS.map((b) => (
+                  <path
+                    key={b.dash}
+                    className={styles.beam}
+                    data-testid="beam"
+                    d={path(layout.beam)}
+                    pathLength="1000"
+                    style={{
+                      strokeDasharray: b.dash,
+                      opacity: b.opacity,
+                      animationDelay: b.delay,
+                    }}
+                  />
+                ))}
               </>
             )}
             {layout.beam.length > 1 &&
@@ -204,7 +223,14 @@ export function MapScene({
                     className={styles.stem}
                     d={`M ${dot.x} ${dot.y} L ${dot.x} ${dot.y + LINE_RISE}`}
                   />
-                  <circle className={styles.dot} cx={dot.x} cy={dot.y} r="5" />
+                  <circle
+                    className={styles.dot}
+                    data-lit={(counts.get(s.id) ?? 0) > 0}
+                    data-testid="valve"
+                    cx={dot.x}
+                    cy={dot.y}
+                    r="5"
+                  />
                 </g>
               );
             })}
@@ -219,7 +245,12 @@ export function MapScene({
               <g key={i} className={styles.loopG}>
                 <path
                   className={styles.loop}
-                  d={`M ${l.start.x} ${l.start.y} C ${l.c1.x} ${l.c1.y} ${l.c2.x} ${l.c2.y} ${l.end.x} ${l.end.y}`}
+                  data-testid="loop-path"
+                  d={
+                    l.curve
+                      ? `M ${l.start.x} ${l.start.y} C ${l.curve.c1.x} ${l.curve.c1.y} ${l.curve.c2.x} ${l.curve.c2.y} ${l.end.x} ${l.end.y}`
+                      : path(l.points)
+                  }
                   markerEnd={`url(#${arrow})`}
                 />
                 <rect
@@ -289,13 +320,17 @@ export function MapScene({
             }}
           />
         ))}
-      {layers.line && layout.beam.length > 0 && (
+      {layers.line && layout.badge && (
         <div
           className={styles.count}
           data-testid="line-badge"
+          title={`${layout.nodes.length} ${data.profile ?? "stations"}`}
+          aria-label={`${layout.nodes.length} ${data.profile ?? "stations"}`}
           style={{
-            left: 24,
-            top: Math.min(...layout.beam.map((p) => p.y)) - 16,
+            left: layout.badge.x,
+            top: layout.badge.y,
+            width: layout.badge.w,
+            height: layout.badge.h,
           }}
         >
           <b>{layout.nodes.length}</b>

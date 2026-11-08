@@ -17,6 +17,7 @@ import {
   type Layout,
   type LayoutInput,
 } from "./index";
+import { badgeWidth, BADGE_MAX_W, densify } from "./orthogonal";
 
 const SHAPES: Shape[] = ["line", "cycle", "diamond", "parallel"];
 
@@ -137,9 +138,13 @@ describe.each(SHAPES)("%s", (shape) => {
     expect(l.loops).toHaveLength(1);
     const arc = pick(l.loops, 0);
     expect(
-      [arc.start, arc.c1, arc.c2, arc.end, arc.labelAt].every((p) =>
-        Number.isFinite(p.x + p.y),
-      ),
+      [
+        arc.start,
+        arc.end,
+        arc.labelAt,
+        ...arc.points,
+        ...(arc.curve ? [arc.curve.c1, arc.curve.c2] : []),
+      ].every((p) => Number.isFinite(p.x + p.y)),
     ).toBe(true);
     expect(l.hookRail).toEqual({ x: 24, y: 24, w: l.width - 48, h: 28 });
     expect(l.toolbelt.y).toBeGreaterThan(
@@ -274,7 +279,9 @@ describe("cycle", () => {
     expect(l.beam).toHaveLength(7);
     expect(pick(l.beam, 6)).toEqual(pick(l.beam, 0));
     expect(l.returnArrow).not.toBeNull();
-    expect(pick(l.loops, 0).c1).toEqual(pick(l.loops, 0).c2);
+    const inside = pick(l.loops, 0);
+    expect(inside.points).toEqual([]);
+    expect(inside.curve?.c1).toEqual(inside.curve?.c2);
     expect(pick(l.stages, 0).frame.y).toBeLessThan(pick(l.stages, 3).frame.y);
   });
 });
@@ -362,16 +369,23 @@ describe("parallel", () => {
 });
 
 function curvePoints(a: Layout["loops"][number]) {
+  const c = a.curve;
+  if (!c) return densify(a.points, 1);
   return Array.from({ length: 401 }, (_, i) => {
     const t = i / 400;
     const u = 1 - t;
     const f = (p0: number, p1: number, p2: number, p3: number) =>
       u * u * u * p0 + 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t * p3;
     return {
-      x: f(a.start.x, a.c1.x, a.c2.x, a.end.x),
-      y: f(a.start.y, a.c1.y, a.c2.y, a.end.y),
+      x: f(a.start.x, c.c1.x, c.c2.x, a.end.x),
+      y: f(a.start.y, c.c1.y, c.c2.y, a.end.y),
     };
   });
+}
+
+/** The y of a right-angled loop's horizontal run. */
+function runY(a: Layout["loops"][number]): number {
+  return a.points[1]?.y ?? 0;
 }
 
 function labelsClear(l: Layout) {
@@ -429,7 +443,7 @@ describe.each(SHAPES)("%s loop labels", (shape) => {
     const l = layout(input(shape, 4, 2, { loops }));
     expect(l.loops).toHaveLength(loops.length);
     labelsClear(l);
-    const arcs = l.loops.map((a) => `${a.c1.y}/${a.start.x}/${a.end.x}`);
+    const arcs = l.loops.map((a) => `${runY(a)}/${a.start.x}/${a.end.x}`);
     if (shape !== "cycle") expect(new Set(arcs).size).toBe(arcs.length);
   });
 
@@ -452,8 +466,8 @@ describe("line loop depth", () => {
         ],
       }),
     );
-    expect(pick(two.loops, 0).c1.y - pick(one.loops, 0).c1.y).toBe(32);
-    expect(pick(two.loops, 1).c1.y).toBeLessThan(pick(two.loops, 0).c1.y);
+    expect(runY(pick(two.loops, 0)) - runY(pick(one.loops, 0))).toBe(32);
+    expect(runY(pick(two.loops, 1))).toBeLessThan(runY(pick(two.loops, 0)));
     expect(two.toolbelt.y).toBeGreaterThan(one.toolbelt.y);
   });
 });
@@ -629,5 +643,63 @@ describe.each(SHAPES)("%s: parent and child", (shape) => {
     );
     expect(l.nodes).toHaveLength(3);
     noOverlap(l);
+  });
+});
+
+describe("right-angled loops", () => {
+  const lab = (from: number, to: number, label: string) => ({
+    from: `s${from}`,
+    to: `s${to}`,
+    label,
+  });
+
+  it.each(["line", "diamond", "parallel"] as const)(
+    "goes straight down, across and straight up in %s, the label centred under the run",
+    (shape) => {
+      const l = layout(
+        input(shape, 4, 1, { loops: [lab(3, 0, "tests fail")] }),
+      );
+      const arc = pick(l.loops, 0);
+      const [a, b, c, d] = arc.points;
+      expect(arc.points).toHaveLength(4);
+      expect(arc.curve).toBeNull();
+      expect(a).toEqual(arc.start);
+      expect(d).toEqual(arc.end);
+      expect(b?.x).toBe(a?.x);
+      expect(c?.x).toBe(d?.x);
+      expect(b?.y).toBe(c?.y);
+      expect(b?.y).toBeGreaterThan(a?.y ?? 0);
+      expect(arc.labelAt.x).toBeCloseTo(((a?.x ?? 0) + (d?.x ?? 0)) / 2, 5);
+      expect(arc.labelBox.y).toBeGreaterThan(b?.y ?? 0);
+    },
+  );
+
+  it("keeps the legs of two loops into one stage apart", () => {
+    const l = layout(
+      input("line", 3, 1, { loops: [lab(2, 0, "a"), lab(1, 0, "b")] }),
+    );
+    expect(pick(l.loops, 0).end.x).not.toBe(pick(l.loops, 1).end.x);
+  });
+});
+
+describe.each(SHAPES)("%s count badge", (shape) => {
+  it("fits a long profile name and keeps the first valve clear of it", () => {
+    const l = layout(
+      input(shape, 4, 1, { badgeName: "SOFTWAREFACTORYSOFTWAREFACTORY" }),
+    );
+    const badge = l.badge!;
+    expect(badge.w).toBe(BADGE_MAX_W);
+    const row = l.beam.filter(
+      (p) => p.y + 8 > badge.y && p.y - 8 < badge.y + badge.h,
+    );
+    expect(row.length).toBeGreaterThan(0);
+    for (const p of row) expect(p.x - 6).toBeGreaterThan(badge.x + badge.w);
+    for (const s of l.stages) expect(s.frame.x).toBeGreaterThanOrEqual(24);
+  });
+
+  it("is only as wide as it needs to be for a short name", () => {
+    expect(badgeWidth("HEAVY")).toBe(56);
+    expect(badgeWidth("SOFTWAREFACTORY")).toBeGreaterThan(100);
+    expect(layout(input(shape, 0, 0)).badge).toBeNull();
   });
 });
