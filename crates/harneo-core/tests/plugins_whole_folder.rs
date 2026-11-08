@@ -226,7 +226,11 @@ fn an_update_check_brings_the_files_an_older_scope_left_out() -> R {
     assert!(!stored.join("hooks/rules.md").exists());
 
     // The files the folder always had, which the old scope would not have kept.
-    put(root, "plugins/security-guardrails/hooks/rules.md", "# Rules\n")?;
+    put(
+        root,
+        "plugins/security-guardrails/hooks/rules.md",
+        "# Rules\n",
+    )?;
     put(
         root,
         "plugins/security-guardrails/templates/settings.json",
