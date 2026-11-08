@@ -869,10 +869,7 @@ fn next_steps_are_kept_as_ids_without_self_unknown_or_repeats() -> TestResult {
 
 #[test]
 fn at_most_four_next_steps_are_kept() -> TestResult {
-    let mut doc_next = vec!["x".to_owned(); 0];
-    for n in 0..7 {
-        doc_next.push(format!("id{n}"));
-    }
+    let doc_next: Vec<String> = (0..7).map(|n| format!("id{n}")).collect();
     let mut p = Placement {
         artifact: "me".into(),
         zone: Zone::Floor,
