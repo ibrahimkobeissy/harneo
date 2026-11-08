@@ -425,9 +425,12 @@ function Loaded({
   }
 
   function move(artifact: string, zone: Zone) {
+    const parent = view.doc.placements.find(
+      (p) => p.artifact === artifact,
+    )?.parent;
     return edit(
       { type: "move", artifact, zone, order: nextOrder(view.doc, zone) },
-      `${nameOf(artifact)} moved to ${zoneName(view.doc, zone)} and pinned. It stays on re-draw.`,
+      `${nameOf(artifact)}${parent ? ` detached from ${nameOf(parent)},` : ""} moved to ${zoneName(view.doc, zone)} and pinned. It stays on re-draw.`,
     );
   }
 
@@ -706,6 +709,16 @@ function Loaded({
               placement={placement}
               facts={current.facts[selected] ?? []}
               doc={view.doc}
+              parentName={
+                placement.parent ? nameOf(placement.parent) : undefined
+              }
+              alsoRunBy={(placement.alsoRunBy ?? []).map(nameOf)}
+              onDetach={() =>
+                void edit(
+                  { type: "detach", artifact: selected },
+                  `${nameOf(selected)} detached from ${placement.parent ? nameOf(placement.parent) : "its parent"} and pinned. It stays on re-draw.`,
+                )
+              }
               onClose={() => setSelected(null)}
               onNote={(text) =>
                 void edit({ type: "note", artifact: selected, text })

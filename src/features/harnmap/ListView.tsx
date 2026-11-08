@@ -19,6 +19,17 @@ export function ListView({
 }) {
   const nameOf = (id: string) => view.artifacts[id]?.name ?? id;
   const placed = inMapOrder(view.doc).filter((p) => view.artifacts[p.artifact]);
+  const parents = new Map(
+    placed.flatMap((p) => (p.parent ? [[p.artifact, p.parent] as const] : [])),
+  );
+  /** 0 for an ordinary row, 1 for a child, 2 for a grandchild. */
+  const depthOf = (id: string): number => {
+    let depth = 0;
+    for (let at = parents.get(id); at && depth < 2; at = parents.get(at)) {
+      depth++;
+    }
+    return depth;
+  };
   return (
     <div className={styles.listWrap}>
       <table className={styles.table}>
@@ -38,7 +49,10 @@ export function ListView({
         <tbody>
           {placed.map((p) => (
             <tr key={p.artifact}>
-              <td>
+              <td
+                data-depth={depthOf(p.artifact)}
+                style={{ paddingLeft: `${depthOf(p.artifact) * 20 + 8}px` }}
+              >
                 <button
                   type="button"
                   className={styles.nameBtn}
@@ -46,6 +60,12 @@ export function ListView({
                 >
                   {nameOf(p.artifact)}
                 </button>
+                {p.parent && (
+                  <span className={styles.muted}>
+                    {" "}
+                    · runs only through {nameOf(p.parent)}
+                  </span>
+                )}
               </td>
               <td>{LAYER[p.zone.type]}</td>
               <td>

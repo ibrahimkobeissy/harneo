@@ -1,4 +1,4 @@
-import { Pin } from "lucide-react";
+import { Bot, Pin } from "lucide-react";
 import type { HTMLAttributes } from "react";
 import type { Placement } from "../../bindings/Placement";
 import { kinds } from "../../ui";
@@ -27,6 +27,8 @@ export function Node({
   box,
   selected,
   nextRank,
+  modelOnly = false,
+  depth = 0,
   onSelect,
   onInfo,
   drag,
@@ -38,6 +40,10 @@ export function Node({
   selected: boolean;
   /** Set when this artifact is a natural next step of the selected one: 1 is the most likely. */
   nextRank?: number;
+  /** The skill is never started by the user (`user-invocable: false`): a quiet mark shows it. */
+  modelOnly?: boolean;
+  /** 1 or 2 for a child drawn under its parent. */
+  depth?: number;
   onSelect: () => void;
   onInfo: () => void;
   /** Present when the node can be dragged to another zone. */
@@ -54,9 +60,10 @@ export function Node({
       data-selected={selected}
       data-next={nextRank !== undefined || undefined}
       data-node={placement.artifact}
+      data-depth={depth > 0 ? depth : undefined}
       aria-pressed={selected}
       aria-keyshortcuts="i"
-      aria-label={`${info.name}, ${meta.label}${placement.pinned ? ", pinned" : ""}${nextRank !== undefined ? `, next step ${nextRank}` : ""}`}
+      aria-label={`${info.name}, ${meta.label}${placement.pinned ? ", pinned" : ""}${modelOnly ? ", model only" : ""}${nextRank !== undefined ? `, next step ${nextRank}` : ""}`}
       style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
       onClick={(ev) => {
         ev.stopPropagation();
@@ -94,6 +101,14 @@ export function Node({
               size={10}
               role="img"
               aria-label="pinned"
+            />
+          )}
+          {modelOnly && (
+            <Bot
+              className={styles.pin}
+              size={10}
+              role="img"
+              aria-label="model only"
             />
           )}
         </b>

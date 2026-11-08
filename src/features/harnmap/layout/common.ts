@@ -4,6 +4,7 @@ import type { Placement } from "../../../bindings/Placement";
 import type { Shape } from "../../../bindings/Shape";
 import type { Stage } from "../../../bindings/Stage";
 import type { Zone } from "../../../bindings/Zone";
+import { groupsOf, splitColumns, type Entry, type Group } from "./groups";
 
 /** Pixel constants shared by every shape. */
 export const NODE_W = 176;
@@ -19,6 +20,8 @@ export const ZONE_LABEL_H = 24;
 export const BAND_GAP = 24;
 export const BAND_PAD = 8;
 export const MIN_WIDTH = 480;
+/** How far a child steps in from its parent, per level. */
+export const INDENT = 16;
 /** Stage names longer than this are cut and end in an ellipsis (`ellipsize`). */
 export const MAX_LABEL_CHARS = 18;
 
@@ -51,7 +54,9 @@ export interface LayoutInput {
   phases: MapPhase[];
   /** Stage ids drawn as tracks between a fork and a join (shape `parallel`). */
   parallel: string[];
-  placements: Array<Pick<Placement, "artifact" | "zone" | "order">>;
+  placements: Array<
+    Pick<Placement, "artifact" | "zone" | "order"> & { parent?: string }
+  >;
   /** Artifact ids per bundle. */
   bundles: string[][];
   hasHooks: boolean;
@@ -69,6 +74,17 @@ export interface StageFrame {
 export interface NodeBox extends Rect {
   id: string;
   zone: Zone;
+  /** 0 for an ordinary node, 1 for a child, 2 for a grandchild. */
+  depth: number;
+  /** The parent drawn above it in the same stack, or null. */
+  parent: string | null;
+}
+
+/** The solid connector from a parent down to a child: out of the parent's bottom, into the child's left side. */
+export interface ChildLink {
+  parent: string;
+  child: string;
+  points: Point[];
 }
 
 export interface LoopArc {
@@ -119,6 +135,7 @@ export interface Layout {
   height: number;
   stages: StageFrame[];
   nodes: NodeBox[];
+  links: ChildLink[];
   loops: LoopArc[];
   hookRail: Rect | null;
   bundles: BundleGroup[];
@@ -167,18 +184,19 @@ export function columnsFor(count: number): number {
   return count > MAX_STACK ? 2 : 1;
 }
 
-/** Rows per column for `count` stations. */
-function rowsFor(count: number): number {
-  return Math.ceil(count / columnsFor(count));
+export function frameWidth(nodeW: number, count = 0): number {
+  return frameWidthOf(nodeW, columnsFor(count));
 }
 
-export function frameWidth(nodeW: number, count = 0): number {
-  const cols = columnsFor(count);
+function frameWidthOf(nodeW: number, cols: number): number {
   return cols * nodeW + (cols - 1) * GAP + 2 * FRAME_PAD;
 }
 
 export function frameHeight(count: number, nodeH: number): number {
-  const rows = rowsFor(count);
+  return frameHeightOf(Math.ceil(count / columnsFor(count)), nodeH);
+}
+
+function frameHeightOf(rows: number, nodeH: number): number {
   const stack = rows === 0 ? 0 : rows * (nodeH + GAP) - GAP;
   return HEADER_H + FRAME_PAD + stack + FRAME_PAD;
 }
@@ -195,15 +213,15 @@ export function overlaps(a: Rect, b: Rect): boolean {
 
 /** Stage heights (header and stack) in stage order, for the shapes to place. */
 export function stageHeights(input: LayoutInput): number[] {
-  return stacks(input).stages.map((ids) =>
-    frameHeight(ids.length, size(input).h),
+  return stacks(input).stages.map((groups) =>
+    frameHeightOf(rowsOf(groups), size(input).h),
   );
 }
 
 /** Stage frame widths in stage order: one column, or two for a busy stage. */
 export function stageWidths(input: LayoutInput): number[] {
-  return stacks(input).stages.map((ids) =>
-    frameWidth(size(input).w, ids.length),
+  return stacks(input).stages.map((groups) =>
+    frameWidthOf(size(input).w, Math.max(1, columnsIn(groups).length)),
   );
 }
 
@@ -220,14 +238,26 @@ export function rowOf(widths: number[]): number[] {
 
 interface Stacks {
   /** Per stage, in stage order. */
-  stages: string[][];
-  toolbelt: string[];
-  floor: string[];
+  stages: Group[][];
+  toolbelt: Group[];
+  floor: Group[];
 }
 
-/** Artifact ids per zone, by `order` then id; a repeated artifact counts once, an unknown stage is dropped. */
+/** A stage's stations as columns: one, or two when busy, a group never split between them. */
+function columnsIn(groups: Group[]): Entry[][] {
+  return splitColumns(groups, MAX_STACK);
+}
+
+function rowsOf(groups: Group[]): number {
+  return Math.max(0, ...columnsIn(groups).map((c) => c.length));
+}
+
+/**
+ * Stations per zone, by `order` then id, with a child right after its parent. A repeated artifact
+ * counts once, an unknown stage is dropped.
+ */
 function stacks(input: LayoutInput): Stacks {
-  const out: Stacks = {
+  const ids: { stages: string[][]; toolbelt: string[]; floor: string[] } = {
     stages: input.stages.map(() => []),
     toolbelt: [],
     floor: [],
@@ -240,16 +270,22 @@ function stacks(input: LayoutInput): Stacks {
       (a.artifact < b.artifact ? -1 : a.artifact > b.artifact ? 1 : 0),
   );
   const seen = new Set<string>();
+  const parentOf = new Map<string, string>();
   for (const p of sorted) {
     if (seen.has(p.artifact)) continue;
     seen.add(p.artifact);
+    if (p.parent !== undefined) parentOf.set(p.artifact, p.parent);
     if (p.zone.type === "stage") {
       const at = index.get(p.zone.id);
-      if (at !== undefined) pick(out.stages, at).push(p.artifact);
-    } else if (p.zone.type === "toolbelt") out.toolbelt.push(p.artifact);
-    else out.floor.push(p.artifact);
+      if (at !== undefined) pick(ids.stages, at).push(p.artifact);
+    } else if (p.zone.type === "toolbelt") ids.toolbelt.push(p.artifact);
+    else ids.floor.push(p.artifact);
   }
-  return out;
+  return {
+    stages: ids.stages.map((z) => groupsOf(z, parentOf)),
+    toolbelt: groupsOf(ids.toolbelt, parentOf),
+    floor: groupsOf(ids.floor, parentOf),
+  };
 }
 
 function center(r: Rect): Point {
@@ -310,18 +346,14 @@ export function assemble(
 
   const nodes: NodeBox[] = [];
   frames.forEach((f, s) => {
-    const ids = pick(st.stages, s);
-    const rows = rowsFor(ids.length);
+    const zone: Zone = { type: "stage", id: f.id };
     // Column by column: the first column reads top to bottom, then the second.
-    ids.forEach((id, i) => {
-      nodes.push({
-        id,
-        zone: { type: "stage", id: f.id },
-        x: f.frame.x + FRAME_PAD + Math.floor(i / rows) * (nw + GAP),
-        y: f.frame.y + HEADER_H + FRAME_PAD + (i % rows) * (nh + GAP),
-        w: nw,
-        h: nh,
-      });
+    columnsIn(pick(st.stages, s)).forEach((col, c) => {
+      const left = f.frame.x + FRAME_PAD + c * (nw + GAP);
+      const top = f.frame.y + HEADER_H + FRAME_PAD;
+      col.forEach((e, r) =>
+        nodes.push(nodeAt(e, zone, left, top + r * (nh + GAP), nw, nh)),
+      );
     });
   });
 
@@ -392,6 +424,7 @@ export function assemble(
     height: floor.y + floor.h + PAD,
     stages: frames,
     nodes,
+    links: childLinks(nodes),
     loops,
     hookRail: input.hasHooks ? { x: PAD, y: PAD, w: bandW, h: HOOK_H } : null,
     bundles: bundleGroups(input.bundles, nodes),
@@ -405,30 +438,91 @@ export function assemble(
   };
 }
 
-/** A band as wide as the map, its nodes in rows; it keeps one row of height when empty. */
+/** A node of a stack: a child is indented one step per level and as much narrower, so its right edge lines up. */
+function nodeAt(
+  e: Entry,
+  zone: Zone,
+  x: number,
+  y: number,
+  nw: number,
+  nh: number,
+): NodeBox {
+  const step = e.depth * INDENT;
+  return {
+    id: e.id,
+    zone,
+    depth: e.depth,
+    parent: e.parent,
+    x: x + step,
+    y,
+    w: nw - step,
+    h: nh,
+  };
+}
+
+/** One connector per child: down from its parent's bottom, then in to the child's left edge. */
+function childLinks(nodes: NodeBox[]): ChildLink[] {
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  return nodes.flatMap((n) => {
+    const parent = n.parent === null ? undefined : byId.get(n.parent);
+    if (!parent) return [];
+    const x = parent.x + INDENT / 2;
+    const y = n.y + n.h / 2;
+    return [
+      {
+        parent: parent.id,
+        child: n.id,
+        points: [
+          { x, y: parent.y + parent.h },
+          { x, y },
+          { x: n.x, y },
+        ],
+      },
+    ];
+  });
+}
+
+/**
+ * A band as wide as the map, its groups in rows; it keeps one row of height when empty. A group
+ * is a column of its own height, so a child stays right under its parent.
+ */
 function band(
   x: number,
   y: number,
   w: number,
-  ids: string[],
+  groups: Group[],
   zone: "toolbelt" | "floor",
   nodes: NodeBox[],
   nw: number,
   nh: number,
 ): Rect {
   const cols = Math.max(1, Math.floor((w - 2 * BAND_PAD + GAP) / (nw + GAP)));
-  const rows = Math.max(1, Math.ceil(ids.length / cols));
-  ids.forEach((id, i) => {
-    nodes.push({
-      id,
-      zone: { type: zone },
-      x: x + BAND_PAD + (i % cols) * (nw + GAP),
-      y: y + BAND_PAD + Math.floor(i / cols) * (nh + GAP),
-      w: nw,
-      h: nh,
-    });
+  let top = y + BAND_PAD;
+  let rowH = 0;
+  let col = 0;
+  groups.forEach((g) => {
+    if (col === cols) {
+      top += rowH * (nh + GAP);
+      rowH = 0;
+      col = 0;
+    }
+    g.forEach((e, r) =>
+      nodes.push(
+        nodeAt(
+          e,
+          { type: zone },
+          x + BAND_PAD + col * (nw + GAP),
+          top + r * (nh + GAP),
+          nw,
+          nh,
+        ),
+      ),
+    );
+    rowH = Math.max(rowH, g.length);
+    col++;
   });
-  return { x, y, w, h: 2 * BAND_PAD + rows * (nh + GAP) - GAP };
+  const used = top + rowH * (nh + GAP) - GAP - y + BAND_PAD;
+  return { x, y, w, h: groups.length === 0 ? 2 * BAND_PAD + nh : used };
 }
 
 function bezierAt(l: LoopArc, t: number): Point {

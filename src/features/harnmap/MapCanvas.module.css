@@ -387,6 +387,12 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.link {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 1.25;
+  stroke-linejoin: round;
+}
 .pin {
   margin-left: 3px;
   vertical-align: -1px;

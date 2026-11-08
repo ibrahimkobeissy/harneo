@@ -4,10 +4,10 @@ import type { Placement } from "../../bindings/Placement";
 import styles from "./MapCanvas.module.css";
 import { sourceOf, type Source } from "./tooltip";
 
-function Tag({ source }: { source: Source }) {
+function Tag({ source, label }: { source: Source; label?: string }) {
   return (
     <span className={styles.src} data-source={source}>
-      {source === "files" ? "files" : "Claude"}
+      {label ?? (source === "files" ? "files" : "Claude")}
     </span>
   );
 }
@@ -17,6 +17,8 @@ export function Tooltip({
   name,
   placement,
   facts,
+  parentName,
+  alsoRunBy = [],
   x,
   y,
   focus,
@@ -24,6 +26,10 @@ export function Tooltip({
   name: string;
   placement: Placement;
   facts: Fact[];
+  /** Display name of the artifact this one runs only through, when it has a parent. */
+  parentName?: string;
+  /** Display names of the other artifacts that also run it. */
+  alsoRunBy?: string[];
   x: number;
   y: number;
   /** Move focus into the tooltip (it was opened from the keyboard). */
@@ -38,6 +44,7 @@ export function Tooltip({
     ["When", "when", placement.when],
     ["Hands off", "handsOff", placement.handsOff],
   ];
+  const modelOnly = facts.find((f) => f.kind.type === "modelOnly");
   return (
     <div
       ref={ref}
@@ -62,6 +69,32 @@ export function Tooltip({
             </dd>
           </div>
         ))}
+        {parentName !== undefined && (
+          <div className={styles.tr}>
+            <dt>Parent</dt>
+            <dd>
+              Runs only through {parentName}{" "}
+              <Tag source="claude" label="Claude’s reading" />
+            </dd>
+          </div>
+        )}
+        {parentName !== undefined && alsoRunBy.length > 0 && (
+          <div className={styles.tr}>
+            <dt>Also run by</dt>
+            <dd>
+              {alsoRunBy.join(", ")}{" "}
+              <Tag source="claude" label="Claude’s reading" />
+            </dd>
+          </div>
+        )}
+        {modelOnly && (
+          <div className={styles.tr}>
+            <dt>Model only</dt>
+            <dd>
+              {modelOnly.text} <Tag source="files" />
+            </dd>
+          </div>
+        )}
       </dl>
     </div>
   );

@@ -217,6 +217,21 @@ export function MapScene({
             ))}
           </>
         )}
+        {layers.line &&
+          layout.links
+            .filter(
+              (l) =>
+                shown.some((n) => n.id === l.parent) &&
+                shown.some((n) => n.id === l.child),
+            )
+            .map((l) => (
+              <path
+                key={`link-${l.child}`}
+                className={styles.link}
+                data-testid="child-link"
+                d={path(l.points)}
+              />
+            ))}
         {selectedBox &&
           nextIds.map((id) => {
             const to = shown.find((n) => n.id === id);
@@ -385,6 +400,10 @@ export function MapScene({
             box={n}
             selected={selected === n.id}
             nextRank={nextRank.get(n.id)}
+            depth={n.depth}
+            modelOnly={(data.facts[n.id] ?? []).some(
+              (f) => f.kind.type === "modelOnly",
+            )}
             onSelect={() => onSelect(n.id)}
             onInfo={() => onOpen(n.id, true)}
             drag={
@@ -439,6 +458,15 @@ export function MapScene({
           name={openInfo.name}
           placement={openPlacement}
           facts={data.facts[openBox.id] ?? []}
+          parentName={
+            openPlacement.parent
+              ? (data.artifacts[openPlacement.parent]?.name ??
+                openPlacement.parent)
+              : undefined
+          }
+          alsoRunBy={(openPlacement.alsoRunBy ?? []).map(
+            (id) => data.artifacts[id]?.name ?? id,
+          )}
           x={tipX}
           y={openBox.y}
           focus={focusTip}

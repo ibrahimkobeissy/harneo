@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Shape } from "../../../bindings/Shape";
+import type { Zone } from "../../../bindings/Zone";
 import {
   ellipsize,
   FRAME_PAD,
@@ -505,5 +506,131 @@ describe("busy stages and loop ends", () => {
     const to = pick(l.stages, 0).frame;
     expect(loop.start).toEqual({ x: from.x + from.w / 2, y: from.y + from.h });
     expect(loop.end).toEqual({ x: to.x + to.w / 2, y: to.y + to.h });
+  });
+});
+
+describe.each(SHAPES)("%s: parent and child", (shape) => {
+  const stage = (id: string) => ({ type: "stage" as const, id });
+  const node = (l: Layout, id: string) => {
+    const n = l.nodes.find((x) => x.id === id);
+    if (!n) throw new Error(`no node ${id}`);
+    return n;
+  };
+  const withKids = (
+    extra: LayoutInput["placements"],
+    zone: Zone = stage("s0"),
+  ) =>
+    input(shape, 2, 0, {
+      placements: extra.map((p, i) => ({ ...p, zone, order: i })),
+    });
+
+  it("draws a child right under its parent, narrower and indented, with a connector", () => {
+    const l = layout(
+      withKids([
+        { artifact: "cmd", zone: stage("s0"), order: 0 },
+        { artifact: "other", zone: stage("s0"), order: 0 },
+        { artifact: "skill", zone: stage("s0"), order: 0, parent: "cmd" },
+      ]),
+    );
+    const cmd = node(l, "cmd");
+    const skill = node(l, "skill");
+    expect(skill.depth).toBe(1);
+    expect(skill.parent).toBe("cmd");
+    expect(skill.y).toBe(cmd.y + cmd.h + GAP);
+    expect(skill.x).toBeGreaterThan(cmd.x);
+    expect(skill.w).toBeLessThan(cmd.w);
+    expect(skill.x + skill.w).toBe(cmd.x + cmd.w);
+    const link = l.links.find((k) => k.child === "skill");
+    expect(link?.parent).toBe("cmd");
+    expect(link?.points[0]?.y).toBe(cmd.y + cmd.h);
+    expect(link?.points.at(-1)).toEqual({
+      x: skill.x,
+      y: skill.y + skill.h / 2,
+    });
+    noOverlap(l);
+  });
+
+  it("draws two levels, each one step in, and no third", () => {
+    const l = layout(
+      withKids([
+        { artifact: "cmd", zone: stage("s0"), order: 0 },
+        { artifact: "skill", zone: stage("s0"), order: 0, parent: "cmd" },
+        { artifact: "agent", zone: stage("s0"), order: 0, parent: "skill" },
+        { artifact: "deep", zone: stage("s0"), order: 0, parent: "agent" },
+      ]),
+    );
+    const [a, b, c, d] = ["cmd", "skill", "agent", "deep"].map((id) =>
+      node(l, id),
+    );
+    expect([a?.depth, b?.depth, c?.depth, d?.depth]).toEqual([0, 1, 2, 2]);
+    expect(c && b && c.x - b.x).toBe(b && a && b.x - a.x);
+    expect(l.links).toHaveLength(3);
+  });
+
+  it("keeps a group in one column of a busy stage", () => {
+    const solo = Array.from({ length: 4 }, (_, k) => ({
+      artifact: `solo${k}`,
+      order: k,
+    }));
+    const group = [
+      { artifact: "cmd", order: 4 },
+      { artifact: "k1", order: 5, parent: "cmd" },
+      { artifact: "k2", order: 6, parent: "cmd" },
+      { artifact: "k3", order: 7, parent: "cmd" },
+    ];
+    const l = layout(
+      withKids([...solo, ...group].map((p) => ({ ...p, zone: stage("s0") }))),
+    );
+    const xs = new Set(
+      group.map((g) => node(l, g.artifact).x - node(l, g.artifact).depth * 16),
+    );
+    expect(xs.size).toBe(1);
+    expect(l.stages[0]?.frame.w).toBeGreaterThan(NODE_W * 1.5);
+    noOverlap(l);
+  });
+
+  it("stacks a group in the toolbelt and the floor", () => {
+    for (const zone of [
+      { type: "toolbelt" as const },
+      { type: "floor" as const },
+    ]) {
+      const l = layout(
+        withKids(
+          [
+            { artifact: "cmd", zone, order: 0 },
+            { artifact: "skill", zone, order: 0, parent: "cmd" },
+            { artifact: "next", zone, order: 0 },
+          ],
+          zone,
+        ),
+      );
+      const cmd = node(l, "cmd");
+      const skill = node(l, "skill");
+      expect(skill.y).toBe(cmd.y + cmd.h + GAP);
+      expect(skill.depth).toBe(1);
+      noOverlap(l);
+    }
+  });
+
+  it("draws a child whose parent is not here as an ordinary node", () => {
+    const l = layout(
+      withKids([
+        { artifact: "skill", zone: stage("s0"), order: 0, parent: "gone" },
+      ]),
+    );
+    expect(node(l, "skill").depth).toBe(0);
+    expect(l.links).toEqual([]);
+  });
+
+  it("ignores a cycle and a self parent", () => {
+    const l = layout(
+      withKids([
+        { artifact: "a", zone: stage("s0"), order: 0, parent: "b" },
+        { artifact: "b", zone: stage("s0"), order: 0, parent: "a" },
+        { artifact: "c", zone: stage("s0"), order: 0, parent: "c" },
+      ]),
+    );
+    expect(l.nodes).toHaveLength(3);
+    noOverlap(l);
   });
 });

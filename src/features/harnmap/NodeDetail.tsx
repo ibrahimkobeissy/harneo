@@ -26,6 +26,9 @@ export function NodeDetail({
   placement,
   facts,
   doc,
+  parentName,
+  alsoRunBy = [],
+  onDetach,
   onClose,
   onNote,
   onMove,
@@ -38,6 +41,11 @@ export function NodeDetail({
   placement: Placement;
   facts: Fact[];
   doc: MapDoc;
+  /** Display name of the artifact this runs only through, when it has a parent. */
+  parentName?: string;
+  /** Display names of the other artifacts that also run it. */
+  alsoRunBy?: string[];
+  onDetach: () => void;
   onClose: () => void;
   onNote: (text: string) => void;
   onMove: (zone: Zone) => void;
@@ -125,6 +133,25 @@ export function NodeDetail({
           </div>
         )}
       </div>
+      {parentName !== undefined && (
+        <div className={styles.sect}>
+          <div className={styles.panelHead}>
+            <h3 className={styles.eyebrow}>RUNS THROUGH</h3>
+            <span className={styles.src}>Claude’s reading</span>
+          </div>
+          <p className={styles.p}>Runs only through {parentName}.</p>
+          {alsoRunBy.length > 0 && (
+            <p className={styles.p}>Also run by {alsoRunBy.join(", ")}.</p>
+          )}
+          <div className={styles.row}>
+            <Button onClick={onDetach}>Detach</Button>
+          </div>
+          <span className={styles.muted}>
+            Draws it as an ordinary node and pins it. Dragging it to another
+            zone does the same.
+          </span>
+        </div>
+      )}
       <div className={styles.sect}>
         <div className={styles.panelHead}>
           <h3 className={styles.eyebrow}>

@@ -102,6 +102,9 @@ function apply(v: MapView, edit: MapEdit): MapView {
     case "move":
       patch(edit.artifact, { zone: edit.zone, pinned: true, by: "user" });
       return { ...v, doc };
+    case "detach":
+      patch(edit.artifact, { parent: undefined, pinned: true, by: "user" });
+      return { ...v, doc };
     case "unpin":
       patch(edit.artifact, { pinned: false });
       return { ...v, doc };
@@ -724,5 +727,111 @@ describe("Harnmap screen: list view", () => {
     const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
     expect(within(row).getAllByRole("cell")[4]).toHaveTextContent("You");
     expect(within(row).getAllByRole("cell")[4]).not.toHaveTextContent("pinned");
+  });
+});
+
+/** The spec stage with /spec running spec-driven-development, also run by /plan. */
+function withChild(): MapView {
+  const v = view();
+  return {
+    ...v,
+    doc: {
+      ...v.doc,
+      placements: v.doc.placements.map((p) =>
+        p.artifact === "sdd"
+          ? { ...p, parent: "spec", alsoRunBy: ["plan"] }
+          : p,
+      ),
+    },
+    facts: {
+      ...v.facts,
+      sdd: [{ kind: { type: "modelOnly" }, text: "Model only: not invocable" }],
+    },
+  };
+}
+
+describe("Harnmap screen: parent and child", () => {
+  it("draws the child narrower under its parent, marks a model-only skill and explains both", async () => {
+    const user = userEvent.setup();
+    setup(withChild());
+    const child = await screen.findByRole("button", {
+      name: /^spec-driven-development,/,
+    });
+    expect(child).toHaveAttribute("data-depth", "1");
+    expect(child).toHaveAccessibleName(/model only/);
+    expect(screen.getAllByTestId("child-link")).toHaveLength(1);
+    await user.click(
+      screen.getByRole("button", {
+        name: "How spec-driven-development takes part in the flow",
+      }),
+    );
+    const tip = screen.getByRole("dialog", { name: /spec-driven-development/ });
+    expect(within(tip).getByText(/Runs only through \/spec/)).toBeVisible();
+    expect(within(tip).getByText("/plan")).toBeVisible();
+    expect(within(tip).getByText("Model only: not invocable")).toBeVisible();
+  });
+
+  it("detaches from the node detail", async () => {
+    const user = userEvent.setup();
+    const run = setup(withChild());
+    await user.click(
+      await screen.findByRole("button", { name: /^spec-driven-development,/ }),
+    );
+    expect(await screen.findByText("Runs only through /spec.")).toBeVisible();
+    expect(screen.getByText("Also run by /plan.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Detach" }));
+    expect(run.edits[0]).toEqual({ type: "detach", artifact: "sdd" });
+    await said(
+      "spec-driven-development detached from /spec and pinned. It stays on re-draw.",
+    );
+    await waitFor(() =>
+      expect(screen.queryAllByTestId("child-link")).toHaveLength(0),
+    );
+  });
+
+  it("shows no Detach for an ordinary node", async () => {
+    const user = userEvent.setup();
+    setup(withChild());
+    await user.click(await screen.findByRole("button", { name: /^\/spec,/ }));
+    await screen.findByText("NOTE ON THE MAP");
+    expect(screen.queryByRole("button", { name: "Detach" })).toBeNull();
+  });
+
+  it("detaches by dragging the child to another stage, and moves the parent alone", async () => {
+    const run = setup(withChild());
+    fireEvent.dragStart(
+      await screen.findByRole("button", { name: /^spec-driven-development,/ }),
+    );
+    fireEvent.drop(stage("test"));
+    await waitFor(() => expect(run.edits).toHaveLength(1));
+    expect(run.edits[0]).toMatchObject({
+      type: "move",
+      artifact: "sdd",
+      zone: { type: "stage", id: "test" },
+    });
+    await said(
+      "spec-driven-development detached from /spec, moved to Test and pinned. It stays on re-draw.",
+    );
+  });
+
+  it("moves the parent with one edit", async () => {
+    const run = setup(withChild());
+    fireEvent.dragStart(
+      await screen.findByRole("button", { name: /^\/spec,/ }),
+    );
+    fireEvent.drop(stage("test"));
+    await waitFor(() => expect(run.edits).toHaveLength(1));
+    expect(run.edits[0]).toMatchObject({ type: "move", artifact: "spec" });
+  });
+
+  it("indents the child under its parent in the list view", async () => {
+    const user = userEvent.setup();
+    setup(withChild());
+    await user.click(await screen.findByRole("button", { name: "List" }));
+    const row = screen
+      .getByRole("button", { name: "spec-driven-development" })
+      .closest("td");
+    expect(row).toHaveAttribute("data-depth", "1");
+    expect(row).toHaveTextContent("runs only through /spec");
   });
 });
