@@ -505,6 +505,15 @@ describe("next steps", () => {
     expect(plan).toHaveAttribute("data-next", "true");
     // A next step that isn't on the map is skipped.
     expect(screen.getAllByTestId("next-arrow")).toHaveLength(2);
+    // The arrows are drawn after the stage frames (or the frames hide them) and before the
+    // nodes (or they cross the cards) (#256).
+    const layer = screen.getAllByTestId("next-arrow")[0]?.closest("svg");
+    const follows = (a: Node, b: Node) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    for (const frame of screen.getAllByTestId("stage")) {
+      expect(follows(frame, layer as Node)).toBe(true);
+    }
+    expect(follows(layer as Node, plan)).toBe(true);
     await user.click(plan);
     expect(screen.queryAllByTestId("next-arrow")).toHaveLength(0);
     expect(build).not.toHaveAttribute("data-next");

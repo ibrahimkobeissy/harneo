@@ -240,55 +240,6 @@ export function MapScene({
             ))}
           </>
         )}
-        {layers.line &&
-          layout.links
-            .filter(
-              (l) =>
-                shown.some((n) => n.id === l.parent) &&
-                shown.some((n) => n.id === l.child),
-            )
-            .map((l) => (
-              <path
-                key={`link-${l.child}`}
-                className={styles.link}
-                data-testid="child-link"
-                d={path(l.points)}
-              />
-            ))}
-        {selectedBox &&
-          nextIds.map((id) => {
-            const to = shown.find((n) => n.id === id);
-            if (!to) return null;
-            const forward = to.x >= selectedBox.x + selectedBox.w;
-            const a = forward
-              ? {
-                  x: selectedBox.x + selectedBox.w,
-                  y: selectedBox.y + selectedBox.h / 2,
-                }
-              : {
-                  x: selectedBox.x + selectedBox.w / 2,
-                  y: selectedBox.y + selectedBox.h,
-                };
-            const b = forward
-              ? { x: to.x, y: to.y + to.h / 2 }
-              : { x: to.x + to.w / 2, y: to.y };
-            const bend = forward
-              ? { x: (a.x + b.x) / 2, y: 0 }
-              : { x: 0, y: 24 };
-            return (
-              <path
-                key={`next-${id}`}
-                className={styles.nextArrow}
-                data-testid="next-arrow"
-                d={
-                  forward
-                    ? `M ${a.x} ${a.y} C ${bend.x} ${a.y} ${bend.x} ${b.y} ${b.x} ${b.y}`
-                    : `M ${a.x} ${a.y} C ${a.x} ${a.y + bend.y} ${b.x} ${b.y - bend.y} ${b.x} ${b.y}`
-                }
-                markerEnd={`url(#${arrow})`}
-              />
-            );
-          })}
         {ghost &&
           box &&
           ghost.conflicts.flatMap((id) => {
@@ -424,6 +375,63 @@ export function MapScene({
         </div>
       )}
 
+      {/* Above the stage frames (HTML, drawn after the first svg) and below the nodes: the frames would hide these. */}
+      <svg
+        className={styles.svgTop}
+        width={layout.width}
+        height={layout.height}
+        aria-hidden="true"
+      >
+        {layers.line &&
+          layout.links
+            .filter(
+              (l) =>
+                shown.some((n) => n.id === l.parent) &&
+                shown.some((n) => n.id === l.child),
+            )
+            .map((l) => (
+              <path
+                key={`link-${l.child}`}
+                className={styles.link}
+                data-testid="child-link"
+                d={path(l.points)}
+              />
+            ))}
+        {selectedBox &&
+          nextIds.map((id) => {
+            const to = shown.find((n) => n.id === id);
+            if (!to) return null;
+            const forward = to.x >= selectedBox.x + selectedBox.w;
+            const a = forward
+              ? {
+                  x: selectedBox.x + selectedBox.w,
+                  y: selectedBox.y + selectedBox.h / 2,
+                }
+              : {
+                  x: selectedBox.x + selectedBox.w / 2,
+                  y: selectedBox.y + selectedBox.h,
+                };
+            const b = forward
+              ? { x: to.x, y: to.y + to.h / 2 }
+              : { x: to.x + to.w / 2, y: to.y };
+            const bend = forward
+              ? { x: (a.x + b.x) / 2, y: 0 }
+              : { x: 0, y: 24 };
+            return (
+              <path
+                key={`next-${id}`}
+                className={styles.nextArrow}
+                data-testid="next-arrow"
+                d={
+                  forward
+                    ? `M ${a.x} ${a.y} C ${bend.x} ${a.y} ${bend.x} ${b.y} ${b.x} ${b.y}`
+                    : `M ${a.x} ${a.y} C ${a.x} ${a.y + bend.y} ${b.x} ${b.y - bend.y} ${b.x} ${b.y}`
+                }
+                markerEnd={`url(#${arrow})`}
+              />
+            );
+          })}
+      </svg>
       {shown.map((n) => {
         const info = data.artifacts[n.id];
         const placement = placements.get(n.id);

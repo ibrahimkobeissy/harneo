@@ -105,6 +105,11 @@
 .side {
   flex: 1 1 360px;
   min-width: 0;
+  /* The row's height comes from the map, not from the panel's content (#256): the body is a
+     wrapping flex row, whose line would otherwise grow to the panel's full height and push
+     the bottom of the map, with its legend, off the screen. The panel scrolls on its own. */
+  contain: size;
+  min-height: 320px;
   overflow: auto;
   border-left: var(--hairline) solid var(--line);
   background: var(--raised);

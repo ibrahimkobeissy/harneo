@@ -610,7 +610,9 @@
   left: var(--space-md);
   bottom: var(--space-md);
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  max-width: calc(100% - 2 * var(--space-md));
   padding: 5px 10px;
   border: var(--hairline) solid var(--line);
   border-radius: var(--radius);
@@ -621,6 +623,7 @@
 .legend span {
   display: flex;
   align-items: center;
+  white-space: nowrap;
   gap: var(--space-xs);
 }
 .legend i {
@@ -719,4 +722,13 @@
   stroke-width: 1.75;
   stroke-dasharray: 5 4;
   stroke-linecap: round;
+}
+/* Parent-child connectors and next-step arrows: drawn after the stage frames and before the
+   nodes, so above the one and below the other (#256). */
+.svgTop {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
 }

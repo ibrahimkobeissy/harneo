@@ -760,6 +760,14 @@ describe("Harnmap screen: parent and child", () => {
     expect(child).toHaveAttribute("data-depth", "1");
     expect(child).toHaveAccessibleName(/model only/);
     expect(screen.getAllByTestId("child-link")).toHaveLength(1);
+    // The connector is drawn after the stage frames, which would otherwise hide it (#256).
+    const layer = screen.getAllByTestId("child-link")[0]?.closest("svg");
+    for (const frame of screen.getAllByTestId("stage")) {
+      expect(
+        frame.compareDocumentPosition(layer as Node) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
     await user.click(
       screen.getByRole("button", {
         name: "How spec-driven-development takes part in the flow",
