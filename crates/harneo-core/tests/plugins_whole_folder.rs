@@ -1,6 +1,8 @@
-//! A plugin taken whole keeps its whole folder (ADR-005): scripts reach their data files through
-//! paths built at run time, so no allowlist can find them. Nested plugins and the scanner's
-//! skipped folders stay out; the component scope still decides what unpacking offers.
+//! The files of a plugin taken whole (ADR-005, hybrid): a plugin in its own folder keeps the whole
+//! folder, since scripts reach their data files through paths built at run time; a plugin at the
+//! scan root keeps its component scope, its default component folders whole and the top-level
+//! entries its code names, so the repo's plumbing stays out. Nested plugins and the scanner's
+//! skipped folders always stay out; the component scope still decides what unpacking offers.
 
 use std::fs;
 use std::path::Path;
@@ -95,7 +97,7 @@ const GUARDRAIL_FILES: [&str; 9] = [
 ];
 
 #[test]
-fn a_whole_plugin_lists_every_file_of_its_folder() -> R {
+fn a_plugin_at_the_root_keeps_its_hooks_folder_and_the_folders_its_code_names() -> R {
     let dir = tempfile::tempdir()?;
     guardrails(dir.path(), "")?;
     let report = scan(dir.path(), &whole())?;
@@ -126,12 +128,12 @@ fn a_marketplace_at_the_root_does_not_swallow_its_plugins_or_skipped_folders() -
 
     let report = scan(root, &whole())?;
     let outer = plugin(&report, "outer")?;
+    // At the root: no repo plumbing (`docs/`), no nested plugin, no skipped folder.
     assert_eq!(
         outer.files,
         [
             ".claude-plugin/marketplace.json",
             ".claude-plugin/plugin.json",
-            "docs/guide.md"
         ]
     );
     let inner = plugin(&report, "security-guardrails")?;
@@ -193,16 +195,21 @@ fn git(dir: &Path, args: &[&str]) -> R {
 
 #[test]
 fn an_update_check_brings_the_files_an_older_scope_left_out() -> R {
-    // The library copy as an older build stored it: the plugin without its data files.
+    // The library copy as an older build stored it: the plugin without its data files. It sits
+    // in its own folder, like `security-guardrails` in its marketplace repo.
     let repo = tempfile::tempdir()?;
     let root = repo.path();
     git(root, &["init", "-q", "-b", "main"])?;
     put(
         root,
-        ".claude-plugin/plugin.json",
+        "plugins/security-guardrails/.claude-plugin/plugin.json",
         r#"{"name":"security-guardrails"}"#,
     )?;
-    put(root, "hooks/session_start.py", SESSION_HOOK)?;
+    put(
+        root,
+        "plugins/security-guardrails/hooks/session_start.py",
+        SESSION_HOOK,
+    )?;
     git(root, &["add", "-A"])?;
     git(root, &["commit", "-q", "-m", "one"])?;
     let source = Source::parse_git(&format!("file://{}", root.display()), None, None)?;
@@ -219,8 +226,12 @@ fn an_update_check_brings_the_files_an_older_scope_left_out() -> R {
     assert!(!stored.join("hooks/rules.md").exists());
 
     // The files the folder always had, which the old scope would not have kept.
-    put(root, "hooks/rules.md", "# Rules\n")?;
-    put(root, "templates/settings.json", "{}\n")?;
+    put(root, "plugins/security-guardrails/hooks/rules.md", "# Rules\n")?;
+    put(
+        root,
+        "plugins/security-guardrails/templates/settings.json",
+        "{}\n",
+    )?;
     git(root, &["add", "-A"])?;
     git(root, &["commit", "-q", "-m", "two"])?;
     drop(library);
@@ -232,5 +243,42 @@ fn an_update_check_brings_the_files_an_older_scope_left_out() -> R {
     assert_eq!(done.outcome, UpdateOutcome::Updated);
     assert!(stored.join("hooks/rules.md").exists());
     assert!(stored.join("templates/settings.json").exists());
+    Ok(())
+}
+
+#[test]
+fn a_plugin_in_its_own_folder_keeps_files_nothing_names() -> R {
+    let dir = tempfile::tempdir()?;
+    let root = dir.path();
+    guardrails(root, "plugins/security-guardrails/")?;
+    put(root, "plugins/security-guardrails/data/words.txt", "a\n")?;
+    let report = scan(root, &whole())?;
+    let a = plugin(&report, "security-guardrails")?;
+    assert!(has(a, "plugins/security-guardrails/data/words.txt"));
+    assert_eq!(a.files.len(), GUARDRAIL_FILES.len() + 1);
+    Ok(())
+}
+
+#[test]
+fn a_plugin_at_the_root_leaves_out_folders_only_prose_or_nothing_names() -> R {
+    let dir = tempfile::tempdir()?;
+    let root = dir.path();
+    guardrails(root, "")?;
+    // `docs` named in a skill's prose, `data` named nowhere: neither is code naming a path.
+    put(
+        root,
+        "skills/setup/SKILL.md",
+        "---\nname: setup\ndescription: Set up\n---\nSee \"docs\" and docs/setup.md.\n",
+    )?;
+    put(root, "docs/setup.md", "# setup\n")?;
+    put(root, "data/words.txt", "a\n")?;
+    let report = scan(root, &whole())?;
+    let a = plugin(&report, "security-guardrails")?;
+    assert!(
+        has(a, "templates/settings.json"),
+        "named by the hook script"
+    );
+    assert!(!a.files.iter().any(|f| f.starts_with("docs/")));
+    assert!(!a.files.iter().any(|f| f.starts_with("data/")));
     Ok(())
 }

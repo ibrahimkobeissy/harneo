@@ -1,7 +1,7 @@
 # ADR-001: Read a source's layout in three tiers; Claude only proposes
 
 ## Status
-Accepted. The file scope of a plugin taken whole ("Plugins list, copy and audit only their components") is superseded by ADR-005: a whole plugin keeps its whole folder.
+Accepted. The file scope of a plugin taken whole ("Plugins list, copy and audit only their components") is changed by ADR-005: a whole plugin in its own folder keeps that whole folder; one at the repo root keeps a widened component scope.
 
 ## Date
 2026-10-25

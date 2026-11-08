@@ -322,7 +322,7 @@ fn parts(root: &Path) -> Result<Vec<String>, Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn a_plugin_at_the_repo_root_keeps_the_whole_repo_but_unpacks_to_its_components() -> TestResult {
+fn a_plugin_at_the_repo_root_keeps_its_components_not_the_repo() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(
@@ -351,19 +351,15 @@ fn a_plugin_at_the_repo_root_keeps_the_whole_repo_but_unpacks_to_its_components(
         write(r, f, "x")?;
     }
     let report = scan(r)?;
-    // ADR-005: the whole folder, as Claude Code installs it.
+    // ADR-005, hybrid: a plugin at the repo root keeps its component scope, its default
+    // component folders whole (all of `skills/`), and no repo plumbing (docs, CI, changesets).
     assert_eq!(
         plugin_files(&report)?,
         [
-            ".changeset/x.md",
             ".claude-plugin/marketplace.json",
             ".claude-plugin/plugin.json",
-            ".github/ci.yml",
-            "CHANGELOG.md",
             "LICENSE",
             "README.md",
-            "SCOPE.md",
-            "docs/a.md",
             "skills/eng/a/SKILL.md",
             "skills/eng/a/notes.md",
             "skills/eng/b/SKILL.md",
@@ -376,7 +372,7 @@ fn a_plugin_at_the_repo_root_keeps_the_whole_repo_but_unpacks_to_its_components(
 }
 
 #[test]
-fn plugin_without_component_fields_unpacks_the_default_folders_and_keeps_the_rest() -> TestResult {
+fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(r, ".claude-plugin/plugin.json", r#"{"name":"p"}"#)?;
@@ -403,7 +399,7 @@ fn plugin_without_component_fields_unpacks_the_default_folders_and_keeps_the_res
     ] {
         assert!(files.contains(f), "{f} missing in {files}");
     }
-    assert!(files.contains("docs/x.md") && files.contains("scripts/unreferenced.sh"));
+    assert!(!files.contains("docs/") && !files.contains("scripts/"));
     assert_eq!(parts(r)?, ["a", "c", "o", "s"]);
     Ok(())
 }
@@ -528,7 +524,7 @@ fn declared_paths_leaving_the_plugin_are_reported_and_not_included() -> TestResu
 }
 
 #[test]
-fn skills_naming_the_plugin_root_unpack_to_skill_folders_only() -> TestResult {
+fn skills_naming_the_plugin_root_take_only_skill_folders() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(
@@ -539,13 +535,13 @@ fn skills_naming_the_plugin_root_unpack_to_skill_folders_only() -> TestResult {
     skill(r, "one/SKILL.md")?;
     write(r, "docs/x.md", "x")?;
     let files = plugin_files(&scan(r)?)?.join(",");
-    assert!(files.contains("one/SKILL.md") && files.contains("docs/x.md"));
+    assert!(files.contains("one/SKILL.md") && !files.contains("docs/"));
     assert_eq!(parts(r)?, ["one"]);
     Ok(())
 }
 
 #[test]
-fn audit_of_a_whole_plugin_reads_every_file_of_its_folder() -> TestResult {
+fn audit_of_a_plugin_at_the_repo_root_reads_no_repo_plumbing() -> TestResult {
     use harneo_core::audit::AuditInput;
     let dir = tempfile::tempdir()?;
     let r = dir.path();
@@ -562,7 +558,9 @@ fn audit_of_a_whole_plugin_reads_every_file_of_its_folder() -> TestResult {
     let input = AuditInput::read(plugin, r, &ScanOptions::default());
     let read: Vec<&str> = input.files.iter().map(|f| f.path.as_str()).collect();
     assert!(read.contains(&"skills/a/SKILL.md"));
-    assert!(read.contains(&"docs/guide.md") && read.contains(&"scripts/test.sh"));
+    assert!(read
+        .iter()
+        .all(|p| !p.starts_with("docs/") && !p.starts_with("scripts/")));
     Ok(())
 }
 

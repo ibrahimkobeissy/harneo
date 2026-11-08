@@ -86,9 +86,9 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
     }
 }
 
-/// Reads the plugin folder `folder`, which holds a `plugin.json`. Its files are its whole folder
-/// minus nested plugins and skipped folders (ADR-005, see [`plugin_folder`]); the component scope
-/// ([`plugin_scope`]) decides the pickable parts and reports paths that leave the folder.
+/// Reads the plugin folder `folder`, which holds a `plugin.json`. Its files follow ADR-005's
+/// hybrid rule (see [`plugin_folder`]): its whole folder when it has one of its own, its widened
+/// component scope when it sits at the scan root; nested plugins and skipped folders never.
 pub(crate) fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
     let mut walk_diagnostics = Vec::new();
     let text = walker.read_text(&manifest_path(folder), &mut walk_diagnostics);
@@ -98,8 +98,9 @@ pub(crate) fn read_plugin(walker: &mut Walker, folder: &Path) -> Artifact {
         // Not parsed: the walk's diagnostic says why.
         artifact.diagnostics.clear();
     }
-    plugin_scope::scoped_files(walker, folder, &artifact.metadata, &mut walk_diagnostics);
-    artifact.files = plugin_folder::folder_files(walker, folder, &mut walk_diagnostics);
+    let scoped =
+        plugin_scope::scoped_files(walker, folder, &artifact.metadata, &mut walk_diagnostics);
+    artifact.files = plugin_folder::folder_files(walker, folder, &scoped, &mut walk_diagnostics);
     artifact.diagnostics.extend(walk_diagnostics);
     artifact
 }
