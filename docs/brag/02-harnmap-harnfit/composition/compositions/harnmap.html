@@ -7,6 +7,7 @@
     #hm-stage {
       position: absolute;
       inset: 0;
+      overflow: hidden;
     }
     .hm-eyebrow {
       position: absolute;
@@ -31,10 +32,14 @@
     .hm-cap .hm-blue {
       color: var(--color-accent);
     }
+    /* the camera: transform origin 0 0, moved with x / y / scale */
     #hm-cam {
       position: absolute;
-      inset: 0;
-      transform-origin: 1380px 200px;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 1080px;
+      transform-origin: 0 0;
     }
     #hm-win {
       position: absolute;
@@ -59,6 +64,21 @@
     #hm-after {
       opacity: 0;
     }
+    /* keeps the captions readable while the camera is inside the window */
+    #hm-band {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1920px;
+      height: 230px;
+      background: linear-gradient(
+        180deg,
+        rgba(248, 250, 252, 0.97) 0%,
+        rgba(248, 250, 252, 0.94) 70%,
+        rgba(248, 250, 252, 0) 100%
+      );
+      opacity: 0;
+    }
     #hm-cursor {
       position: absolute;
       left: 0;
@@ -78,14 +98,10 @@
       id="hm-stage"
       class="clip"
       data-start="0"
-      data-duration="5.5"
+      data-duration="8"
       data-layout-allow-overflow
       data-layout-allow-overlap
     >
-      <div id="hm-eyebrow" class="hm-eyebrow">01 · Harnmap</div>
-      <h2 id="hm-cap1" class="hm-cap">
-        See your <span class="hm-blue">factory</span> before you build it.
-      </h2>
       <div id="hm-cam">
         <div id="hm-win">
           <img
@@ -100,6 +116,11 @@
           />
         </div>
       </div>
+      <div id="hm-band"></div>
+      <div id="hm-eyebrow" class="hm-eyebrow">01 · Harnmap</div>
+      <h2 id="hm-cap1" class="hm-cap">
+        See your <span class="hm-blue">factory</span> before you build it.
+      </h2>
       <h2 id="hm-cap2" class="hm-cap">
         Each step placed. <span class="hm-blue">What comes next.</span>
       </h2>
@@ -117,6 +138,12 @@
   <script>
     (function () {
       const tl = gsap.timeline({ paused: true });
+      // camera framing: a stage point P shows at P * scale + (x, y)
+      const FULL = { x: 0, y: 0, scale: 1 };
+      const LINE_A = { x: -560, y: -560, scale: 2 }; // Idea, Spec, Plan, Build, Test
+      const LINE_B = { x: -1180, y: -640, scale: 2 }; // Build ... Ship, the loops back to Build
+      const NODE = { x: -641, y: -155, scale: 1.35 }; // review selected + Natural next steps
+      tl.set("#hm-cam", FULL, 0);
       tl.fromTo(
         "#hm-win",
         { y: 260, opacity: 0 },
@@ -135,58 +162,61 @@
         { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
         0.2,
       );
+      // fly along the line: into the first stages, then across to Review, Ship and the loops
+      tl.to("#hm-band", { opacity: 1, duration: 0.4 }, 1.0);
+      tl.to("#hm-cam", { ...LINE_A, duration: 0.8, ease: "power2.inOut" }, 1.0);
+      tl.to("#hm-cam", { ...LINE_B, duration: 1.7, ease: "sine.inOut" }, 1.9);
       tl.to(
         "#hm-cap1",
         { opacity: 0, filter: "blur(8px)", duration: 0.16, ease: "power3.in" },
-        2.75,
+        3.5,
       );
-      // cursor travels to the review node; beat-locked click at film 12.00 s (local 3.0)
+      // pull back to the whole window for the click
+      tl.to("#hm-cam", { ...FULL, duration: 0.6, ease: "power3.inOut" }, 3.65);
+      tl.to("#hm-band", { opacity: 0, duration: 0.3 }, 3.8);
+      // cursor travels to the review node; beat-locked click at film 14.00 s (local 5.0)
       tl.fromTo(
         "#hm-cursor",
         { x: 1500, y: 1000, opacity: 0 },
         { opacity: 1, duration: 0.15 },
-        2.15,
+        4.2,
       );
       tl.to(
         "#hm-cursor",
         { x: 1030, y: 530, duration: 0.7, ease: "power2.inOut" },
-        2.2,
+        4.25,
       );
       tl.to(
         "#hm-cursor",
         { scale: 0.86, duration: 0.05, ease: "power2.out" },
-        3.0,
+        5.0,
       );
       tl.to(
         "#hm-cursor",
         { scale: 1, duration: 0.08, ease: "power2.out" },
-        3.05,
+        5.05,
       );
       // the click is a cut: the node opens with Claude's reading and next steps 1-2-3
       tl.fromTo(
         "#hm-after",
         { opacity: 0 },
         { opacity: 1, duration: 0.034, ease: "none" },
-        3.0,
+        5.0,
       );
-      tl.to("#hm-cursor", { opacity: 0, duration: 0.2 }, 3.25);
-      // camera leans in on the selection and the side panel
-      tl.fromTo(
-        "#hm-cam",
-        { scale: 1 },
-        { scale: 1.18, duration: 0.9, ease: "power2.inOut" },
-        3.1,
-      );
+      tl.to("#hm-cursor", { opacity: 0, duration: 0.2 }, 5.2);
+      // zoom in on the selection and the side panel
+      tl.to("#hm-cam", { ...NODE, duration: 0.9, ease: "power2.inOut" }, 5.15);
+      tl.to("#hm-band", { opacity: 1, duration: 0.4 }, 5.3);
       tl.fromTo(
         "#hm-cap2",
         { opacity: 0, filter: "blur(8px)" },
         { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" },
-        3.1,
+        5.3,
       );
       tl.to(
         "#hm-stage > *",
         { opacity: 0, filter: "blur(10px)", duration: 0.2, ease: "power3.in" },
-        5.28,
+        7.78,
       );
       window.__timelines["harnmap"] = tl;
     })();

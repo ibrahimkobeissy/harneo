@@ -34,8 +34,8 @@ Logo, "Harneo", "Map your factory. Fit what's new.", "Free and open source · MI
 - Preset: polished, same family as the first video (`../01-launch/`) so the two read as a series.
 - Interpretation: a tense, busy first six seconds (minor chords, no drums, dense texture), then the kick and the major key arrive with the logo, and the real UI does the talking. One red moment, played straight.
 
-## Format: landscape 1920x1080, 30 fps. Duration: 26 s
-Planned at 24 s; two seconds added so the before scene and the three verdicts each clear their reading time.
+## Format: landscape 1920x1080, 30 fps. Duration: 32 s
+First cut 26 s; six seconds added at the user's request (2026-11-08) for camera moves that show more of the real UI: a fly along the Harnmap stages, a zoom on Claude's reading and the next steps, and a zoom into each Harnfit verdict card.
 
 ## Visual identity (DESIGN.md)
 Ground `#f8fafc`, ink `#0f172a`, muted `#475569`, accent `#2563eb`; verdict colours from the app: green `#15803d` on `#dcfce7`, amber `#b45309` on `#fef3c7`, red `#b91c1c` on `#fee2e2`. Inter 700 for display, JetBrains Mono for paths.
@@ -44,7 +44,7 @@ Ground `#f8fafc`, ink `#0f172a`, muted `#475569`, accent `#2563eb`; verdict colo
 Captures of the 0.3.0 release build, run with `HARNEO_DATA_DIR` on a scratch copy of the maintainer's library: public packs only on screen (`addyosmani/agent-skills`, `mattpocock/skills`). The Harnfit verdicts are the ones Claude actually returned (saved fits, Opus). For the captures the scratch copy's profile was set back to version 1, the version the fits and the map were made against, so no "out of date" banner shows. No private source URL, personal path or secret appears.
 
 ## Audio
-Original track (`music/compose.py`, pure Python, MIT): 120 BPM, bar = 2 s. 0–6 s Bm7 / Gmaj7 pad and pluck only (the noise); 6 s kick and D major arrive with the logo; 19–20 s drums drop under the red verdict; 20 s back in; 22 s Dmaj9 resolve on the logo; fade 25–26 s. CC0 effects (Kenney): key ticks as the tree types, card slides as windows arrive, clicks on the node and on each verdict cut, soft impacts on both logos.
+Original track (`music/compose.py`, pure Python, MIT): 120 BPM, bar = 2 s. 0–6 s Bm7 / Gmaj7 pad and pluck only (the noise); 6 s kick and D major arrive with the logo; 14 s the node click; 24–25 s drums drop as the camera scrolls to the clash; 25 s back in; 28 s Dmaj9 resolve on the logo; fade 31–32 s. CC0 effects (Kenney): key ticks as the tree types, card slides as windows arrive, clicks on the node and on each verdict cut, soft impacts on both logos.
 
 ## Storyboard
 
@@ -53,9 +53,9 @@ Original track (`music/compose.py`, pure Python, MIT): 120 BPM, bar = 2 s. 0–6
 | 1 | Hook | 0.0–3.5 | Stream of real artifact names; "A new skill every day." then "A new software factory every week." | none |
 | 2 | Before | 3.5–6.0 | `.claude/` tree types itself; four review rows flag red; "You find out after you install it." | none (real names from the conflict verdict) |
 | 3 | Reveal | 6.0–9.0 | Logo lands on the kick; "Your Claude Code harness, fitted to every project." (welcome screen) | logo |
-| 4 | Harnmap | 9.0–14.5 | "01 · Harnmap"; window rises with the map; "See your factory before you build it."; cursor clicks `review` at 12.0; Claude's reading and next steps 1-2-3; "Every step placed, and what comes next." | `harnmap-before.png`, `harnmap-node.png` |
-| 5 | Harnfit | 14.5–22.0 | "02 · Harnfit", "Try it before you add it."; cuts on the beat: `handoff` Fits (14.5), `pr` Fits with changes (16.5), `code-review` Conflicts (18.5); push into the red card; "Claude quotes the lines that clash." | `fit-fits.png`, `fit-changes.png`, `fit-conflicts.png` |
-| 6 | Outro | 22.0–26.0 | Logo, "Harneo", "Map your factory. Fit what's new.", MIT pill, URL | logo |
+| 4 | Harnmap | 9.0–17.0 | "01 · Harnmap"; window rises with the map; "See your factory before you build it."; the camera flies along the line (Idea → Ship, the loops back to Build) and pulls back; cursor clicks `review` at 14.0; zoom on Claude's reading and next steps 1-2-3; "Each step placed. What comes next." | `harnmap-before.png`, `harnmap-node.png` |
+| 5 | Harnfit | 17.0–28.0 | "02 · Harnfit", "Try it before you add it."; the whole map with `handoff` drawn as NEW, then zoom into the verdict card; cuts while zoomed: `handoff` Fits (18.3), `pr` Fits with changes (20.0), `code-review` Conflicts (23.0); the camera scrolls down to "Clashes with" and the quoted lines; "Claude quotes the lines that clash." | `fit-fits.png`, `fit-changes.png`, `fit-conflicts.png` |
+| 6 | Outro | 28.0–32.0 | Logo, "Harneo", "Map your factory. Fit what's new.", MIT pill, URL | logo |
 
 ## Share copy
 See `share-copy.txt`.

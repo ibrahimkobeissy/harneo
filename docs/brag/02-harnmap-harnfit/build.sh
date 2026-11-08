@@ -3,7 +3,7 @@
 #   1. npm ci in composition/ (Hyperframes + GSAP; postinstall vendors gsap.min.js)
 #   2. compose the original soundtrack, its beat cues and per-frame RMS (music/compose.py)
 #   3. hyperframes check (the gate), then render brag.mp4
-#   4. pull the poster (brag.jpg, the red Conflicts verdict at 21.2 s) and bake it as frame 0
+#   4. pull the poster (brag.jpg, the clash and its quoted lines at 26.5 s) and bake it as frame 0
 # Needs Node 22+, Python 3, ffmpeg and a Chrome. Telemetry is off.
 # Set HYPERFRAMES_BROWSER_PATH to a chrome-headless-shell if system Chrome won't start headless.
 set -eu
@@ -20,7 +20,7 @@ python3 music/compose.py \
 
 (cd composition && npx hyperframes check && npx hyperframes render --quality delivery -o ../brag.mp4)
 
-ffmpeg -v error -y -ss 21.2 -i brag.mp4 -frames:v 1 -q:v 2 brag.jpg
+ffmpeg -v error -y -ss 26.5 -i brag.mp4 -frames:v 1 -q:v 2 brag.jpg
 ffmpeg -v error -y -i brag.mp4 -i brag.jpg \
   -filter_complex "[0:v][1:v]overlay=0:0:enable='eq(n,0)'[v]" \
   -map "[v]" -map "0:a?" -c:v libx264 -crf 18 -preset slow -pix_fmt yuv420p \

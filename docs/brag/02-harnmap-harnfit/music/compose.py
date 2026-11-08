@@ -2,11 +2,11 @@
 
     python3 music/compose.py OUT.wav [CUES.json] [RMS.js]
 
-120 BPM, 26 s, built on the video's beat grid (beat = 0.5 s, bar = 2 s):
+120 BPM, 32 s, built on the video's beat grid (beat = 0.5 s, bar = 2 s):
   0-6 s   Bm7 / Gmaj7 pad + pluck only (the noise, the hook and the before)
   6 s     kick enters and the key turns to D major (logo reveal)
-  19-20 s drums and pluck drop out under the red Conflicts verdict; 20 s back in
-  22 s    resolve on Dmaj9 (logo), fade 25-26 s
+  24-25 s drums and pluck drop out as the camera scrolls to the clash; 25 s back in
+  28 s    resolve on Dmaj9 (logo), fade 31-32 s
 Original work made for this repo; covered by the repo's MIT license, no attribution needed.
 """
 import array, json, math, random, struct, sys, wave
@@ -14,7 +14,7 @@ import array, json, math, random, struct, sys, wave
 SR = 44100
 BPM = 120
 BEAT = 60 / BPM
-DUR = 26.0
+DUR = 32.0
 N = int(SR * (DUR + 0.5))
 random.seed(11)
 
@@ -134,11 +134,11 @@ PROG = [
     (43, [62, 67, 71, 74]),  # Gmaj7
     (45, [62, 64, 69, 73]),  # A6sus-ish
 ]
-BARS = 13
+BARS = 16
 HOOK = [(47, [62, 66, 69, 71]), (43, [62, 67, 71, 74]), (47, [62, 66, 69, 74])]  # Bm7, Gmaj7, Bm7
 KICK_IN = 6.0
-DIP = (19.0, 20.0)       # under the red Conflicts verdict
-LOGO = 22.0
+DIP = (24.0, 25.0)       # under the red Conflicts verdict
+LOGO = 28.0
 
 
 def in_dip(t):
@@ -228,7 +228,7 @@ if len(sys.argv) > 2:
     beats = [round(k * BEAT, 3) for k in range(int(DUR / BEAT))]
     with open(sys.argv[2], "w") as f:
         json.dump({"track": out.split("/")[-1], "bpm": BPM, "duration": DUR, "beats": beats,
-                   "strongCues": [KICK_IN, 12.0, DIP[1], LOGO],
+                   "strongCues": [KICK_IN, 14.0, DIP[1], LOGO],
                    "sections": {"hook": [0, KICK_IN], "dip": list(DIP), "logo": LOGO, "fadeOut": [DUR - 1.0, DUR]}}, f, indent=1)
 
 if len(sys.argv) > 3:
