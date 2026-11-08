@@ -381,7 +381,7 @@ function Loaded({
       }
     : current.doc;
   const shownDoc = preview?.doc ?? doc;
-  const data = { ...toMapData(current), doc: shownDoc };
+  const data = { ...toMapData(current), doc: shownDoc, profile: name };
   // Hidden artifacts and types are part of the saved map once it is drawn.
   const viewState: MapViewState = {
     ...mapView,

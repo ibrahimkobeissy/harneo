@@ -43,6 +43,8 @@ export interface MapData {
   /** Artifact ids per bundle. */
   bundles: string[][];
   hooks: HookInfo[];
+  /** The profile's name, shown in the line's badge ("24 · HEAVY"); the badge says STATIONS without it. */
+  profile?: string;
 }
 
 export const ZOOM_MIN = 0.4;

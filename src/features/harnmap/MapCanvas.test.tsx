@@ -527,6 +527,12 @@ describe("the line above the stages", () => {
     },
   );
 
+  it("names the profile in the count badge when it is known", () => {
+    render(<Harness data={{ ...fixtures.line, profile: "Heavy" }} />);
+    expect(screen.getByTestId("line-badge")).toHaveTextContent("HEAVY");
+    expect(screen.getByTestId("line-badge")).not.toHaveTextContent("STATIONS");
+  });
+
   it("keeps the line and the hook rail inside the scene, clear of the frames", () => {
     render(<Harness />);
     const scene = world().firstElementChild as HTMLElement;

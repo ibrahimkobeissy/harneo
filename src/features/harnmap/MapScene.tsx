@@ -348,7 +348,7 @@ export function MapScene({
           }}
         >
           <b>{layout.nodes.length}</b>
-          <span>STATIONS</span>
+          <span>{data.profile?.toUpperCase() ?? "STATIONS"}</span>
         </div>
       )}
       {layers.line && layout.hookRail && (
