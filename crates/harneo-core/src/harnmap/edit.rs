@@ -95,6 +95,7 @@ impl MapDoc {
         self.placements.retain(|p| p.artifact != artifact);
         for p in &mut self.placements {
             p.next.retain(|n| n != artifact);
+            p.next_why.remove(artifact);
             p.also_run_by.retain(|n| n != artifact);
         }
         self.hidden.retain(|a| a != artifact);
@@ -198,6 +199,7 @@ impl MapDoc {
                     when: String::new(),
                     hands_off: String::new(),
                     next: Vec::new(),
+                    next_why: Default::default(),
                     parent: None,
                     also_run_by: Vec::new(),
                     by: PlacedBy::User,

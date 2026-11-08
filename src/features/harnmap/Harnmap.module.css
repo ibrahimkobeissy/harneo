@@ -606,3 +606,48 @@
 .nameBtn:hover {
   text-decoration: underline;
 }
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  width: 100%;
+  padding: var(--space-xs) var(--space-sm);
+  border: var(--hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--t1);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.step:hover {
+  border-color: var(--line);
+  background: var(--sunk);
+}
+.stepNo {
+  flex: none;
+  min-width: var(--space-lg);
+  color: var(--t3);
+  font-family: var(--font-mono);
+  font-size: var(--text-label);
+}
+.stepBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxs);
+  min-width: 0;
+}
+.stepName {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--text-mono);
+}

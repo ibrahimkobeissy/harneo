@@ -109,6 +109,7 @@ impl Setup {
             when: String::new(),
             hands_off: String::new(),
             next: Vec::new(),
+            next_why: std::collections::BTreeMap::new(),
             parent: None,
             also_run_by: Vec::new(),
             by: PlacedBy::Claude,

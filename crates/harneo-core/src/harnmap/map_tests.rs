@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use super::*;
 use crate::artifact::ArtifactKind;
@@ -19,6 +19,7 @@ fn place(artifact: &str, zone: Zone) -> Placement {
         when: String::new(),
         hands_off: String::new(),
         next: Vec::new(),
+        next_why: BTreeMap::new(),
         parent: None,
         also_run_by: Vec::new(),
         by: PlacedBy::Claude,
@@ -169,4 +170,46 @@ fn dropping_an_artifact_also_drops_it_from_next_steps() {
     doc.placements.push(place("b", Zone::Toolbelt));
     doc.drop_artifact("b");
     assert_eq!(doc.placements[0].next, ["c"]);
+}
+
+#[test]
+fn reasons_of_dropped_steps_go_and_the_rest_are_cut() {
+    let mut doc = MapDoc::from_template(CategoryId::Software);
+    let mut p = place("a", Zone::Floor);
+    p.next = vec!["b".into()];
+    p.next_why = BTreeMap::from([
+        ("b".to_owned(), "y".repeat(200)),
+        ("c".to_owned(), "orphan".to_owned()),
+    ]);
+    doc.placements.push(p);
+    doc.cut_to_limits();
+    let why = &doc.placements[0].next_why;
+    assert_eq!(why.len(), 1, "{why:?}");
+    assert_eq!(why["b"].chars().count(), MAX_NEXT_WHY);
+}
+
+#[test]
+fn dropping_an_artifact_also_drops_its_reason() {
+    let mut doc = MapDoc::from_template(CategoryId::Software);
+    let mut p = place("a", Zone::Floor);
+    p.next = vec!["b".into(), "c".into()];
+    p.next_why = BTreeMap::from([
+        ("b".to_owned(), "why b".to_owned()),
+        ("c".to_owned(), "why c".to_owned()),
+    ]);
+    doc.placements.push(p);
+    doc.placements.push(place("b", Zone::Toolbelt));
+    doc.drop_artifact("b");
+    assert_eq!(doc.placements[0].next_why.keys().collect::<Vec<_>>(), ["c"]);
+}
+
+#[test]
+fn a_map_drawn_before_reasons_existed_reads_with_none() -> Result<(), serde_json::Error> {
+    let p: Placement = serde_json::from_value(serde_json::json!({
+        "artifact": "a", "zone": {"type": "floor"}, "order": 0, "note": "", "why": "",
+        "role": "", "when": "", "handsOff": "", "next": ["b"], "by": "claude", "pinned": false
+    }))?;
+    assert_eq!(p.next, ["b"]);
+    assert!(p.next_why.is_empty());
+    Ok(())
 }

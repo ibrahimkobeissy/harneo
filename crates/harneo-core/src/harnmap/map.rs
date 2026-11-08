@@ -1,6 +1,6 @@
 //! The map document: the JSON a draw stores, and its checks.
 
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
@@ -18,6 +18,8 @@ pub const MAX_NOTE: usize = 60;
 pub const MAX_WHY: usize = 400;
 /// Most next steps kept per placement (the prompt asks for 3; maps drawn before kept up to 4).
 pub const MAX_NEXT: usize = 4;
+/// Longest reason for a next step, in characters.
+pub const MAX_NEXT_WHY: usize = 120;
 /// Most "also run by" artifacts kept per placement.
 pub const MAX_ALSO_RUN_BY: usize = 3;
 /// Longest `role`, `when` or `hands_off`, in characters.
@@ -96,6 +98,12 @@ pub struct Placement {
     #[serde(default)]
     #[ts(as = "Option<Vec<ArtifactId>>", optional)]
     pub next: Vec<ArtifactId>,
+    /// Claude's one-line reason for each next step (what in this artifact leads to that one), at
+    /// most [`MAX_NEXT_WHY`] characters, keyed by the step's artifact. Empty in maps drawn before
+    /// reasons existed; a step may have none.
+    #[serde(default)]
+    #[ts(as = "Option<BTreeMap<ArtifactId, String>>", optional)]
+    pub next_why: BTreeMap<ArtifactId, String>,
     /// Claude's reading: the one artifact this runs only through (a skill behind a command, a
     /// subagent behind a skill). A child sits in its parent's zone and moves with it.
     #[serde(default)]
@@ -245,6 +253,11 @@ impl MapDoc {
             cut(&mut p.when, MAX_TOOLTIP);
             cut(&mut p.hands_off, MAX_TOOLTIP);
             p.next.truncate(MAX_NEXT);
+            let steps = &p.next;
+            p.next_why.retain(|step, _| steps.contains(step));
+            for reason in p.next_why.values_mut() {
+                cut(reason, MAX_NEXT_WHY);
+            }
             p.also_run_by.truncate(MAX_ALSO_RUN_BY);
         }
     }

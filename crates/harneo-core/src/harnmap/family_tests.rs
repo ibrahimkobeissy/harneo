@@ -1,6 +1,6 @@
 //! Parent and child: Claude's reading kept sound, and the edits that move a family together.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use serde_json::{json, Value};
 
@@ -280,6 +280,7 @@ fn doc_of(rows: &[(&str, Option<&str>, Zone)]) -> MapDoc {
             when: String::new(),
             hands_off: String::new(),
             next: Vec::new(),
+            next_why: BTreeMap::new(),
             parent: parent.map(str::to_owned),
             also_run_by: Vec::new(),
             by: PlacedBy::Claude,

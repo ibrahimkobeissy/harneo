@@ -28,6 +28,8 @@ export function NodeDetail({
   doc,
   parentName,
   alsoRunBy = [],
+  infoOf,
+  onSelect,
   onDetach,
   onClose,
   onNote,
@@ -45,6 +47,10 @@ export function NodeDetail({
   parentName?: string;
   /** Display names of the other artifacts that also run it. */
   alsoRunBy?: string[];
+  /** Name and type of any artifact on the map. */
+  infoOf: (artifact: string) => ArtifactInfo | undefined;
+  /** Selects another artifact on the map, as a click on its node does. */
+  onSelect: (artifact: string) => void;
   onDetach: () => void;
   onClose: () => void;
   onNote: (text: string) => void;
@@ -95,6 +101,11 @@ export function NodeDetail({
     [],
   );
 
+  // The natural next steps that are on the map, numbered like their rings.
+  const onMap = new Set(doc.placements.map((p) => p.artifact));
+  const steps = (placement.next ?? []).filter(
+    (n) => onMap.has(n) && !doc.hidden.includes(n),
+  );
   const byYou = placement.by === "user";
   const zones: Zone[] = [
     ...doc.stages.map((s): Zone => ({ type: "stage", id: s.id })),
@@ -227,6 +238,41 @@ export function NodeDetail({
           </Button>
         </div>
       </div>
+      {steps.length > 0 && (
+        <div className={styles.sect}>
+          <div className={styles.panelHead}>
+            <h3 className={styles.eyebrow}>NATURAL NEXT STEPS</h3>
+            <span className={styles.src}>Claude’s reading</span>
+          </div>
+          <ul className={styles.steps}>
+            {steps.map((step, i) => {
+              const stepInfo = infoOf(step) ?? { name: step, kind: "skill" };
+              const StepIcon = kinds[stepInfo.kind].icon;
+              const why = placement.nextWhy?.[step];
+              return (
+                <li key={step}>
+                  <button
+                    type="button"
+                    className={styles.step}
+                    onClick={() => onSelect(step)}
+                  >
+                    <span className={styles.stepNo} aria-label="Step">
+                      {i + 1}
+                    </span>
+                    <span className={styles.stepBody}>
+                      <span className={`${styles.stepName} ${styles.mono}`}>
+                        <StepIcon size={14} aria-hidden="true" />
+                        {stepInfo.name}
+                      </span>
+                      {why && <span className={styles.muted}>{why}</span>}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </>
   );
 }

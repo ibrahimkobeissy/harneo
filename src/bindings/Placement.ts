@@ -24,6 +24,12 @@ role: string, when: string, handsOff: string,
  */
 next?: Array<string>, 
 /**
+ * Claude's one-line reason for each next step (what in this artifact leads to that one), at
+ * most [`MAX_NEXT_WHY`] characters, keyed by the step's artifact. Empty in maps drawn before
+ * reasons existed; a step may have none.
+ */
+nextWhy?: { [key in string]: string }, 
+/**
  * Claude's reading: the one artifact this runs only through (a skill behind a command, a
  * subagent behind a skill). A child sits in its parent's zone and moves with it.
  */

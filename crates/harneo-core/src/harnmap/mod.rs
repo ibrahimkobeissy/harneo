@@ -37,7 +37,7 @@ pub use fit::{
 };
 pub use map::{
     Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageId, StageOrigin, TemplateChange, Zone,
-    MAX_ALSO_RUN_BY, MAX_NEXT, MAX_NOTE, MAX_TOOLTIP, MAX_WHY,
+    MAX_ALSO_RUN_BY, MAX_NEXT, MAX_NEXT_WHY, MAX_NOTE, MAX_TOOLTIP, MAX_WHY,
 };
 pub(crate) use portable::{ArtifactKey, FileFit, FileHarnmap, PreparedMap};
 pub use templates::{

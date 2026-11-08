@@ -23,6 +23,7 @@ fn placement(artifact: &str, zone: Zone, note: &str, pinned: bool) -> Placement 
         when: "w".to_owned(),
         hands_off: "h".to_owned(),
         next: Vec::new(),
+        next_why: std::collections::BTreeMap::new(),
         parent: None,
         also_run_by: Vec::new(),
         by: if pinned {
@@ -114,10 +115,11 @@ fn mapped() -> std::result::Result<Mapped, Box<dyn std::error::Error>> {
     let mut child = placement(&helper, Zone::Stage { id: stage.clone() }, "", false);
     child.parent = Some(skill.clone());
     child.also_run_by = vec![lib.id(ArtifactKind::Mcp, "api")?];
-    second.placements = vec![
-        placement(&skill, Zone::Stage { id: stage }, "mixes", true),
-        child,
-    ];
+    let mut head = placement(&skill, Zone::Stage { id: stage }, "mixes", true);
+    head.next = vec![helper.clone()];
+    head.next_why =
+        std::collections::BTreeMap::from([(helper.clone(), "it bakes next".to_owned())]);
+    second.placements = vec![head, child];
     second.hidden = vec![lib.id(ArtifactKind::Mcp, "api")?];
     add_draw(&lib, profile, 2, &second)?;
     add_fit(
@@ -153,6 +155,10 @@ fn a_round_trip_keeps_draws_pins_notes_fits_and_the_category() -> TestResult {
     assert_eq!(first["kind"], "skill");
     assert_eq!(first["name"], "a");
     assert!(first["digest"].is_string());
+    let head = &file["harnmap"]["draws"][1]["map"]["placements"][0];
+    assert_eq!(head["next"][0]["name"], "helper");
+    assert_eq!(head["nextWhy"][0]["artifact"]["name"], "helper");
+    assert_eq!(head["nextWhy"][0]["why"], "it bakes next");
     let carried = format!("{}{}", file["harnmap"], file["fits"]);
     assert!(!carried.contains(&one.skill) && !carried.contains(&one.helper));
 
@@ -192,6 +198,9 @@ fn a_round_trip_keeps_draws_pins_notes_fits_and_the_category() -> TestResult {
         vec![two.id(ArtifactKind::Mcp, "api")?]
     );
     assert!(map.doc.placements[0].parent.is_none());
+    // The next steps and their reasons came through under the new library's ids.
+    assert_eq!(map.doc.placements[0].next, vec![helper.clone()]);
+    assert_eq!(map.doc.placements[0].next_why[&helper], "it bakes next");
     assert_eq!(two.library.harnmap_history(report.profile_id)?.len(), 2);
 
     let fits = two.library.fits(report.profile_id)?;

@@ -15,7 +15,8 @@ use serde_json::{json, Value};
 use ts_rs::TS;
 
 use super::map::{
-    Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageOrigin, TemplateChange, Zone, MAX_NEXT,
+    Loop, MapDoc, MapPhase, PlacedBy, Placement, Stage, StageOrigin, TemplateChange, Zone,
+    MAX_NEXT, MAX_NEXT_WHY,
 };
 use super::{CategoryId, Fact, Shape};
 use crate::artifact::{ArtifactKind, ScanOptions};
@@ -40,7 +41,7 @@ pub(super) const MAX_STAGE_NAME: usize = 40;
 /// The model used when Settings holds none.
 pub const DEFAULT_DRAW_MODEL: &str = "opus";
 
-const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"},"next":{"type":"array","items":{"type":"string"}},"parent":{"type":"string"},"also_run_by":{"type":"array","items":{"type":"string"}}},"required":["artifact","zone","note","why","role","when","hands_off","next"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
+pub(super) const SCHEMA: &str = r#"{"type":"object","properties":{"shape":{"type":"string","enum":["line","cycle","diamond","parallel"]},"stages":{"type":"array","items":{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"}},"required":["name"],"additionalProperties":false}},"loops":{"type":"array","items":{"type":"object","properties":{"from":{"type":"string"},"to":{"type":"string"},"label":{"type":"string"}},"required":["from","to","label"],"additionalProperties":false}},"placements":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"zone":{"type":"string"},"note":{"type":"string"},"why":{"type":"string"},"role":{"type":"string"},"when":{"type":"string"},"hands_off":{"type":"string"},"next":{"type":"array","items":{"type":"object","properties":{"artifact":{"type":"string"},"why":{"type":"string"}},"required":["artifact","why"],"additionalProperties":false}},"parent":{"type":"string"},"also_run_by":{"type":"array","items":{"type":"string"}}},"required":["artifact","zone","note","why","role","when","hands_off","next"],"additionalProperties":false}}},"required":["stages","loops","placements"],"additionalProperties":false}"#;
 
 const INSTRUCTIONS: &str = "You are drawing a factory map of a Claude Code harness: a profile's \
 artifacts (skills, commands, subagents, rules, MCP servers, settings, output styles) placed on \
@@ -64,7 +65,7 @@ the artifacts a user reaches for right after finishing this one. They are altern
 with the most likely first, at most 3, usually in the same stage or the next one. It is not the \
 rest of the workflow: never list a chain of steps in order (after a spec command, the plan is a \
 next step; the build that follows the plan is not). Use an empty list when nothing follows \
-directly. Name only other artifacts of the profile, never the artifact itself.\n\
+directly. Each next step is an object `{ \"artifact\": <short id>, \"why\": <reason> }`: `why` is one line, at most 120 characters, saying what in this artifact leads to that one. Name only other artifacts of the profile, never the artifact itself.\n\
 Optionally `parent`: the short id of the one command, skill or subagent that this skill or \
 subagent is run through, set only when it is not meant to be started on its own and runs through \
 that parent (a command that only runs a skill is that skill's parent). Leave it out otherwise. \
@@ -555,6 +556,7 @@ impl DrawJob {
                 Zone::Floor => "floor".to_owned(),
             };
             let n = order.entry(key).or_insert(0);
+            let steps = next_with_why(&p.next, &input.id, &by_short);
             placements.push(Placement {
                 artifact: input.id.clone(),
                 zone,
@@ -564,7 +566,8 @@ impl DrawJob {
                 role: p.role.trim().to_owned(),
                 when: p.when.trim().to_owned(),
                 hands_off: p.hands_off.trim().to_owned(),
-                next: next_steps(&p.next, &input.id, &by_short),
+                next: steps.0,
+                next_why: steps.1,
                 parent: p
                     .parent
                     .as_deref()
@@ -749,11 +752,41 @@ struct AnswerPlacement {
     #[serde(default)]
     hands_off: String,
     #[serde(default)]
-    next: Vec<String>,
+    next: Vec<AnswerNext>,
     #[serde(default)]
     parent: Option<String>,
     #[serde(default)]
     also_run_by: Vec<String>,
+}
+
+/// One next step of the answer: the short id and Claude's one-line reason.
+#[derive(Debug, Deserialize)]
+struct AnswerNext {
+    artifact: String,
+    #[serde(default)]
+    why: String,
+}
+
+/// The next steps with their reasons: ids as [`next_steps`] keeps them, and the reason of each
+/// kept step (trimmed, cut to [`MAX_NEXT_WHY`], none when empty). Reasons of dropped steps go.
+fn next_with_why(
+    named: &[AnswerNext],
+    own: &ArtifactId,
+    by_short: &HashMap<&str, &DrawInput>,
+) -> (Vec<ArtifactId>, BTreeMap<ArtifactId, String>) {
+    let shorts: Vec<String> = named.iter().map(|n| n.artifact.clone()).collect();
+    let ids = next_steps(&shorts, own, by_short);
+    let mut why = BTreeMap::new();
+    for n in named {
+        let Some(input) = by_short.get(n.artifact.trim()) else {
+            continue;
+        };
+        let reason = cut(n.why.trim(), MAX_NEXT_WHY);
+        if ids.contains(&input.id) && !reason.is_empty() {
+            why.entry(input.id.clone()).or_insert(reason);
+        }
+    }
+    (ids, why)
 }
 
 /// The next steps Claude named, as artifact ids: unknown short ids, the artifact itself and

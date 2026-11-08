@@ -746,6 +746,8 @@ function Loaded({
                 placement.parent ? nameOf(placement.parent) : undefined
               }
               alsoRunBy={(placement.alsoRunBy ?? []).map(nameOf)}
+              infoOf={(artifact) => current.artifacts[artifact]}
+              onSelect={setSelected}
               onDetach={() =>
                 void edit(
                   { type: "detach", artifact: selected },

@@ -461,6 +461,54 @@ describe("Harnmap screen: node detail", () => {
     ).toBeVisible();
   });
 
+  it("ends with the natural next steps and their reasons, and a click selects one", async () => {
+    const user = userEvent.setup();
+    const withNext = placements.map((p) =>
+      p.artifact === "spec"
+        ? {
+            ...p,
+            next: ["plan", "build", "gone"],
+            nextWhy: { plan: "The spec is what the plan splits into tasks." },
+          }
+        : p,
+    );
+    setup(view({ doc: { ...heavy.doc, placements: withNext, changes: [] } }));
+    await user.click(await screen.findByRole("button", { name: /^\/spec,/ }));
+    const heading = await screen.findByRole("heading", {
+      name: "NATURAL NEXT STEPS",
+    });
+    const section = heading.closest("div")?.parentElement as HTMLElement;
+    const steps = within(section).getAllByRole("button");
+    // A step that is not on the map is skipped; the rest keep their ring numbers.
+    expect(steps).toHaveLength(2);
+    expect(steps[0]).toHaveTextContent("1");
+    expect(steps[0]).toHaveTextContent("/plan");
+    expect(steps[0]).toHaveTextContent(
+      "The spec is what the plan splits into tasks.",
+    );
+    // A step with no reason shows its name alone.
+    expect(steps[1]).toHaveTextContent("2");
+    expect(steps[1]).toHaveTextContent("/build");
+    expect(steps[1]).not.toHaveTextContent("splits");
+    await user.click(steps[0] as HTMLElement);
+    expect(
+      await screen.findByRole("heading", { name: /\/plan/ }),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "NATURAL NEXT STEPS" }),
+    ).toBeNull();
+  });
+
+  it("has no next steps section for a map drawn before them", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.click(await screen.findByRole("button", { name: /^\/spec,/ }));
+    await screen.findByRole("heading", { name: /\/spec/ });
+    expect(
+      screen.queryByRole("heading", { name: "NATURAL NEXT STEPS" }),
+    ).toBeNull();
+  });
+
   it("moves a placed node by dragging it to another stage or the toolbelt", async () => {
     const run = setup();
     const n = await screen.findByRole("button", { name: /^test-engineer,/ });

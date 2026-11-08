@@ -161,6 +161,34 @@ fn rewrite_map(doc: &mut Value, swap: &dyn Fn(&Value) -> Result<Option<Value>>) 
                     }
                     *next = steps;
                 }
+                // A key is an object, so inside the file the reasons are a list of
+                // `{ artifact, why }`; a map of ids (export) becomes that list and back (import).
+                match placement.get_mut("nextWhy") {
+                    Some(Value::Object(by_id)) => {
+                        let mut listed = Vec::new();
+                        for (id, reason) in std::mem::take(by_id) {
+                            if let Some(key) = swap(&Value::String(id))? {
+                                listed.push(serde_json::json!({ "artifact": key, "why": reason }));
+                            }
+                        }
+                        placement["nextWhy"] = Value::Array(listed);
+                    }
+                    Some(Value::Array(listed)) => {
+                        let mut by_id = serde_json::Map::new();
+                        for entry in std::mem::take(listed) {
+                            let (Some(key), Some(reason)) =
+                                (entry.get("artifact"), entry.get("why"))
+                            else {
+                                return Err(malformed("a next step reason is incomplete"));
+                            };
+                            if let Some(Value::String(id)) = swap(key)? {
+                                by_id.insert(id, reason.clone());
+                            }
+                        }
+                        placement["nextWhy"] = Value::Object(by_id);
+                    }
+                    _ => {}
+                }
                 if let Some(reference) = placement.get("parent").filter(|v| !v.is_null()) {
                     match swap(reference)? {
                         Some(swapped) => placement["parent"] = swapped,

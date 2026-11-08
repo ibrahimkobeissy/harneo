@@ -430,6 +430,7 @@ fn pins_and_user_stages_survive_an_answer_that_moved_them() -> TestResult {
         when: String::new(),
         hands_off: String::new(),
         next: Vec::new(),
+        next_why: std::collections::BTreeMap::new(),
         parent: None,
         also_run_by: Vec::new(),
         by: PlacedBy::User,
@@ -506,6 +507,7 @@ fn a_pin_keeps_the_stage_it_sits_on_even_when_claude_removed_it() -> TestResult 
         when: String::new(),
         hands_off: String::new(),
         next: Vec::new(),
+        next_why: std::collections::BTreeMap::new(),
         parent: None,
         also_run_by: Vec::new(),
         by: PlacedBy::User,
@@ -844,9 +846,17 @@ fn the_registry_cancels_only_the_profile_asked_for() {
 fn next_steps_are_kept_as_ids_without_self_unknown_or_repeats() -> TestResult {
     let mut f = fixture(CategoryId::Software, None)?;
     let mut first = placement("a1", "stage:Build");
-    first["next"] = json!(["a2", "a1", "a99", "a2", "a4", "a3", "a2"]);
+    first["next"] = json!([
+        {"artifact": "a2", "why": "  the spec leads to a review  "},
+        {"artifact": "a1", "why": "self"},
+        {"artifact": "a99", "why": "unknown"},
+        {"artifact": "a2", "why": "repeat"},
+        {"artifact": "a4", "why": "x".repeat(300)},
+        {"artifact": "a3", "why": ""},
+        {"artifact": "a2", "why": "again"},
+    ]);
     let mut second = placement("a2", "stage:review");
-    second["next"] = json!(["a4"]);
+    second["next"] = json!([{"artifact": "a4", "why": "floor next"}]);
     f.claude(&[json!({
         "stages": stage_names(),
         "loops": [],
@@ -865,12 +875,26 @@ fn next_steps_are_kept_as_ids_without_self_unknown_or_repeats() -> TestResult {
     assert_eq!(&next[..2], [ids[1], ids[2]]);
     assert!(!next.contains(&view.doc.placements[0].artifact));
     assert_eq!(view.doc.placements[1].next, [ids[2]]);
+    let why = &view.doc.placements[0].next_why;
+    assert_eq!(
+        why.len(),
+        2,
+        "no reason for the dropped or empty steps: {why:?}"
+    );
+    assert_eq!(why[ids[1]], "the spec leads to a review");
+    assert_eq!(why[ids[2]].chars().count(), 120);
+    assert_eq!(view.doc.placements[1].next_why[ids[2]], "floor next");
     // An answer that names no next steps keeps an empty list.
     assert!(view.doc.placements[2].next.is_empty());
     let prompt = f.stdin(0)?;
     assert!(prompt.contains("the immediate next step"));
     assert!(prompt.contains("never list a chain of steps"));
     assert!(prompt.contains("at most 3"));
+    assert!(prompt.contains("at most 120 characters"));
+    assert!(prompt.contains("what in this artifact leads to that one"));
+    let schema = serde_json::from_str::<Value>(super::draw::SCHEMA)?;
+    let item = &schema["properties"]["placements"]["items"]["properties"]["next"]["items"];
+    assert_eq!(item["required"], json!(["artifact", "why"]));
     Ok(())
 }
 
@@ -887,6 +911,7 @@ fn at_most_four_next_steps_are_kept() -> TestResult {
         when: String::new(),
         hands_off: String::new(),
         next: doc_next,
+        next_why: std::collections::BTreeMap::new(),
         parent: None,
         also_run_by: Vec::new(),
         by: PlacedBy::Claude,
