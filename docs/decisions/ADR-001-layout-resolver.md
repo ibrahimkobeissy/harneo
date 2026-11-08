@@ -1,7 +1,7 @@
 # ADR-001: Read a source's layout in three tiers; Claude only proposes
 
 ## Status
-Accepted
+Accepted. The file scope of a plugin taken whole ("Plugins list, copy and audit only their components") is superseded by ADR-005: a whole plugin keeps its whole folder.
 
 ## Date
 2026-10-25

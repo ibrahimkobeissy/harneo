@@ -24,12 +24,12 @@ Teach `harneo-core` what an AI Artifact is. Given a local folder, it finds every
   - **plugin repo**: `.claude-plugin/plugin.json`. The folder becomes one Plugin artifact and the scan never descends into it, because plugins are kept whole; **amended 2026-11-01** ([`library.md`](library.md#unpacking-a-plugin), ADR-002): a folder in `ScanOptions.unpack` is reported as its pickable parts instead;
   - **marketplace repo**: `.claude-plugin/marketplace.json`. Each entry becomes one Plugin artifact. A remote source (a GitHub repo, a URL) is recorded as is and not fetched;
   - **loose skills**: any folder holding a `SKILL.md`, up to 4 levels deep, outside the shapes above.
-  - **Amended 2026-10-25** by the layout resolver ([`library.md`](library.md#layout-resolver)): a plugin's files are its manifest and components, not its whole folder; a marketplace entry naming the imported repo merges with its plugin; `.agents/skills/` is a known pack folder; the scan also returns `unplaced` paths for Claude to propose a layout.
+  - **Amended 2026-10-25** by the layout resolver ([`library.md`](library.md#layout-resolver)): a plugin's files are its manifest and components, not its whole folder (**reversed 2026-11-08 by ADR-005**: a plugin taken whole keeps its whole folder, minus nested plugins and skipped folders); a marketplace entry naming the imported repo merges with its plugin; `.agents/skills/` is a known pack folder; the scan also returns `unplaced` paths for Claude to propose a layout.
 - **Parsing.**
   - **Markdown types** (CLAUDE.md, rules, skills, commands, subagents, output styles): YAML frontmatter plus body. The `name` and `description` fields are read into the artifact, and type-specific fields such as `tools`, `model`, `skills`, `mcpServers`, `paths` and `disable-model-invocation` are kept.
   - **JSON types**: Settings is one `settings.json` with its keys kept whole. MCP is one artifact per server in `.mcp.json`. A plugin's `plugin.json` gives its name, version and description.
   - **Workflows**: the `export const meta = { … }` object is read as text. The JavaScript is never run.
-- **What travels with each artifact** (`files`): a skill's whole folder, the files a CLAUDE.md `@imports`, the scripts a Settings template's hooks and status line point to, and a plugin's manifest and components (amended 2026-10-25; was its whole folder).
+- **What travels with each artifact** (`files`): a skill's whole folder, the files a CLAUDE.md `@imports`, the scripts a Settings template's hooks and status line point to, and a plugin taken whole's whole folder, minus nested plugins and skipped folders (ADR-005, 2026-11-08; between 2026-10-25 and then, only its manifest and components).
 - **References** (the input for `bundles`), from **structured fields only**:
   - a subagent's `skills` and `mcpServers`;
   - Settings' `outputStyle` and `enabledPlugins`, and its hook and status-line script paths;
