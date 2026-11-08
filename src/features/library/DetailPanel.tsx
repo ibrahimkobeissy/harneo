@@ -794,10 +794,14 @@ export function DetailPanel({
                 </p>
               </section>
               <StaysWhole plan={unpackPlan} />
-              <TagsSection key={id} artifactId={id} onChanged={onTagsChanged} />
+              <TagsSection
+                key={`tags:${id}`}
+                artifactId={id}
+                onChanged={onTagsChanged}
+              />
               {detail.artifact.kind === "skill" && (
                 <ManualOnlySection
-                  key={id}
+                  key={`manual:${id}`}
                   id={id}
                   name={detail.artifact.name}
                   manualOnly={detail.manualOnly}
