@@ -523,4 +523,5 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#241](https://github.com/ibrahimkobeissy/harneo/issues/241) Harnmap: loop labels never overlap
 - [#251](https://github.com/ibrahimkobeissy/harneo/issues/251) Harnmap core: a command and the skill it only runs are stored as parent and child
 - [#253](https://github.com/ibrahimkobeissy/harneo/issues/253) Harnmap app: draw a parent and its children as one tree
+- [#255](https://github.com/ibrahimkobeissy/harneo/issues/255) Harnmap draw: next steps mean the immediate next step, not the rest of the workflow
 - [#254](https://github.com/ibrahimkobeissy/harneo/issues/254) Harnmap UI: the line and hook rail visible, plain loop labels, a hideable side panel, next steps explained
