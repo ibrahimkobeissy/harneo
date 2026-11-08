@@ -12,7 +12,6 @@ import {
   layoutDiamond,
   layoutLine,
   layoutParallel,
-  LOOP_SUFFIX,
   overlaps,
   pick,
   type Layout,
@@ -378,9 +377,7 @@ function curvePoints(a: Layout["loops"][number]) {
 function labelsClear(l: Layout) {
   l.loops.forEach((a, i) => {
     const box = a.labelBox;
-    expect(box.w).toBeGreaterThanOrEqual(
-      (a.label.length + LOOP_SUFFIX.length) * 6.5,
-    );
+    expect(box.w).toBeGreaterThanOrEqual(a.label.length * 6.5);
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.w).toBeLessThanOrEqual(l.width);
     expect(box.y + box.h).toBeLessThanOrEqual(l.toolbelt.y);

@@ -2,7 +2,7 @@ import { useId, useState, type HTMLAttributes } from "react";
 import type { Zone } from "../../bindings/Zone";
 import type { Placement } from "../../bindings/Placement";
 import { Heartbeat } from "./Heartbeat";
-import { LOOP_SUFFIX, type Layout, type Point } from "./layout";
+import { LINE_RISE, type Layout, type Point } from "./layout";
 import styles from "./MapCanvas.module.css";
 import { Node } from "./Node";
 import { Tooltip } from "./Tooltip";
@@ -37,7 +37,7 @@ function Rail({
     >
       {hooks.map((h) => (
         <span key={`${h.event}|${h.matcher}`} className={styles.hook}>
-          hook · {h.event} · {h.matcher}
+          hook · {h.event} · {h.matcher} · fires at every stage
         </span>
       ))}
     </div>
@@ -184,6 +184,30 @@ export function MapScene({
                 <path className={styles.beam} d={path(layout.beam)} />
               </>
             )}
+            {layout.beam.length > 1 &&
+              layout.shape !== "cycle" &&
+              (() => {
+                const end = layout.beam[layout.beam.length - 1]!;
+                return (
+                  <path
+                    className={styles.beamEnd}
+                    d={`M ${end.x + 14} ${end.y - 6} L ${end.x + 22} ${end.y} L ${end.x + 14} ${end.y + 6}`}
+                  />
+                );
+              })()}
+            {layout.stages.map((s, i) => {
+              const dot = layout.beam[i];
+              if (!dot) return null;
+              return (
+                <g key={`stem-${s.id}`} data-testid="stage-dot">
+                  <path
+                    className={styles.stem}
+                    d={`M ${dot.x} ${dot.y} L ${dot.x} ${dot.y + LINE_RISE}`}
+                  />
+                  <circle className={styles.dot} cx={dot.x} cy={dot.y} r="5" />
+                </g>
+              );
+            })}
             {layout.returnArrow && (
               <path
                 className={styles.loop}
@@ -211,7 +235,6 @@ export function MapScene({
                   textAnchor="middle"
                 >
                   {l.label}
-                  {LOOP_SUFFIX}
                 </text>
               </g>
             ))}
@@ -315,6 +338,19 @@ export function MapScene({
             }}
           />
         ))}
+      {layers.line && layout.beam.length > 0 && (
+        <div
+          className={styles.count}
+          data-testid="line-badge"
+          style={{
+            left: 24,
+            top: Math.min(...layout.beam.map((p) => p.y)) - 16,
+          }}
+        >
+          <b>{layout.nodes.length}</b>
+          <span>STATIONS</span>
+        </div>
+      )}
       {layers.line && layout.hookRail && (
         <Rail rect={layout.hookRail} hooks={data.hooks} />
       )}

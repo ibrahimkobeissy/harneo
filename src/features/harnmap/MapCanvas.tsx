@@ -24,7 +24,7 @@ interface Pan {
   y: number;
 }
 
-function Legend() {
+function Legend({ nextSteps }: { nextSteps: boolean }) {
   return (
     <div className={styles.legend} aria-label="Legend">
       <span>
@@ -36,6 +36,9 @@ function Legend() {
       <span>
         <i className={styles.lc} /> Claude’s reading
       </span>
+      {nextSteps && (
+        <span data-testid="next-caption">Next steps · most likely first</span>
+      )}
     </div>
   );
 }
@@ -247,7 +250,14 @@ export function MapCanvas({
           />
         </div>
       </div>
-      <Legend />
+      <Legend
+        nextSteps={
+          selected !== null &&
+          (placements.get(selected)?.next ?? []).some((id) =>
+            placements.has(id),
+          )
+        }
+      />
     </div>
   );
 }

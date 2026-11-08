@@ -191,8 +191,11 @@ describe("Harnmap screen: first draw", () => {
     expect(within(list).getByText("Added the stage QA.")).toBeVisible();
     expect(within(list).getByText("Removed the stage Ship.")).toBeVisible();
     expect(
-      within(list).getByText(/The loop from Review to Build \(again\)/),
+      within(list).getByText("The loop from Review to Build (again)."),
     ).toBeVisible();
+    expect(
+      within(list).getAllByText(/Claude’s reading, not enforced/),
+    ).toHaveLength(1);
     expect(within(list).getByText(/Left 1 artifact unplaced/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Open the map" }));
     expect(
@@ -583,6 +586,55 @@ describe("Harnmap screen: out of date", () => {
     expect(
       screen.queryByRole("region", { name: "Category changed" }),
     ).toBeNull();
+  });
+});
+
+describe("Harnmap screen: side panel", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  it("collapses and re-opens from the header button and from ]", async () => {
+    const user = userEvent.setup();
+    setup(view());
+    await screen.findByText(/Draw 2 · /);
+    const toggle = screen.getByRole("button", { name: /Side panel/ });
+    const panel = () => document.getElementById("harnmap-side");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel()).toBeVisible();
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(panel()).not.toBeVisible();
+    expect(sessionStorage.getItem("harnmap.panelHidden")).toBe("1");
+    await user.keyboard("]");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(panel()).toBeVisible();
+    await user.keyboard("]");
+    expect(panel()).not.toBeVisible();
+  });
+
+  it("opens again when a node is selected or Map history is opened", async () => {
+    const user = userEvent.setup();
+    setup(view());
+    await screen.findByText(/Draw 2 · /);
+    const toggle = screen.getByRole("button", { name: /Side panel/ });
+    await user.click(toggle);
+    await user.click(screen.getAllByRole("button", { name: /, Skill/ })[0]!);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "Map history" }));
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("does not take ] typed into a field and remembers the choice", async () => {
+    const user = userEvent.setup();
+    sessionStorage.setItem("harnmap.panelHidden", "1");
+    setup(view());
+    await screen.findByText(/Draw 2 · /);
+    const toggle = screen.getByRole("button", { name: /Side panel/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await user.click(toggle);
+    await user.click(screen.getByRole("textbox", { name: /Filter/ }));
+    await user.keyboard("]");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 });
 

@@ -109,6 +109,9 @@
   border-left: var(--hairline) solid var(--line);
   background: var(--raised);
 }
+.side[hidden] {
+  display: none;
+}
 .sect {
   display: flex;
   flex-direction: column;

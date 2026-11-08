@@ -99,12 +99,22 @@ export function changeLines(
     lines.push({ mark: "+", text: `Added the stage ${c.name}.` });
   for (const c of removed)
     lines.push({ mark: "−", text: `Removed the stage ${c.name}.` });
+  let loopNoted = false;
   for (const c of changes) {
-    if (c.type === "loopAdded")
+    if (c.type === "loopAdded") {
+      // One line says what a loop is; the loops below it carry only their names.
+      if (!loopNoted) {
+        lines.push({
+          mark: "↺",
+          text: "Loops are Claude’s reading, not enforced.",
+        });
+        loopNoted = true;
+      }
       lines.push({
         mark: "↺",
-        text: `The loop from ${stageName(c.from)} to ${stageName(c.to)}${c.label ? ` (${c.label})` : ""} is drawn: Claude’s reading, not enforced.`,
+        text: `The loop from ${stageName(c.from)} to ${stageName(c.to)}${c.label ? ` (${c.label})` : ""}.`,
       });
+    }
     if (c.type === "unplaced" && c.count > 0)
       lines.push({
         mark: "○",

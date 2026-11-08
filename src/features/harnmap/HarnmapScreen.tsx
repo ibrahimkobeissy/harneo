@@ -1,5 +1,14 @@
-import { Check, FileQuestion, History, ListTree, X } from "lucide-react";
+import {
+  Check,
+  FileQuestion,
+  History,
+  ListTree,
+  PanelRightClose,
+  PanelRightOpen,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePanelHidden } from "./usePanelHidden";
 import { Link, useLocation, useParams } from "react-router";
 import type { DrawFailure } from "../../bindings/DrawFailure";
 import type { DrawOutcome } from "../../bindings/DrawOutcome";
@@ -198,6 +207,10 @@ function Loaded({
   const [list, setList] = useState(false);
   const [stagesOpen, setStagesOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [panelHidden, setPanelHidden] = usePanelHidden(
+    view.drawn,
+    historyOpen ? "history" : selected,
+  );
   const [history, setHistory] = useState<DrawSummary[] | null>(null);
   const [preview, setPreview] = useState<{ no: number; doc: MapDoc } | null>(
     null,
@@ -568,6 +581,21 @@ function Loaded({
             <Button small disabled={busy} onClick={() => setRedraw(true)}>
               Re-draw
             </Button>
+            <Button
+              small
+              aria-expanded={!panelHidden}
+              aria-controls="harnmap-side"
+              aria-keyshortcuts="]"
+              title="Side panel (])"
+              onClick={() => setPanelHidden(!panelHidden)}
+            >
+              {panelHidden ? (
+                <PanelRightOpen size={14} aria-hidden="true" />
+              ) : (
+                <PanelRightClose size={14} aria-hidden="true" />
+              )}{" "}
+              Side panel
+            </Button>
           </>
         )}
         <Link to={base} className={styles.close} aria-label="Close">
@@ -640,7 +668,12 @@ function Loaded({
             </div>
           )}
         </div>
-        <aside className={styles.side} aria-label="Draw">
+        <aside
+          id="harnmap-side"
+          className={styles.side}
+          aria-label="Draw"
+          hidden={view.drawn && panelHidden}
+        >
           {failure && (
             <FailureCard
               failure={failure}

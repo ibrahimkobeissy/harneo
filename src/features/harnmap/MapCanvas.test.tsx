@@ -81,11 +81,10 @@ describe("the four shapes", () => {
 
   it("draws loops as dashed arcs labelled as Claude's reading, the hook rail and bundles", () => {
     render(<Harness />);
-    expect(
-      screen.getByText(/changes requested · Claude’s reading/),
-    ).toBeInTheDocument();
+    expect(screen.getByText("changes requested")).toBeInTheDocument();
+    expect(screen.queryByText(/changes requested ·/)).toBeNull();
     expect(screen.getByTestId("hook-rail")).toHaveTextContent(
-      "hook · PreToolUse · Write|Edit",
+      "hook · PreToolUse · Write|Edit · fires at every stage",
     );
     expect(screen.getAllByTestId("bundle")).toHaveLength(4);
     expect(screen.getByLabelText("Legend")).toBeInTheDocument();
@@ -509,5 +508,77 @@ describe("next steps", () => {
     await user.click(plan);
     expect(screen.queryAllByTestId("next-arrow")).toHaveLength(0);
     expect(build).not.toHaveAttribute("data-next");
+  });
+});
+
+describe("the line above the stages", () => {
+  it.each(["line", "parallel", "cycle", "diamond"] as const)(
+    "draws the count badge and a dot with a stem per stage in %s",
+    (name) => {
+      render(<Harness data={fixtures[name]} />);
+      const badge = screen.getByTestId("line-badge");
+      expect(badge).toHaveTextContent(
+        String(fixtures[name].doc.placements.length),
+      );
+      expect(badge).toHaveTextContent("STATIONS");
+      expect(screen.getAllByTestId("stage-dot")).toHaveLength(
+        screen.getAllByTestId("stage").length,
+      );
+    },
+  );
+
+  it("keeps the line and the hook rail inside the scene, clear of the frames", () => {
+    render(<Harness />);
+    const scene = world().firstElementChild as HTMLElement;
+    const badgeTop = Number.parseFloat(
+      screen.getByTestId("line-badge").style.top,
+    );
+    const railBottom =
+      Number.parseFloat(screen.getByTestId("hook-rail").style.top) +
+      Number.parseFloat(screen.getByTestId("hook-rail").style.height);
+    const frameTop = Math.min(
+      ...screen
+        .getAllByTestId("stage")
+        .map((f) => Number.parseFloat(f.style.top)),
+    );
+    expect(badgeTop).toBeGreaterThanOrEqual(railBottom);
+    expect(badgeTop + 32).toBeLessThan(frameTop);
+    expect(scene).toBeInTheDocument();
+  });
+
+  it("hides the badge and dots with the line layer", () => {
+    render(
+      <Harness
+        initial={{
+          ...DEFAULT_VIEW,
+          layers: { ...DEFAULT_VIEW.layers, line: false },
+        }}
+      />,
+    );
+    expect(screen.queryByTestId("line-badge")).toBeNull();
+    expect(screen.queryAllByTestId("stage-dot")).toHaveLength(0);
+  });
+});
+
+describe("next steps caption", () => {
+  it("explains the numbers while a node with next steps is selected", async () => {
+    const user = userEvent.setup();
+    const data: MapData = {
+      ...heavy,
+      doc: {
+        ...heavy.doc,
+        placements: heavy.doc.placements.map((p) =>
+          p.artifact === "spec" ? { ...p, next: ["plan", "build"] } : p,
+        ),
+      },
+    };
+    render(<Harness data={data} />);
+    expect(screen.queryByTestId("next-caption")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /^\/spec, Command/ }));
+    expect(screen.getByTestId("next-caption")).toHaveTextContent(
+      "Next steps · most likely first",
+    );
+    await user.click(screen.getByRole("button", { name: /^\/plan, Command/ }));
+    expect(screen.queryByTestId("next-caption")).toBeNull();
   });
 });

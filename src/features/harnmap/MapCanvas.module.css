@@ -156,6 +156,46 @@
   opacity: 0.35;
   animation: pulse 4s ease-in-out infinite;
 }
+.beamEnd {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.stem {
+  fill: none;
+  stroke: var(--line2);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.dot {
+  fill: var(--t1);
+}
+.count {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 32px;
+  border-radius: var(--radius);
+  background: var(--t1);
+  color: var(--bg);
+  line-height: 1.1;
+  pointer-events: none;
+}
+.count b {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.count span {
+  font-size: 7.5px;
+  letter-spacing: 0.08em;
+}
 .loop {
   fill: none;
   stroke: var(--t3);
@@ -280,7 +320,8 @@
   gap: var(--space-sm);
   overflow: hidden;
   padding: 0 var(--space-sm);
-  border-top: var(--hairline-strong) solid var(--t2);
+  border: var(--hairline-strong) solid var(--t2);
+  border-bottom: 0;
 }
 .hook {
   padding: 0 6px;

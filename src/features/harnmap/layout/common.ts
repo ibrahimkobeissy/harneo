@@ -16,6 +16,10 @@ export const PAD = 24;
 export const FRAME_PAD = 4;
 export const HEADER_H = 36;
 export const HOOK_H = 28;
+/** Room the line (badge, beam, dots) takes above the stage frames. */
+export const LINE_H = 56;
+/** How far the beam runs above a stage's frame; the stem covers this. */
+export const LINE_RISE = 36;
 export const ZONE_LABEL_H = 24;
 export const BAND_GAP = 24;
 export const BAND_PAD = 8;
@@ -25,8 +29,6 @@ export const INDENT = 16;
 /** Stage names longer than this are cut and end in an ellipsis (`ellipsize`). */
 export const MAX_LABEL_CHARS = 18;
 
-/** The renderer writes this after the loop's name; the label box is sized for it. */
-export const LOOP_SUFFIX = " · Claude’s reading";
 /** Estimated text width per character at the canvas label font (10.5 px sans). */
 export const LABEL_CHAR_W = 6.5;
 export const LABEL_H = 16;
@@ -141,7 +143,7 @@ export interface Layout {
   bundles: BundleGroup[];
   toolbelt: Rect;
   floor: Rect;
-  /** The rail through the top edge of every stage frame. */
+  /** The line above the stage frames: one point per stage, `LINE_RISE` above its frame. */
   beam: Point[];
   zones: PhaseZone[];
   forkJoin: ForkJoin | null;
@@ -325,7 +327,8 @@ export function assemble(
   const heights = stageHeights(input);
   const widths = stageWidths(input);
   const raw = place(heights, widths);
-  const stageTop = PAD + (input.hasHooks ? HOOK_H + GAP * 2 : 0) + topExtra;
+  const stageTop =
+    PAD + (input.hasHooks ? HOOK_H + GAP * 2 : 0) + LINE_H + topExtra;
   const dx = raw.length === 0 ? 0 : PAD - Math.min(...raw.map((p) => p.x));
   const dy = raw.length === 0 ? 0 : stageTop - Math.min(...raw.map((p) => p.y));
 
@@ -411,10 +414,10 @@ export function assemble(
     nh,
   );
 
-  // The rail runs along the top edge of the stage frames, so it reads as one line through them.
+  // The line runs LINE_RISE above the frames, a dot per stage with a stem down to its frame.
   const tops = frames.map((f) => ({
     x: f.frame.x + f.frame.w / 2,
-    y: f.frame.y,
+    y: f.frame.y - LINE_RISE,
   }));
   const beam =
     ex.closedBeam && tops.length > 0 ? [...tops, pick(tops, 0)] : tops;
@@ -543,7 +546,7 @@ function curve(l: LoopArc): Point[] {
 /** The label box the loop's text needs: its estimated width, `LABEL_H` high. */
 export function labelSize(label: string): { w: number; h: number } {
   return {
-    w: (label.length + LOOP_SUFFIX.length) * LABEL_CHAR_W + LABEL_PAD,
+    w: label.length * LABEL_CHAR_W + LABEL_PAD,
     h: LABEL_H,
   };
 }
