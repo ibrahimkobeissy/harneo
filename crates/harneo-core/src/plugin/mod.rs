@@ -5,7 +5,8 @@
 //! servers, mods, `bin/`, themes, workflows and the plugin's own `settings.json`), which Claude
 //! Code wires only inside a plugin. A plugin must stay whole when it holds a whole-only part,
 //! when a pickable part refers outside itself through `${CLAUDE_PLUGIN_ROOT}`, or when it is a
-//! remote-only marketplace entry whose files are never fetched.
+//! remote-only marketplace entry whose files are never fetched. ADR-006 turned this into an
+//! allow-list: any plugin that is not known to work as a copy stays whole.
 //!
 //! The reading of a plugin folder stays with the Claude adapter (`artifact::claude`); this module
 //! answers the questions on top of it and has no dependency on the library.
@@ -17,7 +18,7 @@ use ts_rs::TS;
 
 use crate::artifact::claude::unpack_plugin;
 use crate::artifact::walk::Walker;
-use crate::artifact::{Artifact, ArtifactKind, Severity};
+use crate::artifact::{Artifact, ArtifactKind};
 
 /// A kind of component a plugin can hold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, TS)]
@@ -71,20 +72,6 @@ impl PluginPart {
     }
 }
 
-/// What a plugin holds, by kind of component.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
-#[ts(export, rename_all = "camelCase")]
-pub struct PluginContents {
-    /// Parts that can become ordinary library artifacts.
-    pub pickable: Vec<PluginPart>,
-    /// Parts that only work inside the plugin.
-    pub whole_only: Vec<PluginPart>,
-    /// Pickable parts that refer outside themselves through `${CLAUDE_PLUGIN_ROOT}`: they only
-    /// work with the whole plugin.
-    pub root_ties: Vec<PluginPart>,
-}
-
 /// Why a plugin has to be taken whole.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(tag = "type", rename_all = "camelCase")]
@@ -94,10 +81,25 @@ pub enum WholeReason {
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
     WholeOnlyParts { parts: Vec<PluginPart> },
-    /// Some of its parts refer outside themselves through `${CLAUDE_PLUGIN_ROOT}`.
+    /// Its manifest holds a key that only means something inside a plugin (`userConfig`,
+    /// `dependencies`, `channels`, `types`, `experimental`).
+    PluginOnlyKey { key: String },
+    /// Its manifest holds a key Harneo does not know, so it cannot tell it is safe to copy.
+    UnknownKey { key: String },
+    /// Some parts' files use a plugin variable (`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`,
+    /// `${user_config.…}`), which resolves only inside a plugin, wherever it points.
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
-    PluginRootTie { parts: Vec<PluginPart> },
+    PluginVariable {
+        variable: String,
+        parts: Vec<PluginPart>,
+    },
+    /// Some parts name another part of the plugin by its namespaced name, which a copy loses.
+    #[serde(rename_all = "camelCase")]
+    #[ts(rename_all = "camelCase")]
+    NamespacedSelfReference { parts: Vec<PluginPart> },
+    /// An agent sets a field Claude Code ignores in a plugin but runs from `.claude/agents/`.
+    AgentField { field: String },
     /// A marketplace entry pointing to another repo, which is never fetched.
     RemoteOnly,
     /// It has no skills, agents, commands, output styles or MCP servers to unpack. Only the
@@ -115,9 +117,22 @@ impl WholeReason {
                     join(parts)
                 )
             }
-            Self::PluginRootTie { parts } => format!(
-                "Its {} refer to files outside themselves: they only work inside the plugin.",
+            Self::PluginOnlyKey { key } => format!(
+                "Its manifest has `{key}`, which only means something inside the plugin."
+            ),
+            Self::UnknownKey { key } => format!(
+                "Its manifest has `{key}`, which Harneo does not know, so it cannot tell a copy would work."
+            ),
+            Self::PluginVariable { variable, parts } => format!(
+                "Its {} use `{variable}`, which only resolves inside the plugin.",
                 join(parts)
+            ),
+            Self::NamespacedSelfReference { parts } => format!(
+                "Its {} call other parts of the plugin by their `plugin:name`, which a copy loses.",
+                join(parts)
+            ),
+            Self::AgentField { field } => format!(
+                "An agent sets `{field}`, which Claude Code ignores in a plugin but runs when copied."
             ),
             Self::NoParts => {
                 "It has no skills, agents, commands, output styles or MCP servers to unpack."
@@ -264,39 +279,148 @@ fn whole_only_parts(walker: &mut Walker, plugin: &Artifact) -> Vec<PluginPart> {
     out
 }
 
-/// What `plugin` (a Plugin read from a local folder of `walker`'s scan root) holds. A remote-only
-/// entry holds nothing we can see.
-pub(crate) fn contents(walker: &mut Walker, plugin: &Artifact) -> PluginContents {
-    if plugin.kind != ArtifactKind::Plugin || is_remote_only(plugin) {
-        return PluginContents::default();
+/// Manifest keys Claude Code does not act on, plus the component keys that ADR-006 allows.
+const ALLOWED_KEYS: [&str; 22] = [
+    "name",
+    "displayName",
+    "version",
+    "description",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+    "metadata",
+    "icon",
+    "$schema",
+    "documentationUrl",
+    "supportUrl",
+    "privacyPolicyUrl",
+    "termsOfServiceUrl",
+    "defaultEnabled",
+    "skills",
+    "agents",
+    "commands",
+    "outputStyles",
+    "mcpServers",
+];
+
+/// Keys that only mean something inside a plugin.
+const PLUGIN_ONLY_KEYS: [&str; 5] = [
+    "userConfig",
+    "dependencies",
+    "channels",
+    "types",
+    "experimental",
+];
+
+/// Rule 2: the first manifest key that is neither metadata nor a component key. A marketplace
+/// entry's own fields (`source`, `category`...) are not plugin keys: only `plugin.json` and the
+/// plugin-only keys an entry carries are judged.
+fn manifest_key(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
+    let manifest = crate::artifact::claude::plugin_manifest_path(Path::new(&plugin.path));
+    let on_disk = walker
+        .read_text(&manifest, &mut Vec::new())
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+    let mut keys: Vec<String> = match on_disk {
+        Some(serde_json::Value::Object(map)) => map.keys().cloned().collect(),
+        _ if !is_marketplace_entry(plugin) => plugin.metadata.keys().cloned().collect(),
+        _ => Vec::new(),
+    };
+    keys.extend(
+        plugin
+            .metadata
+            .keys()
+            .filter(|k| PLUGIN_ONLY_KEYS.contains(&k.as_str()))
+            .cloned(),
+    );
+    keys.sort();
+    keys.dedup();
+    let key = keys
+        .into_iter()
+        .find(|k| !ALLOWED_KEYS.contains(&k.as_str()))?;
+    Some(if PLUGIN_ONLY_KEYS.contains(&key.as_str()) {
+        WholeReason::PluginOnlyKey { key }
+    } else {
+        WholeReason::UnknownKey { key }
+    })
+}
+
+const VARIABLES: [&str; 3] = [
+    "${CLAUDE_PLUGIN_ROOT}",
+    "${CLAUDE_PLUGIN_DATA}",
+    "${user_config.",
+];
+
+/// True when `text` holds `<plugin>:<name>` (as the whole token) for a part `name`, or
+/// `mcp__plugin_<plugin>_`.
+fn names_a_part(text: &str, plugin: &str, names: &[&str]) -> bool {
+    let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
+    if text.contains(&format!("mcp__plugin_{plugin}_")) {
+        return true;
     }
-    let mut pickable = Vec::new();
-    let mut root_ties = Vec::new();
-    for part in unpack_plugin(walker, plugin, &mut Vec::new()) {
+    let prefix = format!("{plugin}:");
+    text.match_indices(&prefix).any(|(at, _)| {
+        if text[..at].chars().next_back().is_some_and(is_name) {
+            return false;
+        }
+        let rest = &text[at + prefix.len()..];
+        names.iter().any(|n| {
+            rest.strip_prefix(n)
+                .is_some_and(|after| !after.chars().next().is_some_and(is_name))
+        })
+    })
+}
+
+/// Rules 4 to 6, over the parts `plugin` unpacks into.
+fn parts_reason(walker: &mut Walker, plugin: &Artifact, parts: &[Artifact]) -> Option<WholeReason> {
+    let names: Vec<&str> = parts.iter().map(|p| p.name.as_str()).collect();
+    let mut variable: Option<(&str, Vec<PluginPart>)> = None;
+    let mut referencing = Vec::new();
+    for part in parts {
         let Some(kind) = PluginPart::of_kind(part.kind) else {
             continue;
         };
-        pickable.push(kind);
-        let tied = part
-            .diagnostics
-            .iter()
-            .any(|d| d.severity == Severity::Error && d.code == "plugin.part-needs-plugin");
-        if tied {
-            root_ties.push(kind);
+        for file in &part.files {
+            let Some(text) = walker.read_text(Path::new(file), &mut Vec::new()) else {
+                continue;
+            };
+            if let Some(v) = VARIABLES.iter().find(|v| text.contains(**v)) {
+                let (found, kinds) = variable.get_or_insert((v, Vec::new()));
+                if found == v {
+                    kinds.push(kind);
+                }
+            }
+            if names_a_part(&text, &plugin.name, &names) {
+                referencing.push(kind);
+            }
         }
     }
-    for list in [&mut pickable, &mut root_ties] {
-        list.sort();
-        list.dedup();
+    referencing.sort();
+    referencing.dedup();
+    if let Some((variable, mut kinds)) = variable {
+        kinds.sort();
+        kinds.dedup();
+        return Some(WholeReason::PluginVariable {
+            variable: variable.to_owned(),
+            parts: kinds,
+        });
     }
-    PluginContents {
-        pickable,
-        whole_only: whole_only_parts(walker, plugin),
-        root_ties,
+    if !referencing.is_empty() {
+        return Some(WholeReason::NamespacedSelfReference { parts: referencing });
     }
+    parts
+        .iter()
+        .filter(|p| p.kind == ArtifactKind::Agent)
+        .flat_map(|p| ["hooks", "mcpServers", "permissionMode"].map(|f| (p, f)))
+        .find(|(p, f)| p.metadata.contains_key(*f))
+        .map(|(_, field)| WholeReason::AgentField {
+            field: field.to_owned(),
+        })
 }
 
-/// Why `plugin` can only be taken whole, or `None` when it can be unpacked.
+/// Why `plugin` can only be taken whole, or `None` when every part is known to work as a copy
+/// (ADR-006). The first rule that fails is reported.
 pub(crate) fn must_stay_whole(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
     if plugin.kind != ArtifactKind::Plugin {
         return None;
@@ -304,18 +428,15 @@ pub(crate) fn must_stay_whole(walker: &mut Walker, plugin: &Artifact) -> Option<
     if is_remote_only(plugin) {
         return Some(WholeReason::RemoteOnly);
     }
-    let held = contents(walker, plugin);
-    if !held.whole_only.is_empty() {
-        return Some(WholeReason::WholeOnlyParts {
-            parts: held.whole_only,
-        });
+    let whole_only = whole_only_parts(walker, plugin);
+    if !whole_only.is_empty() {
+        return Some(WholeReason::WholeOnlyParts { parts: whole_only });
     }
-    if !held.root_ties.is_empty() {
-        return Some(WholeReason::PluginRootTie {
-            parts: held.root_ties,
-        });
+    if let Some(reason) = manifest_key(walker, plugin) {
+        return Some(reason);
     }
-    None
+    let parts = unpack_plugin(walker, plugin, &mut Vec::new());
+    parts_reason(walker, plugin, &parts)
 }
 
 #[cfg(test)]

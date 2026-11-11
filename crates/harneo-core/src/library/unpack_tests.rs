@@ -22,8 +22,7 @@ fn skill(name: &str) -> String {
     format!("---\nname: {name}\ndescription: The {name} skill\n---\nBody\n")
 }
 
-/// A plugin at the repo root: three skills, one more that needs the plugin, and two MCP servers
-/// in one `.mcp.json`.
+/// A plugin at the repo root: three skills and two MCP servers in one `.mcp.json`.
 pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
     write(
         root,
@@ -33,12 +32,6 @@ pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
     for name in ["alpha", "beta", "gamma"] {
         write(root, &format!("skills/{name}/SKILL.md"), &skill(name))?;
     }
-    write(
-        root,
-        "skills/needy/SKILL.md",
-        "---\nname: needy\ndescription: Needs the plugin\n---\nRun ${CLAUDE_PLUGIN_ROOT}/shared/tool.sh\n",
-    )?;
-    write(root, "shared/tool.sh", "echo hi")?;
     write(
         root,
         ".mcp.json",
@@ -88,6 +81,15 @@ fn id(preview: &Preview, kind: ArtifactKind, name: &str) -> std::result::Result<
 impl Setup {
     fn parts(&self) -> Result<Preview> {
         self.library.preview_with(&self.source, &unpacking(&[""]))
+    }
+
+    /// The preview with the plugin taken whole (the default unpacks it).
+    fn whole(&self) -> Result<Preview> {
+        let whole = ScanOptions {
+            whole: vec!["./".into()],
+            ..ScanOptions::default()
+        };
+        self.library.preview_with(&self.source, &whole)
     }
 
     fn rows(&self) -> i64 {
@@ -164,7 +166,7 @@ fn an_unpacked_mcp_part_is_stored_as_its_own_server_json() -> TestResult {
 #[test]
 fn a_plugin_and_its_parts_cannot_be_picked_together() -> TestResult {
     let mut s = setup()?;
-    let whole = s.library.preview(&s.source)?;
+    let whole = s.whole()?;
     let mut mixed = s.parts()?;
     let plugin = whole
         .candidates
@@ -190,7 +192,7 @@ fn a_plugin_and_its_parts_cannot_be_picked_together() -> TestResult {
 #[test]
 fn parts_are_refused_while_the_plugin_is_in_whole_and_the_reverse() -> TestResult {
     let mut s = setup()?;
-    let whole = s.library.preview(&s.source)?;
+    let whole = s.whole()?;
     let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
     s.library
         .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())?;
@@ -215,7 +217,7 @@ fn parts_are_refused_while_the_plugin_is_in_whole_and_the_reverse() -> TestResul
     s.library.remove(&plugin)?;
     s.library
         .import(&parts, std::slice::from_ref(&alpha), &TagChoices::new())?;
-    let whole = s.library.preview(&s.source)?;
+    let whole = s.whole()?;
     let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
     let refused = s
         .library
@@ -235,20 +237,36 @@ fn parts_are_refused_while_the_plugin_is_in_whole_and_the_reverse() -> TestResul
     Ok(())
 }
 
+/// Adds a skill that uses `${CLAUDE_PLUGIN_ROOT}` to the setup's plugin.
+fn needy_skill(s: &Setup) -> std::io::Result<()> {
+    let Source::Local { path } = &s.source else {
+        return Ok(());
+    };
+    write(
+        path,
+        "skills/needy/SKILL.md",
+        "---\nname: needy\ndescription: Needs the plugin\n---\nRun ${CLAUDE_PLUGIN_ROOT}/shared/tool.sh\n",
+    )
+}
+
 #[test]
-fn a_part_that_needs_its_plugin_is_refused() -> TestResult {
+fn a_part_that_needs_its_plugin_keeps_the_whole_plugin_whole() -> TestResult {
     let mut s = setup()?;
+    needy_skill(&s)?;
     let preview = s.parts()?;
-    let needy = id(&preview, ArtifactKind::Skill, "needy")?;
-    let refused = s
-        .library
-        .import(&preview, &[needy], &TagChoices::new())
-        .expect_err("needs the plugin");
-    assert!(
-        matches!(refused, Error::PartNeedsPlugin { .. }),
-        "{refused}"
-    );
-    assert_eq!(s.rows(), 0);
+    assert!(names(&preview, ArtifactKind::Skill).is_empty());
+    let plugin = id(&preview, ArtifactKind::Plugin, "toolbox")?;
+    let reason = preview
+        .candidates
+        .iter()
+        .find(|c| c.id == plugin)
+        .and_then(|c| c.must_stay_whole.clone());
+    assert!(matches!(
+        reason,
+        Some(crate::plugin::WholeReason::PluginVariable { .. })
+    ));
+    s.library.import(&preview, &[plugin], &TagChoices::new())?;
+    assert_eq!(s.rows(), 1);
     Ok(())
 }
 
@@ -282,7 +300,7 @@ fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() 
 #[test]
 fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
     let mut s = setup()?;
-    let whole = s.library.preview(&s.source)?;
+    let whole = s.whole()?;
     let plugin = id(&whole, ArtifactKind::Plugin, "toolbox")?;
     s.library
         .import(&whole, std::slice::from_ref(&plugin), &TagChoices::new())?;
@@ -326,7 +344,7 @@ fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
 #[test]
 fn the_library_reports_what_it_holds_of_a_previews_plugins() -> TestResult {
     let mut s = setup()?;
-    let whole = s.library.preview(&s.source)?;
+    let whole = s.whole()?;
     let fresh = s.library.plugin_holds(&whole)?;
     assert_eq!(
         fresh,
@@ -350,7 +368,7 @@ fn the_library_reports_what_it_holds_of_a_previews_plugins() -> TestResult {
     s.library.remove(&plugin)?;
     let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
     s.library.import(&parts, &[alpha], &TagChoices::new())?;
-    let held = s.library.plugin_holds(&s.library.preview(&s.source)?)?;
+    let held = s.library.plugin_holds(&s.whole()?)?;
     assert!(!held[0].whole && held[0].parts, "{held:?}");
     Ok(())
 }
@@ -369,7 +387,8 @@ fn a_listed_part_names_its_plugin() -> TestResult {
 #[test]
 fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
     let s = setup()?;
-    let whole = s.library.preview(&s.source)?;
+    needy_skill(&s)?;
+    let whole = s.whole()?;
     let plugin = whole
         .candidates
         .iter()
@@ -377,12 +396,15 @@ fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
         .ok_or("no plugin")?;
     assert_eq!(
         plugin.must_stay_whole,
-        Some(crate::plugin::WholeReason::PluginRootTie {
+        Some(crate::plugin::WholeReason::PluginVariable {
+            variable: "${CLAUDE_PLUGIN_ROOT}".to_owned(),
             parts: vec![crate::plugin::PluginPart::Skills]
         })
     );
+    // Asking to unpack it changes nothing: it is still the one whole plugin.
     let parts = s.parts()?;
-    assert!(parts.candidates.iter().all(|c| c.must_stay_whole.is_none()));
+    assert_eq!(plugins_of(&parts), 1);
+    assert!(names(&parts, ArtifactKind::Skill).is_empty());
     Ok(())
 }
 
@@ -488,10 +510,10 @@ fn a_plugin_with_hooks_is_proposed_whole_with_its_reason() -> TestResult {
         reason.text(),
         "Has hooks: they only work inside the plugin."
     );
-    // The user may still unpack a mixed plugin: its pickable parts come out.
+    // A mixed plugin cannot be unpacked either (ADR-006): asking leaves it whole.
     let parts = library.preview_with(&local(&repo), &unpacking(&[""]))?;
-    assert_eq!(plugins_of(&parts), 0);
-    assert_eq!(names(&parts, ArtifactKind::Skill), ["one", "two"]);
+    assert_eq!(plugins_of(&parts), 1);
+    assert!(names(&parts, ArtifactKind::Skill).is_empty());
     Ok(())
 }
 

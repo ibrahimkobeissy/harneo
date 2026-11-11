@@ -400,6 +400,9 @@ fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
         assert!(files.contains(f), "{f} missing in {files}");
     }
     assert!(!files.contains("docs/") && !files.contains("scripts/"));
+    // With hooks it cannot be unpacked (ADR-006); without them its default folders are the parts.
+    assert_eq!(parts(r)?, ["p"]);
+    std::fs::remove_file(r.join("hooks/hooks.json"))?;
     assert_eq!(parts(r)?, ["a", "c", "o", "s"]);
     Ok(())
 }
@@ -451,6 +454,18 @@ fn plugin_scope_follows_how_claude_code_combines_each_key() -> TestResult {
     ] {
         assert!(files.contains(f), "{f} missing in {files}");
     }
+    // Whole-only parts keep the plugin whole (ADR-006); without them the scope gives the parts.
+    assert_eq!(parts(r)?, ["p"]);
+    for gone in ["monitors", "bin", "workflows"] {
+        std::fs::remove_dir_all(r.join(gone))?;
+    }
+    std::fs::remove_file(r.join("settings.json"))?;
+    std::fs::remove_file(r.join("mon.json"))?;
+    write(
+        r,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"p","skills":["./extra"],"commands":["./cmds/a.md"]}"#,
+    )?;
     assert_eq!(parts(r)?, ["a", "kept", "x"]);
     Ok(())
 }

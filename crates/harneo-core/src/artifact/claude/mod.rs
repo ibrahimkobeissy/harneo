@@ -5,7 +5,7 @@ mod checks;
 mod installed;
 mod kinds;
 
-pub(crate) use kinds::plugin::github_repo;
+pub(crate) use kinds::plugin::{github_repo, manifest_path as plugin_manifest_path};
 pub(crate) use kinds::plugin_parts::unpack as unpack_plugin;
 mod layout;
 mod proposed;

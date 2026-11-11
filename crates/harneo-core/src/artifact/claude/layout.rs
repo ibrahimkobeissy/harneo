@@ -184,8 +184,9 @@ fn normal(path: &str) -> &str {
 /// The warning on a plugin asked to unpack that has no pickable parts.
 pub(crate) const NO_PARTS: &str = "plugin.no-parts";
 
-/// Replaces each Plugin named in `options.unpack` with its parts. A plugin that is only a remote
-/// marketplace entry has no files to unpack: it stays whole, with a note.
+/// Replaces each Plugin named in `options.unpack` with its parts. A plugin that must stay whole
+/// (ADR-006), or that is only a remote marketplace entry with no files to unpack, stays whole,
+/// with a note.
 fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanReport) {
     let wanted: Vec<&str> = options.unpack.iter().map(|u| normal(u)).collect();
     let mut kept = Vec::new();
@@ -199,6 +200,14 @@ fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanR
                 "plugin.unpack-remote-only",
                 Path::new(&file),
                 "this marketplace entry points to another repo that is never fetched, so it can only be taken whole",
+            ));
+            kept.push(a);
+        } else if let Some(reason) = crate::plugin::must_stay_whole(walker, &a) {
+            // ADR-006: a plugin is unpacked only when every part works as a copy.
+            a.diagnostics.push(Diagnostic::warning(
+                "plugin.unpack-refused",
+                &plugin::manifest_path(Path::new(&a.path)),
+                &format!("this plugin can only be taken whole. {}", reason.text()),
             ));
             kept.push(a);
         } else {

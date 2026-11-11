@@ -142,8 +142,8 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 **What.** At import, each plugin is taken **unpacked** (the default since ADR-004) **or whole**: the user picks some of its parts, which become ordinary library artifacts. Never both for one plugin.
 
 1. **Pickable parts:** skills, agents, commands, output styles, and each MCP server of the plugin's `mcpServers` / `.mcp.json`. They are the components tier 1 resolves from the manifest (`plugin_scope.rs`), so no Claude call is involved. Each part carries `metadata.fromPlugin` (plugin name, folder, marketplace) and `layoutBy: "plugin.json"`.
-2. **Only with the whole plugin:** hooks, monitors, LSP servers, `bin/`, themes, workflows and the plugin's `settings.json`. They are not listed as parts; the screen says they need the whole plugin.
-3. **A part that refers outside itself** (`${CLAUDE_PLUGIN_ROOT}` pointing outside its own files) is listed with a `plugin.part-needs-plugin` error and can't be imported; the reason is shown.
+2. **Only with the whole plugin:** hooks, monitors, LSP servers, `bin/`, themes, workflows and the plugin's `settings.json`. A plugin that has any of them stays whole (ADR-006); the screen says so.
+3. **A part that uses a plugin variable** (`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, `${user_config.…}`, wherever it points) keeps the whole plugin whole (ADR-006); it is no longer listed alone with an error.
 4. **Exclusive per plugin.** In one selection, a plugin and its parts can't both be picked. Across the library, parts can't be imported while the plugin is there whole, and the plugin can't be imported whole while any part is; the refusal names the plugin and what to remove first.
 5. **Stored on the source.** `ScanOptions.unpack` lists the plugin folders to unpack; the choice is kept on the source (a migration) and replayed by update checks, so a part updates like any artifact from that source.
 6. **Installs as its kind.** An unpacked part is copied into `.claude/…` like any artifact of its kind; the plugin is not enabled in `settings.json`. Unpacked skills lose the `plugin:` namespace; the duplicate-name check covers clashes.

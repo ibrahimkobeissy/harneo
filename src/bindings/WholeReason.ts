@@ -4,4 +4,4 @@ import type { PluginPart } from "./PluginPart";
 /**
  * Why a plugin has to be taken whole.
  */
-export type WholeReason = { "type": "wholeOnlyParts", parts: Array<PluginPart>, } | { "type": "pluginRootTie", parts: Array<PluginPart>, } | { "type": "remoteOnly" } | { "type": "noParts" };
+export type WholeReason = { "type": "wholeOnlyParts", parts: Array<PluginPart>, } | { "type": "pluginOnlyKey", key: string, } | { "type": "unknownKey", key: string, } | { "type": "pluginVariable", variable: string, parts: Array<PluginPart>, } | { "type": "namespacedSelfReference", parts: Array<PluginPart>, } | { "type": "agentField", field: string, } | { "type": "remoteOnly" } | { "type": "noParts" };

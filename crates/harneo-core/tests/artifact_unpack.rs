@@ -15,7 +15,7 @@ fn write(root: &Path, rel: &str, contents: &str) -> std::io::Result<()> {
     fs::write(path, contents)
 }
 
-/// A plugin at `base` (`""` for the repo root) with one part of every kind, and hooks.
+/// A plugin at `base` (`""` for the repo root) with one part of every kind.
 fn plugin(root: &Path, base: &str, manifest: &str) -> std::io::Result<()> {
     let at = |rel: &str| {
         if base.is_empty() {
@@ -28,7 +28,7 @@ fn plugin(root: &Path, base: &str, manifest: &str) -> std::io::Result<()> {
     write(
         root,
         &at("skills/lint/SKILL.md"),
-        "---\nname: lint\ndescription: Lint\n---\nRun ${CLAUDE_PLUGIN_ROOT}/skills/lint/run.sh",
+        "---\nname: lint\ndescription: Lint\n---\nRun the linter",
     )?;
     write(root, &at("skills/lint/run.sh"), "echo lint")?;
     write(
@@ -51,12 +51,7 @@ fn plugin(root: &Path, base: &str, manifest: &str) -> std::io::Result<()> {
         &at(".mcp.json"),
         r#"{"mcpServers":{"db":{"command":"db-server","args":["--ro"]}}}"#,
     )?;
-    write(
-        root,
-        &at("hooks/hooks.json"),
-        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"${CLAUDE_PLUGIN_ROOT}/hooks/check.sh"}]}]}}"#,
-    )?;
-    write(root, &at("hooks/check.sh"), "exit 0")
+    Ok(())
 }
 
 fn scan(root: &Path, unpack: &[&str]) -> Result<ScanReport, harneo_core::Error> {
@@ -80,7 +75,7 @@ fn kinds(report: &ScanReport) -> Vec<(ArtifactKind, &str)> {
 const MANIFEST: &str = r#"{"name":"toolbox","description":"Tools"}"#;
 
 #[test]
-fn unpacking_reports_the_five_parts_and_no_plugin_or_hook() -> TestResult {
+fn unpacking_reports_the_five_parts_and_no_plugin() -> TestResult {
     let dir = tempfile::tempdir()?;
     plugin(dir.path(), "toolbox", MANIFEST)?;
     let report = scan(dir.path(), &["toolbox"])?;
@@ -136,52 +131,46 @@ fn without_unpack_the_plugin_is_reported_whole() -> TestResult {
 }
 
 #[test]
-fn a_part_reaching_outside_itself_needs_the_plugin() -> TestResult {
+fn a_part_using_a_plugin_variable_keeps_the_plugin_whole_with_a_note() -> TestResult {
+    for (rel, body) in [
+        (
+            "toolbox/skills/shared-user/SKILL.md",
+            "---\nname: shared-user\ndescription: d\n---\nsh ${CLAUDE_PLUGIN_ROOT}/../shared/x.sh",
+        ),
+        (
+            "toolbox/skills/inside/SKILL.md",
+            "---\nname: inside\ndescription: d\n---\nsh ${CLAUDE_PLUGIN_ROOT}/skills/inside/x.sh",
+        ),
+        (
+            "toolbox/agents/helper.md",
+            "---\nname: helper\ndescription: d\n---\nuse ${CLAUDE_PLUGIN_DATA}/cache",
+        ),
+    ] {
+        let dir = tempfile::tempdir()?;
+        plugin(dir.path(), "toolbox", MANIFEST)?;
+        write(dir.path(), rel, body)?;
+        let report = scan(dir.path(), &["toolbox"])?;
+        assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")], "{rel}");
+        let note = report.artifacts[0]
+            .diagnostics
+            .iter()
+            .find(|d| d.code == "plugin.unpack-refused")
+            .ok_or("a note")?;
+        assert!(
+            note.message.contains("only resolves inside the plugin"),
+            "{}",
+            note.message
+        );
+    }
     let dir = tempfile::tempdir()?;
     plugin(dir.path(), "toolbox", MANIFEST)?;
     write(
         dir.path(),
-        "toolbox/skills/shared-user/SKILL.md",
-        "---\nname: shared-user\ndescription: d\n---\nsh ${CLAUDE_PLUGIN_ROOT}/../shared/x.sh and ${CLAUDE_PLUGIN_ROOT}",
-    )?;
-    write(
-        dir.path(),
-        "toolbox/agents/helper.md",
-        "---\nname: helper\ndescription: d\n---\nuse ${CLAUDE_PLUGIN_ROOT}/lib/tool.sh",
-    )?;
-    write(
-        dir.path(),
         "toolbox/.claude-plugin/plugin.json",
-        r#"{"name":"toolbox","mcpServers":{"inline":{"command":"${CLAUDE_PLUGIN_ROOT}/bin/srv"},"plain":{"url":"https://x.test"}}}"#,
+        r#"{"name":"toolbox","mcpServers":{"inline":{"command":"${CLAUDE_PLUGIN_ROOT}/bin/srv"}}}"#,
     )?;
     let report = scan(dir.path(), &["toolbox"])?;
-    let diag = |name: &str| -> Vec<(String, String)> {
-        report
-            .artifacts
-            .iter()
-            .filter(|a| a.name == name)
-            .flat_map(|a| a.diagnostics.iter())
-            .filter(|d| d.code == "plugin.part-needs-plugin")
-            .map(|d| (format!("{:?}", d.severity), d.message.clone()))
-            .collect()
-    };
-    let skill = diag("shared-user");
-    assert_eq!(skill.len(), 2, "{skill:?}");
-    assert!(skill.iter().all(|(sev, _)| sev == "Error"));
-    assert!(skill
-        .iter()
-        .any(|(_, m)| m.contains("${CLAUDE_PLUGIN_ROOT}/../shared/x.sh")));
-    assert!(diag("lint").is_empty());
-    assert_eq!(diag("helper").len(), 1);
-    assert_eq!(diag("inline").len(), 1);
-    assert!(diag("plain").is_empty());
-    let inline = report
-        .artifacts
-        .iter()
-        .find(|a| a.name == "inline")
-        .ok_or("no inline server")?;
-    assert_eq!(inline.path, "toolbox/.claude-plugin/plugin.json#inline");
-    assert!(report.artifacts.iter().any(|a| a.name == "shared-user"));
+    assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")]);
     Ok(())
 }
 
@@ -244,14 +233,14 @@ fn a_marketplace_entry_with_a_local_source_unpacks_and_a_remote_one_stays_whole(
 }
 
 #[test]
-fn declared_paths_and_unpickable_components_are_honoured() -> TestResult {
+fn declared_paths_are_honoured() -> TestResult {
     let dir = tempfile::tempdir()?;
     let r = dir.path();
     write(
         r,
         "p/.claude-plugin/plugin.json",
         r#"{"name":"p","agents":["./team/a.md"],"commands":{"go":{"source":"./cmds/go.md"}},
-            "skills":"./extra","mcpServers":"./servers.json","workflows":"./wf"}"#,
+            "skills":"./extra","mcpServers":"./servers.json"}"#,
     )?;
     write(r, "p/team/a.md", "---\nname: a\ndescription: d\n---\n")?;
     write(
@@ -270,9 +259,6 @@ fn declared_paths_and_unpickable_components_are_honoured() -> TestResult {
         "p/servers.json",
         r#"{"s1":{"command":"x"},"s2":"not a server"}"#,
     )?;
-    write(r, "p/wf/flow.md", "---\nname: flow\n---\n")?;
-    write(r, "p/settings.json", "{}")?;
-    write(r, "p/bin/tool", "x")?;
     let report = scan(r, &["p"])?;
     let mut found: Vec<_> = report.artifacts.iter().map(|a| a.path.as_str()).collect();
     found.sort_unstable();
@@ -303,7 +289,7 @@ fn an_unpacked_plugin_claims_its_folder_however_it_is_spelled_and_nothing_else()
         .artifacts
         .iter()
         .all(|a| a.kind != ArtifactKind::Plugin));
-    // The plugin's hooks are not parts, and not unplaced either.
+    // The plugin's own files are not unplaced.
     assert!(
         report
             .unplaced
@@ -343,9 +329,33 @@ fn a_plugin_with_nothing_to_pick_stays_whole_with_a_note() -> TestResult {
         .iter()
         .find(|a| a.kind == ArtifactKind::Plugin)
         .ok_or("the plugin is still listed")?;
-    assert!(plugin
+    let note = plugin
+        .diagnostics
+        .iter()
+        .find(|d| d.code == "plugin.unpack-refused")
+        .ok_or("a note")?;
+    assert!(note.message.contains("Has hooks"), "{}", note.message);
+
+    let empty = tempfile::tempdir()?;
+    write(
+        empty.path(),
+        ".claude-plugin/plugin.json",
+        r#"{"name":"empty"}"#,
+    )?;
+    let report = scan(empty.path(), &[""])?;
+    assert!(report.artifacts[0]
         .diagnostics
         .iter()
         .any(|d| d.code == "plugin.no-parts"));
+    Ok(())
+}
+
+#[test]
+fn a_mixed_plugin_stays_whole_when_asked_to_unpack() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    plugin(dir.path(), "toolbox", MANIFEST)?;
+    write(dir.path(), "toolbox/hooks/hooks.json", r#"{"hooks":{}}"#)?;
+    let report = scan(dir.path(), &["toolbox"])?;
+    assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")]);
     Ok(())
 }

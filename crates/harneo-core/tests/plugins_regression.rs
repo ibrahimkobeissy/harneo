@@ -563,10 +563,10 @@ fn mixed_plugin(root: &Path) -> std::io::Result<()> {
 }
 
 #[test]
-fn a_mixed_plugin_is_whole_by_default_and_unpacking_it_reports_what_is_lost() -> R {
+fn a_mixed_plugin_is_whole_by_default_and_cannot_be_unpacked() -> R {
     let src = tempfile::tempdir()?;
     mixed_plugin(src.path())?;
-    let mut lab = Lab::new()?;
+    let lab = Lab::new()?;
 
     let preview = lab.library.preview(&local(src.path()))?;
     let plugin = plugin_candidate(&preview, "mixed")?;
@@ -582,34 +582,16 @@ fn a_mixed_plugin_is_whole_by_default_and_unpacking_it_reports_what_is_lost() ->
     );
     assert!(names_of(&preview, ArtifactKind::Skill).is_empty());
 
-    // The user may still unpack it: the pickable parts come out, the lost ones are the reason's.
-    let parts = lab
+    // Asking to unpack it changes nothing (ADR-006): the mixed plugin stays whole, with its reason.
+    let asked = lab
         .library
         .preview_with(&local(src.path()), &unpack_options(""))?;
-    assert!(names_of(&parts, ArtifactKind::Plugin).is_empty());
-    assert_eq!(names_of(&parts, ArtifactKind::Skill), ["alpha", "beta"]);
-    assert!(parts.candidates.iter().all(|c| c.must_stay_whole.is_none()));
-    lab.import_all(&parts)?;
+    assert_eq!(names_of(&asked, ArtifactKind::Plugin), ["mixed"]);
+    assert!(names_of(&asked, ArtifactKind::Skill).is_empty());
     assert_eq!(
-        lab.held()?,
-        [
-            (ArtifactKind::Skill, "alpha".to_owned()),
-            (ArtifactKind::Skill, "beta".to_owned())
-        ]
+        plugin_candidate(&asked, "mixed")?.must_stay_whole,
+        plugin.must_stay_whole
     );
-    // A plain preview offers the plugin whole again (it must stay whole), but the library says it
-    // holds its parts, and importing the plugin on top of them is refused, not converted.
-    let again = lab.library.preview(&local(src.path()))?;
-    let holds = lab.library.plugin_holds(&again)?;
-    assert_eq!(holds.len(), 1);
-    assert!(holds[0].parts && !holds[0].whole);
-    let plugin_id = plugin_candidate(&again, "mixed")?.id.clone();
-    let refused = lab.library.import(&again, &[plugin_id], &TagChoices::new());
-    assert!(
-        matches!(refused, Err(Error::PluginExclusive { .. })),
-        "{refused:?}"
-    );
-    assert_eq!(lab.held()?.len(), 2);
 
     // The same plugin held whole in another library cannot be unpacked in place either.
     let mut other = Lab::new()?;
@@ -652,7 +634,8 @@ fn a_part_tied_to_the_plugin_root_and_a_remote_only_entry_stay_whole() -> R {
     let tied = plugin_candidate(&preview, "tied")?;
     assert_eq!(
         tied.must_stay_whole,
-        Some(WholeReason::PluginRootTie {
+        Some(WholeReason::PluginVariable {
+            variable: "${CLAUDE_PLUGIN_ROOT}".to_owned(),
             parts: vec![PluginPart::Skills]
         })
     );
@@ -665,12 +648,13 @@ fn a_part_tied_to_the_plugin_root_and_a_remote_only_entry_stay_whole() -> R {
         )
     );
 
-    // Even asking to unpack them leaves them whole: the remote entry with a warning.
+    // Even asking to unpack them leaves them whole, each with a warning.
     let asked = lab
         .library
         .preview_with(&local(src.path()), &unpack_options("plugins/tied"))?;
     assert!(names_of(&asked, ArtifactKind::Plugin).contains(&"far".to_owned()));
-    assert!(names_of(&asked, ArtifactKind::Skill).contains(&"runner".to_owned()));
+    assert!(names_of(&asked, ArtifactKind::Skill).is_empty());
+    assert!(plugin_candidate(&asked, "tied")?.must_stay_whole.is_some());
     let far_path = far.artifact.path.clone();
     let remote = ScanOptions {
         unpack: vec![far_path],
