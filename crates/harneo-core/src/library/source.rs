@@ -37,6 +37,21 @@ pub enum Source {
 }
 
 impl Source {
+    /// The source a stored record was imported from.
+    pub(crate) fn from_record(record: &super::records::SourceRecord) -> Result<Self> {
+        Ok(if record.kind == "git" {
+            Self::Git {
+                url: record.location.clone(),
+                branch: record.branch.clone(),
+                subfolder: record.subfolder.clone(),
+            }
+        } else {
+            Self::Local {
+                path: PathBuf::from(&record.location),
+            }
+        })
+    }
+
     /// The stable key the ids are derived from (see [`ids`]).
     pub(crate) fn identity(&self) -> Result<String> {
         match self {

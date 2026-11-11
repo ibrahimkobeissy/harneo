@@ -7,11 +7,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::artifact::{AgentAdapter, Artifact, ClaudeAdapter, ScanOptions};
+use crate::artifact::walk::Walker;
+use crate::artifact::{AgentAdapter, Artifact, ArtifactKind, ClaudeAdapter, ScanOptions};
 use crate::error::Error;
 use crate::library::git::{self, Checkout, GitConfig};
 use crate::library::layout_claude::StoredLayout;
 use crate::library::{git_subfolder, Source, SourceRecord};
+use crate::plugin::{self, WholeReason};
 
 /// Clones the update check made, kept for the session by source id so *Update* can copy from
 /// them. A newer clone of the same source replaces (and deletes) the old one, and dropping the
@@ -203,6 +205,9 @@ pub(crate) struct Scanned {
     /// Files no tier placed and the stored layout does not ignore, capped as a scan caps them.
     pub unplaced: Vec<String>,
     pub unplaced_overflow: u32,
+    /// For each plugin folder the source unpacked, why the plugin must now stay whole (ADR-006),
+    /// or `None` when it can stay unpacked. Empty for a source that unpacked nothing.
+    pub wholes: Vec<(String, Option<WholeReason>)>,
 }
 
 /// Scans the source's folder as its import did: a git source passes its GitHub repo, so a
@@ -226,11 +231,44 @@ pub(crate) fn scan(
     let mut report = ClaudeAdapter.scan(root, &options).map_err(unreachable)?;
     // Entries that no longer replay are simply absent: the check flags them as layout changed.
     layout.replay(root, &mut report);
+    let wholes = judge_unpacked(root, &options, &layout.unpack)?;
     Ok(Scanned {
         artifacts: report.artifacts,
         unplaced: report.unplaced,
         unplaced_overflow: report.unplaced_overflow,
+        wholes,
     })
+}
+
+/// Reads the plugins the source unpacked as the whole plugins they are in the source, and asks
+/// ADR-006 whether each must stay whole. A plugin gone from the source is left out.
+fn judge_unpacked(
+    root: &Path,
+    options: &ScanOptions,
+    unpacked: &[String],
+) -> Result<Vec<(String, Option<WholeReason>)>, Failure> {
+    if unpacked.is_empty() {
+        return Ok(Vec::new());
+    }
+    let whole_options = ScanOptions {
+        unpack: Vec::new(),
+        ..options.clone()
+    };
+    let report = ClaudeAdapter
+        .scan(root, &whole_options)
+        .map_err(unreachable)?;
+    let mut walker = Walker::new(root, &whole_options);
+    Ok(report
+        .artifacts
+        .iter()
+        .filter(|a| a.kind == ArtifactKind::Plugin && unpacked.contains(&a.path))
+        .map(|plugin| {
+            (
+                plugin.path.clone(),
+                plugin::must_stay_whole(&mut walker, plugin),
+            )
+        })
+        .collect())
 }
 
 fn unreachable(error: Error) -> Failure {

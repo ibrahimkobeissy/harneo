@@ -182,6 +182,10 @@ pub struct LibraryItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub from_plugin: Option<String>,
+    /// Why the plugin an unpacked part came from must now stay whole (ADR-006), as a sentence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub must_stay_whole: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -610,10 +614,12 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             status: Status::parse(&status),
             manual_only,
             from_plugin,
+            must_stay_whole: None,
         });
     }
     drop(stmt);
     attach_tags(conn, &mut items)?;
+    super::whole::mark_items(conn, &mut items)?;
     let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
     let sizes = crate::bundles::bundle_sizes(conn, &ids)?;
     for item in &mut items {

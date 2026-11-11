@@ -33,4 +33,8 @@ links: Links,
  * A skill installed with `disable-model-invocation` by default: the library flag, or the
  * skill's own frontmatter.
  */
-manualOnly: boolean, };
+manualOnly: boolean, 
+/**
+ * Set on a part of an unpacked plugin that must now stay whole (ADR-006): why, as a sentence.
+ */
+mustStayWhole?: string, };

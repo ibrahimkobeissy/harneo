@@ -1497,6 +1497,7 @@ fn downgrade_to_v10(data: &Path) -> R {
          DROP TABLE harnfit_fits;
          ALTER TABLE profiles DROP COLUMN category;
          ALTER TABLE profiles DROP COLUMN category_note;
+         ALTER TABLE sources DROP COLUMN whole_reasons;
          ALTER TABLE sources DROP COLUMN unpack;
          PRAGMA user_version = 10;",
     )?;

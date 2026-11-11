@@ -58,4 +58,8 @@ manualOnly: boolean,
 /**
  * The plugin an unpacked part came from.
  */
-fromPlugin?: string, };
+fromPlugin?: string, 
+/**
+ * Why the plugin an unpacked part came from must now stay whole (ADR-006), as a sentence.
+ */
+mustStayWhole?: string, };

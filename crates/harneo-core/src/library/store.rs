@@ -362,8 +362,15 @@ CREATE TABLE harnfit_fits (
 ) STRICT;
 ";
 
+/// Parts of plugins that must now stay whole (ADR-006): `sources.whole_reasons` is the JSON
+/// object, written by update checks, from each unpacked plugin folder to the reason it must stay
+/// whole (`null` when it can stay unpacked). `NULL` until a check has looked.
+const V13: &str = "
+ALTER TABLE sources ADD COLUMN whole_reasons TEXT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;

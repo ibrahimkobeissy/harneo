@@ -80,17 +80,7 @@ impl Library {
         let detail = records::load(&self.store.conn, id)?
             .ok_or_else(|| Error::NotInLibrary { id: id.to_owned() })?;
         let record = detail.provenance.source;
-        let source = if record.kind == "git" {
-            Source::Git {
-                url: record.location,
-                branch: record.branch,
-                subfolder: record.subfolder,
-            }
-        } else {
-            Source::Local {
-                path: PathBuf::from(record.location),
-            }
-        };
+        let source = Source::from_record(&record)?;
         Ok((source, record.id))
     }
 

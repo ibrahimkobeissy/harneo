@@ -448,6 +448,48 @@ pub(crate) fn replace_with_parts(
     Ok(changed)
 }
 
+/// The reverse of [`replace_with_parts`]: puts `plugin` in the place of `parts` in every profile
+/// whose current version holds any of them, as one new version each, and lists those profiles.
+/// With `apply` false nothing is written.
+pub(crate) fn replace_parts_with_plugin(
+    conn: &Connection,
+    plugin: &str,
+    parts: &[&str],
+    apply: bool,
+) -> Result<Vec<ProfileChange>> {
+    let ids = conn
+        .prepare("SELECT id FROM profiles ORDER BY name COLLATE NOCASE")?
+        .query_map([], |r| r.get::<_, ProfileId>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let at = records::now();
+    let mut changed = Vec::new();
+    for id in ids {
+        let found = row(conn, id)?;
+        let spec = spec_of(conn, id, found.current_version)?;
+        if !parts.iter().any(|p| spec.mentions(p)) {
+            continue;
+        }
+        let position = spec.items.iter().position(|i| parts.contains(&i.as_str()));
+        let mut next = parts.iter().fold(spec, |s, p| s.without(p));
+        if !next.items.iter().any(|i| i == plugin) {
+            let at_place = position.map_or(next.items.len(), |p| p.min(next.items.len()));
+            next.items.insert(at_place, plugin.to_owned());
+        }
+        let to = found.current_version + 1;
+        if apply {
+            next.validate(conn)?;
+            insert_version(conn, id, to, &next, at)?;
+        }
+        changed.push(ProfileChange {
+            id,
+            name: found.name,
+            from: found.current_version,
+            to,
+        });
+    }
+    Ok(changed)
+}
+
 impl Library {
     /// Every profile by name, with what its current version resolves to.
     pub fn profiles(&self) -> Result<Vec<ProfileSummary>> {

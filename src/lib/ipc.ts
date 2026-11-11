@@ -25,6 +25,7 @@ import type { Links } from "../bindings/Links";
 import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { RemovalPlan } from "../bindings/RemovalPlan";
+import type { ReplaceOutcome } from "../bindings/ReplaceOutcome";
 import type { UnpackOutcome } from "../bindings/UnpackOutcome";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
@@ -141,6 +142,17 @@ export function libraryUnpackPlan(id: string): Promise<UnpackOutcome> {
 /** Turns a whole plugin into its parts; profiles holding it get the parts instead. */
 export function libraryUnpackPlugin(id: string): Promise<UnpackOutcome> {
   return invoke<UnpackOutcome>("library_unpack_plugin", { id });
+}
+
+/** What replacing the parts of a plugin that must stay whole with the plugin would do. */
+export function libraryReplacePlan(id: string): Promise<ReplaceOutcome> {
+  return invoke<ReplaceOutcome>("library_replace_plan", { id });
+}
+
+/** Replaces the parts with the whole plugin, read from its source; profiles holding the parts
+ * get the plugin instead. */
+export function libraryReplaceWithWhole(id: string): Promise<ReplaceOutcome> {
+  return invoke<ReplaceOutcome>("library_replace_with_whole", { id });
 }
 
 /** The id of the library artifact of this kind and name, or null when it is not imported. */

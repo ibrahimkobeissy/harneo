@@ -50,6 +50,8 @@ pub fn run() {
             commands::library_remove_many,
             commands::library_unpack_plan,
             commands::library_unpack_plugin,
+            commands::library_replace_plan,
+            commands::library_replace_with_whole,
             commands::library_find,
             commands::library_reaudit,
             commands::library_audits,

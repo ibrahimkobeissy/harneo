@@ -58,6 +58,9 @@ pub(crate) mod unpack_tests;
 mod viewer;
 #[cfg(test)]
 mod viewer_tests;
+pub(crate) mod whole;
+#[cfg(test)]
+mod whole_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -97,6 +100,7 @@ pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
 pub use unpack::PluginHold;
 pub use unpack_plugin::{UnpackOutcome, UnpackedPart};
 pub use viewer::{may_run_when_opened, FileView, MAX_VIEW_BYTES};
+pub use whole::ReplaceOutcome;
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;

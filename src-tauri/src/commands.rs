@@ -304,6 +304,26 @@ pub fn library_unpack_plugin(
     state.with_mut(|library| library.unpack_in_library(&id))
 }
 
+/// What replacing the parts of a plugin that must stay whole with the plugin would do: the parts
+/// that leave and the profiles that change. Changes nothing.
+#[tauri::command]
+pub fn library_replace_plan(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<harneo_core::library::ReplaceOutcome, String> {
+    state.with(|library| library.replace_with_whole_plan(&id))
+}
+
+/// Replaces the parts of a plugin that must stay whole with the whole plugin, read from its
+/// source; profiles holding the parts get the plugin as a new version.
+#[tauri::command]
+pub fn library_replace_with_whole(
+    state: State<'_, LibraryState>,
+    id: String,
+) -> Result<harneo_core::library::ReplaceOutcome, String> {
+    state.with_mut(|library| library.replace_with_whole(&id))
+}
+
 /// The id of the library artifact of `kind` named `name`, if any (for opening a reference).
 #[tauri::command]
 pub fn library_find(
@@ -2503,6 +2523,10 @@ mod tests {
         let plan = library_unpack_plan(state(), "0000000000000000".into()).err();
         assert!(plan.is_some_and(|m| m.contains("not in the library")));
         let done = library_unpack_plugin(state(), "0000000000000000".into()).err();
+        assert!(done.is_some_and(|m| m.contains("not in the library")));
+        let plan = library_replace_plan(state(), "0000000000000000".into()).err();
+        assert!(plan.is_some_and(|m| m.contains("not in the library")));
+        let done = library_replace_with_whole(state(), "0000000000000000".into()).err();
         assert!(done.is_some_and(|m| m.contains("not in the library")));
         Ok(())
     }

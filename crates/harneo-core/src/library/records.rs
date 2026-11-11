@@ -65,6 +65,10 @@ pub struct ArtifactDetail {
     /// A skill installed with `disable-model-invocation` by default: the library flag, or the
     /// skill's own frontmatter.
     pub manual_only: bool,
+    /// Set on a part of an unpacked plugin that must now stay whole (ADR-006): why, as a sentence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub must_stay_whole: Option<String>,
 }
 
 pub(crate) fn now() -> i64 {
@@ -456,6 +460,7 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
         audited_at: stored.map(|(_, at)| at),
         links: crate::bundles::links_of(conn, id)?,
         manual_only,
+        must_stay_whole: super::whole::notice_of(conn, id)?,
     }))
 }
 
