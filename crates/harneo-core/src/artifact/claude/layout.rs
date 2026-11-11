@@ -34,8 +34,37 @@ fn discover(walker: &Walker, dir: &Path, depth: u32, max_depth: u32, found: &mut
     }
     if depth < max_depth {
         for sub in walker.list_dirs(dir) {
+            if dir.as_os_str().is_empty() && is_other_agent_dir(&sub) {
+                continue;
+            }
             discover(walker, &sub, depth + 1, max_depth, found);
         }
+    }
+}
+
+/// True for a dot-folder at the scan root other than `.claude` and `.agents`: another agent's
+/// layout (`.opencode`, `.cursor`, `.gemini`, ...), which waits for a second adapter (ADR-001).
+fn is_other_agent_dir(rel: &Path) -> bool {
+    let name = rel.to_string_lossy();
+    name.starts_with('.') && !matches!(name.as_ref(), ".claude" | ".agents")
+}
+
+/// One `scan.other-agent-folder` info per skipped dot-folder that holds a skill or a plugin.
+fn report_other_agents(walker: &Walker, options: &ScanOptions, report: &mut ScanReport) {
+    for dir in walker.list_dirs(Path::new("")) {
+        if !is_other_agent_dir(&dir) {
+            continue;
+        }
+        let mut found = Found::default();
+        discover(walker, &dir, 1, options.max_loose_skill_depth, &mut found);
+        if found.skills.is_empty() && found.plugins.is_empty() {
+            continue;
+        }
+        report.diagnostics.push(Diagnostic::info(
+            "scan.other-agent-folder",
+            &dir,
+            "another agent's folder: not read (only .claude and .agents are)",
+        ));
     }
 }
 
@@ -87,6 +116,7 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
     if !options.include_managed {
         report_managed(walker, report);
     }
+    report_other_agents(walker, options, report);
     let mut found = Found::default();
     discover(
         walker,
@@ -117,7 +147,7 @@ pub(crate) fn scan(walker: &mut Walker, options: &ScanOptions, report: &mut Scan
             .artifacts
             .iter()
             .any(|a| a.kind == ArtifactKind::Skill && a.path == path);
-        if !known {
+        if !known && !skill::is_superseded(walker, folder, report) {
             skill::read_skill(walker, folder, report);
         }
     }

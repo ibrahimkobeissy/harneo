@@ -67,13 +67,40 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
     }
 }
 
-/// Finds the skills under `skills/` and `.claude/skills/`.
+/// Finds the skills under `skills/`, `.claude/skills/` and `.agents/skills/`.
 pub(crate) fn scan(walker: &mut Walker, report: &mut ScanReport) {
     for dir in SKILL_DIRS {
         for folder in walker.list_dirs(Path::new(dir)) {
+            if is_superseded(walker, &folder, report) {
+                continue;
+            }
             read_skill(walker, &folder, report);
         }
     }
+}
+
+/// True for `.agents/skills/<name>` when `.claude/skills/<name>` is also a skill: Claude's copy
+/// is the one listed. Reports the other once as `scan.same-skill-ignored`.
+pub(crate) fn is_superseded(walker: &Walker, folder: &Path, report: &mut ScanReport) -> bool {
+    let (Some(parent), Some(name)) = (folder.parent(), folder.file_name()) else {
+        return false;
+    };
+    if parent != Path::new(".agents/skills") {
+        return false;
+    }
+    let claude = Path::new(".claude/skills").join(name);
+    if !walker.exists(&claude.join(MANIFEST)) {
+        return false;
+    }
+    let d = Diagnostic::info(
+        "scan.same-skill-ignored",
+        folder,
+        &format!("same skill as {}", rel_string(&claude)),
+    );
+    if !report.diagnostics.contains(&d) {
+        report.diagnostics.push(d);
+    }
+    true
 }
 
 pub(crate) fn read_skill(walker: &mut Walker, folder: &Path, report: &mut ScanReport) {

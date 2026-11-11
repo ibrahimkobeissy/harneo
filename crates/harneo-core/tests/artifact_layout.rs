@@ -739,3 +739,84 @@ fn a_marketplace_publishing_its_own_folder_keeps_its_plugin() -> TestResult {
     assert_eq!(summary(&report), [(ArtifactKind::Plugin, "")]);
     Ok(())
 }
+
+fn codes_at<'a>(report: &'a ScanReport, code: &str) -> Vec<&'a str> {
+    report
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.file.as_str())
+        .collect()
+}
+
+#[test]
+fn one_skill_in_three_agent_folders_is_listed_once_from_claude() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, ".claude/skills/hello/SKILL.md")?;
+    skill(r, ".agents/skills/hello/SKILL.md")?;
+    skill(r, ".opencode/skills/hello/SKILL.md")?;
+    let report = scan(r)?;
+    assert_eq!(
+        summary(&report),
+        [(ArtifactKind::Skill, ".claude/skills/hello")]
+    );
+    assert_eq!(
+        codes_at(&report, "scan.same-skill-ignored"),
+        [".agents/skills/hello"]
+    );
+    assert_eq!(codes_at(&report, "scan.other-agent-folder"), [".opencode"]);
+    assert!(report
+        .diagnostics
+        .iter()
+        .all(|d| d.code != "scan.duplicate-name"));
+    assert!(report.unplaced.is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_skill_only_in_agents_skills_is_still_listed() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, ".agents/skills/hello/SKILL.md")?;
+    let report = scan(r)?;
+    assert_eq!(
+        summary(&report),
+        [(ArtifactKind::Skill, ".agents/skills/hello")]
+    );
+    assert!(codes_at(&report, "scan.same-skill-ignored").is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_skill_only_in_another_agents_folder_lists_nothing_and_says_so() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, ".opencode/skills/hello/SKILL.md")?;
+    let report = scan(r)?;
+    assert!(report.artifacts.is_empty());
+    assert_eq!(codes_at(&report, "scan.other-agent-folder"), [".opencode"]);
+    assert!(report.unplaced.is_empty());
+    Ok(())
+}
+
+#[test]
+fn no_candidate_comes_from_any_other_agents_folder() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    let r = dir.path();
+    skill(r, ".claude/skills/hello/SKILL.md")?;
+    for agent in [".opencode", ".cursor", ".gemini", ".codex", ".kiro"] {
+        skill(r, &format!("{agent}/skills/hello/SKILL.md"))?;
+    }
+    let report = scan(r)?;
+    assert_eq!(
+        summary(&report),
+        [(ArtifactKind::Skill, ".claude/skills/hello")]
+    );
+    assert_eq!(
+        codes_at(&report, "scan.other-agent-folder"),
+        [".codex", ".cursor", ".gemini", ".kiro", ".opencode"]
+    );
+    assert!(report.unplaced.is_empty());
+    Ok(())
+}

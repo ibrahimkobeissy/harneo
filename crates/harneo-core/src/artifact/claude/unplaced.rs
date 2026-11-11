@@ -47,8 +47,8 @@ fn is_ignored(parts: &[&str]) -> bool {
         return true;
     };
     let upper = name.to_ascii_uppercase();
-    // Hidden folders (`.github`, `.changeset`, ...) are never walked, `.agents/skills` aside,
-    // which the skill scan has already claimed.
+    // Hidden folders (`.github`, `.changeset`, ...) are never walked (so neither are other
+    // agents' folders or an ignored `.agents/skills` copy).
     IGNORED_NAMES.iter().any(|p| upper.starts_with(p))
         || dirs
             .iter()
