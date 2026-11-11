@@ -253,7 +253,27 @@ async function setup(path: string, opts: Opts = {}) {
           .filter((a) => types.includes(a.kind))
           .filter((a) => !text || a.name.includes(text))
           .map(item);
-        return { items, total: items.length, unfilteredTotal: items.length };
+        const kinds = [...new Set(lib.map((a) => a.kind)), "settings"];
+        const facets = {
+          kinds: kinds.map((kind) => ({
+            kind,
+            count: lib.filter((a) => a.kind === kind).length,
+          })),
+          tags: [],
+          sources: [],
+          tiers: [],
+          withFindings: 0,
+          outdated: 0,
+          auto: items.length,
+          manualOnly: 0,
+          statuses: [],
+        };
+        return {
+          items,
+          total: items.length,
+          unfilteredTotal: items.length,
+          facets,
+        };
       }
       case "library_detail": {
         const a = find(args["id"] as string);
@@ -359,7 +379,7 @@ describe("Builder: picker and cart", () => {
     );
   });
 
-  it("filters by text and by type segment", async () => {
+  it("filters by text and by the Filters column's Type", async () => {
     const user = userEvent.setup();
     const { calls } = await setup("/profiles/4");
     await screen.findByText("dup", { selector: "div" });
@@ -370,7 +390,14 @@ describe("Builder: picker and cart", () => {
     await waitFor(() =>
       expect(screen.queryByText("dup", { selector: "div" })).toBeNull(),
     );
-    await user.click(screen.getByRole("button", { name: "Subagents" }));
+    const filters = screen.getByRole("complementary", { name: "Filters" });
+    // Settings have their own cart panel: Type does not offer them.
+    expect(
+      within(filters).queryByRole("button", { name: /^Settings/ }),
+    ).toBeNull();
+    await user.click(
+      within(filters).getByRole("button", { name: /^Subagents/ }),
+    );
     await screen.findByText("No matches.");
     const last = callsOf(calls, "library_list").at(-1)?.args["query"] as {
       filter: { types: string[]; text: string };
@@ -415,7 +442,12 @@ describe("Builder: picker and cart", () => {
     );
     // Both review and its subagent match: adding both counts the subagent as picked, not bundled.
     await screen.findByRole("button", { name: "Add all shown (2)" });
-    await user.click(screen.getByRole("button", { name: "Skills" }));
+    await user.click(
+      within(screen.getByRole("complementary", { name: "Filters" })).getByRole(
+        "button",
+        { name: /^Skills/ },
+      ),
+    );
     await user.click(
       await screen.findByRole("button", { name: "Add all shown (1)" }),
     );

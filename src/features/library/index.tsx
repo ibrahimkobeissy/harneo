@@ -7,7 +7,6 @@ import {
   Download,
   ListFilter,
   SearchX,
-  SlidersHorizontal,
   TriangleAlert,
 } from "lucide-react";
 import { type CSSProperties, useEffect, useRef, useState } from "react";
@@ -29,19 +28,25 @@ import {
 } from "../../lib/ipc";
 import { useChanged } from "../../lib/useChanged";
 import {
+  activeFilterCount,
   Badge,
   Button,
+  clampWidth,
   decodeBool,
   EmptyState,
+  FilterColumn,
+  type FilterGroup,
+  FILTERS_DEFAULT,
+  FilterSheet,
+  FiltersButton,
+  noFilters,
   Screen,
+  toggleFilter,
   usePersisted,
 } from "../../ui";
 import { CollectionBar } from "./CollectionBar";
 import { DeleteFilteredDialog } from "./DeleteFiltered";
 import { DetailPanel } from "./DetailPanel";
-import { FilterColumn, type FilterGroup } from "./FilterColumn";
-import { clampWidth, FILTERS_DEFAULT } from "./FilterResizer";
-import { FilterSheet } from "./FilterSheet";
 import { FindBundlesButton, FindBundlesDialog } from "./FindBundles";
 import { onGridKeyDown } from "./gridNav";
 import { Insights } from "./Insights";
@@ -67,7 +72,7 @@ import {
 import { Pager } from "./Pager";
 import { ResultsToolbar } from "./ResultsToolbar";
 import { SearchBox } from "./SearchBox";
-import { useNarrow } from "./useNarrow";
+import { useNarrow } from "../../ui";
 import { UpdateAllDialog } from "./UpdateDialogs";
 import { UnplacedNotices, UpdateProblems, UpdatesControls } from "./UpdatesBar";
 import { useUpdateCheck } from "./useUpdateCheck";
@@ -292,25 +297,11 @@ export function LibraryScreen({
   }
 
   function toggle(group: FilterGroup, value: string) {
-    const current = params[group] as string[];
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
-    update({ [group]: next } as Partial<LibraryParams>);
+    update(toggleFilter(params, group, value));
   }
 
   function clearAll() {
-    update({
-      types: [],
-      tags: [],
-      sources: [],
-      text: "",
-      trustMin: null,
-      tiers: [],
-      hasFindings: false,
-      statuses: [],
-      invocation: [],
-    });
+    update({ ...noFilters, text: "" });
   }
 
   function sortBy(key: SortKey) {
@@ -353,15 +344,7 @@ export function LibraryScreen({
         }
       />
     );
-  const activeFilters =
-    params.types.length +
-    params.tags.length +
-    params.sources.length +
-    params.tiers.length +
-    params.statuses.length +
-    params.invocation.length +
-    (params.trustMin !== null ? 1 : 0) +
-    (params.hasFindings ? 1 : 0);
+  const activeFilters = activeFilterCount(params);
 
   const worst = (
     <button
@@ -416,24 +399,17 @@ export function LibraryScreen({
       {page && (
         <div className={styles.toolbar}>
           {(narrow || collapsed) && (
-            <button
+            <FiltersButton
               ref={filtersButton}
-              type="button"
-              className={styles.filtersBtn}
-              aria-haspopup={narrow ? "dialog" : undefined}
-              aria-expanded={narrow ? sheetOpen : false}
+              active={activeFilters}
+              sheet={narrow}
+              open={sheetOpen}
               onClick={() => {
                 if (!narrow) return setCollapsed(false);
                 if (params.open !== null) update({ open: null, focus: null });
                 setSheetOpen(true);
               }}
-            >
-              <SlidersHorizontal size={14} aria-hidden="true" />
-              Filters
-              {activeFilters > 0 && (
-                <span className={styles.filtersCount}>{activeFilters}</span>
-              )}
-            </button>
+            />
           )}
           <ResultsToolbar
             params={params}

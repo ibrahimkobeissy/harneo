@@ -7,7 +7,7 @@ import { item, page } from "../../test/library";
 import { Picker } from "./Picker";
 
 interface Q {
-  filter: { text: string | null };
+  filter: { text: string | null; types: string[]; hasFindings: boolean };
   offset: number;
   limit: number;
 }
@@ -176,5 +176,55 @@ describe("Picker", () => {
     expect(
       screen.getByRole("button", { name: "Remove all shown (1)" }),
     ).toBeEnabled();
+  });
+
+  it("narrows the query from the Filters column and keeps every pickable kind with no type ticked", async () => {
+    const user = userEvent.setup();
+    const queries = stub([item("a", { trustScore: 50, findingCount: 1 })]);
+    renderPicker();
+    const filters = await screen.findByRole("complementary", {
+      name: "Filters",
+    });
+    expect(queries.at(-1)?.filter.types).not.toContain("settings");
+    expect(queries.at(-1)?.filter.types).toContain("skill");
+    await user.click(
+      within(filters).getByRole("button", { name: /^Has findings/ }),
+    );
+    await waitFor(() => expect(queries.at(-1)?.filter.hasFindings).toBe(true));
+    await user.click(
+      within(filters).getByRole("button", { name: "Clear trust filter" }),
+    );
+    await waitFor(() => expect(queries.at(-1)?.filter.hasFindings).toBe(false));
+  });
+
+  it("puts the filters behind a button on a narrow window, as a sheet that Esc closes", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn().mockImplementation((query: string) => ({
+        matches: true,
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      })),
+    );
+    try {
+      const user = userEvent.setup();
+      stub([item("a")]);
+      renderPicker();
+      const button = await screen.findByRole("button", { name: "Filters" });
+      expect(
+        screen.queryByRole("complementary", { name: "Filters" }),
+      ).toBeNull();
+      await user.click(button);
+      const sheet = screen.getByRole("dialog", { name: "Filters" });
+      expect(
+        within(sheet).getByRole("complementary", { name: "Filters" }),
+      ).toBeVisible();
+      await user.keyboard("{Escape}");
+      expect(screen.queryByRole("dialog", { name: "Filters" })).toBeNull();
+      expect(button).toHaveFocus();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

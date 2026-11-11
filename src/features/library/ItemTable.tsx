@@ -13,7 +13,7 @@ import {
   UpdateTag,
   TagChips,
 } from "./ItemMeta";
-import { KindChip } from "./KindChip";
+import { KindChip } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import { sortKeys, sortLabels } from "./params";

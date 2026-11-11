@@ -1,6 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
-import styles from "./Library.module.css";
+import styles from "./Filters.module.css";
 
 const focusable = [
   "a[href]",

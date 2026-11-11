@@ -7,22 +7,22 @@ import {
   Plus,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { Facets } from "../../bindings/Facets";
-import { decodeBool, tierLabels, tiers, usePersisted } from "../../ui";
+import type { ArtifactKind } from "../bindings/ArtifactKind";
+import type { Facets } from "../bindings/Facets";
+import { tierLabels, tiers } from "./audit";
 import { FilterResizer } from "./FilterResizer";
-import { KindChip } from "./KindChip";
-import { kinds, tagTint } from "./kinds";
-import styles from "./Library.module.css";
 import {
+  type FilterGroup,
+  type FilterParams,
   type Invocation,
-  type LibraryParams,
   invocationLabels,
   invocations,
   statusLabels,
-} from "./params";
-
-export type FilterGroup =
-  "types" | "tags" | "sources" | "tiers" | "statuses" | "invocation";
+} from "./filterParams";
+import styles from "./Filters.module.css";
+import { KindChip } from "./KindChip";
+import { kinds, tagTint } from "./kinds";
+import { decodeBool, usePersisted } from "./usePersisted";
 
 function Option({
   on,
@@ -173,10 +173,11 @@ export function FilterColumn({
   onHasFindings,
   onClearTrust,
   indexed = true,
+  onlyKinds,
   dock,
 }: {
   facets: Facets;
-  params: LibraryParams;
+  params: FilterParams;
   onToggle: (group: FilterGroup, value: string) => void;
   onClearGroup: (group: FilterGroup) => void;
   onTrustMin: (value: number | null) => void;
@@ -185,6 +186,8 @@ export function FilterColumn({
   onClearTrust: () => void;
   /** False until an index run has completed: Unused is not offered before then. */
   indexed?: boolean;
+  /** The kinds Type offers; all of them when unset. */
+  onlyKinds?: readonly ArtifactKind[];
   /** Set when the column sits inline beside the screen: it can then collapse and resize. */
   dock?: {
     collapsed: boolean;
@@ -254,16 +257,18 @@ export function FilterColumn({
         />
         {sec.open.type && (
           <>
-            {facets.kinds.map(({ kind, count }) => (
-              <Option
-                key={kind}
-                on={params.types.includes(kind)}
-                label={kinds[kind].plural}
-                count={count}
-                lead={<KindChip kind={kind} small />}
-                onToggle={() => onToggle("types", kind)}
-              />
-            ))}
+            {facets.kinds
+              .filter(({ kind }) => !onlyKinds || onlyKinds.includes(kind))
+              .map(({ kind, count }) => (
+                <Option
+                  key={kind}
+                  on={params.types.includes(kind)}
+                  label={kinds[kind].plural}
+                  count={count}
+                  lead={<KindChip kind={kind} small />}
+                  onToggle={() => onToggle("types", kind)}
+                />
+              ))}
           </>
         )}
         <GroupHead

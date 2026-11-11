@@ -5,7 +5,7 @@ import type { TagWithCount } from "../../bindings/TagWithCount";
 import { Button, TagPicker, tierLabels } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
-import type { FilterGroup } from "./FilterColumn";
+import type { FilterGroup } from "../../ui";
 import { type LibraryParams, statusLabels } from "./params";
 
 const MAX_TAG_CHARS = 40;

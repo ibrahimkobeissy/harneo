@@ -1,23 +1,24 @@
 import { Check, Minus, Plus, Search } from "lucide-react";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ArtifactKind } from "../../bindings/ArtifactKind";
+import type { Facets } from "../../bindings/Facets";
 import type { LibraryItem } from "../../bindings/LibraryItem";
+import { useUsageIndex } from "../../app/usageIndex";
 import { libraryList } from "../../lib/ipc";
-import { Button, kinds } from "../../ui";
+import {
+  activeFilterCount,
+  Button,
+  FilterColumn,
+  filterOf,
+  type FilterParams,
+  FilterSheet,
+  FiltersButton,
+  kinds,
+  noFilters,
+  toggleFilter,
+  useNarrow,
+} from "../../ui";
 import styles from "./Builder.module.css";
-
-type Segment = "all" | ArtifactKind;
-
-const segments: { value: Segment; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "skill", label: "Skills" },
-  { value: "agent", label: "Subagents" },
-  { value: "command", label: "Commands" },
-  { value: "rule", label: "Rules" },
-  { value: "plugin", label: "Plugins" },
-  { value: "outputStyle", label: "Styles" },
-  { value: "claudeMd", label: "CLAUDE.md" },
-];
 
 /** Settings and MCP have their own panels in the cart. */
 const pickable: ArtifactKind[] = [
@@ -65,25 +66,31 @@ export function Picker({
 }) {
   const searchId = useId();
   const [text, setText] = useState("");
-  const [segment, setSegment] = useState<Segment>("all");
+  const [filters, setFilters] = useState<FilterParams>(noFilters);
   const [view, setView] = useState<View>("all");
   const [limit, setLimit] = useState(PAGE);
   const [rows, setRows] = useState<Rows>({ status: "loading" });
+  // Kept from the last answer, so the column does not blink while the next one loads.
+  const [facets, setFacets] = useState<Facets | null>(null);
+  const { indexed } = useUsageIndex();
+  const narrow = useNarrow();
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const filtersButton = useRef<HTMLButtonElement>(null);
+
+  function update(next: Partial<FilterParams>) {
+    setFilters((f) => ({ ...f, ...next }));
+    setLimit(PAGE);
+  }
 
   useEffect(() => {
     let stale = false;
     const timer = setTimeout(() => {
+      const filter = filterOf(filters, text.trim());
       libraryList({
+        // No type ticked: every kind the picker can add, never Settings or MCP.
         filter: {
-          types: segment === "all" ? pickable : [segment],
-          tags: [],
-          sources: [],
-          text: text.trim() === "" ? null : text.trim(),
-          trustMin: null,
-          tiers: [],
-          hasFindings: false,
-          outdated: false,
-          statuses: [],
+          ...filter,
+          types: filter.types.length ? filter.types : pickable,
         },
         sort: "sessions",
         descending: true,
@@ -91,8 +98,9 @@ export function Picker({
         limit,
       }).then(
         (page) => {
-          if (!stale)
-            setRows({ status: "ready", items: page.items, total: page.total });
+          if (stale) return;
+          setRows({ status: "ready", items: page.items, total: page.total });
+          setFacets(page.facets);
         },
         (err: unknown) => {
           if (!stale) setRows({ status: "error", message: String(err) });
@@ -103,79 +111,107 @@ export function Picker({
       stale = true;
       clearTimeout(timer);
     };
-  }, [text, segment, limit]);
+  }, [text, filters, limit]);
+
+  const column = () =>
+    facets && (
+      <FilterColumn
+        facets={facets}
+        params={filters}
+        onlyKinds={pickable}
+        indexed={indexed}
+        onToggle={(group, value) => update(toggleFilter(filters, group, value))}
+        onClearGroup={(group) => update({ [group]: [] })}
+        onTrustMin={(trustMin) => update({ trustMin })}
+        onHasFindings={(hasFindings) => update({ hasFindings })}
+        onClearTrust={() =>
+          update({ trustMin: null, tiers: [], hasFindings: false })
+        }
+      />
+    );
 
   return (
-    <section className={styles.picker} aria-labelledby="picker-title">
-      <h2 id="picker-title" className={styles.pickerTitle}>
-        Pick from your library
-      </h2>
-      <p className={styles.quiet}>Adding an artifact adds its whole bundle.</p>
-      <div className={styles.toolbar}>
-        <div className={styles.search}>
-          <label className={styles.sr} htmlFor={searchId}>
-            Search library
-          </label>
-          <Search size={14} aria-hidden="true" />
-          <input
-            id={searchId}
-            className={styles.searchInput}
-            placeholder="Search library"
-            autoComplete="off"
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              setLimit(PAGE);
-            }}
-          />
-        </div>
-        <div className={styles.seg} role="group" aria-label="Type">
-          {segments.map((s) => (
-            <button
-              key={s.value}
-              type="button"
-              className={segment === s.value ? styles.on : ""}
-              aria-pressed={segment === s.value}
-              onClick={() => {
-                setSegment(s.value);
+    <section
+      className={
+        narrow ? styles.picker : `${styles.picker} ${styles.withFilters}`
+      }
+      aria-labelledby="picker-title"
+    >
+      {!narrow && <div className={styles.pfilters}>{column()}</div>}
+      {narrow && sheetOpen && facets && (
+        <FilterSheet
+          onClose={() => setSheetOpen(false)}
+          returnFocus={filtersButton}
+        >
+          {column()}
+        </FilterSheet>
+      )}
+      <div className={styles.pmain}>
+        <h2 id="picker-title" className={styles.pickerTitle}>
+          Pick from your library
+        </h2>
+        <p className={styles.quiet}>
+          Adding an artifact adds its whole bundle.
+        </p>
+        <div className={styles.toolbar}>
+          <div className={styles.search}>
+            <label className={styles.sr} htmlFor={searchId}>
+              Search library
+            </label>
+            <Search size={14} aria-hidden="true" />
+            <input
+              id={searchId}
+              className={styles.searchInput}
+              placeholder="Search library"
+              autoComplete="off"
+              value={text}
+              onChange={(e) => {
+                setText(e.target.value);
                 setLimit(PAGE);
               }}
-            >
-              {s.label}
-            </button>
-          ))}
+            />
+          </div>
+          {narrow && facets && (
+            <FiltersButton
+              ref={filtersButton}
+              active={activeFilterCount(filters)}
+              sheet
+              open={sheetOpen}
+              onClick={() => setSheetOpen(true)}
+            />
+          )}
+          <div className={styles.seg} role="group" aria-label="Show">
+            {views.map((v) => (
+              <button
+                key={v.value}
+                type="button"
+                className={view === v.value ? styles.on : ""}
+                aria-pressed={view === v.value}
+                onClick={() => setView(v.value)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={styles.seg} role="group" aria-label="Show">
-          {views.map((v) => (
-            <button
-              key={v.value}
-              type="button"
-              className={view === v.value ? styles.on : ""}
-              aria-pressed={view === v.value}
-              onClick={() => setView(v.value)}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
+        {rows.status === "error" && (
+          <p role="alert" className={styles.errorText}>
+            The library did not load: {rows.message}
+          </p>
+        )}
+        {rows.status === "ready" && (
+          <Results
+            rows={rows}
+            view={view}
+            picked={picked}
+            onAdd={onAdd}
+            onRemove={onRemove}
+            onAddAll={onAddAll}
+            onRemoveAll={onRemoveAll}
+            onMore={() => setLimit((n) => n + PAGE)}
+          />
+        )}
       </div>
-      {rows.status === "error" && (
-        <p role="alert" className={styles.errorText}>
-          The library did not load: {rows.message}
-        </p>
-      )}
-      {rows.status === "ready" && (
-        <Results
-          rows={rows}
-          view={view}
-          picked={picked}
-          onAdd={onAdd}
-          onRemove={onRemove}
-          onAddAll={onAddAll}
-          onRemoveAll={onRemoveAll}
-          onMore={() => setLimit((n) => n + PAGE)}
-        />
-      )}
     </section>
   );
 }

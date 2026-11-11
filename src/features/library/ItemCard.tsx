@@ -10,7 +10,7 @@ import {
   TagChips,
   UsageFoot,
 } from "./ItemMeta";
-import { KindChip } from "./KindChip";
+import { KindChip } from "../../ui";
 import { kinds } from "./kinds";
 import styles from "./Library.module.css";
 import { shownStatus } from "./usage";

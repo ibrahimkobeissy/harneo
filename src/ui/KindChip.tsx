@@ -1,6 +1,6 @@
-import type { ArtifactKind } from "../../bindings/ArtifactKind";
+import type { ArtifactKind } from "../bindings/ArtifactKind";
 import { kinds } from "./kinds";
-import styles from "./Library.module.css";
+import styles from "./KindChip.module.css";
 
 /** The kind's tinted icon square; the label is read next to it, so the icon is decorative. */
 export function KindChip({

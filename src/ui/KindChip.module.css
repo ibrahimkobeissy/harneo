@@ -1,0 +1,48 @@
+/* Kind icon square. */
+.chip {
+  width: var(--size-icon-chip);
+  height: var(--size-icon-chip);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background: var(--tint-slate-bg);
+  color: var(--tint-slate);
+}
+.chipSm {
+  width: var(--size-icon-chip-sm);
+  height: var(--size-icon-chip-sm);
+}
+.chip[data-tint="blue"] {
+  background: var(--tint-blue-bg);
+  color: var(--tint-blue);
+}
+.chip[data-tint="violet"] {
+  background: var(--tint-violet-bg);
+  color: var(--tint-violet);
+}
+.chip[data-tint="cyan"] {
+  background: var(--tint-cyan-bg);
+  color: var(--tint-cyan);
+}
+.chip[data-tint="orange"] {
+  background: var(--tint-orange-bg);
+  color: var(--tint-orange);
+}
+.chip[data-tint="teal"] {
+  background: var(--tint-teal-bg);
+  color: var(--tint-teal);
+}
+.chip[data-tint="pink"] {
+  background: var(--tint-pink-bg);
+  color: var(--tint-pink);
+}
+.chip[data-tint="indigo"] {
+  background: var(--tint-indigo-bg);
+  color: var(--tint-indigo);
+}
+.chip[data-tint="amber"] {
+  background: var(--tint-amber-bg);
+  color: var(--tint-amber);
+}

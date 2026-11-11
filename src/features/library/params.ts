@@ -4,37 +4,30 @@ import type { Query } from "../../bindings/Query";
 import type { SortKey } from "../../bindings/SortKey";
 import type { Status } from "../../bindings/Status";
 import type { Tier } from "../../bindings/Tier";
+import {
+  filterOf,
+  type FilterParams,
+  type Invocation,
+  invocations,
+} from "../../ui/filterParams";
 import { kinds } from "./kinds";
 
-/** An invocation filter value: `auto` keeps everything not manual only. */
-export type Invocation = "auto" | "manual";
-
-export const invocations: readonly Invocation[] = ["auto", "manual"];
-
-export const invocationLabels: Record<Invocation, string> = {
-  auto: "Auto",
-  manual: "Manual only",
-};
+export {
+  invocationLabels,
+  invocations,
+  statusLabels,
+  type Invocation,
+} from "../../ui/filterParams";
 
 export type View = "cards" | "list";
 
 /** Everything the screen shows, as kept in the URL query. */
-export interface LibraryParams {
+export interface LibraryParams extends FilterParams {
   view: View;
   sort: SortKey;
   descending: boolean;
   page: number;
   text: string;
-  types: ArtifactKind[];
-  tags: string[];
-  sources: string[];
-  /** Keep artifacts scored at least this; null is no limit. */
-  trustMin: number | null;
-  tiers: Tier[];
-  hasFindings: boolean;
-  statuses: Status[];
-  /** Both or none is no restriction. */
-  invocation: Invocation[];
   /** The artifact open in the detail panel. */
   open: string | null;
   /** `trust`: the panel scrolls to its Trust section (Security links finding rows here). */
@@ -60,14 +53,6 @@ export const statuses: readonly Status[] = [
   "notUsedYet",
   "current",
 ];
-
-export const statusLabels: Record<Status, string> = {
-  findings: "Findings",
-  outdated: "Outdated",
-  unused: "Unused",
-  notUsedYet: "Not used yet",
-  current: "Current",
-};
 
 export const tiers: readonly Tier[] = [
   "trusted",
@@ -163,28 +148,9 @@ export function toSearchParams(
   return sp;
 }
 
-/** Exactly one of Auto / Manual only narrows the list; both (or none) do not. */
-function manualOnlyOf(invocation: Invocation[]): boolean | null {
-  const auto = invocation.includes("auto");
-  const manual = invocation.includes("manual");
-  return auto === manual ? null : manual;
-}
-
 /** The filters as a `Filter`, the shape a smart collection stores as its rule. */
 export function toFilter(p: LibraryParams): Filter {
-  const manual = manualOnlyOf(p.invocation);
-  return {
-    types: p.types,
-    tags: p.tags,
-    sources: p.sources,
-    text: p.text.trim() === "" ? null : p.text,
-    trustMin: p.trustMin !== null && p.trustMin > 0 ? p.trustMin : null,
-    tiers: p.tiers,
-    hasFindings: p.hasFindings,
-    outdated: false,
-    statuses: p.statuses,
-    ...(manual === null ? {} : { manualOnly: manual }),
-  };
+  return filterOf(p, p.text);
 }
 
 export function toQuery(p: LibraryParams): Query {

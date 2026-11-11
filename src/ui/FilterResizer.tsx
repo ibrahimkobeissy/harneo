@@ -1,5 +1,5 @@
-import { Resizer } from "../../ui";
-import styles from "./Library.module.css";
+import styles from "./Filters.module.css";
+import { Resizer } from "./Resizer";
 
 /** Mirrors `--size-filters` in tokens.css: the width double-click goes back to. */
 export const FILTERS_DEFAULT = 228;
