@@ -13,5 +13,8 @@
     "gsap": "^3.15.0",
     "hyperframes": "^0.9.9"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "undici": "7.30.2"
+  }
 }
