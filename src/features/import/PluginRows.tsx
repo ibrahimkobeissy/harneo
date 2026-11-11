@@ -3,11 +3,10 @@ import { useId, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
 import { Badge, Checkbox, Radio } from "../../ui";
-import type { WholeNote } from "../../ui/plugin";
+import { type WholeNote, wholeText } from "../../ui/plugin";
 import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
 import {
-  lostIfUnpacked,
   needsPlugin,
   partsRefusal,
   type PluginGroup,
@@ -47,7 +46,14 @@ export function PluginChoice({
     parts: partsRefusal(group, hold),
   };
   const base = `choice-${group.folder || "root"}`;
-  const lost = lostIfUnpacked(reason);
+  if (reason) {
+    // It must stay whole (ADR-006): no choice to make, only the reason.
+    return (
+      <p className={`${styles.muted} ${styles.wholeOnly}`}>
+        <Info size={12} aria-hidden="true" /> {wholeText(reason)}
+      </p>
+    );
+  }
   return (
     <fieldset className={styles.pluginChoice} aria-busy={busy}>
       <legend className={styles.sr}>Import {group.name} as</legend>
@@ -80,19 +86,9 @@ export function PluginChoice({
           </p>
         );
       })}
-      {mode === "whole" && reason && (
-        <p className={`${styles.muted} ${styles.wholeOnly}`}>
-          <Info size={12} aria-hidden="true" /> {reason.text}
-        </p>
-      )}
       {mode === "parts" && (
         <p className={`${styles.muted} ${styles.wholeOnly}`}>
           <Info size={12} aria-hidden="true" /> {WHOLE_ONLY}
-        </p>
-      )}
-      {mode === "parts" && lost && (
-        <p className={`${styles.muted} ${styles.wholeOnly}`}>
-          <Info size={12} aria-hidden="true" /> Lost if unpacked: {lost}.
         </p>
       )}
     </fieldset>

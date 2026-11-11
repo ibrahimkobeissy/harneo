@@ -1,8 +1,6 @@
 import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
-import { isPlugin, isRemoteOnlyPath, lostIfUnpacked } from "../../ui/plugin";
-
-export { lostIfUnpacked };
+import { isPlugin, isRemoteOnlyPath } from "../../ui/plugin";
 
 /** The error the scan puts on a part that only works inside its plugin. */
 const NEEDS_PLUGIN = "plugin.part-needs-plugin";

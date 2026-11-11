@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Candidate } from "../../bindings/Candidate";
 import type { WholeReason } from "../../bindings/WholeReason";
+import { wholeText } from "../../ui/plugin";
 import {
   fromPlugin,
-  lostIfUnpacked,
   needsPlugin,
   partsRefusal,
   pluginGroups,
@@ -70,18 +70,46 @@ describe("plugin helpers", () => {
 });
 
 describe("why a plugin stays whole", () => {
-  it("lists what unpacking loses", () => {
-    const hooks = {
-      reason: {
-        type: "wholeOnlyParts",
-        parts: ["hooks", "mods"],
-      } satisfies WholeReason,
-      text: "Has hooks and mods: they only work inside the plugin.",
-    };
-    expect(lostIfUnpacked(hooks)).toBe("hooks, mods");
+  const say = (reason: WholeReason) => wholeText({ reason, text: "" });
+  it("words every reason as the core does", () => {
+    expect(say({ type: "wholeOnlyParts", parts: ["hooks", "mods"] })).toBe(
+      "Has hooks and mods: they only work inside the plugin.",
+    );
+    expect(say({ type: "wholeOnlyParts", parts: ["hooks"] })).toBe(
+      "Has hooks: they only work inside the plugin.",
+    );
+    expect(say({ type: "pluginOnlyKey", key: "userConfig" })).toBe(
+      "Its manifest has `userConfig`, which only means something inside the plugin.",
+    );
+    expect(say({ type: "unknownKey", key: "x" })).toBe(
+      "Its manifest has `x`, which Harneo does not know, so it cannot tell a copy would work.",
+    );
     expect(
-      lostIfUnpacked({ reason: { type: "remoteOnly" }, text: "" }),
-    ).toBeNull();
-    expect(lostIfUnpacked(null)).toBeNull();
+      say({
+        type: "pluginVariable",
+        variable: "${CLAUDE_PLUGIN_ROOT}",
+        parts: ["skills", "agents", "commands"],
+      }),
+    ).toBe(
+      "Its skills, agents and commands use `${CLAUDE_PLUGIN_ROOT}`, which only resolves inside the plugin.",
+    );
+    expect(say({ type: "namespacedSelfReference", parts: ["skills"] })).toBe(
+      "Its skills call other parts of the plugin by their `plugin:name`, which a copy loses.",
+    );
+    expect(say({ type: "agentField", field: "hooks" })).toBe(
+      "An agent sets `hooks`, which Claude Code ignores in a plugin but runs when copied.",
+    );
+    expect(say({ type: "noParts" })).toBe(
+      "It has no skills, agents, commands, output styles or MCP servers to unpack.",
+    );
+    expect(say({ type: "remoteOnly" })).toBe(
+      "Its files live in another repo that is never fetched, so it can only be taken whole.",
+    );
+  });
+
+  it("prefers the sentence the core sent", () => {
+    expect(wholeText({ reason: { type: "noParts" }, text: "From core." })).toBe(
+      "From core.",
+    );
   });
 });

@@ -41,9 +41,38 @@ const PART_LABELS: Record<PluginPart, string> = {
   settings: "settings",
 };
 
-/** What unpacking would lose ("hooks, mods"), or null when nothing comes only with the plugin. */
-export function lostIfUnpacked(note: WholeNote | null): string | null {
-  return note?.reason.type === "wholeOnlyParts"
-    ? note.reason.parts.map((p) => PART_LABELS[p]).join(", ")
-    : null;
+/** `a`, `a and b`, `a, b and c`. */
+function join(parts: PluginPart[]): string {
+  const labels = parts.map((p) => PART_LABELS[p]);
+  const last = labels.pop();
+  if (last === undefined) return "";
+  return labels.length === 0 ? last : `${labels.join(", ")} and ${last}`;
+}
+
+/** The reason as a sentence: the core's own (`WholeReason::text`), or the same words when absent. */
+export function wholeText(note: WholeNote): string {
+  if (note.text) return note.text;
+  const why = note.reason;
+  switch (why.type) {
+    case "wholeOnlyParts":
+      return `Has ${join(why.parts)}: they only work inside the plugin.`;
+    case "pluginOnlyKey": {
+      const { key } = why;
+      return `Its manifest has \`${key}\`, which only means something inside the plugin.`;
+    }
+    case "unknownKey": {
+      const { key } = why;
+      return `Its manifest has \`${key}\`, which Harneo does not know, so it cannot tell a copy would work.`;
+    }
+    case "pluginVariable":
+      return `Its ${join(why.parts)} use \`${why.variable}\`, which only resolves inside the plugin.`;
+    case "namespacedSelfReference":
+      return `Its ${join(why.parts)} call other parts of the plugin by their \`plugin:name\`, which a copy loses.`;
+    case "agentField":
+      return `An agent sets \`${why.field}\`, which Claude Code ignores in a plugin but runs when copied.`;
+    case "noParts":
+      return "It has no skills, agents, commands, output styles or MCP servers to unpack.";
+    case "remoteOnly":
+      return "Its files live in another repo that is never fetched, so it can only be taken whole.";
+  }
 }

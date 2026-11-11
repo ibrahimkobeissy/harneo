@@ -45,7 +45,8 @@ function candidate(
     ...(mustStayWhole && {
       mustStayWhole,
       // The sentence the core sends with the reason.
-      mustStayWholeText: "Has hooks, mods: they only work inside the plugin.",
+      mustStayWholeText:
+        "Has hooks and mods: they only work inside the plugin.",
     }),
   };
 }
@@ -127,27 +128,17 @@ describe("plugins are unpacked by default", () => {
     expect(first?.args.whole).toBeUndefined();
   });
 
-  it("proposes a plugin with hooks whole, says why, and lists what unpacking loses", async () => {
+  it("offers a plugin with hooks whole only: no Pick parts, no Unpack, and the reason", async () => {
     const user = userEvent.setup();
     const calls = setup(wholeHooks);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("button", { name: "Exclude pack" });
-    expect(screen.getByRole("radio", { name: "Whole plugin" })).toBeChecked();
     expect(
-      screen.getByText("Has hooks, mods: they only work inside the plugin."),
+      screen.getByText("Has hooks and mods: they only work inside the plugin."),
     ).toBeVisible();
-
-    await user.click(screen.getByRole("radio", { name: "Pick parts" }));
-    await screen.findByRole("checkbox", { name: /one/ });
-    expect(screen.getByText(/Lost if unpacked: hooks, mods\./)).toBeVisible();
+    expect(screen.queryByRole("radio", { name: "Pick parts" })).toBeNull();
+    expect(screen.queryByRole("radio")).toBeNull();
     const previews = calls.filter((c) => c.cmd === "library_preview");
-    expect(previews[1]?.args.unpack).toEqual([""]);
-
-    // Back to whole: the choice is explicit, so the default does not unpack it again.
-    await user.click(screen.getByRole("radio", { name: "Whole plugin" }));
-    await screen.findByRole("button", { name: "Exclude pack" });
-    const last = calls.filter((c) => c.cmd === "library_preview").at(-1);
-    expect(last?.args.whole).toEqual([""]);
-    expect(last?.args.unpack).toBeUndefined();
+    expect(previews).toHaveLength(1);
   });
 });
