@@ -59,7 +59,7 @@ impl Setup {
 
 #[test]
 fn parts_of_a_plugin_that_now_has_hooks_carry_the_reason() -> TestResult {
-    let mut setup = setup()?;
+    let setup = setup()?;
     assert!(setup.notices()?.iter().all(Option::is_none));
     add_hooks(setup.repo.path())?;
     setup.library.check_updates(&CheckScope::All)?;
@@ -76,7 +76,7 @@ fn parts_of_a_plugin_that_now_has_hooks_carry_the_reason() -> TestResult {
 
 #[test]
 fn parts_of_a_skills_only_plugin_show_no_notice() -> TestResult {
-    let mut setup = setup()?;
+    let setup = setup()?;
     setup.library.check_updates(&CheckScope::All)?;
     assert!(setup.notices()?.iter().all(Option::is_none));
     let detail = setup.library.detail(&setup.parts[0])?;
@@ -86,7 +86,7 @@ fn parts_of_a_skills_only_plugin_show_no_notice() -> TestResult {
 
 #[test]
 fn a_source_checked_before_the_rule_is_judged_again_at_the_same_commit() -> TestResult {
-    let mut setup = setup()?;
+    let setup = setup()?;
     // The first check records a verdict; clearing it stands for a library from before ADR-006.
     add_hooks(setup.repo.path())?;
     setup

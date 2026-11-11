@@ -33,6 +33,20 @@ export function UpdateTag({ item }: { item: LibraryItem }) {
   );
 }
 
+/** On a part of a plugin that must now stay whole (ADR-006): the reason is the tooltip. */
+export function WholeTag({ item }: { item: LibraryItem }) {
+  if (item.mustStayWhole === undefined) return null;
+  return (
+    <Badge tone="warn">
+      <span
+        title={`Taken apart from ${item.fromPlugin ?? "its plugin"}, which only works whole: ${item.mustStayWhole}`}
+      >
+        Stays whole
+      </span>
+    </Badge>
+  );
+}
+
 /**
  * A quiet marker for a skill that is manual only (never auto-invoked): an outlined chip, not a
  * status badge, so it sits beside the tags and leaves the card foot's one badge alone.
@@ -274,6 +288,7 @@ export function CardBadge({
   status: Status;
 }) {
   if (item.update) return <UpdateTag item={item} />;
+  if (item.mustStayWhole !== undefined) return <WholeTag item={item} />;
   if (
     (item.tier === "risky" || item.tier === "dangerous") &&
     item.findingCount > 0
