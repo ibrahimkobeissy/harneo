@@ -78,7 +78,10 @@ interface Call {
 }
 
 /** The backend: the default (no unpack, no whole) answers `first`; an unpack answers parts. */
-function setup(first: Preview) {
+function setup(
+  first: Preview,
+  hold = { name: "pack", folder: "", whole: false, parts: false },
+) {
   const calls: Call[] = [];
   mockIPC((cmd, args) => {
     const a = (args ?? {}) as Record<string, unknown>;
@@ -95,7 +98,7 @@ function setup(first: Preview) {
         };
       }
       case "library_plugin_holds":
-        return [{ name: "pack", folder: "", whole: false, parts: false }];
+        return [hold];
       case "tags_list":
         return [];
       default:
@@ -140,5 +143,17 @@ describe("plugins are unpacked by default", () => {
     expect(screen.queryByRole("radio")).toBeNull();
     const previews = calls.filter((c) => c.cmd === "library_preview");
     expect(previews).toHaveLength(1);
+  });
+
+  it("says why a plugin that must stay whole can't be imported while its parts are in the library", async () => {
+    const user = userEvent.setup();
+    setup(wholeHooks, { name: "pack", folder: "", whole: false, parts: true });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(
+      await screen.findByText(
+        "Parts of the plugin are in the library; remove them first to import the plugin pack whole.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByRole("radio")).toBeNull();
   });
 });

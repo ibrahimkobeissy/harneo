@@ -47,11 +47,15 @@ export function PluginChoice({
   };
   const base = `choice-${group.folder || "root"}`;
   if (reason) {
-    // It must stay whole (ADR-006): no choice to make, only the reason.
+    // It must stay whole (ADR-006): no choice to make, only the reason, and why it can't be
+    // imported whole either when the library already holds its parts.
     return (
-      <p className={`${styles.muted} ${styles.wholeOnly}`}>
-        <Info size={12} aria-hidden="true" /> {wholeText(reason)}
-      </p>
+      <>
+        <p className={`${styles.muted} ${styles.wholeOnly}`}>
+          <Info size={12} aria-hidden="true" /> {wholeText(reason)}
+        </p>
+        {refusal.whole && <p className={styles.reason}>{refusal.whole}</p>}
+      </>
     );
   }
   return (
