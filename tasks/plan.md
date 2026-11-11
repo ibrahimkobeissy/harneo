@@ -536,3 +536,4 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#275](https://github.com/ibrahimkobeissy/harneo/issues/275) Harnmap: place the members of a whole plugin
 - [#276](https://github.com/ibrahimkobeissy/harneo/issues/276) Bump the npm group (Dependabot #268)
 - [#277](https://github.com/ibrahimkobeissy/harneo/issues/277) Replace with the whole plugin: don't hold the library lock while cloning
+- [#278](https://github.com/ibrahimkobeissy/harneo/issues/278) Force undici 7.30.2 in the launch-video folders (44 Dependabot alerts)
