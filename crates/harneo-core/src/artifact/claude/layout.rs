@@ -63,7 +63,7 @@ fn report_other_agents(walker: &Walker, options: &ScanOptions, report: &mut Scan
         report.diagnostics.push(Diagnostic::info(
             "scan.other-agent-folder",
             &dir,
-            "another agent's folder: not read (only .claude and .agents are)",
+            "not read: only .claude and .agents are (another agent's folder, or a hidden one)",
         ));
     }
 }
