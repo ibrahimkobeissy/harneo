@@ -527,3 +527,10 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#254](https://github.com/ibrahimkobeissy/harneo/issues/254) Harnmap UI: the line and hook rail visible, plain loop labels, a hideable side panel, next steps explained
 - [#262](https://github.com/ibrahimkobeissy/harneo/issues/262) Harnmap: the pipe with its flowing beams, valves, a light hook rail, a badge that fits, right-angled loops
 - [#263](https://github.com/ibrahimkobeissy/harneo/issues/263) Harnmap: the side panel explains each natural next step with Claude's reason
+- [#269](https://github.com/ibrahimkobeissy/harneo/issues/269) Profile builder picker: the Library's Filters column
+- [#270](https://github.com/ibrahimkobeissy/harneo/issues/270) Release 0.3.1
+- [#271](https://github.com/ibrahimkobeissy/harneo/issues/271) Read only Claude's copy of a skill: skip other agents' folders
+- [#272](https://github.com/ibrahimkobeissy/harneo/issues/272) Unpack a plugin only when every part works as a copy (ADR-006, core)
+- [#273](https://github.com/ibrahimkobeissy/harneo/issues/273) No Pick parts or Unpack for a plugin that must stay whole (ADR-006, UI)
+- [#274](https://github.com/ibrahimkobeissy/harneo/issues/274) Flag parts of plugins that must now stay whole, and offer the whole plugin
+- [#275](https://github.com/ibrahimkobeissy/harneo/issues/275) Harnmap: place the members of a whole plugin
