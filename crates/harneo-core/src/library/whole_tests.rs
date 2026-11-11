@@ -161,3 +161,22 @@ fn replace_is_refused_for_parts_whose_plugin_need_not_stay_whole() -> TestResult
     assert_eq!(setup.library.list(&Query::default())?.total, 3);
     Ok(())
 }
+
+#[test]
+fn replace_is_refused_when_the_parts_changed_while_the_source_was_read() -> TestResult {
+    let mut setup = setup()?;
+    add_hooks(setup.repo.path())?;
+    setup.library.check_updates(&CheckScope::All)?;
+    let prepared = setup
+        .library
+        .prepare_replace_with_whole(&setup.parts[0])?
+        .run()?;
+    // A part is removed after the source was read, before the lock is taken again.
+    setup.library.remove(&setup.parts[1])?;
+    let refused = setup.library.finish_replace_with_whole(prepared).err();
+    assert!(refused.is_some_and(|e| e.to_string().contains("changed")));
+    let page = setup.library.list(&Query::default())?;
+    assert_eq!(page.total, 2);
+    assert!(page.items.iter().all(|i| i.kind != ArtifactKind::Plugin));
+    Ok(())
+}

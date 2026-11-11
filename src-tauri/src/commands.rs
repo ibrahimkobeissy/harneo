@@ -317,11 +317,25 @@ pub fn library_replace_plan(
 /// Replaces the parts of a plugin that must stay whole with the whole plugin, read from its
 /// source; profiles holding the parts get the plugin as a new version.
 #[tauri::command]
-pub fn library_replace_with_whole(
-    state: State<'_, LibraryState>,
+pub async fn library_replace_with_whole(
+    app: AppHandle,
     id: String,
 ) -> Result<harneo_core::library::ReplaceOutcome, String> {
-    state.with_mut(|library| library.replace_with_whole(&id))
+    tauri::async_runtime::spawn_blocking(move || replace_with_whole(&app, &id))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Reads and imports the plugin without the library lock (a clone can be slow); the lock is
+/// held only to read what is needed and to write.
+fn replace_with_whole<R: tauri::Runtime>(
+    app: &AppHandle<R>,
+    id: &str,
+) -> Result<harneo_core::library::ReplaceOutcome, String> {
+    let state = app.state::<LibraryState>();
+    let job = state.with(|library| library.prepare_replace_with_whole(id))?;
+    let prepared = job.run().map_err(|e| e.to_string())?;
+    state.with_mut(|library| library.finish_replace_with_whole(prepared))
 }
 
 /// The id of the library artifact of `kind` named `name`, if any (for opening a reference).
@@ -2526,7 +2540,7 @@ mod tests {
         assert!(done.is_some_and(|m| m.contains("not in the library")));
         let plan = library_replace_plan(state(), "0000000000000000".into()).err();
         assert!(plan.is_some_and(|m| m.contains("not in the library")));
-        let done = library_replace_with_whole(state(), "0000000000000000".into()).err();
+        let done = replace_with_whole(app.handle(), "0000000000000000").err();
         assert!(done.is_some_and(|m| m.contains("not in the library")));
         Ok(())
     }

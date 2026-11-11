@@ -209,86 +209,68 @@ impl Library {
     }
 
     /// Reads the plugin `id` belongs to from its source and imports it whole in place of its
-    /// parts: the parts leave the library (their tags and collections go to the plugin), every
-    /// profile holding any of them gets the plugin instead as a new version, their maps forget
-    /// the parts' placements and the source stops unpacking the plugin. Refused unless a check
-    /// found the plugin must stay whole, and again if the source no longer says so. All or
-    /// nothing.
+    /// parts (see [`Library::finish_replace_with_whole`]). The three steps run back to back
+    /// here; callers that share the library across threads run the middle one without it.
     pub fn replace_with_whole(&mut self, id: &str) -> Result<ReplaceOutcome> {
+        let prepared = self.prepare_replace_with_whole(id)?.run()?;
+        self.finish_replace_with_whole(prepared)
+    }
+
+    /// Step one: reads what replacing needs from the library (the flagged plugin, its source
+    /// record and the parts as they are now). Refused unless a check found the plugin must stay
+    /// whole.
+    pub fn prepare_replace_with_whole(&self, id: &str) -> Result<ReplaceJob> {
         let flagged = self.flagged_plugin(id)?;
         let record = records::load(&self.store.conn, id)?
             .ok_or_else(|| Error::NotInLibrary { id: id.to_owned() })?
             .provenance
             .source;
-        let located = remote::locate(&self.git, &self.session, self.store.root(), &record)
-            .map_err(|failure| Error::Update {
-                message: match failure {
-                    remote::Failure::Missing => "the source folder is gone".to_owned(),
-                    remote::Failure::Unreachable(reason) => reason,
-                },
-            })?;
-        let scanned = remote::scan(
-            &located.root,
-            &record,
-            &super::layout_claude::StoredLayout::default(),
-        )
-        .map_err(|_| Error::Update {
-            message: "the source could not be read".to_owned(),
-        })?;
-        let mut plugin = scanned
-            .artifacts
-            .into_iter()
-            .find(|a| a.kind == ArtifactKind::Plugin && a.path == flagged.folder)
-            .ok_or_else(|| Error::Update {
-                message: "the plugin is gone from its source".to_owned(),
-            })?;
-        let options = ScanOptions::default();
-        let mut walker = crate::artifact::walk::Walker::new(&located.root, &options);
-        if crate::plugin::must_stay_whole(&mut walker, &plugin).is_none() {
-            return Err(Error::Update {
-                message: format!(
-                    "{} can stay unpacked at its source now; check for updates again",
-                    flagged.name
-                ),
-            });
+        let large_files: bool = self.store.conn.query_row(
+            "SELECT large_files FROM sources WHERE id = ?1",
+            params![record.id],
+            |r| r.get(0),
+        )?;
+        Ok(ReplaceJob {
+            git: self.git.clone(),
+            session: std::sync::Arc::clone(&self.session),
+            library_root: self.store.root().to_path_buf(),
+            id: id.to_owned(),
+            record,
+            large_files,
+            flagged,
+        })
+    }
+
+    /// Step three, under the lock: refuses unless the parts, the verdict and the plugin's
+    /// absence are as step one saw them, then imports the plugin whole in place of its parts:
+    /// the parts leave the library (their tags and collections go to the plugin), every profile
+    /// holding any of them gets the plugin instead as a new version, their maps forget the
+    /// parts' placements and the source stops unpacking the plugin. All or nothing.
+    pub fn finish_replace_with_whole(
+        &mut self,
+        prepared: PreparedReplace,
+    ) -> Result<ReplaceOutcome> {
+        let PreparedReplace {
+            id,
+            record,
+            flagged,
+            plugin,
+            plugin_id,
+            copied,
+            plugin_audit,
+            staging,
+            dir,
+        } = prepared;
+        let now_flagged = self.flagged_plugin(&id).map_err(|_| changed(&flagged))?;
+        if now_flagged.fingerprint() != flagged.fingerprint() {
+            return Err(changed(&flagged));
         }
-        if let Some(commit) = &located.commit {
-            plugin.metadata.insert(
-                crate::updates::IMPORTED_COMMIT.to_owned(),
-                Value::String(commit.clone()),
-            );
-        }
-        let source = super::Source::from_record(&record)?;
-        let plugin_id = ids::artifact_id(&source.identity()?, &plugin.path);
         if records::existing(&self.store.conn, &[plugin_id.as_str()])?.contains(&plugin_id) {
             return Err(Error::PluginExclusive {
                 plugin: flagged.name,
                 detail: "the plugin is already in the library".into(),
             });
         }
-        let large_files: bool = self.store.conn.query_row(
-            "SELECT large_files FROM sources WHERE id = ?1",
-            params![record.id],
-            |r| r.get(0),
-        )?;
-        let staging = tempfile::Builder::new()
-            .prefix(".import-")
-            .tempdir_in(self.store.root())
-            .map_err(|e| io_error(self.store.root(), e))?;
-        let dir = staging.path().join(&plugin_id);
-        fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
-        let copied = copy_artifact(
-            &located.root,
-            &plugin,
-            &plugin_id,
-            &dir,
-            &NoHooks,
-            copy_limit(large_files),
-        )?;
-        let mut plugin_audit = audit::audit(&plugin, &located.root, &options);
-        plugin_audit
-            .unaudited
-            .retain(|f| !copied.skipped.iter().any(|s| &s.file == f));
         let artifacts_dir = self.store.artifacts_dir();
         let part_ids: Vec<String> = flagged.parts.iter().map(|(i, _)| i.clone()).collect();
         let mut placed: Option<PathBuf> = None;
@@ -333,6 +315,7 @@ impl Library {
             tx.commit()?;
             Ok(done)
         })();
+        drop(staging);
         match outcome {
             Ok(done) => {
                 for part in &part_ids {
@@ -413,9 +396,147 @@ impl Library {
 }
 
 /// An unpacked plugin that must now stay whole, with the parts the library holds of it.
+#[derive(Clone)]
 struct Flagged {
     name: String,
     folder: String,
     reason: WholeReason,
     parts: Vec<(String, Artifact)>,
+}
+
+impl Flagged {
+    /// What must be unchanged between preparing and finishing a replacement: the plugin, the
+    /// verdict, and each part's id and record.
+    fn fingerprint(&self) -> (String, String, String, Vec<(String, String)>) {
+        (
+            self.name.clone(),
+            self.folder.clone(),
+            self.reason.text(),
+            self.parts
+                .iter()
+                .map(|(id, a)| (id.clone(), serde_json::to_string(a).unwrap_or_default()))
+                .collect(),
+        )
+    }
+}
+
+fn changed(flagged: &Flagged) -> Error {
+    Error::Update {
+        message: format!(
+            "{} changed in the library while its source was read; try again",
+            flagged.name
+        ),
+    }
+}
+
+/// Step one of replacing parts with their whole plugin: what the slow step needs, read under
+/// the lock. It holds no library.
+pub struct ReplaceJob {
+    git: super::git::GitConfig,
+    session: std::sync::Arc<remote::Session>,
+    library_root: PathBuf,
+    id: String,
+    record: records::SourceRecord,
+    large_files: bool,
+    flagged: Flagged,
+}
+
+/// The plugin read from its source and copied to a staging folder, ready to be written.
+pub struct PreparedReplace {
+    id: String,
+    record: records::SourceRecord,
+    flagged: Flagged,
+    plugin: Artifact,
+    plugin_id: String,
+    copied: super::copy::Copied,
+    plugin_audit: audit::Audit,
+    staging: tempfile::TempDir,
+    dir: PathBuf,
+}
+
+impl ReplaceJob {
+    /// Step two, no library: locates the source (cloning when no clone is kept), scans it,
+    /// judges the plugin again and copies it to a staging folder.
+    pub fn run(self) -> Result<PreparedReplace> {
+        let Self {
+            git,
+            session,
+            library_root,
+            id,
+            record,
+            large_files,
+            flagged,
+        } = self;
+        let located =
+            remote::locate(&git, &session, &library_root, &record).map_err(|failure| {
+                Error::Update {
+                    message: match failure {
+                        remote::Failure::Missing => "the source folder is gone".to_owned(),
+                        remote::Failure::Unreachable(reason) => reason,
+                    },
+                }
+            })?;
+        let scanned = remote::scan(
+            &located.root,
+            &record,
+            &super::layout_claude::StoredLayout::default(),
+        )
+        .map_err(|_| Error::Update {
+            message: "the source could not be read".to_owned(),
+        })?;
+        let mut plugin = scanned
+            .artifacts
+            .into_iter()
+            .find(|a| a.kind == ArtifactKind::Plugin && a.path == flagged.folder)
+            .ok_or_else(|| Error::Update {
+                message: "the plugin is gone from its source".to_owned(),
+            })?;
+        let options = ScanOptions::default();
+        let mut walker = crate::artifact::walk::Walker::new(&located.root, &options);
+        if crate::plugin::must_stay_whole(&mut walker, &plugin).is_none() {
+            return Err(Error::Update {
+                message: format!(
+                    "{} can stay unpacked at its source now; check for updates again",
+                    flagged.name
+                ),
+            });
+        }
+        if let Some(commit) = &located.commit {
+            plugin.metadata.insert(
+                crate::updates::IMPORTED_COMMIT.to_owned(),
+                Value::String(commit.clone()),
+            );
+        }
+        let source = super::Source::from_record(&record)?;
+        let plugin_id = ids::artifact_id(&source.identity()?, &plugin.path);
+        let staging = tempfile::Builder::new()
+            .prefix(".import-")
+            .tempdir_in(&library_root)
+            .map_err(|e| io_error(&library_root, e))?;
+        let dir = staging.path().join(&plugin_id);
+        fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
+        let copied = copy_artifact(
+            &located.root,
+            &plugin,
+            &plugin_id,
+            &dir,
+            &NoHooks,
+            copy_limit(large_files),
+        )?;
+        let mut plugin_audit = audit::audit(&plugin, &located.root, &options);
+        plugin_audit
+            .unaudited
+            .retain(|f| !copied.skipped.iter().any(|s| &s.file == f));
+        Ok(PreparedReplace {
+            id,
+            record,
+            flagged,
+            plugin,
+            plugin_id,
+            copied,
+            plugin_audit,
+            staging,
+            dir,
+        })
+    }
 }
