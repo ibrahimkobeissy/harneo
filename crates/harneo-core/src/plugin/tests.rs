@@ -198,6 +198,21 @@ fn metadata_and_component_keys_are_allowed() -> TestResult {
 }
 
 #[test]
+fn a_plugin_without_its_own_manifest_is_not_judged_on_harneos_metadata() -> TestResult {
+    // A marketplace entry for a folder with no `plugin.json`: Claude Code loads the default
+    // folders, and Harneo's own metadata keys (`layoutBy`, `source`...) are not manifest keys.
+    let dir = tempfile::tempdir()?;
+    write(
+        dir.path(),
+        ".claude-plugin/marketplace.json",
+        r#"{"name":"m","owner":{"name":"o"},"plugins":[{"name":"pack","source":"./pack","strict":false}]}"#,
+    )?;
+    skill(&dir.path().join("pack"), "a", "Body")?;
+    assert_eq!(ask(dir.path())?, None);
+    Ok(())
+}
+
+#[test]
 fn a_part_calling_another_by_its_namespaced_name_keeps_the_plugin_whole() -> TestResult {
     let dir = tempfile::tempdir()?;
     manifest(dir.path())?;

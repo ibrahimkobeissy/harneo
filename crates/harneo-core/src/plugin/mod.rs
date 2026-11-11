@@ -322,9 +322,10 @@ fn manifest_key(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
     let on_disk = walker
         .read_text(&manifest, &mut Vec::new())
         .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
+    // Without a `plugin.json` on disk (Claude Code allows a plugin without one), the metadata
+    // holds Harneo's own keys (`layoutBy`, `pluginId`, `source`...): only plugin-only keys count.
     let mut keys: Vec<String> = match on_disk {
         Some(serde_json::Value::Object(map)) => map.keys().cloned().collect(),
-        _ if !is_marketplace_entry(plugin) => plugin.metadata.keys().cloned().collect(),
         _ => Vec::new(),
     };
     keys.extend(
