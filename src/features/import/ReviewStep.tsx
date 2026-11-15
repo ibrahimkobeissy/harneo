@@ -15,6 +15,7 @@ import { LargeFilesChoice } from "./LargeFiles";
 import type { DetectionControl } from "./useDetection";
 import type { ProposalState } from "../../ui";
 import { defaultTagColor } from "./tagColor";
+import { KindCell } from "./KindCell";
 
 /** Core's limit on a tag name (`MAX_NAME_CHARS`). */
 const MAX_TAG_CHARS = 40;
@@ -161,6 +162,7 @@ export function ReviewStep({
           const own = tags[c.id] ?? [];
           return (
             <div key={c.id} className={styles.row} role="group">
+              <KindCell kind={c.artifact.kind} />
               <span className={styles.artifactName} title={c.artifact.name}>
                 {c.artifact.name}
               </span>

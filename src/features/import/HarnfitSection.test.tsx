@@ -55,6 +55,30 @@ function setup(drawn: Record<number, boolean>, token: string | null = "tok") {
 }
 
 describe("Harnfit in the import review", () => {
+  it("starts each row with the type, so same-named artifacts differ", async () => {
+    mockIPC((command) => {
+      if (command === "profiles_list") return [{ id: 1, name: "P1" }];
+      if (command === "harnmap_get") return { drawn: true };
+      return undefined;
+    });
+    const same = (kind: "skill" | "agent"): Candidate =>
+      ({
+        id: `id-${kind}`,
+        artifact: { kind, name: "twin" },
+      }) as Candidate;
+    render(
+      <MemoryRouter>
+        <HarnfitSection chosen={[same("skill"), same("agent")]} token="tok" />
+      </MemoryRouter>,
+    );
+    await screen.findByLabelText("Fit into");
+    const cells = screen.getAllByTestId("kind-cell");
+    expect(cells.map((c) => c.textContent)).toEqual(["Skill", "Subagent"]);
+    for (const c of cells) {
+      expect(c.nextElementSibling).toHaveTextContent("twin");
+    }
+  });
+
   it("offers profiles with a map, a button per candidate, and opens the preview fit", async () => {
     const user = userEvent.setup();
     setup({ 1: false, 2: true, 3: true, 99: true });

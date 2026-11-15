@@ -292,6 +292,25 @@ describe("Import screen", () => {
     ).toBeEnabled();
   });
 
+  it("shows each artifact's type before its name in the tag list", async () => {
+    const u = user();
+    setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    const row = (name: string) =>
+      screen
+        .getAllByRole("group")
+        .find((g) => g.querySelector(`[title="${name}"]`)) as HTMLElement;
+    const alpha = row("alpha");
+    expect(within(alpha).getByTestId("kind-cell")).toHaveTextContent("Skill");
+    expect(alpha.firstElementChild).toBe(
+      within(alpha).getByTestId("kind-cell"),
+    );
+    expect(within(row("settings")).getByTestId("kind-cell")).toHaveTextContent(
+      "Settings",
+    );
+  });
+
   it("calls library_import with the ticked ids and the tags left", async () => {
     const u = user();
     const calls = setup({
