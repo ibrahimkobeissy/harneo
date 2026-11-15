@@ -82,6 +82,9 @@ describe("Harnfit in… menu", () => {
     expect(within(heavy).getByText(/Software development/)).toBeVisible();
     expect(within(heavy).getByText("Conflicts")).toBeVisible();
     expect(within(heavy).getByText(/fit saved .*out of date/)).toBeVisible();
+    // The name has its own line, never sharing one with the fit status (#284).
+    const name = within(heavy).getByText("Heavy");
+    expect(name.parentElement).not.toHaveTextContent(/fit saved/);
     const light = screen.getByRole("menuitem", { name: /Light/ });
     expect(within(light).getByText("not fitted yet")).toBeVisible();
     await user.click(light);

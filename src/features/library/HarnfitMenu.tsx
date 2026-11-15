@@ -120,25 +120,30 @@ export function HarnfitMenu({
                   onClick={() => pick(p)}
                 >
                   <Layers size={14} aria-hidden="true" />
-                  <span className={styles.menuName}>
-                    {p.name}
-                    <span className={styles.menuTag}> · {category}</span>
+                  {/* The name gets its own line, so a long fit status never hides it (#284). */}
+                  <span className={styles.menuRows}>
+                    <span className={styles.menuName}>
+                      <span className={styles.menuProfile}>{p.name}</span>
+                      <span className={styles.menuTag}> · {category}</span>
+                    </span>
+                    <span className={styles.menuStatus}>
+                      {plugin ? (
+                        <span className={styles.menuTag}>not available</span>
+                      ) : fit ? (
+                        <>
+                          <span className={styles.menuTag}>
+                            fit saved {formatDate(fit.createdAt)}
+                            {fit.stale && " · out of date"}
+                          </span>
+                          <Badge tone={verdictTone(fit.verdict)}>
+                            {verdictLabel(fit.verdict)}
+                          </Badge>
+                        </>
+                      ) : (
+                        <span className={styles.menuTag}>not fitted yet</span>
+                      )}
+                    </span>
                   </span>
-                  {plugin ? (
-                    <span className={styles.menuTag}>not available</span>
-                  ) : fit ? (
-                    <>
-                      <span className={styles.menuTag}>
-                        fit saved {formatDate(fit.createdAt)}
-                        {fit.stale && " · out of date"}
-                      </span>
-                      <Badge tone={verdictTone(fit.verdict)}>
-                        {verdictLabel(fit.verdict)}
-                      </Badge>
-                    </>
-                  ) : (
-                    <span className={styles.menuTag}>not fitted yet</span>
-                  )}
                 </button>
               );
             })}
