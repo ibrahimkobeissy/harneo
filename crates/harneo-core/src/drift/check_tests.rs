@@ -297,3 +297,83 @@ fn reapply_all_refreshes_a_stale_harness_md_applied_on_an_earlier_day() -> TestR
     assert_eq!(report.status, DriftStatus::InSync, "{:?}", report.files);
     Ok(())
 }
+
+/// Skill `s` gains a file at its source, and the library takes the update.
+fn skill_gains_a_file(f: &mut super::fixture::Fx) -> TestResult {
+    put(f.src.path(), ".claude/skills/s/s.conf", "key = value\n")?;
+    f.library.check_updates(&crate::updates::CheckScope::All)?;
+    let id = f
+        .library
+        .find(crate::artifact::ArtifactKind::Skill, "s")?
+        .ok_or("skill s missing")?;
+    f.library
+        .update(&id, crate::updates::UpdateChoice::TakeUpstream)?;
+    Ok(())
+}
+
+const NEW_FILE: &str = ".claude/skills/s/s.conf";
+
+#[test]
+fn a_file_new_to_a_library_artifact_is_newer_in_the_library() -> TestResult {
+    let mut f = fx()?;
+    let (_dir, id) = project(&f)?;
+    skill_gains_a_file(&mut f)?;
+    let report = f.library.check_project(id)?;
+    assert!(
+        report.library_newer.iter().any(|p| p == NEW_FILE),
+        "{:?}",
+        report.library_newer
+    );
+    Ok(())
+}
+
+#[test]
+fn reapply_creates_a_file_new_to_a_library_artifact() -> TestResult {
+    let mut f = fx()?;
+    let (dir, id) = project(&f)?;
+    skill_gains_a_file(&mut f)?;
+
+    let plan = f.library.plan_reapply(id, None)?;
+    let write = plan
+        .writes
+        .iter()
+        .find(|w| w.path == NEW_FILE)
+        .ok_or("the new file is not planned")?;
+    assert_eq!(write.action, WriteAction::New);
+    f.library.apply(&plan)?;
+
+    assert_eq!(read(dir.path(), NEW_FILE)?, "key = value\n");
+    assert!(f
+        .library
+        .installed_files(id)?
+        .iter()
+        .any(|i| i.path == NEW_FILE));
+    let report = f.library.check_project(id)?;
+    assert!(
+        report.library_newer.is_empty(),
+        "{:?}",
+        report.library_newer
+    );
+    assert_eq!(report.status, DriftStatus::InSync, "{:?}", report.files);
+    Ok(())
+}
+
+#[test]
+fn a_project_file_at_a_path_new_to_the_library_is_left_alone() -> TestResult {
+    let mut f = fx()?;
+    let (dir, id) = project(&f)?;
+    put(dir.path(), NEW_FILE, "mine\n")?;
+    skill_gains_a_file(&mut f)?;
+
+    let report = f.library.check_project(id)?;
+    assert!(
+        !report.library_newer.iter().any(|p| p == NEW_FILE),
+        "{:?}",
+        report.library_newer
+    );
+    let plan = f.library.plan_reapply(id, None)?;
+    assert!(!plan.writes.iter().any(|w| w.path == NEW_FILE));
+    f.library.apply(&plan)?;
+    assert_eq!(read(dir.path(), NEW_FILE)?, "mine\n");
+    Ok(())
+}

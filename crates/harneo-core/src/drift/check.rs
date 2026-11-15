@@ -127,6 +127,20 @@ fn addable(kind: ArtifactKind) -> bool {
 }
 
 /// The bytes of `rel` in the project: `None` when absent.
+/// The files the library now renders that Harneo never wrote (an artifact gained a file), when
+/// the project has no file of its own at that path.
+fn new_in_library(
+    root: &Path,
+    rendered: &HashMap<&str, &[u8]>,
+    managed: &HashSet<&str>,
+) -> Vec<String> {
+    rendered
+        .keys()
+        .filter(|p| !managed.contains(*p) && matches!(disk_bytes(root, p), Ok(None)))
+        .map(|p| (*p).to_owned())
+        .collect()
+}
+
 pub(super) fn disk_bytes(root: &Path, rel: &str) -> Result<Option<Vec<u8>>> {
     let path = crate::install::resolve_inside(root, rel)?;
     match std::fs::symlink_metadata(&path) {
@@ -220,6 +234,8 @@ impl Library {
                 });
             }
         }
+        let managed: HashSet<&str> = installed.iter().map(|f| f.path.as_str()).collect();
+        library_newer.extend(new_in_library(root, &by_path, &managed));
         files.extend(self.added_files(root, &installed)?);
         files.sort_by(|a, b| {
             let rank = |f: &DriftFile| u8::from(f.change == DriftChange::Added);
