@@ -47,7 +47,14 @@ export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
   const { collections, openNew } = useCollections();
   const projectCount = useProjectCount();
   const summaries = useDriftSummaries();
-  const drifted = [...summaries.values()].filter((d) => d.drifted > 0).length;
+  // The same states the Projects screen counts as needing attention.
+  const attention = [...summaries.values()].filter(
+    (d) =>
+      d.status === "missing" ||
+      d.drifted > 0 ||
+      d.profileNewer !== null ||
+      d.libraryNewer > 0,
+  ).length;
   return (
     <nav className={styles.side} aria-label="Main">
       <div className={styles.top}>
@@ -79,14 +86,14 @@ export function Sidebar({ onShortcuts, onSearch, onCollapse }: SidebarProps) {
           count={
             d.path !== "/projects"
               ? undefined
-              : drifted > 0
-                ? drifted
+              : attention > 0
+                ? attention
                 : projectCount
           }
-          warn={d.path === "/projects" && drifted > 0}
+          warn={d.path === "/projects" && attention > 0}
           countLabel={
-            d.path === "/projects" && drifted > 0
-              ? `${drifted} ${drifted === 1 ? "project has" : "projects have"} drifted files`
+            d.path === "/projects" && attention > 0
+              ? `${attention} ${attention === 1 ? "project needs" : "projects need"} attention`
               : undefined
           }
         />

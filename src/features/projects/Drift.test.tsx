@@ -243,7 +243,7 @@ describe("statusOf with drift", () => {
 });
 
 describe("Projects list and sidebar", () => {
-  it("shows every pill and the drifted count in the sidebar", async () => {
+  it("shows every pill and the attention count in the sidebar", async () => {
     const names = ["a", "b", "c", "d"];
     setup("/projects", {
       projects: names.map((n, i) => project(i + 1, n)),
@@ -259,8 +259,8 @@ describe("Projects list and sidebar", () => {
     expect(screen.getByText("Missing")).toBeVisible();
     expect(screen.getByText("In sync")).toBeVisible();
     const nav = screen.getByRole("link", { name: "Projects" });
-    await waitFor(() => expect(nav).toHaveTextContent("1"));
-    expect(within(nav).getByTitle("1 project has drifted files")).toBeVisible();
+    await waitFor(() => expect(nav).toHaveTextContent("3"));
+    expect(within(nav).getByTitle("3 projects need attention")).toBeVisible();
   });
 
   it("leads with what needs attention, and explains a Missing card", async () => {
@@ -294,6 +294,17 @@ describe("Projects list and sidebar", () => {
     ).toBeVisible();
   });
 
+  it("counts a newer profile version in the sidebar, but not a project in sync", async () => {
+    setup("/projects", {
+      projects: [project(1, "a"), project(2, "b")],
+      summaries: [
+        { projectId: 1n, summary: summary({ profileNewer: 5 }) },
+        { projectId: 2n, summary: summary() },
+      ],
+    });
+    expect(await screen.findByTitle("1 project needs attention")).toBeVisible();
+  });
+
   it("pluralises the sidebar tooltip and reloads on a rescan event", async () => {
     const summaries = [
       { projectId: 1n, summary: summary({ status: "drift", drifted: 1 }) },
@@ -303,9 +314,7 @@ describe("Projects list and sidebar", () => {
       projects: [project(1, "a"), project(2, "b")],
       summaries,
     });
-    expect(
-      await screen.findByTitle("2 projects have drifted files"),
-    ).toBeVisible();
+    expect(await screen.findByTitle("2 projects need attention")).toBeVisible();
     const before = calls.filter((c) => c.cmd === "drift_check_all").length;
     await emit("harneo://changed", { scope: "library" });
     await waitFor(() =>
@@ -333,6 +342,22 @@ describe("Drift tab", () => {
     expect(
       screen.getByRole("region", { name: "Added in project" }),
     ).toHaveTextContent("mine/SKILL.md");
+  });
+
+  it("opens on Drift and counts the files when only the library is newer", async () => {
+    setup("/projects/1", {
+      report: report({
+        status: "inSync",
+        files: [],
+        libraryNewer: [".claude/agents/a.md", ".claude/agents/b.md"],
+      }),
+    });
+    expect(
+      await screen.findByText(/Library has newer copies of 2 files/),
+    ).toBeVisible();
+    const tab = screen.getByRole("tab", { name: /Drift/ });
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(tab).toHaveTextContent("Drift 2");
   });
 
   it("falls back to Installed files when nothing drifted, and says No drift", async () => {

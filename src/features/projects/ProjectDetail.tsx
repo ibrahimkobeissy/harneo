@@ -198,7 +198,10 @@ export function ProjectScreen() {
   );
   const tab: Tab =
     picked ??
-    (report && (report.files.length > 0 || report.status === "missing")
+    (report &&
+    (report.files.length > 0 ||
+      report.libraryNewer.length > 0 ||
+      report.status === "missing")
       ? "drift"
       : "files");
   const dataDir = app.status === "ready" ? app.info.dataDir : null;
@@ -304,7 +307,9 @@ export function ProjectScreen() {
         >
           <GitCompare size={14} aria-hidden="true" />
           Drift{" "}
-          <span className={styles.muted}>{report?.files.length ?? 0}</span>
+          <span className={styles.muted}>
+            {report ? report.files.length + report.libraryNewer.length : 0}
+          </span>
         </button>
         <button
           type="button"
