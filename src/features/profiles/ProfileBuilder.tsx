@@ -207,7 +207,8 @@ function Builder({
 }) {
   const navigate = useNavigate();
   const [saved, setSaved] = useState(initial);
-  const base = `${initial.id}|${initial.name}|${initial.version}|${specKey(initial.spec)}`;
+  // The saved profile a draft belongs to: after a save, edits are kept against the new version.
+  const base = `${saved.id}|${saved.name}|${saved.version}|${specKey(saved.spec)}`;
   const [kept] = useState(() => draftFor(routeId, base));
   const [name, setName] = useState(kept?.name ?? initial.name);
   const [spec, setSpec] = useState(kept?.spec ?? initial.spec);

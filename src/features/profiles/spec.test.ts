@@ -5,6 +5,7 @@ import {
   addItem,
   addMcp,
   dropItems,
+  dropMissing,
   emptySpec,
   isEmpty,
   mcpEnvKeys,
@@ -132,5 +133,28 @@ describe("spec helpers", () => {
     ]);
     expect(rows.find((r) => r.name === "a.md")?.conflict).toBe(true);
     expect(rows.find((r) => r.name === "HARNESS.md")?.conflict).toBe(false);
+  });
+});
+
+describe("dropMissing", () => {
+  it("drops missing ids from the items, the Settings choice and the MCP servers", () => {
+    const spec: ProfileSpec = {
+      ...emptySpec,
+      items: ["keep", "gone-item"],
+      settings: "gone-settings",
+      mcp: [
+        { artifact: "keep-mcp", env: {} },
+        { artifact: "gone-mcp", env: {} },
+      ],
+    };
+    const out = dropMissing(spec, ["gone-item", "gone-settings", "gone-mcp"]);
+    expect(out.items).toEqual(["keep"]);
+    expect(out.settings).toBeNull();
+    expect(out.mcp.map((m) => m.artifact)).toEqual(["keep-mcp"]);
+  });
+
+  it("keeps a Settings choice that is still in the library", () => {
+    const spec: ProfileSpec = { ...emptySpec, settings: "here" };
+    expect(dropMissing(spec, ["other"]).settings).toBe("here");
   });
 });
