@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
+import { draftFor, keepDraft } from "./drafts";
 import { ProfilesScreen } from ".";
 
 function summary(id: number, name: string, projectCount = 0): ProfileSummary {
@@ -209,6 +210,11 @@ describe("Profile card", () => {
       return cmd === "profiles_list" ? [summary(1, "Light")] : null;
     });
     show();
+    keepDraft("1", {
+      base: "x",
+      name: "Light",
+      spec: { items: ["a"], settings: null, mcp: [], manualOnly: {} },
+    });
     await user.click(
       await screen.findByRole("button", { name: "More actions for Light" }),
     );
@@ -223,6 +229,7 @@ describe("Profile card", () => {
     expect(calls.find((c) => c.cmd === "profile_delete")?.args).toEqual({
       id: 1,
     });
+    expect(draftFor("1", "x")).toBeUndefined();
   });
 
   it("shows the projects that block a delete", async () => {

@@ -52,6 +52,19 @@ export function dropItems(spec: ProfileSpec, ids: string[]): ProfileSpec {
   };
 }
 
+/** Drops ids that left the library from the items, the Settings choice and the MCP servers. */
+export function dropMissing(spec: ProfileSpec, ids: string[]): ProfileSpec {
+  const gone = dropItems(spec, ids);
+  return {
+    ...gone,
+    settings:
+      spec.settings !== null && ids.includes(spec.settings)
+        ? null
+        : spec.settings,
+    mcp: spec.mcp.filter((m) => !ids.includes(m.artifact)),
+  };
+}
+
 export function setManualOnly(
   spec: ProfileSpec,
   id: string,

@@ -43,6 +43,7 @@ export function Cart({
   onDiscard,
   onRemove,
   onSpec,
+  onDropMissing,
   onManualOnly,
 }: {
   name: string;
@@ -64,6 +65,7 @@ export function Cart({
   onDiscard: () => void;
   onRemove: (id: string) => void;
   onSpec: (update: (s: ProfileSpec) => ProfileSpec) => void;
+  onDropMissing: (ids: string[]) => void;
   onManualOnly: (id: string, value: boolean) => void;
 }) {
   const nameId = useId();
@@ -222,7 +224,14 @@ export function Cart({
           )}
           {resolved && resolved.missing.length > 0 && (
             <p role="alert" className={styles.errorText}>
-              No longer in the library: {resolved.missing.join(", ")}.
+              No longer in the library: {resolved.missing.join(", ")}.{" "}
+              <Button
+                variant="ghost"
+                small
+                onClick={() => onDropMissing(resolved.missing)}
+              >
+                Remove them
+              </Button>
             </p>
           )}
         </Panel>

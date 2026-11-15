@@ -33,6 +33,7 @@ import {
   dropItems,
   emptySpec,
   isEmpty,
+  dropMissing,
   setManualOnly,
   specKey,
 } from "./spec";
@@ -206,7 +207,8 @@ function Builder({
 }) {
   const navigate = useNavigate();
   const [saved, setSaved] = useState(initial);
-  const kept = draftFor(routeId);
+  const base = `${initial.id}|${initial.name}|${initial.version}|${specKey(initial.spec)}`;
+  const [kept] = useState(() => draftFor(routeId, base));
   const [name, setName] = useState(kept?.name ?? initial.name);
   const [spec, setSpec] = useState(kept?.spec ?? initial.spec);
   const [category, setCategory] = useState(kept?.category ?? initial.category);
@@ -239,9 +241,9 @@ function Builder({
 
   // Unsaved edits survive leaving the screen.
   useEffect(() => {
-    if (dirty) keepDraft(routeId, { name, spec, category, categoryNote });
+    if (dirty) keepDraft(routeId, { base, name, spec, category, categoryNote });
     else dropDraft(routeId);
-  }, [routeId, dirty, name, spec, category, categoryNote]);
+  }, [routeId, base, dirty, name, spec, category, categoryNote]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -562,6 +564,7 @@ function Builder({
           onDiscard={discard}
           onRemove={remove}
           onSpec={change}
+          onDropMissing={(ids) => change((s) => dropMissing(s, ids))}
           onManualOnly={(itemId, value) =>
             change((s) => setManualOnly(s, itemId, value))
           }

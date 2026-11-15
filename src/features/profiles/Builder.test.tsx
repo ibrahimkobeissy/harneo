@@ -14,7 +14,7 @@ import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { ResolvedItem } from "../../bindings/ResolvedItem";
 import type { CategoryId } from "../../bindings/CategoryId";
 import type { Template } from "../../bindings/Template";
-import { dropDraft } from "./drafts";
+import { dropDraft, keepDraft } from "./drafts";
 import { ProfileBuilder } from ".";
 
 interface Art {
@@ -623,6 +623,36 @@ describe("Builder: picker and cart", () => {
         within(cart()).queryByRole("button", { name: "Remove dup" }),
       ).toBeNull(),
     );
+  });
+
+  it("removes ids that left the library so the profile can be saved", async () => {
+    const user = userEvent.setup();
+    const { calls } = await setup("/profiles/4", {
+      spec: { ...base, items: ["L", "X"] },
+    });
+    await user.click(
+      await within(cart()).findByRole("button", { name: "Remove them" }),
+    );
+    await waitFor(() =>
+      expect(within(cart()).queryByText(/No longer in the library/)).toBeNull(),
+    );
+    await user.click(within(cart()).getByRole("button", { name: /^Save/ }));
+    await waitFor(() => expect(callsOf(calls, "profile_save")).toHaveLength(1));
+    expect(
+      (callsOf(calls, "profile_save")[0]?.args["spec"] as ProfileSpec).items,
+    ).toEqual(["L"]);
+  });
+
+  it("never opens a draft kept for another profile", async () => {
+    keepDraft("4", {
+      base: "someone else",
+      name: "Ghost",
+      spec: { ...base, items: ["L", "X"] },
+    });
+    await setup("/profiles/4");
+    await within(cart()).findByRole("list", { name: "Artifacts" });
+    expect(within(cart()).queryByText(/No longer in the library/)).toBeNull();
+    expect(screen.queryByText("Unsaved")).toBeNull();
   });
 
   it("reports a resolve failure", async () => {

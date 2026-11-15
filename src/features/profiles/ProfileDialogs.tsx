@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
+import { dropDraft } from "./drafts";
 import { profileDelete, profileRename } from "../../lib/ipc";
 import { Dialog, NameField } from "./Dialog";
 import styles from "./Profiles.module.css";
@@ -68,6 +69,7 @@ export function DeleteDialog({
     setError(null);
     try {
       await profileDelete(profile.id);
+      dropDraft(String(profile.id));
       onDone();
     } catch (err) {
       setError(String(err));
