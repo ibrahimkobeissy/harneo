@@ -97,3 +97,4 @@ How Harneo is built with Addy Osmani's agent-skills and Impeccable: one line per
 93. Release 0.3.2 (#282): tag `release_0.3.2`, `check` passed, GitHub Release published, `linux-packages` attached the AppImage, .deb and `SHA256SUMS`; AppImage installed locally → https://github.com/ibrahimkobeissy/harneo/releases/tag/release_0.3.2
 94. `ticket-flow` #283: Drift tab counts and opens on newer library copies; sidebar Projects badge counts every project needing attention (missing, drift, newer profile, newer library copies) → `src/features/projects/ProjectDetail.tsx`, `src/app/Sidebar.tsx`
 95. `ticket-flow` #284: "Harnfit in…" menu rows show the profile name on its own line, fit status and verdict under it → `src/features/library/HarnfitMenu.tsx`, `Collections.module.css`
+96. `ticket-flow` #287: import Review step offers tags new to this import (created or suggested) in every row's Add tag and Tag all, with their chosen color → `src/features/import/ReviewStep.tsx`
