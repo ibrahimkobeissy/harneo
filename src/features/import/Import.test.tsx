@@ -861,6 +861,45 @@ describe("Import screen", () => {
     ).toEqual([{ name: "Fresh", color: "pink" }]);
   });
 
+  it("offers a tag created on one row in the other rows' Add tag, with its color", async () => {
+    const u = user();
+    const calls = setup({});
+    await toChoose(u);
+    await u.click(screen.getByRole("button", { name: "Continue" }));
+    await u.click(screen.getByRole("button", { name: "Add a tag to alpha" }));
+    await waitFor(() => expect(screen.getByRole("combobox")).toHaveFocus());
+    await u.keyboard("productivity");
+    await u.click(screen.getByRole("radio", { name: "pink" }));
+    await u.click(screen.getByRole("option", { name: /Create/ }));
+    await u.click(screen.getByRole("button", { name: "Add a tag to gamma" }));
+    // Suggested tags new to the library are offered too.
+    expect(
+      await screen.findByRole("option", { name: /review/ }),
+    ).toBeInTheDocument();
+    await u.click(screen.getByRole("option", { name: /productivity/ }));
+    const chip = screen
+      .getByRole("button", { name: "Remove productivity from gamma" })
+      .closest("span");
+    expect(chip).toHaveAttribute("data-tint", "pink");
+    // Removing every use takes the pending name out of the menus.
+    for (const n of ["alpha", "gamma"]) {
+      await u.click(
+        screen.getByRole("button", { name: `Remove productivity from ${n}` }),
+      );
+    }
+    await u.click(
+      screen.getByRole("button", { name: "Add a tag to settings" }),
+    );
+    await screen.findByRole("option", { name: /review/ });
+    expect(
+      screen.queryByRole("option", { name: /productivity/ }),
+    ).not.toBeInTheDocument();
+    await u.keyboard("{Escape}");
+    await u.click(screen.getByRole("button", { name: /^Import/ }));
+    await screen.findByText(/Imported/);
+    expect(calls.some((c) => c.cmd === "tag_create")).toBe(false);
+  });
+
   it("Escape closes a row's tag picker and returns focus to its button", async () => {
     const u = user();
     setup({});

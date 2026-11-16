@@ -90,6 +90,7 @@ export function ReviewStep({
     defaultTagColor(name);
   // Tags that every row carries, in the first row's order and spelling.
   const rows = chosen.map((c) => tags[c.id] ?? []);
+  const offered = withPending(list, rows, tint);
   const common = (rows[0] ?? []).filter((t) =>
     rows.every((own) => own.some((o) => o.toLowerCase() === t.toLowerCase())),
   );
@@ -126,7 +127,7 @@ export function ReviewStep({
       </h2>
       <div className={styles.bulkTags}>
         <TagPicker
-          existing={list}
+          existing={offered}
           skip={new Set(common.map((t) => t.toLowerCase()))}
           maxChars={MAX_TAG_CHARS}
           onPick={onAddAll}
@@ -184,7 +185,7 @@ export function ReviewStep({
                   </Tag>
                 ))}
                 <TagPicker
-                  existing={list}
+                  existing={offered}
                   skip={new Set(own.map((t) => t.toLowerCase()))}
                   maxChars={MAX_TAG_CHARS}
                   label="Add tag"
@@ -232,4 +233,30 @@ export function ReviewStep({
       )}
     </>
   );
+}
+
+/**
+ * The library's tags plus the names this import adds that the library does not hold yet
+ * (created in a picker or suggested), so every row's Add tag and Tag all can offer them.
+ * A pending name has no library artifacts yet (count 0) and the color it will be created with.
+ */
+function withPending(
+  library: readonly TagWithCount[],
+  rows: readonly (readonly string[])[],
+  tint: (name: string) => TagColor,
+): TagWithCount[] {
+  const seen = new Set(library.map((t) => t.name.toLowerCase()));
+  const pending: TagWithCount[] = [];
+  for (const name of rows.flat()) {
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pending.push({
+      id: -BigInt(pending.length + 1),
+      name,
+      color: tint(name),
+      count: 0,
+    });
+  }
+  return [...library, ...pending];
 }
