@@ -204,6 +204,7 @@ pub(crate) fn build(path: &Path, text: &str, load: &mut dyn FnMut(&Path) -> Load
         metadata,
         references: Vec::new(),
         diagnostics,
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     }
@@ -350,6 +351,7 @@ mod install_tests {
             metadata: Default::default(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         };

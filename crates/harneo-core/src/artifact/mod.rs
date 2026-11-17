@@ -109,6 +109,12 @@ pub struct Artifact {
     pub path: String,
     /// Everything that travels with the artifact, relative to the scan root, sorted.
     pub files: Vec<String>,
+    /// Files of the source outside the artifact's own folder that its text links to with a
+    /// `../` path (ADR-007), relative to the scan root, sorted. Only skills, agents, commands
+    /// and output styles have any.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub linked_files: Vec<String>,
     /// The kind-specific fields (frontmatter or JSON keys) other than `name` and `description`.
     #[ts(type = "Record<string, unknown>")]
     pub metadata: serde_json::Map<String, serde_json::Value>,

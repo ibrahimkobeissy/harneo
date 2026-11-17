@@ -8,6 +8,7 @@ mod kinds;
 pub(crate) use kinds::plugin::{github_repo, manifest_path as plugin_manifest_path};
 pub(crate) use kinds::plugin_parts::unpack as unpack_plugin;
 mod layout;
+pub(crate) mod linked;
 mod proposed;
 mod unplaced;
 
@@ -51,6 +52,7 @@ impl AgentAdapter for ClaudeAdapter {
         layout::mark_layout_by(&mut report);
         unplaced::scan(&mut walker, options, &mut report);
         layout::drop_duplicate_marketplace_roots(&mut walker, &mut report);
+        linked::fill(&mut walker, options, &mut report);
         super::digest::fill(&mut walker, &mut report);
         layout::mark_managed_origins(&mut report);
         checks::run(&mut report);

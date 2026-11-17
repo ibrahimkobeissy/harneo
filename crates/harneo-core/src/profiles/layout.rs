@@ -115,6 +115,11 @@ pub(crate) fn in_harness(path: &str) -> bool {
             || path.starts_with("scripts/"))
 }
 
+/// True for a stored path that holds a linked file (ADR-007).
+pub(crate) fn is_linked(stored: &str) -> bool {
+    stored.starts_with(concat!("_linked", "/"))
+}
+
 /// Every file of one artifact as `(path in its library copy, project path)`. A file that would
 /// land outside the harness (see [`in_harness`]) refuses the whole artifact.
 pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
@@ -132,6 +137,12 @@ pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     for stored in &view.files {
         let source = back.get(stored).map_or(stored.as_str(), String::as_str);
         let project = match artifact.kind {
+            _ if is_linked(stored) => crate::artifact::claude::linked::project_path(
+                artifact, source,
+            )
+            .ok_or_else(|| crate::error::Error::UnsafePath {
+                path: source.to_owned(),
+            })?,
             ArtifactKind::Skill => rel_string(&install.join(stored)),
             _ if source == artifact.path => rel_string(&install),
             // Scripts a Settings file or an MCP server brings keep their project-relative path.
@@ -146,16 +157,19 @@ pub(crate) fn placed(artifact: &Artifact) -> Result<Vec<(String, String)>> {
     Ok(out)
 }
 
-/// Every file of one artifact, as project paths.
-fn files_of(artifact: &Artifact) -> Result<Vec<String>> {
-    Ok(placed(artifact)?.into_iter().map(|(_, p)| p).collect())
-}
-
-pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
+pub(super) fn layout(
+    conn: &Connection,
+    artifacts_dir: &Path,
+    spec: &ProfileSpec,
+) -> Result<Layout> {
     let resolved = super::resolve::resolve(conn, spec)?;
     let mut claims: BTreeMap<String, Vec<PathFrom>> = BTreeMap::new();
-    let mut claim = |path: String, from: PathFrom| {
-        claims.entry(path).or_default().push(from);
+    // The bytes of each linked file a path is claimed with; claimants of one path that all carry
+    // the same bytes share it (ADR-007) instead of conflicting.
+    let mut linked: BTreeMap<String, Vec<Option<Vec<u8>>>> = BTreeMap::new();
+    let mut claim = |path: String, from: PathFrom, bytes: Option<Vec<u8>>| {
+        claims.entry(path.clone()).or_default().push(from);
+        linked.entry(path).or_default().push(bytes);
     };
     let mut plugins = false;
     let mut servers = false;
@@ -174,7 +188,16 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
         let Some(artifact) = load(conn, &item.id)? else {
             continue;
         };
-        for path in files_of(&artifact)? {
+        for (stored, path) in placed(&artifact)? {
+            let bytes = if is_linked(&stored) {
+                let file = crate::library::safe_join(&artifacts_dir.join(&item.id), &stored)?;
+                Some(std::fs::read(&file).map_err(|e| crate::error::Error::Io {
+                    path: file.display().to_string(),
+                    source: e,
+                })?)
+            } else {
+                None
+            };
             // The shared `.mcp.json` is generated, never a server's own file.
             if item.kind == ArtifactKind::Mcp && path == MCP_JSON {
                 continue;
@@ -184,6 +207,7 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
                 PathFrom::Artifact {
                     artifact: item.id.clone(),
                 },
+                bytes,
             );
         }
     }
@@ -193,6 +217,7 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
             PathFrom::Generated {
                 generated: Generated::Settings,
             },
+            None,
         );
     }
     if servers {
@@ -201,6 +226,7 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
             PathFrom::Generated {
                 generated: Generated::McpJson,
             },
+            None,
         );
     }
     claim(
@@ -208,6 +234,7 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
         PathFrom::Generated {
             generated: Generated::HarnessMd,
         },
+        None,
     );
     let mut out = Layout {
         paths: Vec::new(),
@@ -222,7 +249,10 @@ pub(super) fn layout(conn: &Connection, spec: &ProfileSpec) -> Result<Layout> {
                 }
             }
         }
-        if owners.len() > 1 {
+        let shared = linked.get(&path).is_some_and(|all| {
+            all.iter().all(Option::is_some) && all.windows(2).all(|w| w[0] == w[1])
+        });
+        if owners.len() > 1 && !shared {
             out.conflicts.push(LayoutConflict {
                 path: path.clone(),
                 artifacts: owners,
@@ -239,6 +269,6 @@ impl Library {
     /// Every project path `spec` produces (bundles included) with where it comes from, and the
     /// paths two artifacts both claim.
     pub fn layout(&self, spec: &ProfileSpec) -> Result<Layout> {
-        layout(&self.store.conn, spec)
+        layout(&self.store.conn, &self.store.artifacts_dir(), spec)
     }
 }

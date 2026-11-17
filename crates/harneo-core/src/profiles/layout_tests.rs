@@ -325,6 +325,7 @@ fn an_artifact_with_a_file_outside_the_harness_is_refused() {
         metadata: serde_json::Map::new(),
         references: Vec::new(),
         diagnostics: Vec::new(),
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     };

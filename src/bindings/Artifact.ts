@@ -17,6 +17,12 @@ path: string,
  */
 files: Array<string>, 
 /**
+ * Files of the source outside the artifact's own folder that its text links to with a
+ * `../` path (ADR-007), relative to the scan root, sorted. Only skills, agents, commands
+ * and output styles have any.
+ */
+linkedFiles: Array<string>, 
+/**
  * The kind-specific fields (frontmatter or JSON keys) other than `name` and `description`.
  */
 metadata: Record<string, unknown>, references: Array<Reference>, diagnostics: Array<Diagnostic>, 

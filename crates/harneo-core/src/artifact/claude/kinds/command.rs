@@ -53,6 +53,7 @@ pub(crate) fn parse(base: &Path, rel: &Path, contents: &str) -> Artifact {
         metadata: h.metadata,
         references,
         diagnostics: h.diagnostics,
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     }
@@ -141,6 +142,7 @@ mod install_tests {
             metadata: Default::default(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         };

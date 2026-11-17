@@ -21,6 +21,9 @@ use crate::error::{Error, Result};
 
 /// Name of the stored form of an MCP server.
 pub(crate) const SERVER_FILE: &str = "server.json";
+/// The folder of an artifact's library copy that holds its linked files (ADR-007), each at its
+/// path in the source.
+pub(crate) const LINKED_DIR: &str = "_linked";
 /// The file an MCP server is defined in, in the source.
 const MCP_FILE: &str = ".mcp.json";
 
@@ -134,6 +137,10 @@ pub(crate) fn plan(artifact: &Artifact) -> Result<Vec<(String, String)>> {
         }
         out.push((file.to_owned(), dest.to_owned()));
     }
+    for file in &artifact.linked_files {
+        plain_components(file)?;
+        out.push((file.clone(), format!("{LINKED_DIR}/{file}")));
+    }
     Ok(out)
 }
 
@@ -147,6 +154,7 @@ pub(crate) fn stored_view(
     let mut view = artifact.clone();
     let mut back = std::collections::HashMap::new();
     view.files.clear();
+    view.linked_files.clear();
     for (source, dest) in plan(artifact)? {
         if source == artifact.path {
             view.path.clone_from(&dest);
@@ -477,6 +485,7 @@ mod tests {
             metadata: Map::new(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         }

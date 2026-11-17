@@ -79,6 +79,7 @@ mod tests {
             metadata,
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: Origin::Own,
         }

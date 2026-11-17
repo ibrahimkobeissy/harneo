@@ -81,6 +81,7 @@ pub(crate) fn parse(folder: &Path, files: Vec<String>, contents: &str) -> Artifa
         metadata,
         references: Vec::new(),
         diagnostics,
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     }
@@ -320,6 +321,7 @@ pub(crate) fn remote_artifact(mfile: &Path, name: Option<&str>) -> Artifact {
         metadata: Map::new(),
         references: Vec::new(),
         diagnostics: Vec::new(),
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     }
@@ -430,6 +432,7 @@ mod install_tests {
             metadata: Default::default(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         };

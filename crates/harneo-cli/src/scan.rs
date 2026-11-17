@@ -161,6 +161,7 @@ mod tests {
                     Path::new("skills/alpha/SKILL.md"),
                     "needs a description",
                 )],
+                linked_files: Vec::new(),
                 digest: None,
                 origin: harneo_core::artifact::Origin::default(),
             }],

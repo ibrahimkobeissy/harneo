@@ -26,12 +26,16 @@ const TAG_CONTENT: u8 = 1;
 /// Fills `artifact.digest` (lowercase hex) for every artifact in the report.
 pub(crate) fn fill(walker: &mut Walker<'_>, report: &mut ScanReport) {
     for artifact in &mut report.artifacts {
-        artifact.digest = Some(digest_files(walker, &artifact.files));
+        artifact.digest = Some(digest_files(
+            walker,
+            &artifact.files,
+            &artifact.linked_files,
+        ));
     }
 }
 
-fn digest_files(walker: &mut Walker<'_>, files: &[String]) -> String {
-    let mut sorted: Vec<&String> = files.iter().collect();
+fn digest_files(walker: &mut Walker<'_>, files: &[String], linked: &[String]) -> String {
+    let mut sorted: Vec<&String> = files.iter().chain(linked).collect();
     sorted.sort();
     sorted.dedup();
     let mut hasher = Sha256::new();

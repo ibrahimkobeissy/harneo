@@ -81,6 +81,7 @@ pub(crate) fn server(
         metadata: Map::new(),
         references: Vec::new(),
         diagnostics: Vec::new(),
+        linked_files: Vec::new(),
         digest: None,
         origin: crate::artifact::Origin::default(),
     };
@@ -330,6 +331,7 @@ mod install_tests {
             metadata: Default::default(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         };

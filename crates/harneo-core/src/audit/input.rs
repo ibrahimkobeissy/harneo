@@ -215,7 +215,7 @@ impl AuditInput {
             ));
         }
         let mut oversize = Vec::new();
-        for rel in &artifact.files {
+        for rel in artifact.files.iter().chain(&artifact.linked_files) {
             if !stays_inside(rel) {
                 continue;
             }
@@ -264,6 +264,7 @@ impl AuditInput {
             metadata: Map::new(),
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         };
@@ -583,6 +584,7 @@ mod tests {
             metadata: a.metadata,
             references: Vec::new(),
             diagnostics: Vec::new(),
+            linked_files: Vec::new(),
             digest: None,
             origin: crate::artifact::Origin::default(),
         }
