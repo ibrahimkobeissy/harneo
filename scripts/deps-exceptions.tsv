@@ -1,0 +1,2 @@
+# advisory	package	expires (YYYY-MM-DD)	reason
+GHSA-fc5q-39xc-vjpf	picomatch	2026-12-31	ReDoS with no fixed release; dev tools only (vite, vitest, dependency-cruiser), not in the shipped app. User decision 2026-11-17 (#293).

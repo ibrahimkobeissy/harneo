@@ -26,11 +26,24 @@ rows=$(printf '%s' "$json" | jq -r '
   | .packages[] | .package as $p | .groups[]
   | [($file), $p.name, $p.version, (.ids | join(",")), (.max_severity // "")] | @tsv')
 
+# Allowed advisories (CONSTRAINTS.md): id, package, expiry, reason. Past its expiry, an entry no longer applies.
+today=$(date +%F)
+allowed() {
+  local name=$1 ids=$2 id pkg expires
+  while IFS=$'\t' read -r id pkg expires _; do
+    [[ -z "$id" || "$id" == \#* ]] && continue
+    [[ "$pkg" == "$name" && ",$ids," == *",$id,"* && ! "$today" > "$expires" ]] && return 0
+  done <"${CHECK_DEPS_EXCEPTIONS:-scripts/deps-exceptions.tsv}"
+  return 1
+}
+
 high=0
 while IFS=$'\t' read -r file name version ids severity; do
   [[ -n "$name" ]] || continue
   label="${severity:-unscored}"
-  if [[ -n "$severity" ]] && awk -v s="$severity" 'BEGIN { exit !(s >= 7.0) }'; then
+  if allowed "$name" "$ids"; then
+    echo "check-deps: allowed: $name $version ($file) $ids, CVSS $label (scripts/deps-exceptions.tsv)"
+  elif [[ -n "$severity" ]] && awk -v s="$severity" 'BEGIN { exit !(s >= 7.0) }'; then
     echo "check-deps: HIGH $name $version ($file) $ids, CVSS $label" >&2
     high=1
   else
