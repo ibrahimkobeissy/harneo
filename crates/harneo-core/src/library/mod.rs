@@ -100,7 +100,7 @@ pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
 pub use unpack::PluginHold;
 pub use unpack_plugin::{UnpackOutcome, UnpackedPart};
 pub use viewer::{may_run_when_opened, FileView, MAX_VIEW_BYTES};
-pub use whole::{PreparedReplace, ReplaceJob, ReplaceOutcome};
+pub use whole::{PreparedReplace, ReplaceJob, ReplaceOutcome, StayWholeWarning};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;

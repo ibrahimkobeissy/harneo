@@ -23,6 +23,7 @@ function detail(
       description: `About ${name}`,
       path: `${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

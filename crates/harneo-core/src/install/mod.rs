@@ -49,7 +49,8 @@ pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction,
 pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
 pub use plan::{Plan, PlanKind, Write, WriteAction};
 pub use plugins::{
-    install_plugins, targets as plugin_targets, PluginInstall, PluginInstallStatus, PluginTarget,
+    install_plugins, targets as plugin_targets, uninstall_dropped, PluginInstall,
+    PluginInstallStatus, PluginTarget,
 };
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};

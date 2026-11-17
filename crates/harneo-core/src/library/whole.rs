@@ -117,8 +117,22 @@ fn plugin_of(artifact: &Artifact) -> Option<(String, String)> {
     Some((name.to_owned(), folder.to_owned()))
 }
 
-/// The sentence a part carries when its plugin must stay whole, for the part `id`.
-pub(crate) fn notice_of(conn: &Connection, id: &str) -> Result<Option<String>> {
+/// A plugin whose parts a profile holds although it must stay whole (ADR-006): what Scaffold,
+/// Refit and the profile builder warn about before a write. The write is not blocked.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct StayWholeWarning {
+    /// The plugin's name.
+    pub plugin: String,
+    /// Why it must stay whole, as a sentence.
+    pub reason: String,
+    /// One of the profile's parts of it: opening it shows *Replace with the whole plugin*.
+    pub artifact_id: String,
+}
+
+/// The plugin of the part `id` and the sentence saying why it must stay whole, when it must.
+fn flag_of(conn: &Connection, id: &str) -> Result<Option<(String, String)>> {
     let row: Option<(String, String)> = conn
         .query_row(
             "SELECT source_id, artifact FROM artifacts WHERE id = ?1",
@@ -129,15 +143,20 @@ pub(crate) fn notice_of(conn: &Connection, id: &str) -> Result<Option<String>> {
     let Some((source_id, json)) = row else {
         return Ok(None);
     };
-    let Ok(artifact) = serde_json::from_str::<Artifact>(&json) else {
-        return Ok(None);
-    };
-    let Some((_, folder)) = plugin_of(&artifact) else {
+    let Some((name, folder)) = serde_json::from_str::<Artifact>(&json)
+        .ok()
+        .and_then(|a| plugin_of(&a))
+    else {
         return Ok(None);
     };
     Ok(stored(conn, &source_id)?
         .and_then(|v| v.get(&folder).cloned().flatten())
-        .map(|reason| reason.text()))
+        .map(|reason| (name, reason.text())))
+}
+
+/// The sentence a part carries when its plugin must stay whole, for the part `id`.
+pub(crate) fn notice_of(conn: &Connection, id: &str) -> Result<Option<String>> {
+    Ok(flag_of(conn, id)?.map(|(_, reason)| reason))
 }
 
 /// Marks the listed parts whose plugin must stay whole.
@@ -217,6 +236,30 @@ fn carry_over(conn: &Connection, plugin_id: &str, part_ids: &[String]) -> Result
 }
 
 impl Library {
+    /// The plugins whose parts `spec` holds although they must stay whole, one per plugin, in
+    /// the profile's order.
+    pub fn stay_whole_warnings(
+        &self,
+        spec: &crate::profiles::ProfileSpec,
+    ) -> Result<Vec<StayWholeWarning>> {
+        let mut out: Vec<StayWholeWarning> = Vec::new();
+        for item in self.resolve(spec)?.artifacts {
+            if item.kind == ArtifactKind::Plugin {
+                continue;
+            }
+            if let Some((plugin, reason)) = flag_of(&self.store.conn, &item.id)? {
+                if !out.iter().any(|w| w.plugin == plugin) {
+                    out.push(StayWholeWarning {
+                        plugin,
+                        reason,
+                        artifact_id: item.id,
+                    });
+                }
+            }
+        }
+        Ok(out)
+    }
+
     /// What replacing the parts `id` belongs to with their whole plugin would do. Reads only the
     /// library: the profiles that change and the parts that leave. Changes nothing.
     pub fn replace_with_whole_plan(&self, id: &str) -> Result<ReplaceOutcome> {

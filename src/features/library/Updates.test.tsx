@@ -41,6 +41,7 @@ function detail(name: string): ArtifactDetail {
       description: null,
       path: name,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

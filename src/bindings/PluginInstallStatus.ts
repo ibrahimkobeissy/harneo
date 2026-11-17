@@ -3,4 +3,4 @@
 /**
  * How one plugin's install went.
  */
-export type PluginInstallStatus = "installed" | "alreadyInstalled" | "failed";
+export type PluginInstallStatus = "installed" | "alreadyInstalled" | "failed" | "uninstalled" | "notUninstalled";

@@ -63,6 +63,7 @@ function setup(opts: {
             description: "",
             path: "p",
             files: [],
+            linkedFiles: [],
             metadata: {},
             references: [],
             diagnostics: [],

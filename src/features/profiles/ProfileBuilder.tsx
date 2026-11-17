@@ -6,19 +6,21 @@ import type { Layout } from "../../bindings/Layout";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
 import type { Resolved } from "../../bindings/Resolved";
+import type { StayWholeWarning } from "../../bindings/StayWholeWarning";
 import {
   bundleOf,
   libraryDetail,
   profileCreate,
   profileGet,
   profileLayout,
+  profileStayWhole,
   profileRename,
   profileResolve,
   profileSetCategory,
   profileSave,
   profilesList,
 } from "../../lib/ipc";
-import { Button, EmptyState, Screen } from "../../ui";
+import { Button, EmptyState, Screen, StayWholeNotice } from "../../ui";
 import styles from "./Builder.module.css";
 import { Cart } from "./Cart";
 import { CategoryConfirm, CategoryMenu, NewProfileDialog } from "./Category";
@@ -220,6 +222,7 @@ function Builder({
   const templates = useTemplates();
   const [liveResolved, setResolved] = useState<Resolved | null>(null);
   const [liveLayout, setLayout] = useState<Layout | null>(null);
+  const [stayWhole, setStayWhole] = useState<StayWholeWarning[]>([]);
   const location = useLocation();
   const [notice, setNotice] = useState<Notice | null>(
     (location.state as BuilderState | null)?.notice ?? null,
@@ -258,11 +261,16 @@ function Builder({
     if (isEmpty(spec)) return;
     let stale = false;
     const timer = setTimeout(() => {
-      Promise.all([profileResolve(spec), profileLayout(spec)]).then(
-        ([r, l]) => {
+      Promise.all([
+        profileResolve(spec),
+        profileLayout(spec),
+        profileStayWhole(spec),
+      ]).then(
+        ([r, l, w]) => {
           if (stale) return;
           setResolved(r);
           setLayout(l);
+          setStayWhole(w);
         },
         (err: unknown) => {
           if (!stale) setNotice({ text: String(err), tone: "bad" });
@@ -539,6 +547,7 @@ function Builder({
           onSwitch={(note) => void switchCategory(pending, note)}
         />
       )}
+      {!isEmpty(spec) && <StayWholeNotice warnings={stayWhole} />}
       <div className={styles.builder}>
         <Picker
           picked={picked}

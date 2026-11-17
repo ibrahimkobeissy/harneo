@@ -36,6 +36,7 @@ function cand(
       description: null,
       path: `skills/${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

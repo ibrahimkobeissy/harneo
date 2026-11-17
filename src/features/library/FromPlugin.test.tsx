@@ -19,6 +19,7 @@ const detail: ArtifactDetail = {
     description: "About alpha",
     path: "skills/alpha",
     files: [],
+    linkedFiles: [],
     metadata: {
       fromPlugin: { name: "toolbox", folder: "", marketplace: null },
     },

@@ -9,7 +9,8 @@ use anyhow::{anyhow, Context};
 use clap::Args;
 use harneo_core::bundles::ClaudeConfig;
 use harneo_core::install::{
-    install_plugins, ApplyReport, Plan, PluginInstall, PluginInstallStatus, WriteAction,
+    install_plugins, uninstall_dropped, ApplyReport, Plan, PluginInstall, PluginInstallStatus,
+    WriteAction,
 };
 use harneo_core::library::Library;
 use harneo_core::profiles::ProfileId;
@@ -128,7 +129,14 @@ pub fn run(
     let plugins = if args.no_plugins {
         Vec::new()
     } else {
-        install_plugins(&ClaudeConfig::default(), &args.path, |_| {})?
+        let config = ClaudeConfig::default();
+        let mut results = install_plugins(&config, &args.path, |_| {})?;
+        // Plugins an earlier write enabled that these settings no longer enable are removed.
+        let previously = library.project_enabled_plugins(report.project_id)?;
+        let (dropped, gone) = uninstall_dropped(&config, &args.path, &previously, |_| {})?;
+        library.forget_enabled_plugins(report.project_id, &gone)?;
+        results.extend(dropped);
+        results
     };
     if args.json {
         let text = serde_json::to_string_pretty(&Applied {
@@ -162,6 +170,13 @@ fn render_plugins(plugins: &[PluginInstall]) -> String {
                 "NOT installed: {}",
                 p.message.as_deref().unwrap_or("unknown reason")
             ),
+            PluginInstallStatus::Uninstalled => {
+                "uninstalled (the settings no longer enable it)".to_owned()
+            }
+            PluginInstallStatus::NotUninstalled => format!(
+                "NOT uninstalled: {}",
+                p.message.as_deref().unwrap_or("unknown reason")
+            ),
         };
         let _ = writeln!(text, "  plugin  {}  {state}", p.id);
     }
@@ -187,8 +202,10 @@ mod tests {
                 p("a@m", PluginInstallStatus::Installed, None),
                 p("b@m", PluginInstallStatus::AlreadyInstalled, None),
                 p("c@m", PluginInstallStatus::Failed, Some("offline")),
+                p("d@m", PluginInstallStatus::Uninstalled, None),
+                p("e@m", PluginInstallStatus::NotUninstalled, Some("busy")),
             ]),
-            "  plugin  a@m  installed\n  plugin  b@m  already installed\n  plugin  c@m  NOT installed: offline\n"
+            "  plugin  a@m  installed\n  plugin  b@m  already installed\n  plugin  c@m  NOT installed: offline\n  plugin  d@m  uninstalled (the settings no longer enable it)\n  plugin  e@m  NOT uninstalled: busy\n"
         );
     }
 

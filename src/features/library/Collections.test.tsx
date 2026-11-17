@@ -29,6 +29,7 @@ function detailOf(id: string): ArtifactDetail {
       description: `About ${name}`,
       path: `skills/${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

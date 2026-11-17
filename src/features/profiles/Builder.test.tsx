@@ -174,6 +174,8 @@ interface Opts {
   /** Opens /profiles/new as the app does, so the New profile dialog shows. */
   fresh?: boolean;
   failSetCategory?: boolean;
+  /** The profile holds parts of a plugin that must stay whole. */
+  stayWhole?: boolean;
 }
 
 const base: ProfileSpec = {
@@ -288,6 +290,16 @@ async function setup(path: string, opts: Opts = {}) {
         return resolve(args["spec"] as ProfileSpec);
       case "profile_layout":
         return layout(args["spec"] as ProfileSpec);
+      case "profile_stay_whole":
+        return opts.stayWhole
+          ? [
+              {
+                plugin: "toolbox",
+                reason: "it has hooks, which only work inside a plugin",
+                artifactId: "L",
+              },
+            ]
+          : [];
       case "profile_save":
         if (opts.failSave) throw new Error("disk full");
         return 3;
@@ -475,6 +487,20 @@ describe("Builder: picker and cart", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Added tdd. Trust 40: 3 security findings.",
     );
+  });
+
+  it("warns about parts of a plugin that must stay whole, with a way to replace them", async () => {
+    await setup("/profiles/4", { stayWhole: true });
+    const list = await screen.findByRole("list", {
+      name: "Plugins that must stay whole",
+    });
+    expect(list).toHaveTextContent("toolbox");
+    expect(list).toHaveTextContent("it has hooks");
+    expect(
+      within(list).getByRole("button", {
+        name: "Replace with the whole plugin",
+      }),
+    ).toBeVisible();
   });
 
   it("flags a low-trust artifact in the cart and keeps the warning until dismissed", async () => {

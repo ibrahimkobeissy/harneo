@@ -73,6 +73,8 @@ const statusText: Record<PluginInstallStatus, string> = {
   installed: "installed for this project",
   alreadyInstalled: "already installed",
   failed: "not installed",
+  uninstalled: "uninstalled: the settings no longer enable it",
+  notUninstalled: "not uninstalled",
 };
 
 /**
@@ -120,6 +122,7 @@ export function PluginsInstall({
   }, [run]);
 
   const failed = results.filter((r) => r.status === "failed").length;
+  const stuck = results.filter((r) => r.status === "notUninstalled").length;
   return (
     <section className={styles.panel} aria-label="Plugins">
       <div className={styles.head} role="status">
@@ -132,13 +135,15 @@ export function PluginsInstall({
           ? "Installing plugins from their marketplaces…"
           : failed > 0
             ? `${failed} ${failed === 1 ? "plugin" : "plugins"} not installed`
-            : "Plugins ready"}
+            : stuck > 0
+              ? `${stuck} ${stuck === 1 ? "plugin" : "plugins"} not uninstalled`
+              : "Plugins ready"}
       </div>
       {results.length > 0 && (
         <ul className={styles.list}>
           {results.map((r) => (
             <li key={r.id} className={styles.row}>
-              {r.status === "failed" ? (
+              {r.status === "failed" || r.status === "notUninstalled" ? (
                 <CircleX size={16} className={styles.bad} aria-hidden="true" />
               ) : (
                 <CircleCheck
@@ -161,7 +166,7 @@ export function PluginsInstall({
           {error}
         </p>
       )}
-      {!running && (failed > 0 || error) && (
+      {!running && (failed > 0 || stuck > 0 || error) && (
         <div>
           <Button small onClick={() => void run()}>
             <RotateCw size={14} aria-hidden="true" />

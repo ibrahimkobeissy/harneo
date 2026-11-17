@@ -222,3 +222,39 @@ fn a_source_holding_plugin_parts_is_never_judged_up_to_date_by_its_commit() -> T
     assert!(!whole::judged(&setup.library.store.conn, &source)?);
     Ok(())
 }
+
+#[test]
+fn scaffold_refit_and_the_profile_name_the_plugin_whose_parts_must_stay_whole() -> TestResult {
+    let setup = setup()?;
+    let spec = ProfileSpec {
+        items: vec![setup.parts[0].clone(), setup.parts[1].clone()],
+        ..ProfileSpec::default()
+    };
+    let profile = setup
+        .library
+        .create_profile("kit", "", &spec, CategoryId::Software, None)?;
+    // Nothing is flagged until a check has found a reason.
+    assert!(setup.library.stay_whole_warnings(&spec)?.is_empty());
+    add_hooks(setup.repo.path())?;
+    setup.library.check_updates(&CheckScope::All)?;
+
+    let warnings = setup.library.stay_whole_warnings(&spec)?;
+    assert_eq!(warnings.len(), 1, "one per plugin, not per part");
+    assert_eq!(warnings[0].plugin, "toolbox");
+    assert!(warnings[0].reason.contains("hooks"));
+    assert_eq!(warnings[0].artifact_id, setup.parts[0]);
+
+    let dir = tempfile::tempdir()?;
+    let scaffold = setup.library.plan_scaffold(dir.path(), profile, None)?;
+    assert_eq!(scaffold.stay_whole, warnings);
+    // The write is not blocked.
+    setup.library.apply(&scaffold)?;
+    let refit = setup.library.refit_plan(
+        dir.path(),
+        profile,
+        None,
+        &std::collections::BTreeMap::new(),
+    )?;
+    assert_eq!(refit.stay_whole, warnings);
+    Ok(())
+}

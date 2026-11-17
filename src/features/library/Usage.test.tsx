@@ -114,6 +114,7 @@ function detail(id: string): ArtifactDetail {
       description: null,
       path: `skills/${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

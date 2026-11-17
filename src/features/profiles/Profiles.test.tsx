@@ -144,6 +144,8 @@ function setup(opts: Opts = {}) {
         return { items: [], total: 0, unfilteredTotal: 0 };
       case "profile_layout":
         return { paths: [], conflicts: [] };
+      case "profile_stay_whole":
+        return [];
       default:
         return null;
     }

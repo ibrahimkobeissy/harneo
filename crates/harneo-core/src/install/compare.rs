@@ -371,7 +371,9 @@ impl Library {
             .iter()
             .filter(|w| matches!(w.action, WriteAction::Replace | WriteAction::Delete))
             .count();
-        let warnings = self.plugin_warnings(&self.profile(profile_id, version)?.spec)?;
+        let spec = self.profile(profile_id, version)?.spec;
+        let warnings = self.plugin_warnings(&spec)?;
+        let stay_whole = self.stay_whole_warnings(&spec)?;
         let plan = Plan {
             target: comparison.target,
             profile_id,
@@ -387,6 +389,7 @@ impl Library {
             edited_in_project: Vec::new(),
             restored: Vec::new(),
             warnings,
+            stay_whole,
         };
         check_plan(&plan)?;
         Ok(plan)

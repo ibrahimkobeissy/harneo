@@ -42,6 +42,7 @@ function cand(name: string, a: Audit): Candidate {
       description: null,
       path: `skills/${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

@@ -171,6 +171,20 @@ pub(super) fn record(
     if plan.kind == PlanKind::Removal {
         mark_removed(conn, project_id, now)?;
     }
+    let enabled: Vec<String> = plan
+        .writes
+        .iter()
+        .filter(|w| w.path == SETTINGS_PATH && !plan.restored.contains(&w.path))
+        .filter(|w| {
+            matches!(
+                w.action,
+                WriteAction::New | WriteAction::Replace | WriteAction::Keep
+            )
+        })
+        .filter_map(|w| w.bytes.as_deref())
+        .flat_map(enabled_in)
+        .collect();
+    remember_enabled_plugins(conn, project_id, &enabled)?;
     let Some(set) = set else {
         return Ok(None);
     };
@@ -180,6 +194,71 @@ pub(super) fn record(
         params![project_id, now, plan.reason, set.file_count, set.folder],
     )?;
     Ok(Some(conn.last_insert_rowid()))
+}
+
+const SETTINGS_PATH: &str = ".claude/settings.json";
+
+/// The `name@marketplace` ids a settings file enables (`enabledPlugins` set to `true`).
+fn enabled_in(bytes: &[u8]) -> Vec<String> {
+    let Ok(settings) = serde_json::from_slice::<serde_json::Value>(bytes) else {
+        return Vec::new();
+    };
+    settings
+        .get("enabledPlugins")
+        .and_then(serde_json::Value::as_object)
+        .map(|plugins| {
+            plugins
+                .iter()
+                .filter(|(_, on)| on.as_bool() == Some(true))
+                .map(|(id, _)| id.clone())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The plugins a Harneo write enabled for the project and that were not uninstalled since, sorted.
+fn enabled_plugins(conn: &Connection, project_id: i64) -> Result<Vec<String>> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT enabled_plugins FROM projects WHERE id = ?1",
+            params![project_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    Ok(json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default())
+}
+
+fn store_enabled_plugins(conn: &Connection, project_id: i64, ids: &[String]) -> Result<()> {
+    let json = (!ids.is_empty())
+        .then(|| serde_json::to_string(ids))
+        .transpose()?;
+    conn.execute(
+        "UPDATE projects SET enabled_plugins = ?2 WHERE id = ?1",
+        params![project_id, json],
+    )?;
+    Ok(())
+}
+
+/// Adds `ids` to the plugins a Harneo write enabled for the project.
+fn remember_enabled_plugins(conn: &Connection, project_id: i64, ids: &[String]) -> Result<()> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    let mut all = enabled_plugins(conn, project_id)?;
+    all.extend(ids.iter().cloned());
+    all.sort();
+    all.dedup();
+    store_enabled_plugins(conn, project_id, &all)
+}
+
+/// Takes `ids` out of the plugins a Harneo write enabled for the project (they were uninstalled).
+fn forget_enabled_plugins(conn: &Connection, project_id: i64, ids: &[String]) -> Result<()> {
+    let mut all = enabled_plugins(conn, project_id)?;
+    all.retain(|id| !ids.contains(id));
+    store_enabled_plugins(conn, project_id, &all)
 }
 
 const PROJECT_SELECT: &str = "SELECT p.id, p.path, p.name, COALESCE(p.profile_id, 0),
@@ -237,6 +316,17 @@ impl Library {
             });
         }
         Ok(project)
+    }
+
+    /// The plugins a Harneo write enabled for the project that were not uninstalled since: what
+    /// a refit that drops one may uninstall (and nothing else).
+    pub fn project_enabled_plugins(&self, id: i64) -> Result<Vec<String>> {
+        enabled_plugins(&self.store.conn, id)
+    }
+
+    /// Forgets `ids` for the project: they are no longer installed there.
+    pub fn forget_enabled_plugins(&self, id: i64, ids: &[String]) -> Result<()> {
+        forget_enabled_plugins(&self.store.conn, id, ids)
     }
 
     /// One project, live or removed.

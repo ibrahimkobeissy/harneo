@@ -53,6 +53,11 @@ pub enum PluginInstallStatus {
     AlreadyInstalled,
     /// Not installed; `message` says why.
     Failed,
+    /// Uninstalled from this project: a plugin an earlier write enabled that the settings no
+    /// longer enable.
+    Uninstalled,
+    /// A dropped plugin that could not be uninstalled; `message` says why.
+    NotUninstalled,
 }
 
 /// One plugin's result, for the Done step.
@@ -279,6 +284,86 @@ pub fn install_plugins(
         keep_written_bytes(&settings, &written);
     }
     Ok(results)
+}
+
+/// Uninstalls, at project scope, each plugin in `previously` (the ones a Harneo write enabled
+/// for `project`) that is installed there and that the project's settings no longer enable
+/// (`enabledPlugins` absent or `false`). A plugin not in `previously` is never touched. Returns
+/// one result per plugin it tried, and the ids that are no longer installed for the project (to
+/// forget): the uninstalled ones, and those already gone.
+pub fn uninstall_dropped(
+    config: &ClaudeConfig,
+    project: &Path,
+    previously: &[String],
+    mut progress: impl FnMut(&PluginInstall),
+) -> Result<(Vec<PluginInstall>, Vec<String>)> {
+    let still: HashSet<String> = targets(project)?.into_iter().map(|t| t.id).collect();
+    let dropped: Vec<&String> = previously
+        .iter()
+        .filter(|id| !still.contains(*id))
+        .collect();
+    if dropped.is_empty() {
+        return Ok((Vec::new(), Vec::new()));
+    }
+    let project = project.canonicalize().map_err(|source| Error::Io {
+        path: project.display().to_string(),
+        source,
+    })?;
+    let settings = project.join(".claude").join("settings.json");
+    let written = fs::read(&settings).ok();
+    let mut results = Vec::new();
+    let mut gone = Vec::new();
+    let mut finish = |id: &str, status, message: Option<String>| {
+        let (name, marketplace) = id.split_once('@').unwrap_or((id, ""));
+        let result = PluginInstall {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            marketplace: marketplace.to_owned(),
+            status,
+            message,
+        };
+        progress(&result);
+        results.push(result);
+    };
+    match list::<Installed>(config, &["plugin", "list", "--json"], Some(&project)) {
+        Err(reason) => {
+            for id in dropped {
+                finish(
+                    id,
+                    PluginInstallStatus::NotUninstalled,
+                    Some(reason.clone()),
+                );
+            }
+        }
+        Ok(installed) => {
+            let here = project.display().to_string();
+            for id in dropped {
+                let present = installed.iter().any(|p| {
+                    p.id == *id && p.scope != "user" && p.project_path.as_deref() == Some(&here)
+                });
+                if !present {
+                    gone.push(id.clone());
+                    continue;
+                }
+                match run_json(
+                    config,
+                    &["plugin", "uninstall", id, "--scope", "project", "--json"],
+                    Some(&project),
+                    NETWORK_TIMEOUT,
+                ) {
+                    Ok(()) => {
+                        gone.push(id.clone());
+                        finish(id, PluginInstallStatus::Uninstalled, None);
+                    }
+                    Err(reason) => finish(id, PluginInstallStatus::NotUninstalled, Some(reason)),
+                }
+            }
+        }
+    }
+    if let Some(written) = written {
+        keep_written_bytes(&settings, &written);
+    }
+    Ok((results, gone))
 }
 
 /// `claude plugin install --scope project` saves the project's settings again, with its own key

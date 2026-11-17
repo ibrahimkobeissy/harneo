@@ -369,8 +369,15 @@ const V13: &str = "
 ALTER TABLE sources ADD COLUMN whole_reasons TEXT;
 ";
 
+/// Plugins a Harneo write enabled for a project (`projects.enabled_plugins`, a JSON array of
+/// `name@marketplace`), so a later refit that drops one can uninstall it (and leave alone a
+/// plugin Harneo never enabled). `NULL` until a write enables one.
+const V14: &str = "
+ALTER TABLE projects ADD COLUMN enabled_plugins TEXT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
-const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13];
+const MIGRATIONS: &[&str] = &[V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14];
 
 /// The schema version this build writes.
 pub(crate) const SCHEMA_VERSION: u32 = MIGRATIONS.len() as u32;

@@ -136,6 +136,7 @@ pub fn run() {
             commands::profile_from_collection,
             commands::profile_resolve,
             commands::profile_layout,
+            commands::profile_stay_whole,
             commands::profile_export,
             commands::profile_import_preview,
             commands::profile_import_commit,

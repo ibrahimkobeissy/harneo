@@ -15,6 +15,7 @@ function candidate(name: string): Candidate {
       description: `About ${name}`,
       path: `skills/${name}`,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

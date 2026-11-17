@@ -1,3 +1,4 @@
+use crate::install::WriteAction;
 use std::fs;
 use std::os::unix::fs::symlink;
 
@@ -79,5 +80,55 @@ fn a_managed_file_that_became_a_symlink_is_not_followed() -> TestResult {
         f.library.project_file_content(id, "a.txt"),
         Err(Error::UnsafePath { .. })
     ));
+    Ok(())
+}
+
+#[test]
+fn the_plugins_a_write_enabled_are_remembered_until_forgotten() -> TestResult {
+    use super::fixture::{fx, put};
+    let f = fx()?;
+    let dir = tempfile::tempdir()?;
+    put(dir.path(), "a.txt", "a\n")?;
+    let settings =
+        |text: &str| super::fixture::write(".claude/settings.json", WriteAction::New, Some(text));
+    let first = super::fixture::plan(
+        &f,
+        dir.path(),
+        vec![settings(
+            r#"{"enabledPlugins":{"a@m":true,"b@m":false,"c@m":true}}"#,
+        )],
+    )?;
+    let report = f.library.apply(&first)?;
+    assert_eq!(
+        f.library.project_enabled_plugins(report.project_id)?,
+        ["a@m", "c@m"]
+    );
+    // A later write that enables another one adds to the set; dropping one does not remove it.
+    let second = super::fixture::plan(
+        &f,
+        dir.path(),
+        vec![super::fixture::write(
+            ".claude/settings.json",
+            WriteAction::Replace,
+            Some(r#"{"enabledPlugins":{"d@m":true}}"#),
+        )],
+    )?;
+    f.library.apply(&second)?;
+    assert_eq!(
+        f.library.project_enabled_plugins(report.project_id)?,
+        ["a@m", "c@m", "d@m"]
+    );
+    f.library
+        .forget_enabled_plugins(report.project_id, &["a@m".to_owned(), "c@m".to_owned()])?;
+    assert_eq!(
+        f.library.project_enabled_plugins(report.project_id)?,
+        ["d@m"]
+    );
+    f.library
+        .forget_enabled_plugins(report.project_id, &["d@m".to_owned()])?;
+    assert!(f
+        .library
+        .project_enabled_plugins(report.project_id)?
+        .is_empty());
     Ok(())
 }

@@ -92,6 +92,7 @@ function plan(): Plan {
     editedInProject: [],
     restored: [],
     warnings: [],
+    stayWhole: [],
   } as unknown as Plan;
 }
 

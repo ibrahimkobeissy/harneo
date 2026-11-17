@@ -34,6 +34,7 @@ const plan = {
   reason: "Scaffold Web v2",
   backupCount: 0,
   warnings: [],
+  stayWhole: [],
   writes: [
     {
       path: "CLAUDE.md",
@@ -74,8 +75,23 @@ const pluginPlan = {
   ),
 };
 
+const stayWholePlan = {
+  ...plan,
+  stayWhole: [
+    {
+      plugin: "toolbox",
+      reason: "it has hooks, which only work inside a plugin",
+      artifactId: "part-1",
+    },
+  ],
+};
+
 interface Opts {
   plugins?: boolean;
+  /** The profile holds parts of a plugin that must stay whole. */
+  stayWhole?: boolean;
+  /** The install also removed a plugin the settings dropped. */
+  uninstalled?: boolean;
   /** Holds the plugin install until it resolves. */
   pluginGate?: Promise<void>;
   profiles?: ProfileSummary[];
@@ -100,6 +116,24 @@ function setup(opts: Opts = {}) {
       case "project_plugins_install":
         if (opts.pluginGate) return opts.pluginGate.then(() => []);
         return [
+          ...(opts.uninstalled
+            ? [
+                {
+                  id: "old@market",
+                  name: "old",
+                  marketplace: "market",
+                  status: "uninstalled",
+                  message: null,
+                },
+                {
+                  id: "stuck@market",
+                  name: "stuck",
+                  marketplace: "market",
+                  status: "notUninstalled",
+                  message: "locked",
+                },
+              ]
+            : []),
           {
             id: "brag@brag",
             name: "brag",
@@ -128,6 +162,7 @@ function setup(opts: Opts = {}) {
         return null;
       case "scaffold_plan":
         if (opts.planError) throw new Error(opts.planError);
+        if (opts.stayWhole) return stayWholePlan;
         return opts.plugins ? pluginPlan : plan;
       case "install_apply":
         if (opts.applyError) throw new Error(opts.applyError);
@@ -248,6 +283,50 @@ describe("Scaffold flow", () => {
     expect(
       calls.filter((c) => c.cmd === "project_plugins_install"),
     ).toHaveLength(1);
+  });
+
+  it("warns about parts of a plugin that must stay whole without blocking the write", async () => {
+    setup({ stayWhole: true });
+    await toPreview();
+    const list = await screen.findByRole("list", {
+      name: "Plugins that must stay whole",
+    });
+    expect(list).toHaveTextContent("toolbox");
+    expect(list).toHaveTextContent("it has hooks");
+    expect(
+      within(list).getByRole("button", {
+        name: "Replace with the whole plugin",
+      }),
+    ).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Write 3 files" })).toBeEnabled();
+  });
+
+  it("shows no stay-whole warning when the profile has none", async () => {
+    setup();
+    await toPreview();
+    await screen.findByRole("button", { name: "Write 3 files" });
+    expect(
+      screen.queryByRole("list", { name: "Plugins that must stay whole" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("reports each plugin the refit uninstalled, and the ones it could not", async () => {
+    setup({ plugins: true, uninstalled: true });
+    await toPreview();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Write 3 files" }),
+    );
+    const plugins = await screen.findByRole("region", { name: "Plugins" });
+    expect(
+      await within(plugins).findByText(
+        "uninstalled: the settings no longer enable it",
+      ),
+    ).toBeVisible();
+    expect(within(plugins).getByText("not uninstalled")).toBeVisible();
+    expect(within(plugins).getByText("locked")).toBeVisible();
+    expect(
+      within(plugins).getByRole("button", { name: "Retry" }),
+    ).toBeVisible();
   });
 
   it("holds the Done actions while the plugins install", async () => {

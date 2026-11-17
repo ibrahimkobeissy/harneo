@@ -17,6 +17,7 @@ const detail: ArtifactDetail = {
     description: "About alpha",
     path: "skills/alpha",
     files: [],
+    linkedFiles: [],
     metadata: {},
     references: [],
     diagnostics: [],

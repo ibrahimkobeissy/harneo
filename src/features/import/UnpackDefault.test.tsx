@@ -23,6 +23,7 @@ function candidate(
       description: `About ${name}`,
       path,
       files: [],
+      linkedFiles: [],
       metadata,
       references: [],
       diagnostics: [],

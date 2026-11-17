@@ -102,6 +102,7 @@ const plan = {
   editedInProject: [],
   restored: [],
   warnings: [],
+  stayWhole: [],
   writes: [
     {
       path: "CLAUDE.md",

@@ -46,6 +46,7 @@ import type { UpdateStatus } from "../bindings/UpdateStatus";
 import type { Layout } from "../bindings/Layout";
 import type { ProfileImportReport } from "../bindings/ProfileImportReport";
 import type { ProfileSpec } from "../bindings/ProfileSpec";
+import type { StayWholeWarning } from "../bindings/StayWholeWarning";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { CategoryId } from "../bindings/CategoryId";
 import type { Template } from "../bindings/Template";
@@ -813,6 +814,13 @@ export function profileFromCollection(
 /** What a spec installs: bundles pulled in, Settings, MCP servers, missing ids. */
 export function profileResolve(spec: ProfileSpec): Promise<Resolved> {
   return invoke<Resolved>("profile_resolve", { spec });
+}
+
+/** The plugins whose parts a spec holds although they must stay whole (ADR-006). */
+export function profileStayWhole(
+  spec: ProfileSpec,
+): Promise<StayWholeWarning[]> {
+  return invoke<StayWholeWarning[]>("profile_stay_whole", { spec });
 }
 
 /** The file tree a spec installs, with conflicts. */

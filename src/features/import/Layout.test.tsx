@@ -25,6 +25,7 @@ function cand(
       description: null,
       path: `${kind}s/${name}`,
       files: [],
+      linkedFiles: [],
       metadata,
       references: [],
       diagnostics: [],

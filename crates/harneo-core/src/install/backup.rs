@@ -523,6 +523,7 @@ impl Library {
         restored.sort();
         let plan = Plan {
             warnings: Vec::new(),
+            stay_whole: Vec::new(),
             target: project.path,
             profile_id: project.profile_id,
             profile_name: project.profile_name,

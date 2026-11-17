@@ -19,6 +19,7 @@ const detail = (flagged: boolean): ArtifactDetail => ({
     description: "About alpha",
     path: "skills/alpha",
     files: [],
+    linkedFiles: [],
     metadata: {
       fromPlugin: { name: "impeccable", folder: "", marketplace: null },
     },

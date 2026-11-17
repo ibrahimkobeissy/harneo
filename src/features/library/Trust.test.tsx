@@ -59,6 +59,7 @@ function detail(name: string, a: Audit | null): ArtifactDetail {
       description: null,
       path: name,
       files: [],
+      linkedFiles: [],
       metadata: {},
       references: [],
       diagnostics: [],

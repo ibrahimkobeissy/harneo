@@ -238,3 +238,130 @@ fn settings_the_cli_really_changed_are_left_as_it_saved_them() -> TestResult {
     assert!(now.contains(r#""model":"opus""#), "a real change stays");
     Ok(())
 }
+
+/// Settings that enable only `skills@mattpocock`: `agent-skills` was dropped, `off` is disabled.
+const AFTER_REFIT: &str = r#"{
+  "enabledPlugins": { "skills@mattpocock": true, "off@brag": false }
+}"#;
+
+fn refitted() -> std::io::Result<tempfile::TempDir> {
+    let p = tempfile::tempdir()?;
+    fs::create_dir(p.path().join(".claude"))?;
+    fs::write(p.path().join(".claude/settings.json"), AFTER_REFIT)?;
+    Ok(p)
+}
+
+#[test]
+fn a_plugin_the_refit_dropped_is_uninstalled_for_the_project_and_nothing_else_is() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let p = refitted()?;
+    let here = p.path().canonicalize()?.display().to_string();
+    let program = fake(
+        bin.path(),
+        "[]",
+        &format!(
+            r#"[{{"id":"agent-skills@addy-agent-skills","scope":"project","projectPath":"{here}"}},
+               {{"id":"off@brag","scope":"project","projectPath":"{here}"}},
+               {{"id":"mine@elsewhere","scope":"project","projectPath":"{here}"}},
+               {{"id":"skills@mattpocock","scope":"project","projectPath":"{here}"}}]"#
+        ),
+    )?;
+    // Harneo enabled agent-skills, off and skills; `mine` was never Harneo's.
+    let previously = vec![
+        "agent-skills@addy-agent-skills".to_owned(),
+        "gone@nowhere".to_owned(),
+        "off@brag".to_owned(),
+        "skills@mattpocock".to_owned(),
+    ];
+    let mut seen = 0;
+    let (results, gone) = uninstall_dropped(&config(&program), p.path(), &previously, |_| {
+        seen += 1;
+    })?;
+    let summary: Vec<(&str, PluginInstallStatus)> =
+        results.iter().map(|r| (r.id.as_str(), r.status)).collect();
+    assert_eq!(
+        summary,
+        [
+            (
+                "agent-skills@addy-agent-skills",
+                PluginInstallStatus::Uninstalled
+            ),
+            ("off@brag", PluginInstallStatus::Uninstalled),
+        ]
+    );
+    assert_eq!(seen, 2);
+    // A plugin that is no longer installed is forgotten without a report.
+    assert_eq!(
+        gone,
+        ["agent-skills@addy-agent-skills", "gone@nowhere", "off@brag"]
+    );
+    let calls = fs::read_to_string(bin.path().join("calls.txt"))?;
+    assert_eq!(
+        calls.lines().collect::<Vec<_>>(),
+        [
+            format!(
+                "plugin uninstall agent-skills@addy-agent-skills --scope project --json @ {here}"
+            ),
+            format!("plugin uninstall off@brag --scope project --json @ {here}"),
+        ]
+    );
+    Ok(())
+}
+
+#[test]
+fn nothing_dropped_means_the_cli_is_not_run() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let p = refitted()?;
+    let program = fake(bin.path(), "[]", "[]")?;
+    let (results, gone) = uninstall_dropped(
+        &config(&program),
+        p.path(),
+        &["skills@mattpocock".to_owned()],
+        |_| {},
+    )?;
+    assert!(results.is_empty() && gone.is_empty());
+    assert!(!bin.path().join("calls.txt").exists());
+    // No settings at all: every plugin of the earlier write is dropped, none installed.
+    let empty = tempfile::tempdir()?;
+    let (results, gone) =
+        uninstall_dropped(&config(&program), empty.path(), &["x@y".to_owned()], |_| {})?;
+    assert!(results.is_empty());
+    assert_eq!(gone, ["x@y"]);
+    Ok(())
+}
+
+#[test]
+fn an_uninstall_that_fails_is_reported_and_kept_for_next_time() -> TestResult {
+    let bin = tempfile::tempdir()?;
+    let p = refitted()?;
+    let here = p.path().canonicalize()?.display().to_string();
+    let program = script(
+        bin.path(),
+        "claude",
+        &format!(
+            r#"case "$*" in
+  "plugin list --json") echo '[{{"id":"a@m","scope":"project","projectPath":"{here}"}}]' ;;
+  *) echo '{{"command":"uninstall","outcome":"failed","message":"locked"}}'; exit 1 ;;
+esac"#
+        ),
+    )?;
+    let (results, gone) =
+        uninstall_dropped(&config(&program), p.path(), &["a@m".to_owned()], |_| {})?;
+    assert_eq!(results[0].status, PluginInstallStatus::NotUninstalled);
+    assert_eq!(results[0].message.as_deref(), Some("locked"));
+    assert!(gone.is_empty());
+
+    // Without the lists the reason is the same for every dropped plugin.
+    let broken = script(bin.path(), "claude2", "echo nope >&2; exit 1")?;
+    let (results, _) = uninstall_dropped(
+        &config(&broken),
+        p.path(),
+        &["a@m".to_owned(), "b@m".to_owned()],
+        |_| {},
+    )?;
+    assert!(results
+        .iter()
+        .all(|r| r.status == PluginInstallStatus::NotUninstalled));
+    assert_eq!(results.len(), 2);
+    Ok(())
+}

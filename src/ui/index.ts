@@ -43,6 +43,7 @@ export {
 export { Callout } from "./Callout";
 export { CodeView, decodeText } from "./CodeView";
 export { hasPlugins, PluginNotice, PluginsInstall } from "./PluginNotice";
+export { StayWholeNotice } from "./StayWholeNotice";
 export { FileTree, markOf, type FileMark, type TreeFile } from "./FileTree";
 export { Stepper } from "./Stepper";
 export { FileViewer, isMarkdown, languageOf } from "./FileViewer";

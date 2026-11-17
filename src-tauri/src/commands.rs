@@ -16,13 +16,13 @@ use harneo_core::bundles::{
 };
 use harneo_core::drift::{AddedPreview, DriftReport, ProjectDrift, PromoteReport};
 use harneo_core::install::{
-    install_plugins, ApplyReport, Backup, Comparison, InstalledFile, Plan, PluginInstall, Project,
-    ProjectFile, RefitAction,
+    install_plugins, uninstall_dropped, ApplyReport, Backup, Comparison, InstalledFile, Plan,
+    PluginInstall, Project, ProjectFile, RefitAction,
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
     Filter, ImportReport, LayoutStage, Library, Page, PluginHold, Preview, Query, ReauditReport,
-    RemovalPlan, Source, Tag, TagColor, TagWithCount,
+    RemovalPlan, Source, StayWholeWarning, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     ExportOptions, Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec,
@@ -1629,6 +1629,15 @@ pub fn profile_resolve(
     state.with(|library| library.resolve(&spec))
 }
 
+/// The plugins whose parts a spec holds although they must stay whole (ADR-006).
+#[tauri::command]
+pub fn profile_stay_whole(
+    state: State<'_, LibraryState>,
+    spec: ProfileSpec,
+) -> Result<Vec<StayWholeWarning>, String> {
+    state.with(|library| library.stay_whole_warnings(&spec))
+}
+
 /// The file tree a spec installs, with conflicts.
 #[tauri::command]
 pub fn profile_layout(state: State<'_, LibraryState>, spec: ProfileSpec) -> Result<Layout, String> {
@@ -1872,21 +1881,29 @@ pub async fn project_plugins_install(
     app: AppHandle,
     id: i64,
 ) -> Result<Vec<PluginInstall>, String> {
-    let project = app
+    let (project, previously) = app
         .state::<LibraryState>()
-        .with(|library| library.project(id))?;
-    tauri::async_runtime::spawn_blocking(move || {
-        install_plugins(
-            &ClaudeConfig::default(),
-            Path::new(&project.path),
-            |result| {
-                let _ = app.emit(PLUGINS_INSTALL_EVENT, result);
-            },
-        )
-        .map_err(|e| e.to_string())
+        .with(|library| Ok((library.project(id)?, library.project_enabled_plugins(id)?)))?;
+    let handle = app.clone();
+    let (mut results, gone) = tauri::async_runtime::spawn_blocking(move || {
+        let config = ClaudeConfig::default();
+        let path = Path::new(&project.path);
+        let emit = |result: &PluginInstall| {
+            let _ = handle.emit(PLUGINS_INSTALL_EVENT, result);
+        };
+        let mut results = install_plugins(&config, path, emit).map_err(|e| e.to_string())?;
+        // Plugins an earlier write enabled that the new settings no longer enable are removed.
+        let (dropped, gone) =
+            uninstall_dropped(&config, path, &previously, emit).map_err(|e| e.to_string())?;
+        results.extend(dropped);
+        Ok::<_, String>((results, gone))
     })
     .await
-    .map_err(|e| e.to_string())?
+    .map_err(|e| e.to_string())??;
+    app.state::<LibraryState>()
+        .with(|library| library.forget_enabled_plugins(id, &gone))?;
+    results.sort_by(|a, b| a.id.cmp(&b.id));
+    Ok(results)
 }
 
 /// The manifest of a project: the files Harneo wrote.
