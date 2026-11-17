@@ -2,6 +2,8 @@
 import type { Candidate } from "./Candidate";
 import type { Diagnostic } from "./Diagnostic";
 import type { IgnoredPath } from "./IgnoredPath";
+import type { NeedsBy } from "./NeedsBy";
+import type { PartNeeds } from "./PartNeeds";
 import type { Source } from "./Source";
 
 /**
@@ -24,4 +26,12 @@ unplacedOverflow: number,
 /**
  * Paths Claude said to ignore in tier 3: they no longer count as unplaced.
  */
-layoutIgnored: Array<IgnoredPath>, };
+layoutIgnored: Array<IgnoredPath>, 
+/**
+ * What each part needs from outside its own folder (ADR-008), and who decided it.
+ */
+partNeeds: Array<PartNeeds>, 
+/**
+ * Paths Claude said no part needs (docs, tests, CI...).
+ */
+notNeeded: Array<IgnoredPath>, needsBy?: NeedsBy, };

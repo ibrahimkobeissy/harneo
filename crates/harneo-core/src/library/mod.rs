@@ -33,6 +33,7 @@ pub mod ids;
 #[cfg(test)]
 mod import_tests;
 pub(crate) mod layout_claude;
+pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_claude_tests;
 mod origin;
@@ -169,6 +170,21 @@ pub struct Preview {
     #[serde(default)]
     #[ts(optional = false)]
     pub layout_ignored: Vec<layout_claude::IgnoredPath>,
+    /// What each part needs from outside its own folder (ADR-008), and who decided it.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub part_needs: Vec<layout_parts::PartNeeds>,
+    /// Paths Claude said no part needs (docs, tests, CI...).
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub not_needed: Vec<layout_claude::IgnoredPath>,
+    #[serde(default)]
+    #[ts(optional)]
+    pub needs_by: Option<layout_parts::NeedsBy>,
+    /// The file tree Claude's answer covers; stored with it.
+    #[serde(default)]
+    #[ts(skip)]
+    pub layout_tree: Vec<String>,
 }
 
 /// What an import did.
@@ -400,7 +416,29 @@ gone or no longer parses",
         }
         let candidates = self.candidates_of(identity, root, report.artifacts)?;
         let candidates = copies::collapse_copies(root, candidates);
+        let mut preview_notes = Vec::new();
+        let stored = records::stored_parts(&self.store.conn, &ids::source_id(identity))?;
+        let (part_needs, needs_by, layout_tree) = if stored.tree.is_empty() {
+            let fallback = layout_parts::fallback(root, &candidates);
+            if fallback.iter().any(|p| !p.needs.is_empty()) {
+                preview_notes.push(layout_parts::without_claude_notice());
+            }
+            (fallback, Some(layout_parts::NeedsBy::Fallback), Vec::new())
+        } else {
+            let now = layout_parts::tree_of(root);
+            let added = layout_parts::tree_added(&stored.tree, &now);
+            if !added.is_empty() {
+                preview_notes.push(layout_parts::tree_changed_notice(&added));
+            }
+            let needs = layout_parts::replay(root, &candidates, &stored, &mut preview_notes);
+            (needs, Some(layout_parts::NeedsBy::Stored), now)
+        };
+        diagnostics.extend(preview_notes);
         Ok(Preview {
+            part_needs,
+            needs_by,
+            layout_tree,
+            not_needed: stored.not_needed,
             source: source.clone(),
             candidates,
             diagnostics,
@@ -665,6 +703,7 @@ gone or no longer parses",
             let (unpacked, whole) = unpack::folders(&fresh);
             records::update_unpack(&tx, &source_id, &unpacked, &whole)?;
             records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
+            records::store_parts(&tx, &source_id, preview)?;
             let now = records::now();
             for candidate in &fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);

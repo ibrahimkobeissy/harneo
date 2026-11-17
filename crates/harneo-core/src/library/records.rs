@@ -484,3 +484,43 @@ pub(crate) fn delete(conn: &Connection, id: &str) -> Result<bool> {
     )?;
     Ok(true)
 }
+
+/// Claude's answer about what each part needs, stored with the source (ADR-008). Only Claude's
+/// own answer is stored: a preview decided without Claude leaves the source asking next time.
+pub(crate) fn store_parts(
+    conn: &Connection,
+    source_id: &str,
+    preview: &super::Preview,
+) -> Result<()> {
+    if preview.needs_by != Some(super::layout_parts::NeedsBy::Claude) {
+        return Ok(());
+    }
+    let stored = super::layout_parts::StoredParts {
+        parts: preview.part_needs.clone(),
+        not_needed: preview.not_needed.clone(),
+        tree: preview.layout_tree.clone(),
+    };
+    conn.execute(
+        "UPDATE sources SET layout_parts = ?2 WHERE id = ?1",
+        params![source_id, serde_json::to_string(&stored)?],
+    )?;
+    Ok(())
+}
+
+/// The stored answer of a source; empty when Claude was never asked.
+pub(crate) fn stored_parts(
+    conn: &Connection,
+    source_id: &str,
+) -> Result<super::layout_parts::StoredParts> {
+    let json: Option<String> = conn
+        .query_row(
+            "SELECT layout_parts FROM sources WHERE id = ?1",
+            params![source_id],
+            |r| r.get(0),
+        )
+        .optional()?
+        .flatten();
+    Ok(json
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default())
+}
