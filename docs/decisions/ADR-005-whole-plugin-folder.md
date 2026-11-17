@@ -1,7 +1,7 @@
 # ADR-005: A plugin taken whole keeps its whole folder, unless it is the repo itself
 
 ## Status
-Accepted (hybrid rule, user decision 2026-11-08). Supersedes the file scope of a whole plugin in its own folder in ADR-001 ("Plugins list, copy and audit only their components"). ADR-001's three tiers, and the component scope that decides which parts can be unpacked (ADR-002, ADR-004), still hold.
+**Superseded by [ADR-008](ADR-008-plugin-parts-as-trimmed-plugin.md) (2026-11-17).** Accepted (hybrid rule, user decision 2026-11-08). Supersedes the file scope of a whole plugin in its own folder in ADR-001 ("Plugins list, copy and audit only their components"). ADR-001's three tiers, and the component scope that decides which parts can be unpacked (ADR-002, ADR-004), still hold.
 
 ## Date
 2026-11-08

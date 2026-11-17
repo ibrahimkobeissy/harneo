@@ -1,7 +1,7 @@
 # ADR-004: Unpack plugins by default; whole only when they must be
 
 ## Status
-Accepted. Changes the default of ADR-002 (whole → unpacked); ADR-002's rules on what can be picked, exclusivity and the stored choice still hold.
+**Superseded by [ADR-008](ADR-008-plugin-parts-as-trimmed-plugin.md) (2026-11-17).** Accepted. Changes the default of ADR-002 (whole → unpacked); ADR-002's rules on what can be picked, exclusivity and the stored choice still hold.
 
 ## Date
 2026-11-07

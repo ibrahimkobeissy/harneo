@@ -136,6 +136,14 @@ Give Harneo its own store of trusted artifacts. The user imports from `~/.claude
 
 ## Unpacking a plugin
 
+> **Replaced 2026-11-17 by [ADR-008](../docs/decisions/ADR-008-plugin-parts-as-trimmed-plugin.md).** What follows (ADR-002/004/005/006) is history. The rules now:
+> 1. **Any plugin can be split**; import always lists its parts, each kept or dropped. Only a plugin with `monitors`, MCP servers or LSP servers is kept whole (a `.claude/skills/` plugin does not load them), with the reason shown; it installs from its marketplace.
+> 2. **Claude lists the parts and what each needs**, on by default (`import.layoutWithClaude`): every artifact, and for each the files and folders outside its own folder that it needs (data, references, templates), plus what is not needed (docs, tests, evals, CI, other agents' configs). Fixed schema, validated as tier 3; manifest components are always parts; stored with the source and replayed by updates; asked again only when the file tree changes outside the stored answer, with the change shown. Without Claude (off, or failed and continued): a part needs every file of the plugin's folder no other part claims, and the import says so.
+> 3. **Each kept part is a library item** recording its plugin (name, manifest, source) and its supporting paths; supporting files are stored once per plugin version.
+> 4. **Dependencies are shown, not decided:** a kept part naming a dropped one (`<plugin>:<name>`, `/<plugin>:<name>`) shows "`/build` needs `incremental-implementation`" at import and in the profile builder.
+> 5. **Removed:** the allow-list (`plugin::must_stay_whole` except the rule in 1), the "must stay whole" marks, *Replace with the whole plugin*, `_linked/` copies for plugin parts (ADR-007 keeps them for artifacts from no plugin).
+> 6. **Older libraries:** parts without a stored plugin record are marked *Re-import to update* and install as loose copies until then.
+
 > Decided 2026-11-01 (#198, [ADR-002](../docs/decisions/ADR-002-unpack-plugins.md)). Tickets #199 (scan), #200 (import, storage, updates), #201 (screen).
 > **Amended 2026-11-07 ([ADR-004](../docs/decisions/ADR-004-unpack-by-default.md)): unpacked is the default.** A plugin is proposed whole only when it must be (a whole-only part, a part tied by `${CLAUDE_PLUGIN_ROOT}`, or a remote-only marketplace entry), with the reason shown; a whole plugin in the library can be unpacked in one click; plugin handling lives in one core module. Points 1–7 below still hold except the default.
 

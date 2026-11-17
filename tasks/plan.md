@@ -537,3 +537,7 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#276](https://github.com/ibrahimkobeissy/harneo/issues/276) Bump the npm group (Dependabot #268)
 - [#277](https://github.com/ibrahimkobeissy/harneo/issues/277) Replace with the whole plugin: don't hold the library lock while cloning
 - [#278](https://github.com/ibrahimkobeissy/harneo/issues/278) Force undici 7.30.2 in the launch-video folders (44 Dependabot alerts)
+- [#294](https://github.com/ibrahimkobeissy/harneo/issues/294) Claude lists each plugin part and the folders it needs, on by default (ADR-008)
+- [#295](https://github.com/ibrahimkobeissy/harneo/issues/295) Split any plugin into parts kept as library items (ADR-008)
+- [#296](https://github.com/ibrahimkobeissy/harneo/issues/296) Scaffold a plugin's parts as a trimmed plugin in .claude/skills (ADR-008)
+- [#297](https://github.com/ibrahimkobeissy/harneo/issues/297) Show when a kept plugin part needs a dropped one (ADR-008)

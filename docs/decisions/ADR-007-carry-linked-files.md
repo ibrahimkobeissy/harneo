@@ -1,7 +1,7 @@
 # ADR-007: An artifact carries the files it links to outside its own folder
 
 ## Status
-Accepted (user decision 2026-11-17).
+**Superseded by [ADR-008](ADR-008-plugin-parts-as-trimmed-plugin.md) (2026-11-17) for plugin parts only; it still holds for artifacts that come from no plugin.** Accepted (user decision 2026-11-17).
 
 ## Date
 2026-11-17

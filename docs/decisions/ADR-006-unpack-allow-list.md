@@ -1,7 +1,7 @@
 # ADR-006: A plugin is unpacked only when every part is known to work as a copy
 
 ## Status
-Accepted (user decision 2026-11-11). Changes ADR-004's "For a plugin with both kinds of parts, the user may still unpack the pickable ones and is told which parts are lost": such a plugin is now whole only. ADR-004's default (unpacked) and the rest of ADR-002 and ADR-004 still hold.
+**Superseded by [ADR-008](ADR-008-plugin-parts-as-trimmed-plugin.md) (2026-11-17).** Accepted (user decision 2026-11-11). Changes ADR-004's "For a plugin with both kinds of parts, the user may still unpack the pickable ones and is told which parts are lost": such a plugin is now whole only. ADR-004's default (unpacked) and the rest of ADR-002 and ADR-004 still hold.
 
 ## Date
 2026-11-11
