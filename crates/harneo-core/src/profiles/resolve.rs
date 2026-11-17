@@ -66,12 +66,15 @@ pub(super) struct Meta {
     file_count: u32,
 }
 
+/// `{manual}` is the library's own rule for manual only: its flag, or the skill's frontmatter.
+const META_SQL: &str = "SELECT a.kind, a.name, a.trust_score, {manual},
+        COALESCE(json_array_length(json_extract(a.artifact, '$.files')), 0)
+    FROM artifacts a WHERE a.id = ?1";
+
 pub(super) fn meta(conn: &Connection, id: &str) -> Result<Option<Meta>> {
     let found = conn
         .query_row(
-            "SELECT kind, name, trust_score, manual_only,
-                    COALESCE(json_array_length(json_extract(artifact, '$.files')), 0)
-             FROM artifacts WHERE id = ?1",
+            &META_SQL.replace("{manual}", &crate::library::manual_only_sql("a")),
             params![id],
             |r| {
                 Ok((

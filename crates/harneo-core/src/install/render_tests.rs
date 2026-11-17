@@ -177,6 +177,28 @@ fn every_kind_is_rendered_and_copies_are_byte_equal() -> TestResult {
 }
 
 #[test]
+fn a_skill_imported_as_manual_only_stays_manual_only_unless_the_profile_turns_it_off() -> TestResult
+{
+    let text = "---\nname: m\ndescription: Manual.\ndisable-model-invocation: true\n---\nBody.\n";
+    let lib = import(&[(".claude/skills/m/SKILL.md", text)])?;
+    let skill = lib.id(ArtifactKind::Skill, "m")?;
+    let mut spec = ProfileSpec {
+        items: vec![skill.clone()],
+        ..ProfileSpec::default()
+    };
+    assert!(lib.library.resolve(&spec)?.artifacts[0].manual_only);
+    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    assert_eq!(lib.text(&rendered, ".claude/skills/m/SKILL.md")?, text);
+    spec.manual_only.insert(skill, false);
+    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    assert_eq!(
+        lib.text(&rendered, ".claude/skills/m/SKILL.md")?,
+        text.replace("invocation: true", "invocation: false")
+    );
+    Ok(())
+}
+
+#[test]
 fn manual_only_changes_only_the_frontmatter_key() -> TestResult {
     let lib = full_project()?;
     let skill = lib.id(ArtifactKind::Skill, "s")?;

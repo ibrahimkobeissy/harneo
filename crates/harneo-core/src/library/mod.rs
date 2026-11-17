@@ -87,7 +87,7 @@ pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use layout_claude::{IgnoredPath, LayoutJob, LayoutStage, Proposal};
 pub(crate) use origin::derive_plugin_origin;
-pub(crate) use query::source_label;
+pub(crate) use query::{manual_only_sql, source_label};
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
     StatusCount, TagChip, TagCount, TierCount, MAX_LIMIT,
