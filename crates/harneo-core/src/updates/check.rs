@@ -31,8 +31,8 @@ struct SourceWork {
     stored: Vec<Stored>,
     /// What Claude placed and ignored when the source was imported, replayed on each scan.
     layout: StoredLayout,
-    /// Every unpacked plugin of the source has a verdict on whether it must stay whole; until
-    /// then an unchanged commit is not enough to skip the source.
+    /// The source holds no parts of a plugin; one that does is never skipped for an unchanged
+    /// commit, since whether its plugin must stay whole is judged again by every check.
     judged: bool,
 }
 
@@ -233,7 +233,13 @@ impl Library {
         for (source, remote_commit) in source_rows(conn, source_filter.as_deref())? {
             let stored = stored_of_source(conn, &source.id)?;
             self.backfill_copy_digests(&stored)?;
-            let layout = records::stored_layout(conn, &source.id)?;
+            let mut layout = records::stored_layout(conn, &source.id)?;
+            // Parts the library holds replay as parts, whatever the source's stored choice says.
+            for folder in crate::library::whole::held_folders(conn, &source.id)? {
+                if !layout.unpack.contains(&folder) {
+                    layout.unpack.push(folder);
+                }
+            }
             let judged = crate::library::whole::judged(conn, &source.id)?;
             sources.push(SourceWork {
                 source,

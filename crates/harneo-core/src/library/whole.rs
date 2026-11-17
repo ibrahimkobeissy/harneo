@@ -69,7 +69,7 @@ pub(crate) fn store(
     source_id: &str,
     found: &[(String, Option<WholeReason>)],
 ) -> Result<()> {
-    let unpacked = records::stored_unpack(conn, source_id)?;
+    let unpacked = held_folders(conn, source_id)?;
     let mut verdicts = stored(conn, source_id)?.unwrap_or_default();
     verdicts.retain(|folder, _| unpacked.contains(folder));
     for (folder, reason) in found {
@@ -83,14 +83,30 @@ pub(crate) fn store(
     Ok(())
 }
 
-/// True when every unpacked plugin of the source has a verdict.
-pub(crate) fn judged(conn: &Connection, source_id: &str) -> Result<bool> {
-    let unpacked = records::stored_unpack(conn, source_id)?;
-    if unpacked.is_empty() {
-        return Ok(true);
+/// The folders of every plugin the library holds parts of from this source: the ones its import
+/// stored, and the ones its parts say they came from (`fromPlugin`), however they got in.
+pub(crate) fn held_folders(conn: &Connection, source_id: &str) -> Result<Vec<String>> {
+    let mut folders = records::stored_unpack(conn, source_id)?;
+    let mut stmt = conn.prepare("SELECT artifact FROM artifacts WHERE source_id = ?1")?;
+    let rows = stmt.query_map(params![source_id], |r| r.get::<_, String>(0))?;
+    for row in rows {
+        if let Some((_, folder)) = serde_json::from_str::<Artifact>(&row?)
+            .ok()
+            .and_then(|a| plugin_of(&a))
+        {
+            folders.push(folder);
+        }
     }
-    let verdicts = stored(conn, source_id)?.unwrap_or_default();
-    Ok(unpacked.iter().all(|f| verdicts.contains_key(f)))
+    folders.sort();
+    folders.dedup();
+    Ok(folders)
+}
+
+/// True when the source holds no parts of a plugin. Every update check, the automatic one
+/// included, looks at a source that does, whether or not its commit moved: the rules of
+/// ADR-006 change with Harneo, not only with the source.
+pub(crate) fn judged(conn: &Connection, source_id: &str) -> Result<bool> {
+    Ok(held_folders(conn, source_id)?.is_empty())
 }
 
 /// The plugin an unpacked part came from: its name and folder.

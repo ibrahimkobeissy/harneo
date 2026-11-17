@@ -180,3 +180,45 @@ fn replace_is_refused_when_the_parts_changed_while_the_source_was_read() -> Test
     assert!(page.items.iter().all(|i| i.kind != ArtifactKind::Plugin));
     Ok(())
 }
+
+fn add_experimental(root: &Path) -> std::io::Result<()> {
+    fs::write(
+        root.join(".claude-plugin/plugin.json"),
+        r#"{"name":"toolbox","description":"Tools","experimental":{"x":1}}"#,
+    )
+}
+
+#[test]
+fn parts_the_source_never_recorded_as_unpacked_are_judged_and_replaceable() -> TestResult {
+    let mut setup = setup()?;
+    // The parts are in the library, but the source's stored choice does not say so (a library
+    // from before it was stored); the manifest then gains a key that only a plugin understands.
+    setup
+        .library
+        .store
+        .conn
+        .execute("UPDATE sources SET unpack = NULL, whole_reasons = NULL", [])?;
+    add_experimental(setup.repo.path())?;
+    setup.library.check_updates(&CheckScope::All)?;
+    let notices = setup.notices()?;
+    assert_eq!(notices.len(), 3);
+    assert!(notices
+        .iter()
+        .all(|n| n.as_deref().is_some_and(|t| t.contains("experimental"))));
+    let done = setup.library.replace_with_whole(&setup.parts[0])?;
+    assert_eq!(done.parts.len(), 3);
+    Ok(())
+}
+
+#[test]
+fn a_source_holding_plugin_parts_is_never_judged_up_to_date_by_its_commit() -> TestResult {
+    let setup = setup()?;
+    setup.library.check_updates(&CheckScope::All)?;
+    let source: String = setup
+        .library
+        .store
+        .conn
+        .query_row("SELECT id FROM sources", [], |r| r.get(0))?;
+    assert!(!whole::judged(&setup.library.store.conn, &source)?);
+    Ok(())
+}
