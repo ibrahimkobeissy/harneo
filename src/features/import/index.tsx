@@ -274,9 +274,15 @@ function ImportFlow({
   function onLayout(found: PreviewTicket) {
     if (!preview) return;
     const seen = new Set(preview.candidates.map((c) => c.id));
-    const fresh = criticalIds(found.candidates.filter((c) => !seen.has(c.id)));
+    const added = found.candidates.filter((c) => !seen.has(c.id));
+    const fresh = criticalIds(added);
     for (const id of fresh) autoExcluded.current.add(id);
-    setExcluded((prev) => new Set([...prev, ...fresh]));
+    // What Claude suggests starts excluded: it is a proposal, and the repo may hold working
+    // copies or its own tooling the user does not want. Restore takes it in.
+    const proposed = added
+      .filter((c) => c.artifact.metadata.layoutBy === "claude")
+      .map((c) => c.id);
+    setExcluded((prev) => new Set([...prev, ...fresh, ...proposed]));
     setPreview(found);
     setLayoutRound((n) => n + 1);
     setTags((prev) => ({
@@ -575,7 +581,9 @@ function ImportFlow({
           }
           onClick={() => setStep(2)}
         >
-          Continue
+          {layout.stage !== null && layout.failure === null
+            ? "Waiting for Claude…"
+            : "Continue"}
         </Button>
       )}
       {step === 2 && detection.phase.kind === "running" && (

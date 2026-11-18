@@ -497,3 +497,60 @@ fn every_placeable_kind_is_read_by_its_own_parser() -> TestResult {
     assert_eq!(rejections(&next).len(), 3, "{:?}", rejections(&next));
     Ok(())
 }
+
+/// A repo shaped like impeccable: the published plugin in `plugin/`, and the author's working
+/// copy of one of its agents elsewhere, which only Claude would place.
+fn plugin_with_working_copy() -> std::result::Result<Setup, Box<dyn std::error::Error>> {
+    let s = setup()?;
+    write(
+        &s.repo,
+        "plugin/.claude-plugin/plugin.json",
+        r#"{"name":"imp","description":"d"}"#,
+    )?;
+    write(
+        &s.repo,
+        "plugin/agents/asset.md",
+        "---\nname: asset\ndescription: Makes assets\n---\nBody.\n",
+    )?;
+    write(
+        &s.repo,
+        "work/agents/asset.md",
+        "---\nname: asset\ndescription: Makes assets\n---\nBody.\n",
+    )?;
+    write(
+        &s.repo,
+        "work/agents/other.md",
+        "---\nname: other\ndescription: Something else\n---\nBody.\n",
+    )?;
+    Ok(s)
+}
+
+#[test]
+fn a_proposal_that_copies_a_plugin_part_is_set_aside_not_listed() -> TestResult {
+    let mut s = plugin_with_working_copy()?;
+    let preview = s.library.preview(&s.source())?;
+    assert!(
+        preview.unplaced.iter().any(|u| u == "work/agents/asset.md"),
+        "unplaced: {:?}",
+        preview.unplaced
+    );
+    s.claude(&answer(&[
+        item("agent", "asset", "work/agents/asset.md"),
+        item("agent", "other", "work/agents/other.md"),
+    ]))?;
+    let next = s.layout(&preview)?;
+    let from_working_copy: Vec<&str> = next
+        .candidates
+        .iter()
+        .map(|c| c.artifact.path.as_str())
+        .filter(|p| p.starts_with("work/"))
+        .collect();
+    assert_eq!(from_working_copy, ["work/agents/other.md"]);
+    assert!(next
+        .layout_ignored
+        .iter()
+        .any(|i| i.path == "work/agents/asset.md" && i.reason.contains("duplicate")));
+    assert!(!next.unplaced.iter().any(|u| u == "work/agents/asset.md"));
+    assert!(rejections(&next).is_empty());
+    Ok(())
+}

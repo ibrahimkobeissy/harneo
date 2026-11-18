@@ -324,10 +324,33 @@ impl LayoutJob {
     }
 }
 
+/// Why a proposal with the name of a plugin part is dropped.
+const DUPLICATE_PART: &str =
+    "a plugin in this source already has a part of that type and name, so it would be a duplicate";
+
 /// What tiers 1 and 2 claimed in a preview: files, and folders whose whole content is claimed.
 pub(super) struct Claimed {
     files: HashSet<String>,
     folders: Vec<PathBuf>,
+    /// The parts of every plugin in the source, by type and name: a repo that also keeps a
+    /// working copy of its plugin (impeccable's root `.claude/`) must not list it twice.
+    parts: HashSet<(ArtifactKind, String)>,
+}
+
+/// The type and name of the part a plugin file is, from Claude Code's default component folders:
+/// `…/agents/<n>.md`, `…/commands/<n>.md`, `…/skills/<n>/SKILL.md`.
+fn part_of_file(file: &str) -> Option<(ArtifactKind, String)> {
+    let parts: Vec<&str> = file.split('/').collect();
+    let n = parts.len();
+    if n >= 3 && parts[n - 1] == "SKILL.md" && parts[n - 3] == "skills" {
+        return Some((ArtifactKind::Skill, parts[n - 2].to_owned()));
+    }
+    let stem = parts[n - 1].strip_suffix(".md")?;
+    match *parts.get(n.checked_sub(2)?)? {
+        "agents" => Some((ArtifactKind::Agent, stem.to_owned())),
+        "commands" => Some((ArtifactKind::Command, stem.to_owned())),
+        _ => None,
+    }
 }
 
 impl Claimed {
@@ -335,6 +358,7 @@ impl Claimed {
         let mut claimed = Self {
             files: HashSet::new(),
             folders: Vec::new(),
+            parts: HashSet::new(),
         };
         for c in candidates {
             claimed.add(&c.artifact, &c.copies);
@@ -342,7 +366,18 @@ impl Claimed {
         claimed
     }
 
+    /// Whether `a` has the type and name of a part of a plugin in the source.
+    pub(super) fn duplicates_a_part(&self, a: &Artifact) -> bool {
+        self.parts.contains(&(a.kind, a.name.clone()))
+    }
+
     pub(super) fn add(&mut self, a: &Artifact, copies: &[String]) {
+        if a.kind == ArtifactKind::Plugin {
+            self.parts
+                .extend(a.files.iter().filter_map(|f| part_of_file(f)));
+        } else if a.metadata.contains_key("fromPlugin") {
+            self.parts.insert((a.kind, a.name.clone()));
+        }
         let own = a.path.split('#').next().unwrap_or_default();
         self.files.insert(own.to_owned());
         self.files.extend(a.files.iter().cloned());
@@ -445,6 +480,9 @@ fn accept(
             tidy(file, SHOWN_CHARS)
         ));
     }
+    if claimed.duplicates_a_part(&artifact) {
+        return Err(DUPLICATE_PART.to_owned());
+    }
     artifact.metadata.insert("layoutBy".into(), "claude".into());
     artifact.metadata.insert(
         "layoutReason".into(),
@@ -500,6 +538,7 @@ impl StoredLayout {
         let mut claimed = Claimed {
             files: HashSet::new(),
             folders: Vec::new(),
+            parts: HashSet::new(),
         };
         for a in &report.artifacts {
             claimed.add(a, &[]);
@@ -542,6 +581,9 @@ fn replay_one(
     let mut artifact = parse_proposed(root, entry.kind, &rel)?;
     if let Some(file) = artifact.files.iter().find(|f| claimed.holds(f)) {
         return Err(format!("it would take `{file}`, which is already claimed"));
+    }
+    if claimed.duplicates_a_part(&artifact) {
+        return Err(DUPLICATE_PART.to_owned());
     }
     artifact.metadata.insert("layoutBy".into(), "claude".into());
     if let Some(reason) = &entry.reason {
@@ -633,6 +675,16 @@ impl Library {
                         claimed.files.insert(artifact.path.clone());
                         claimed.files.extend(artifact.files.iter().cloned());
                         accepted.push(artifact);
+                    }
+                    // A copy of a plugin's part is set aside, not left unplaced: the plugin
+                    // already brings it.
+                    Err(reason) if reason == DUPLICATE_PART => {
+                        if let Ok(rel) = check_path(root, &item.path) {
+                            next.layout_ignored.push(IgnoredPath {
+                                path: crate::artifact::rel_string(&rel),
+                                reason: DUPLICATE_PART.to_owned(),
+                            });
+                        }
                     }
                     Err(reason) => next.diagnostics.push(rejected(item, &reason)),
                 }

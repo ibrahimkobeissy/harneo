@@ -1,8 +1,9 @@
 import { FileQuestion, Sparkles } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Candidate } from "../../bindings/Candidate";
 import type { LayoutStage } from "../../bindings/LayoutStage";
 import type { Preview } from "../../bindings/Preview";
+import { Modal } from "../../app/Modal";
 import { Button, Callout } from "../../ui";
 import { placementOf } from "./placement";
 import type { LayoutRun } from "./useLayoutRun";
@@ -72,6 +73,13 @@ export function LayoutNotes({
   const [open, setOpen] = useState(false);
   const listId = useId();
   const working = run.stage !== null;
+  const waitRef = useRef<HTMLDivElement>(null);
+  const waiting = run.stage !== null && run.failure === null;
+  // Focus rests on the dialog itself, not on Cancel: the Modal focuses its first button, then
+  // this effect (a parent's, so it runs after) moves focus to the dialog.
+  useEffect(() => {
+    if (waiting) waitRef.current?.focus();
+  }, [waiting]);
   const count = preview.unplaced.length + preview.unplacedOverflow;
   return (
     <>
@@ -101,9 +109,31 @@ export function LayoutNotes({
         </Callout>
       )}
       {run.stage !== null && run.failure === null && (
-        <p className={`${styles.muted} ${styles.counter}`} role="status">
-          {stages[run.stage]}
-        </p>
+        <Modal label="Claude is reading the repo">
+          {/* Keeps the app's own shortcuts (Ctrl+K, ?) away while Claude works; Tab stays trapped. */}
+          <div
+            className={styles.wait}
+            ref={waitRef}
+            tabIndex={-1}
+            onKeyDown={(e) => {
+              if (e.key !== "Tab") e.nativeEvent.stopPropagation();
+            }}
+          >
+            <div className={styles.waitHead} role="status">
+              <span className={styles.spinner} aria-hidden="true" />
+              <h2>{stages[run.stage]}</h2>
+            </div>
+            <p className={styles.waitBody}>
+              Claude is working out which parts and folders this repo holds.
+              This can take a minute; the import goes on once it answers.
+            </p>
+            <div className={styles.waitFoot}>
+              <Button small variant="ghost" onClick={onCancel}>
+                Cancel import
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
       {count > 0 && (
         <div className={styles.callout} data-tone="neutral">

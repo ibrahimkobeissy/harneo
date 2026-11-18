@@ -1,6 +1,13 @@
 import { emit } from "@tauri-apps/api/event";
 import { mockIPC } from "@tauri-apps/api/mocks";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { describe, expect, it } from "vitest";
@@ -219,6 +226,10 @@ describe("Import: the unplaced notice", () => {
     expect(args.library_preview_layout).toEqual({ token: "tok" });
     expect(screen.getByText("review")).toBeVisible();
     expect(screen.queryByText(/couldn't place/)).toBeNull();
+    // What Claude suggests starts excluded; the user restores it to take it.
+    expect(
+      screen.getByText(`${found.length} to import, 1 excluded`),
+    ).toBeInTheDocument();
   });
 
   it("sends the rows Claude placed through phase 2 too", async () => {
@@ -258,7 +269,32 @@ describe("Import: the unplaced notice", () => {
       emit("layout-progress", { token: "other", stage: "checking" }),
     );
     expect(screen.queryByText("Checking Claude's answer…")).toBeNull();
-    expect(screen.getByRole("button", { name: "Continue" })).toBeDisabled();
+    // The wait is a blocking dialog with a spinner and one way out, and Continue says what it
+    // waits for.
+    const dialog = screen.getByRole("dialog", {
+      name: "Claude is reading the repo",
+    });
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    const status = within(dialog).getByRole("status");
+    expect(status.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(dialog).toHaveTextContent("the import goes on once it answers");
+    const cancel = within(dialog).getByRole("button", {
+      name: "Cancel import",
+    });
+    expect(cancel).toBeVisible();
+    expect(cancel).not.toHaveFocus();
+    expect(dialog).toContainElement(document.activeElement as HTMLElement);
+    // The app's shortcuts don't reach past it.
+    const seen: string[] = [];
+    const spy = (e: KeyboardEvent) => seen.push(e.key);
+    window.addEventListener("keydown", spy);
+    fireEvent.keyDown(status, { key: "k", ctrlKey: true });
+    window.removeEventListener("keydown", spy);
+    expect(seen).toEqual([]);
+    expect(
+      screen.getByRole("button", { name: "Waiting for Claude…" }),
+    ).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Continue" })).toBeNull();
     await act(async () => release(placedTicket));
     await waitFor(() =>
       expect(
@@ -442,10 +478,32 @@ describe("Import: Ask Claude again", () => {
     );
   });
 
-  it("runs by itself with the setting on when parts have no stored answer", async () => {
+  it("runs by itself with the setting on when a plugin's parts have no stored answer", async () => {
+    const u = userEvent.setup();
+    const parts = [
+      ...found,
+      cand("build", "command", {
+        layoutBy: "manifest",
+        fromPlugin: { name: "pack" },
+      }),
+    ];
+    const { calls } = setup({
+      auto: true,
+      first: ticket({ candidates: parts }),
+    });
+    await toChoose(u);
+    await waitFor(() => expect(calls).toContain("library_preview_layout"));
+  });
+
+  it("does not ask Claude for plugins taken whole with nothing unplaced", async () => {
     const u = userEvent.setup();
     const { calls } = setup({ auto: true });
     await toChoose(u);
-    await waitFor(() => expect(calls).toContain("library_preview_layout"));
+    await waitFor(() => expect(calls).toContain("library_preview"));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls).not.toContain("library_preview_layout");
+    expect(
+      screen.queryByRole("dialog", { name: "Claude is reading the repo" }),
+    ).toBeNull();
   });
 });

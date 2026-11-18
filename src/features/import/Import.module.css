@@ -219,6 +219,40 @@
   padding: var(--space-lg);
   background: var(--raised);
 }
+/* The blocking dialog while Claude reads the repo, laid out like the app's other dialogs. */
+.wait {
+  display: flex;
+  flex-direction: column;
+}
+.wait:focus-visible {
+  outline: none;
+}
+.waitHead {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  padding: var(--space-xl) var(--space-xl) var(--space-md);
+}
+.waitHead h2 {
+  margin: 0;
+  font-size: var(--text-title);
+}
+.waitHead .spinner {
+  width: 20px;
+  height: 20px;
+}
+.waitBody {
+  margin: 0;
+  padding: 0 var(--space-xl) var(--space-lg);
+  color: var(--t2);
+  line-height: var(--leading);
+}
+.waitFoot {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--space-md) var(--space-xl);
+  border-top: var(--hairline) solid var(--line);
+}
 .spinner {
   width: 16px;
   height: 16px;

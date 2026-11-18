@@ -27,13 +27,17 @@ function messageOf(error: unknown): string {
 }
 
 /**
- * Whether Claude has something to answer (ADR-008): files are unplaced, or the parts' needs are
- * not Claude's stored answer (none yet, or the file tree changed outside it).
+ * Whether Claude has something to answer (ADR-008): files are unplaced, or a plugin is split into
+ * parts whose needs are not Claude's stored answer (none yet, or the file tree changed outside
+ * it). A plugin taken whole installs as it is, so it never asks.
  */
 function claudeIsDue(ticket: PreviewTicket | null): boolean {
   if (!ticket) return false;
   if (ticket.unplaced.length > 0) return true;
-  if (ticket.candidates.length === 0) return false;
+  const split = ticket.candidates.some(
+    (c) => c.artifact.metadata.fromPlugin !== undefined,
+  );
+  if (!split) return false;
   return (
     ticket.needsBy !== "stored" ||
     ticket.diagnostics.some((d) => d.code === "layout.tree-changed")
