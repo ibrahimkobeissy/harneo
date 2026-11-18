@@ -5,7 +5,7 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::artifact::walk::Walker;
 use crate::artifact::{
-    rel_string, AgentAdapter, Artifact, ArtifactKind, ClaudeAdapter, Diagnostic,
+    rel_string, AgentAdapter, Artifact, ArtifactKind, ClaudeAdapter, Diagnostic, Reference,
 };
 use crate::artifact::{ScanOptions, ScanReport};
 use crate::profiles::layout::in_harness;
@@ -97,8 +97,21 @@ fn code_prefix(kind: ArtifactKind) -> Option<&'static str> {
 }
 
 /// Fills `linked_files` of every skill, agent, command and output style in the report, and
-/// warns about links that would land outside the harness.
+/// warns about links that would land outside the harness. A link into another artifact of the
+/// scan (another skill's `SKILL.md`, an agent, a command) is not carried: it becomes a reference
+/// to that artifact, which import turns into a bundle link, so a profile pulls the artifact in
+/// whole instead of a stray copy of one of its files.
 pub(crate) fn fill(walker: &mut Walker<'_>, options: &ScanOptions, report: &mut ScanReport) {
+    let mut owners: std::collections::HashMap<String, (ArtifactKind, String)> =
+        std::collections::HashMap::new();
+    for a in &report.artifacts {
+        if code_prefix(a.kind).is_none() {
+            continue;
+        }
+        for file in &a.files {
+            owners.insert(file.clone(), (a.kind, a.name.clone()));
+        }
+    }
     for artifact in &mut report.artifacts {
         let Some(prefix) = code_prefix(artifact.kind) else {
             continue;
@@ -150,6 +163,20 @@ pub(crate) fn fill(walker: &mut Walker<'_>, options: &ScanOptions, report: &mut 
         found.sort();
         let mut kept = Vec::new();
         for target in found {
+            if let Some((kind, name)) = owners.get(&target) {
+                let known = artifact
+                    .references
+                    .iter()
+                    .any(|r| r.kind == *kind && &r.target == name);
+                if !known {
+                    artifact.references.push(Reference {
+                        kind: *kind,
+                        target: name.clone(),
+                        resolved: true,
+                    });
+                }
+                continue;
+            }
             if project_path(artifact, &target).is_some() {
                 kept.push(target);
             } else {

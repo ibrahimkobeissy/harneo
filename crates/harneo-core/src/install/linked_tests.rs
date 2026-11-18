@@ -232,3 +232,74 @@ fn two_artifacts_with_different_bytes_at_one_path_conflict() -> TestResult {
     assert_eq!(layout.conflicts[0].path, ".claude/references/a.md");
     Ok(())
 }
+
+/// Skills that link each other's `SKILL.md` (the user's `principle-*` skills), plus a plain
+/// shared file.
+fn principles(root: &Path) -> std::io::Result<()> {
+    put(root, "references/a.md", "checklist A\n")?;
+    skill(
+        root,
+        "skills",
+        "lever",
+        "Then `../prove/SKILL.md`, with ../../references/a.md.",
+    )?;
+    skill(root, "skills", "premise", "Before, read ../lever/SKILL.md.")?;
+    skill(root, "skills", "prove", "Last step.")
+}
+
+#[test]
+fn a_link_into_another_artifact_is_a_reference_not_a_carried_file() -> TestResult {
+    let src = tempfile::tempdir()?;
+    principles(src.path())?;
+    let report = ClaudeAdapter.scan(src.path(), &ScanOptions::default())?;
+    let by_name = |n: &str| {
+        report
+            .artifacts
+            .iter()
+            .find(|a| a.name == n)
+            .ok_or("missing")
+    };
+    let lever = by_name("lever")?;
+    assert_eq!(lever.linked_files, ["references/a.md"]);
+    assert!(lever
+        .references
+        .iter()
+        .any(|r| r.kind == ArtifactKind::Skill && r.target == "prove" && r.resolved));
+    let premise = by_name("premise")?;
+    assert!(premise.linked_files.is_empty());
+    assert!(premise.references.iter().any(|r| r.target == "lever"));
+    Ok(())
+}
+
+#[test]
+fn skills_linking_each_other_install_without_conflict_and_pull_what_they_need() -> TestResult {
+    let src = tempfile::tempdir()?;
+    principles(src.path())?;
+    let (_data, library) = library_of(&[src.path()])?;
+    let id = |n: &str| -> std::result::Result<String, Box<dyn std::error::Error>> {
+        Ok(library.find(ArtifactKind::Skill, n)?.ok_or("missing")?)
+    };
+    let all = ProfileSpec {
+        items: vec![id("lever")?, id("premise")?, id("prove")?],
+        ..ProfileSpec::default()
+    };
+    assert!(library.layout(&all)?.conflicts.is_empty());
+    // Picking `premise` alone pulls `lever`, which pulls `prove`: whole skills, no stray copies.
+    let alone = ProfileSpec {
+        items: vec![id("premise")?],
+        ..ProfileSpec::default()
+    };
+    let names: Vec<String> = library
+        .resolve(&alone)?
+        .artifacts
+        .into_iter()
+        .map(|a| a.name)
+        .collect();
+    assert_eq!(names, ["premise", "lever", "prove"]);
+    let layout = library.layout(&alone)?;
+    assert!(layout.conflicts.is_empty());
+    let paths: Vec<&str> = layout.paths.iter().map(|p| p.path.as_str()).collect();
+    assert!(paths.contains(&".claude/skills/prove/SKILL.md"));
+    assert!(paths.contains(&".claude/references/a.md"));
+    Ok(())
+}
