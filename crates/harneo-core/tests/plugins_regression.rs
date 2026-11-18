@@ -1500,6 +1500,7 @@ fn downgrade_to_v10(data: &Path) -> R {
          ALTER TABLE projects DROP COLUMN enabled_plugins;
          ALTER TABLE sources DROP COLUMN whole_reasons;
          ALTER TABLE sources DROP COLUMN unpack;
+         ALTER TABLE sources DROP COLUMN layout_parts;
          PRAGMA user_version = 10;",
     )?;
     Ok(())
