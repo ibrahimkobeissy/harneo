@@ -33,9 +33,9 @@ pub mod ids;
 #[cfg(test)]
 mod import_tests;
 pub(crate) mod layout_claude;
-pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_claude_tests;
+pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_parts_tests;
 mod origin;

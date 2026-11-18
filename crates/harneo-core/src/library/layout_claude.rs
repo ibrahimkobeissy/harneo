@@ -382,7 +382,10 @@ fn apply_parts(root: &Path, next: &mut Preview, proposal: &Proposal) {
             continue;
         };
         let needs = layout_parts::check_needs(root, candidate, &part.needs, &mut diagnostics);
-        if let Some(existing) = by_part.iter_mut().find(|p| p.path == candidate.artifact.path) {
+        if let Some(existing) = by_part
+            .iter_mut()
+            .find(|p| p.path == candidate.artifact.path)
+        {
             existing.needs.extend(needs);
         } else {
             by_part.push(layout_parts::PartNeeds {
@@ -596,8 +599,7 @@ impl Library {
                 withheld: Vec::new(),
             });
         }
-        let sections =
-            self.with_preview_root(preview, |root| {
+        let sections = self.with_preview_root(preview, |root| {
             Ok(read_sections(root, &preview.unplaced, &preview.candidates))
         })?;
         Ok(LayoutJob {

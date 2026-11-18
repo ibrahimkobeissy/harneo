@@ -165,14 +165,18 @@ fn claude_gives_each_skill_its_references_and_drops_docs_and_the_answer_is_store
     assert!(!next.diagnostics.iter().any(|d| d.code == WITHOUT_CLAUDE));
 
     s.import_all(&next)?;
-    let stored = records::stored_parts(&s.library.store.conn, &ids::source_id(&next.source.identity()?))?;
+    let stored = records::stored_parts(
+        &s.library.store.conn,
+        &ids::source_id(&next.source.identity()?),
+    )?;
     assert_eq!(stored.parts.len(), skills.len());
     assert!(!stored.tree.is_empty());
     Ok(())
 }
 
 #[test]
-fn an_unchanged_tree_makes_no_call_and_a_new_folder_asks_again_and_shows_the_change() -> TestResult {
+fn an_unchanged_tree_makes_no_call_and_a_new_folder_asks_again_and_shows_the_change() -> TestResult
+{
     let mut s = setup()?;
     let preview = s.preview()?;
     let skills = skill_paths(&preview);
