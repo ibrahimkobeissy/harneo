@@ -14,10 +14,11 @@ use ts_rs::TS;
 
 use super::plan::{check_plan, digest, resolve_inside, safe_parts, utc_date};
 use super::{Plan, PlanKind, Write, WriteAction};
+use crate::artifact::walk::Walker;
 use crate::artifact::{AgentAdapter, ArtifactKind, ClaudeAdapter, Origin, ScanOptions};
 use crate::error::{Error, Result};
 use crate::library::{ArtifactId, Library};
-use crate::profiles::layout::load;
+use crate::profiles::layout::{load, trim_of};
 use crate::profiles::{Generated, PathFrom, ProfileId};
 use crate::updates::hunks;
 
@@ -431,18 +432,33 @@ impl Library {
                 PathFrom::Generated {
                     generated: Generated::HarnessMd,
                 } => (file.path.clone(), None),
+                PathFrom::Plugin { artifact: id } => {
+                    // The manifest and supporting files of a trimmed plugin belong to its item.
+                    let loaded = load(&self.store.conn, id)?;
+                    let trim = match &loaded {
+                        Some(a) => trim_of(&self.store.conn, id, a)?,
+                        None => None,
+                    };
+                    (trim.map_or_else(|| file.path.clone(), |t| t.dir), None)
+                }
                 PathFrom::Artifact { artifact: id } => {
-                    let key = match load(&self.store.conn, id)? {
-                        Some(a) => match a.kind {
+                    let loaded = load(&self.store.conn, id)?;
+                    let trim = match &loaded {
+                        Some(a) => trim_of(&self.store.conn, id, a)?,
+                        None => None,
+                    };
+                    let key = match (&loaded, trim) {
+                        (_, Some(trim)) => trim.dir,
+                        (Some(a), None) => match a.kind {
                             ArtifactKind::Settings => SETTINGS.to_owned(),
                             ArtifactKind::Mcp => MCP_JSON.to_owned(),
                             ArtifactKind::ClaudeMd => CLAUDE_MD.to_owned(),
                             _ => ClaudeAdapter
-                                .install_path(&a)
+                                .install_path(a)
                                 .to_string_lossy()
                                 .replace('\\', "/"),
                         },
-                        None => file.path.clone(),
+                        (None, None) => file.path.clone(),
                     };
                     (key, Some(id.clone()))
                 }
@@ -460,7 +476,22 @@ impl Library {
         // The project's own harness, by what a scan finds. Files Harneo does not know are ignored.
         let report = ClaudeAdapter.scan(&root, &ScanOptions::default())?;
         for artifact in report.artifacts {
-            if artifact.kind == ArtifactKind::Plugin || artifact.origin != Origin::Own {
+            if artifact.kind == ArtifactKind::Plugin {
+                // A plugin under `.claude/skills/` is a trimmed plugin (ADR-008): one item, with
+                // every file on disk below its folder. Any other plugin is merged into settings.
+                if let Some(dir) = skills_plugin_dir(&artifact.path) {
+                    let options = ScanOptions::default();
+                    let walker = Walker::new(&root, &options);
+                    let entry = groups.entry(dir.clone()).or_default();
+                    for path in walker.list_files(Path::new(&dir), &mut Vec::new()) {
+                        if safe_parts(&path).is_ok() {
+                            entry.1.insert(path);
+                        }
+                    }
+                }
+                continue;
+            }
+            if artifact.origin != Origin::Own {
                 continue;
             }
             let key = match artifact.kind {
@@ -563,6 +594,12 @@ impl Library {
         }
         Ok(true)
     }
+}
+
+/// `path` when it is a plugin folder directly under `.claude/skills/`.
+fn skills_plugin_dir(path: &str) -> Option<String> {
+    let name = path.strip_prefix(".claude/skills/")?;
+    (!name.is_empty() && !name.contains('/')).then(|| path.to_owned())
 }
 
 /// Leaves each project path in exactly one group, so a plan never writes a file twice. A path

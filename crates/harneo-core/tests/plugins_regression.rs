@@ -962,7 +962,8 @@ fn one_click_unpack_of_a_plugin_held_by_two_profiles_keeps_projects_and_backups_
 // ---------------------------------------------------------------- 7. install
 
 #[test]
-fn scaffold_and_refit_write_unpacked_parts_under_claude_and_never_enable_the_plugin() -> R {
+fn scaffold_and_refit_write_a_trimmed_plugin_under_claude_skills_and_never_enable_the_plugin() -> R
+{
     let src = tempfile::tempdir()?;
     for (rel, text) in agent_skills_files() {
         put(src.path(), rel, &text)?;
@@ -984,27 +985,31 @@ fn scaffold_and_refit_write_unpacked_parts_under_claude_and_never_enable_the_plu
         &ids.iter().map(String::as_str).collect::<Vec<_>>(),
     )?;
 
-    // Scaffold: the parts as ordinary files, the plugin neither copied nor enabled.
+    // Scaffold: the parts as a trimmed plugin under .claude/skills/, nothing enabled or installed.
     let fresh = tempfile::tempdir()?;
     let plan = lab.library.plan_scaffold(fresh.path(), profile, None)?;
     assert!(plan.warnings.is_empty(), "{:?}", plan.warnings);
     lab.library.apply(&plan)?;
     let files = files_under(fresh.path());
-    assert!(
-        files.contains(&".claude/skills/code-review/SKILL.md".to_owned()),
-        "{files:?}"
-    );
-    assert!(
-        files.contains(&".claude/skills/test-driven-development/references/patterns.md".to_owned())
-    );
+    let at = |rel: &str| format!(".claude/skills/agent-skills/{rel}");
+    for rel in [
+        "skills/code-review/SKILL.md",
+        "skills/test-driven-development/references/patterns.md",
+        ".claude-plugin/plugin.json",
+    ] {
+        assert!(files.contains(&at(rel)), "{rel} in {files:?}");
+    }
     assert!(files.contains(&"HARNESS.md".to_owned()));
     assert!(
         !files
             .iter()
-            .any(|f| f.contains("settings.json") || f.contains(".claude-plugin")),
+            .any(|f| f.contains("settings.json") || f.contains("marketplace.json")),
         "{files:?}"
     );
-    assert!(!read(fresh.path(), "HARNESS.md")?.contains("## Plugins"));
+    let harness = read(fresh.path(), "HARNESS.md")?;
+    assert!(!harness.contains("## Plugins"));
+    assert!(harness.contains("### agent-skills (`.claude/skills/agent-skills/`)"));
+    assert!(harness.contains("- Skill `code-review`"));
     assert!(plugin_targets(fresh.path())?.is_empty());
     let bin = tempfile::tempdir()?;
     let config = fake_claude(bin.path())?;
@@ -1020,8 +1025,8 @@ fn scaffold_and_refit_write_unpacked_parts_under_claude_and_never_enable_the_plu
         DriftStatus::InSync
     );
 
-    // Refit over a project that has its own harness: its settings stay untouched (no plugin
-    // enabled), its own copy of a skill is replaced after a backup, and restore brings it back.
+    // Refit over a project that has its own harness: its settings and its own skill stay
+    // untouched, the trimmed plugin is added beside them, and no plugin is enabled.
     let own = tempfile::tempdir()?;
     put(
         own.path(),
@@ -1043,24 +1048,20 @@ fn scaffold_and_refit_write_unpacked_parts_under_claude_and_never_enable_the_plu
     let plan = lab.library.plan_refit(&comparison, &Default::default())?;
     assert_eq!(plan.kind, PlanKind::Refit);
     assert!(plan.warnings.is_empty(), "{:?}", plan.warnings);
-    let report = lab.library.apply(&plan)?;
+    lab.library.apply(&plan)?;
     assert_eq!(read(own.path(), ".claude/settings.json")?, settings_before);
     assert!(!read(own.path(), ".claude/settings.json")?.contains("enabledPlugins"));
     assert!(own
         .path()
-        .join(".claude/skills/spec-driven-development/SKILL.md")
+        .join(at("skills/spec-driven-development/SKILL.md"))
         .is_file());
     assert!(own
         .path()
-        .join(".claude/skills/test-driven-development/references/patterns.md")
+        .join(at("skills/test-driven-development/references/patterns.md"))
         .is_file());
-    assert!(
-        read(own.path(), ".claude/skills/code-review/SKILL.md")?.contains("Review in five axes.")
-    );
-    assert!(plugin_targets(own.path())?.is_empty());
-    let backup = report.backup_id.ok_or("the replaced skill was backed up")?;
-    lab.library.restore_backup(backup)?;
     assert!(read(own.path(), ".claude/skills/code-review/SKILL.md")?.contains("Mine."));
+    assert!(read(own.path(), &at("skills/code-review/SKILL.md"))?.contains("Review in five axes."));
+    assert!(plugin_targets(own.path())?.is_empty());
     Ok(())
 }
 

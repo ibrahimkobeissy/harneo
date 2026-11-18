@@ -11,12 +11,13 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use ts_rs::TS;
 
+use super::trimmed::{narrow, KeptPart};
 use crate::artifact::{Artifact, ArtifactKind, Origin};
 use crate::error::{Error, Result};
 use crate::library::{
     derive_plugin_origin, is_executable, records, safe_join, ArtifactId, Library,
 };
-use crate::profiles::layout::{load, placed};
+use crate::profiles::layout::{load, placed_in, trim_groups, trim_of, TrimGroup};
 use crate::profiles::{Generated, PathFrom, ProfileSpec, Resolved, ResolvedItem};
 
 const SETTINGS: &str = ".claude/settings.json";
@@ -228,6 +229,9 @@ fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec
 /// Said in `HARNESS.md` and by the scaffold and refit screens.
 pub(crate) const PLUGINS_NOTE: &str = "Plugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them, and Harneo installs them for this project through the `claude` CLI when it scaffolds or refits it. Anyone else who opens the project is offered them by Claude Code when trusting the folder.";
 
+/// Said in `HARNESS.md` about the parts of a plugin (ADR-008).
+pub(crate) const PARTS_NOTE: &str = "The parts of these plugins are written as a trimmed plugin each: the plugin's manifest, the parts a profile kept and the files they need, under `.claude/skills/<plugin>/`. Claude Code loads it in place, namespaced as `<plugin>:<part>`, only when this project is trusted. Nothing is installed from a marketplace.";
+
 /// `name: reason` for every plugin that cannot be enabled.
 fn warnings_of(plugins: &[Artifact]) -> Vec<String> {
     plugins
@@ -294,6 +298,7 @@ impl Library {
         let layout = self.layout(spec)?;
         let resolved = self.resolve(spec)?;
         let plugins = self.plugins_of(&resolved)?;
+        let groups = trim_groups(&self.store.conn, &resolved)?;
         let mut files = Vec::new();
         for planned in &layout.paths {
             let (bytes, executable) = match &planned.from {
@@ -309,6 +314,15 @@ impl Library {
                 PathFrom::Artifact { artifact } => {
                     self.artifact_bytes(artifact, &planned.path, &resolved, &plugins)?
                 }
+                PathFrom::Plugin { artifact } => {
+                    let group = groups
+                        .iter()
+                        .find(|g| g.parts.iter().any(|(id, _)| id == artifact))
+                        .ok_or_else(|| Error::NotInLibrary {
+                            id: artifact.clone(),
+                        })?;
+                    self.plugin_file_bytes(group, &planned.path, &layout.paths)?
+                }
             };
             files.push(RenderedFile {
                 path: planned.path.clone(),
@@ -321,6 +335,7 @@ impl Library {
             &resolved,
             &layout.paths,
             &plugins,
+            &groups,
             profile_name,
             version,
             date,
@@ -335,6 +350,47 @@ impl Library {
         });
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(Rendered { files })
+    }
+
+    /// The manifest (narrowed to the kept parts) or a supporting file of a trimmed plugin.
+    fn plugin_file_bytes(
+        &self,
+        group: &TrimGroup,
+        path: &str,
+        planned: &[crate::profiles::PlannedPath],
+    ) -> Result<(Vec<u8>, bool)> {
+        let trim = &group.trim;
+        let conn = &self.store.conn;
+        if path == trim.manifest_path() {
+            let manifest =
+                crate::library::plugin_record::manifest(conn, &trim.source_id, &trim.folder)?
+                    .ok_or_else(|| Error::NotInLibrary {
+                        id: group.parts[0].0.clone(),
+                    })?;
+            let kept: Vec<KeptPart> = group
+                .parts
+                .iter()
+                .filter_map(|(_, a)| {
+                    let own = a.path.split('#').next().unwrap_or_default();
+                    crate::library::plugin_record::within(&trim.folder, own)
+                        .map(|path| KeptPart { kind: a.kind, path })
+                })
+                .collect();
+            let prefix = format!("{}/", trim.dir);
+            let files: std::collections::BTreeSet<String> = planned
+                .iter()
+                .filter_map(|p| p.path.strip_prefix(&prefix))
+                .map(str::to_owned)
+                .collect();
+            return Ok((narrow(&manifest, &kept, &files)?, false));
+        }
+        let inside = path.strip_prefix(&format!("{}/", trim.dir)).unwrap_or(path);
+        let file =
+            crate::library::plugin_record::file(conn, &trim.source_id, &trim.folder, inside)?
+                .ok_or_else(|| Error::NotInLibrary {
+                    id: group.parts[0].0.clone(),
+                })?;
+        Ok((file.bytes, file.executable))
     }
 
     /// The profile's plugins as stored, with the marketplace origin derived from the source for
@@ -375,7 +431,8 @@ impl Library {
         let artifact =
             load(&self.store.conn, id)?.ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
         let (view, _) = crate::library::stored_view(&artifact)?;
-        let stored = placed(&artifact)?
+        let trim = trim_of(&self.store.conn, id, &artifact)?;
+        let stored = placed_in(&artifact, trim.as_ref())?
             .into_iter()
             .find(|(_, project)| project == path)
             .map(|(stored, _)| stored)
@@ -438,6 +495,7 @@ impl Library {
         resolved: &Resolved,
         paths: &[crate::profiles::PlannedPath],
         plugins: &[Artifact],
+        groups: &[TrimGroup],
         profile_name: &str,
         version: u32,
         date: &str,
@@ -474,6 +532,22 @@ impl Library {
                 out.push_str("\n### Not enabled\n\n");
                 for line in missing {
                     out.push_str(&format!("- {line}\n"));
+                }
+            }
+        }
+        if !groups.is_empty() {
+            out.push_str(&format!("\n## Plugin parts\n\n{PARTS_NOTE}\n"));
+            for group in groups {
+                out.push_str(&format!(
+                    "\n### {} (`{}/`)\n\n",
+                    group.trim.name, group.trim.dir
+                ));
+                for (_, part) in &group.parts {
+                    out.push_str(&format!(
+                        "- {} `{}`\n",
+                        kind_label(part.kind),
+                        part.name.replace('`', "")
+                    ));
                 }
             }
         }

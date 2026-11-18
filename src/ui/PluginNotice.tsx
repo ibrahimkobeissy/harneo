@@ -3,6 +3,7 @@ import {
   CircleX,
   PackageOpen,
   RotateCw,
+  ShieldCheck,
   TriangleAlert,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -26,6 +27,37 @@ export function hasPlugins(plan: Plan): boolean {
       w.path === "HARNESS.md" &&
       w.bytes !== null &&
       decodeText(w.bytes)?.includes(MARK),
+  );
+}
+
+/** The manifest of a plugin the scaffold writes under `.claude/skills/` (ADR-008). */
+const TRIMMED = /^\.claude\/skills\/([^/]+)\/\.claude-plugin\/plugin\.json$/;
+
+/** The names of the trimmed plugins the plan leaves in the project (written or kept). */
+export function trimmedPlugins(plan: Plan): string[] {
+  return plan.writes.flatMap((w) => {
+    const name = TRIMMED.exec(w.path)?.[1];
+    return name !== undefined && w.action !== "delete" && w.action !== "skip"
+      ? [name]
+      : [];
+  });
+}
+
+/**
+ * The Done step's note for a project that holds trimmed plugins: Claude Code loads plugins under
+ * `.claude/skills/` only in a trusted project. Nothing when there is none.
+ */
+export function TrustNote({ plugins }: { plugins: string[] }) {
+  if (plugins.length === 0) return null;
+  return (
+    <Callout icon={ShieldCheck}>
+      <p>
+        <b>Trust this project in Claude Code.</b> Its plugins under{" "}
+        <code>.claude/skills/</code> ({plugins.join(", ")}) load only when the
+        project is trusted: open the folder in Claude Code and accept the trust
+        prompt.
+      </p>
+    </Callout>
   );
 }
 

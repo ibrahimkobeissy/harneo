@@ -4,4 +4,4 @@ import type { Generated } from "./Generated";
 /**
  * Where a planned file comes from.
  */
-export type PathFrom = { "type": "artifact", artifact: string, } | { "type": "generated", generated: Generated, };
+export type PathFrom = { "type": "artifact", artifact: string, } | { "type": "generated", generated: Generated, } | { "type": "plugin", artifact: string, };

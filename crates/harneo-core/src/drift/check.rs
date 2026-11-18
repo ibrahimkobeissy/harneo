@@ -409,7 +409,7 @@ impl Library {
                 bytes: Some(file.bytes.clone()),
                 artifact: match &file.from {
                     PathFrom::Artifact { artifact } => Some(artifact.clone()),
-                    PathFrom::Generated { .. } => None,
+                    PathFrom::Generated { .. } | PathFrom::Plugin { .. } => None,
                 },
                 executable: file.executable,
                 mode: None,

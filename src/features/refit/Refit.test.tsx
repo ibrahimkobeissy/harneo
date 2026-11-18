@@ -158,7 +158,24 @@ const pluginPlan = {
   ),
 };
 
+/** A refit that leaves a trimmed plugin under .claude/skills/ (ADR-008). */
+const trimmedPlan = {
+  ...plan,
+  writes: [
+    ...plan.writes,
+    {
+      path: ".claude/skills/agent-skills/.claude-plugin/plugin.json",
+      action: "new",
+      bytes: b64("{}"),
+      diff: null,
+      artifact: null,
+    },
+  ],
+};
+
 interface Opts {
+  /** The profile holds parts of a plugin, written as a trimmed plugin. */
+  trimmed?: boolean;
   plugins?: boolean;
   /** Holds the plugin install until it resolves. */
   pluginGate?: Promise<void>;
@@ -232,6 +249,7 @@ function setup(opts: Opts = {}) {
         return opts.comparison ?? comparison();
       case "refit_plan":
         if (opts.planError) throw new Error(opts.planError);
+        if (opts.trimmed) return trimmedPlan;
         return opts.plugins ? pluginPlan : plan;
       case "install_apply":
         if (opts.applyError) throw new Error(opts.applyError);
@@ -315,6 +333,24 @@ describe("Refit flow", () => {
     expect(
       calls.filter((c) => c.cmd === "project_plugins_install"),
     ).toHaveLength(1);
+  });
+
+  it("tells the Done step that the project must be trusted for its trimmed plugins to load", async () => {
+    setup({ trimmed: true });
+    await toPreview();
+    await userEvent.click(screen.getByRole("button", { name: /Apply/ }));
+    expect(
+      await screen.findByText("Trust this project in Claude Code."),
+    ).toBeVisible();
+    expect(screen.getByText(/agent-skills/)).toBeVisible();
+  });
+
+  it("has no trust note when no plugin is left under .claude/skills/", async () => {
+    setup();
+    await toPreview();
+    await userEvent.click(screen.getByRole("button", { name: /Apply/ }));
+    await screen.findByText(/Refitted/);
+    expect(screen.queryByText("Trust this project in Claude Code.")).toBeNull();
   });
 
   it("holds the Done actions while the plugins install", async () => {

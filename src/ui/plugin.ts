@@ -39,6 +39,7 @@ const PART_LABELS: Record<PluginPart, string> = {
   themes: "themes",
   workflows: "workflows",
   settings: "settings",
+  userConfig: "user configuration",
 };
 
 /** `a`, `a and b`, `a, b and c`. */
@@ -55,7 +56,7 @@ export function wholeText(note: WholeNote): string {
   const why = note.reason;
   switch (why.type) {
     case "wholeOnlyParts":
-      return `Has ${join(why.parts)}, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.`;
+      return `Has ${join(why.parts)}, which a plugin scaffolded under .claude/skills/ does not support, so it stays whole and installs from its marketplace.`;
     case "noParts":
       return "It has no skills, agents, commands or output styles to unpack.";
     case "remoteOnly":

@@ -1,7 +1,7 @@
 import { CircleCheck, FolderGit2, RotateCcw } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
-import { Button, PluginsInstall } from "../../ui";
+import { Button, PluginsInstall, TrustNote } from "../../ui";
 import styles from "./Refit.module.css";
 
 /** The summary after the refit, with a way back to the originals. */
@@ -14,6 +14,7 @@ export function DoneStep({
   restoredCount,
   addedCount,
   plugins,
+  trimmed,
   restoring,
   restored,
   confirming,
@@ -35,6 +36,8 @@ export function DoneStep({
   addedCount: number;
   /** The profile holds plugins, which are enabled in settings but never copied. */
   plugins: boolean;
+  /** The trimmed plugins left under `.claude/skills/` (ADR-008). */
+  trimmed: string[];
   restoring: boolean;
   restored: boolean;
   confirming: boolean;
@@ -66,6 +69,7 @@ export function DoneStep({
           onRunningChange={setInstalling}
         />
       )}
+      <TrustNote plugins={trimmed} />
       {backupFolder && (
         <p>
           Backup saved in <span className={styles.mono}>{backupFolder}</span>.

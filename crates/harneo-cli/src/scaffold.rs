@@ -10,7 +10,7 @@ use clap::Args;
 use harneo_core::bundles::ClaudeConfig;
 use harneo_core::install::{
     install_plugins, uninstall_dropped, ApplyReport, Plan, PluginInstall, PluginInstallStatus,
-    WriteAction,
+    WriteAction, TRUST_NOTE,
 };
 use harneo_core::library::Library;
 use harneo_core::profiles::ProfileId;
@@ -155,8 +155,24 @@ pub fn run(
             plan.writes.len()
         )?;
         out.write_all(render_plugins(&plugins).as_bytes())?;
+        out.write_all(render_trust(&plan).as_bytes())?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// The trimmed plugins the plan leaves under `.claude/skills/`, and that the project must be
+/// trusted in Claude Code for them to load; nothing when there is none.
+fn render_trust(plan: &Plan) -> String {
+    let plugins = plan.trimmed_plugins();
+    if plugins.is_empty() {
+        return String::new();
+    }
+    let mut text = String::new();
+    for name in &plugins {
+        let _ = writeln!(text, "  plugin  {name}  written to .claude/skills/{name}/");
+    }
+    let _ = writeln!(text, "{TRUST_NOTE}");
+    text
 }
 
 /// One line per plugin: installed, already there, or why not.
@@ -207,6 +223,41 @@ mod tests {
             ]),
             "  plugin  a@m  installed\n  plugin  b@m  already installed\n  plugin  c@m  NOT installed: offline\n  plugin  d@m  uninstalled (the settings no longer enable it)\n  plugin  e@m  NOT uninstalled: busy\n"
         );
+    }
+
+    #[test]
+    fn the_done_step_says_the_project_must_be_trusted_when_it_holds_trimmed_plugins() {
+        let write = |path: &str, action| PlanWrite {
+            path: path.into(),
+            action,
+            bytes: None,
+            diff: None,
+            artifact: None,
+            executable: false,
+            mode: None,
+        };
+        let none = Plan {
+            writes: vec![write(".claude/skills/tdd/SKILL.md", WriteAction::New)],
+            ..Plan::default()
+        };
+        assert_eq!(render_trust(&none), "");
+        let some = Plan {
+            writes: vec![
+                write(
+                    ".claude/skills/agent-skills/.claude-plugin/plugin.json",
+                    WriteAction::New,
+                ),
+                write(
+                    ".claude/skills/gone/.claude-plugin/plugin.json",
+                    WriteAction::Delete,
+                ),
+            ],
+            ..Plan::default()
+        };
+        let text = render_trust(&some);
+        assert!(text.contains("agent-skills  written to .claude/skills/agent-skills/"));
+        assert!(!text.contains("gone"));
+        assert!(text.contains("only when the project is trusted"));
     }
 
     #[test]

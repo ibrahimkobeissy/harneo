@@ -25,6 +25,7 @@ import {
   Stepper,
   WizardActions,
   hasPlugins,
+  trimmedPlugins,
 } from "../../ui";
 import { CompareStep } from "./CompareStep";
 import { DoneStep } from "./DoneStep";
@@ -376,6 +377,7 @@ export function RefitScreen() {
           profile={flowLabel}
           backedUp={report.backedUp}
           plugins={plan ? hasPlugins(plan) : false}
+          trimmed={plan ? trimmedPlugins(plan) : []}
           backupFolder={report.backupFolder}
           projectId={String(report.projectId)}
           restoredCount={restoredCount}

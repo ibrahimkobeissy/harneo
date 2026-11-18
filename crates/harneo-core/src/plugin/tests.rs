@@ -50,7 +50,7 @@ fn any_plugin_can_be_split_hooks_scripts_config_and_namespaced_calls_included() 
     write(
         dir.path(),
         ".claude-plugin/plugin.json",
-        r#"{"name":"pack","userConfig":{"token":{}},"dependencies":["x"],"experimental":{"a":1},"strange":true}"#,
+        r#"{"name":"pack","dependencies":["x"],"experimental":{"a":1},"strange":true}"#,
     )?;
     skill(
         dir.path(),
@@ -155,7 +155,7 @@ fn reasons_read_as_sentences_and_cross_the_wire_tagged() -> TestResult {
     };
     assert!(whole
         .text()
-        .starts_with("Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not load"));
+        .starts_with("Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not support"));
     assert_eq!(
         serde_json::to_value(&whole)?,
         serde_json::json!({"type": "wholeOnlyParts", "parts": ["mcpServers", "monitors"]})
@@ -232,4 +232,22 @@ fn harnfit_refuses_only_plugins() {
         ensure_fits_harnfit(ArtifactKind::Plugin),
         Err(crate::error::Error::HarnfitPluginUnsupported)
     ));
+}
+
+#[test]
+fn a_plugin_with_user_config_stays_whole_because_a_skills_plugin_never_asks_for_it() -> TestResult {
+    let dir = tempfile::tempdir()?;
+    write(
+        dir.path(),
+        ".claude-plugin/plugin.json",
+        r#"{"name":"pack","userConfig":{"token":{"description":"t"}}}"#,
+    )?;
+    skill(dir.path(), "a", "Body")?;
+    assert_eq!(
+        ask(dir.path())?,
+        Some(WholeReason::WholeOnlyParts {
+            parts: vec![PluginPart::UserConfig]
+        })
+    );
+    Ok(())
 }

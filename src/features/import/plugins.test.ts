@@ -73,10 +73,10 @@ describe("why a plugin stays whole", () => {
     expect(
       say({ type: "wholeOnlyParts", parts: ["mcpServers", "monitors"] }),
     ).toBe(
-      "Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
+      "Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not support, so it stays whole and installs from its marketplace.",
     );
     expect(say({ type: "wholeOnlyParts", parts: ["lspServers"] })).toBe(
-      "Has LSP servers, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
+      "Has LSP servers, which a plugin scaffolded under .claude/skills/ does not support, so it stays whole and installs from its marketplace.",
     );
     expect(say({ type: "noParts" })).toBe(
       "It has no skills, agents, commands or output styles to unpack.",

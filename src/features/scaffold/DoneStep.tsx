@@ -1,6 +1,6 @@
 import { CircleCheck, FolderGit2, FolderPlus } from "lucide-react";
 import { useState } from "react";
-import { Button, PluginsInstall } from "../../ui";
+import { Button, PluginsInstall, TrustNote } from "../../ui";
 import styles from "./Scaffold.module.css";
 
 /** The success summary after the files are written. */
@@ -9,6 +9,7 @@ export function DoneStep({
   profile,
   written,
   plugins,
+  trimmed,
   projectId,
   onOpen,
   onAgain,
@@ -18,6 +19,8 @@ export function DoneStep({
   written: number;
   /** The profile holds plugins, which are enabled in settings but never copied. */
   plugins: boolean;
+  /** The trimmed plugins written under `.claude/skills/` (ADR-008). */
+  trimmed: string[];
   /** The registered project, whose plugins are installed here. */
   projectId: bigint;
   onOpen: () => void;
@@ -41,6 +44,7 @@ export function DoneStep({
       {plugins && (
         <PluginsInstall projectId={projectId} onRunningChange={setInstalling} />
       )}
+      <TrustNote plugins={trimmed} />
       <div className={styles.actions}>
         <Button onClick={onOpen} disabled={installing}>
           <FolderGit2 size={14} aria-hidden="true" />

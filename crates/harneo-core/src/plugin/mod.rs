@@ -2,10 +2,11 @@
 //!
 //! Any plugin can be split: import offers its parts (skills, agents, commands, output styles),
 //! each kept or dropped, and a profile scaffolds the kept ones as a trimmed plugin under
-//! `.claude/skills/`. Only a plugin with features such a plugin does not load stays whole:
-//! `monitors`, MCP servers (`mcpServers`, `.mcp.json`) and LSP servers (`lspServers`,
-//! `.lsp.json`). A remote-only marketplace entry (its files are never fetched) can only be whole
-//! too. A whole plugin installs from its marketplace.
+//! `.claude/skills/`. Only a plugin with features such a plugin does not support stays whole:
+//! `monitors`, MCP servers (`mcpServers`, `.mcp.json`), LSP servers (`lspServers`, `.lsp.json`)
+//! and `userConfig` (checked with a real Claude Code: it is never prompted for). A remote-only
+//! marketplace entry (its files are never fetched) can only be whole too. A whole plugin
+//! installs from its marketplace.
 //!
 //! The reading of a plugin folder stays with the Claude adapter (`artifact::claude`); this module
 //! answers the questions on top of it and has no dependency on the library.
@@ -36,6 +37,8 @@ pub enum PluginPart {
     Themes,
     Workflows,
     Settings,
+    /// `userConfig`: values Claude Code asks the user for when a plugin is enabled.
+    UserConfig,
 }
 
 impl PluginPart {
@@ -55,6 +58,7 @@ impl PluginPart {
             Self::Themes => "themes",
             Self::Workflows => "workflows",
             Self::Settings => "settings",
+            Self::UserConfig => "user configuration",
         }
     }
 }
@@ -64,7 +68,7 @@ impl PluginPart {
 #[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum WholeReason {
-    /// It holds features a plugin under `.claude/skills/` does not load (monitors, MCP servers,
+    /// It holds features a plugin under `.claude/skills/` does not support (monitors, MCP servers,
     /// LSP servers), so it installs from its marketplace.
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
@@ -82,7 +86,7 @@ impl WholeReason {
         match self {
             Self::WholeOnlyParts { parts } => {
                 format!(
-                    "Has {}, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
+                    "Has {}, which a plugin scaffolded under .claude/skills/ does not support, so it stays whole and installs from its marketplace.",
                     join(parts)
                 )
             }
@@ -189,14 +193,15 @@ fn declared(plugin: &Artifact, field: &str) -> bool {
             .is_some_and(|e| e.get(field).is_some())
 }
 
-/// The features that keep a plugin whole (ADR-008) which `plugin` holds: monitors, MCP servers
-/// and LSP servers, declared in the manifest or present at the default place.
+/// The features that keep a plugin whole (ADR-008) which `plugin` holds: monitors, MCP servers,
+/// LSP servers and `userConfig`, declared in the manifest or present at the default place.
 fn kept_whole_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
     let present = [
         (PluginPart::McpServers, "mcpServers", ".mcp.json"),
         (PluginPart::Monitors, "monitors", "monitors/monitors.json"),
         (PluginPart::LspServers, "lspServers", ".lsp.json"),
     ];
+    let declared_config = declared(plugin, "userConfig");
     let mut out: Vec<PluginPart> = present
         .into_iter()
         .filter(|(_, field, default)| {
@@ -204,6 +209,11 @@ fn kept_whole_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
         })
         .map(|(part, _, _)| part)
         .collect();
+    // Checked with a real Claude Code (2.1.327, ADR-008): a plugin under `.claude/skills/` loads
+    // but is never asked for its `userConfig` values and leaves `${user_config.…}` as written.
+    if declared_config {
+        out.push(PluginPart::UserConfig);
+    }
     out.sort();
     out
 }

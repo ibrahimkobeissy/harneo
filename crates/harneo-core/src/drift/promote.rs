@@ -15,7 +15,7 @@ use crate::error::{Error, Result};
 use crate::install::Project;
 use crate::library::records;
 use crate::library::{safe_join, stored_view, ArtifactId, Library, Preview, Source};
-use crate::profiles::layout::{load, placed};
+use crate::profiles::layout::load;
 use crate::updates::backup_copy;
 
 /// What a promote did.
@@ -271,7 +271,8 @@ impl Library {
         let artifact =
             load(&self.store.conn, &id)?.ok_or_else(|| Error::NotInLibrary { id: id.clone() })?;
         let (view, _) = stored_view(&artifact)?;
-        let stored = placed(&artifact)?
+        let trim = crate::profiles::layout::trim_of(&self.store.conn, &id, &artifact)?;
+        let stored = crate::profiles::layout::placed_in(&artifact, trim.as_ref())?
             .into_iter()
             .find(|(_, project_path)| project_path == path)
             .map(|(stored, _)| stored)

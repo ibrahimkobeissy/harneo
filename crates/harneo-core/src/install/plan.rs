@@ -131,6 +131,32 @@ const HARNESS_MARKERS: [&str; 3] = [".claude", "CLAUDE.md", ".mcp.json"];
 /// Files that are the user's own and are never read, written or deleted.
 const LOCAL_FILES: [&str; 2] = ["CLAUDE.local.md", "settings.local.json"];
 
+/// Said by the Done step of Scaffold and Refit (app and CLI) when a project holds trimmed plugins.
+pub const TRUST_NOTE: &str = "Claude Code loads the plugins under .claude/skills/ only when the project is trusted: open the folder in Claude Code and trust it.";
+
+impl Plan {
+    /// The names of the trimmed plugins (ADR-008) the plan leaves under `.claude/skills/`, written
+    /// or kept, in path order.
+    #[must_use]
+    pub fn trimmed_plugins(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .writes
+            .iter()
+            .filter(|w| !matches!(w.action, WriteAction::Delete | WriteAction::Skip))
+            .filter_map(|w| {
+                w.path
+                    .strip_prefix(".claude/skills/")?
+                    .strip_suffix("/.claude-plugin/plugin.json")
+                    .filter(|name| !name.contains('/'))
+                    .map(str::to_owned)
+            })
+            .collect();
+        names.sort();
+        names.dedup();
+        names
+    }
+}
+
 fn install(message: impl Into<String>) -> Error {
     Error::Install {
         message: message.into(),
@@ -391,7 +417,7 @@ impl Library {
                 diff: None,
                 artifact: match file.from {
                     PathFrom::Artifact { artifact } => Some(artifact),
-                    PathFrom::Generated { .. } => None,
+                    PathFrom::Generated { .. } | PathFrom::Plugin { .. } => None,
                 },
                 executable: file.executable,
                 mode: None,

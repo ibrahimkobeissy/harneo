@@ -43,6 +43,12 @@ fn refused(reason: &str) -> Error {
 /// the stored file's frontmatter.
 fn rebuild(artifact: &Artifact, dir: &std::path::Path) -> Result<Artifact> {
     let mut artifact = artifact.clone();
+    // A profile file carries no plugin record, so a plugin part restored from it installs as a
+    // loose copy until it is imported again (ADR-008).
+    if let Some(Value::Object(from)) = artifact.metadata.get_mut("fromPlugin") {
+        from.remove("needs");
+        from.remove("manifest");
+    }
     match artifact.kind {
         ArtifactKind::Mcp => {
             let bytes = fs::read(safe_join(dir, "server.json")?)

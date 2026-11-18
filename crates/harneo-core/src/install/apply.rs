@@ -221,13 +221,16 @@ fn write_all(
             _ => {}
         }
     }
-    if matches!(plan.kind, PlanKind::Switch | PlanKind::Removal) {
+    if matches!(
+        plan.kind,
+        PlanKind::Switch | PlanKind::Removal | PlanKind::Refit
+    ) {
         prune_empty_folders(plan, target);
     }
     Ok(())
 }
 
-/// Removes the folders a switch or removal emptied, from the deleted files up to the project
+/// Removes the folders a switch, refit or removal emptied, from the deleted files up to the project
 /// root. A rollback puts the folders back with the files.
 fn prune_empty_folders(plan: &Plan, target: &Path) {
     for write in plan

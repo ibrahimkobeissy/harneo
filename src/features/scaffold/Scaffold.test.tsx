@@ -74,7 +74,31 @@ const pluginPlan = {
   ),
 };
 
+/** A plan that writes a trimmed plugin under .claude/skills/ (ADR-008). */
+const trimmedPlan = {
+  ...plan,
+  writes: [
+    ...plan.writes,
+    {
+      path: ".claude/skills/agent-skills/.claude-plugin/plugin.json",
+      action: "new",
+      bytes: b64("{}"),
+      diff: null,
+      artifact: null,
+    },
+    {
+      path: ".claude/skills/agent-skills/skills/tdd/SKILL.md",
+      action: "new",
+      bytes: b64("tdd"),
+      diff: null,
+      artifact: "a",
+    },
+  ],
+};
+
 interface Opts {
+  /** The profile holds parts of a plugin, written as a trimmed plugin. */
+  trimmed?: boolean;
   plugins?: boolean;
   /** The install also removed a plugin the settings dropped. */
   uninstalled?: boolean;
@@ -148,6 +172,7 @@ function setup(opts: Opts = {}) {
         return null;
       case "scaffold_plan":
         if (opts.planError) throw new Error(opts.planError);
+        if (opts.trimmed) return trimmedPlan;
         return opts.plugins ? pluginPlan : plan;
       case "install_apply":
         if (opts.applyError) throw new Error(opts.applyError);
@@ -313,6 +338,32 @@ describe("Scaffold flow", () => {
     expect(
       screen.getByRole("button", { name: "Scaffold another" }),
     ).toBeEnabled();
+  });
+
+  it("tells the Done step that the project must be trusted for its trimmed plugins to load", async () => {
+    setup({ trimmed: true });
+    await toPreview();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Write/ }),
+    );
+    await screen.findByText("Scaffolded app with Web v2");
+    expect(
+      screen.getByText("Trust this project in Claude Code."),
+    ).toBeVisible();
+    expect(screen.getByText(/agent-skills/)).toBeVisible();
+    expect(
+      screen.getByText(/load only when the project is trusted/),
+    ).toBeVisible();
+  });
+
+  it("has no trust note when the profile writes no plugin", async () => {
+    setup();
+    await toPreview();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Write 3 files" }),
+    );
+    await screen.findByText("Scaffolded app with Web v2");
+    expect(screen.queryByText("Trust this project in Claude Code.")).toBeNull();
   });
 
   it("says nothing about plugins when the profile has none", async () => {

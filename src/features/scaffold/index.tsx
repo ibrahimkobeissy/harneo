@@ -19,6 +19,7 @@ import {
   Stepper,
   WizardActions,
   hasPlugins,
+  trimmedPlugins,
 } from "../../ui";
 import { DoneStep } from "./DoneStep";
 import { FolderStep } from "./FolderStep";
@@ -281,6 +282,7 @@ export function ScaffoldScreen() {
           profile={label}
           written={report.written}
           plugins={hasPlugins(plan)}
+          trimmed={trimmedPlugins(plan)}
           projectId={report.projectId}
           onOpen={() => void navigate(`/projects/${report.projectId}`)}
           onAgain={again}

@@ -24,6 +24,8 @@ mod linked_tests;
 mod plan;
 #[cfg(test)]
 mod plan_tests;
+#[cfg(test)]
+mod plugin_trim_tests;
 mod plugins;
 #[cfg(test)]
 mod plugins_tests;
@@ -42,12 +44,15 @@ mod reset;
 mod switch;
 #[cfg(test)]
 mod switch_tests;
+mod trimmed;
+#[cfg(test)]
+mod trimmed_tests;
 
 pub use apply::ApplyReport;
 pub(crate) use backup::write_atomic;
 pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
 pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
-pub use plan::{Plan, PlanKind, Write, WriteAction};
+pub use plan::{Plan, PlanKind, Write, WriteAction, TRUST_NOTE};
 pub use plugins::{
     install_plugins, targets as plugin_targets, uninstall_dropped, PluginInstall,
     PluginInstallStatus, PluginTarget,

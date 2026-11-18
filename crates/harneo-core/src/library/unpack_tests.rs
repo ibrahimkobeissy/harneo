@@ -239,7 +239,7 @@ fn a_part_that_uses_the_plugin_root_is_still_offered_as_a_part() -> TestResult {
 }
 
 #[test]
-fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() -> TestResult {
+fn an_unpacked_skill_scaffolds_into_a_trimmed_plugin_without_enabling_the_plugin() -> TestResult {
     let mut s = setup()?;
     let preview = s.parts()?;
     let alpha = id(&preview, ArtifactKind::Skill, "alpha")?;
@@ -257,8 +257,16 @@ fn an_unpacked_skill_scaffolds_into_claude_skills_without_enabling_the_plugin() 
     let project = tempfile::tempdir()?;
     let plan = s.library.plan_scaffold(project.path(), profile, None)?;
     s.library.apply(&plan)?;
-    let installed = fs::read_to_string(project.path().join(".claude/skills/alpha/SKILL.md"))?;
+    let installed = fs::read_to_string(
+        project
+            .path()
+            .join(".claude/skills/toolbox/skills/alpha/SKILL.md"),
+    )?;
     assert!(installed.contains("The alpha skill"));
+    assert!(project
+        .path()
+        .join(".claude/skills/toolbox/.claude-plugin/plugin.json")
+        .is_file());
     let settings =
         fs::read_to_string(project.path().join(".claude/settings.json")).unwrap_or_default();
     assert!(!settings.contains("enabledPlugins"), "{settings}");

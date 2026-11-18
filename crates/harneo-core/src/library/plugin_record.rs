@@ -46,6 +46,7 @@ pub(crate) struct Built {
 }
 
 /// A plugin record as the library holds it.
+#[cfg(test)]
 #[derive(Debug, Clone)]
 pub(crate) struct Stored {
     pub name: String,
@@ -209,6 +210,7 @@ pub(crate) fn save(conn: &Connection, source_id: &str, built: &Built) -> Result<
 }
 
 /// The record of the plugin at `folder` of `source_id`.
+#[cfg(test)]
 pub(crate) fn load(conn: &Connection, source_id: &str, folder: &str) -> Result<Option<Stored>> {
     let found: Option<(String, String)> = conn
         .query_row(
@@ -238,6 +240,63 @@ pub(crate) fn load(conn: &Connection, source_id: &str, folder: &str) -> Result<O
         manifest,
         files,
     }))
+}
+
+/// Whether the library holds the record of the plugin at `folder` of `source_id`.
+pub(crate) fn exists(conn: &Connection, source_id: &str, folder: &str) -> Result<bool> {
+    Ok(conn
+        .query_row(
+            "SELECT 1 FROM plugin_records WHERE source_id = ?1 AND folder = ?2",
+            params![source_id, folder],
+            |_| Ok(()),
+        )
+        .optional()?
+        .is_some())
+}
+
+/// The paths of the record's supporting files, sorted.
+pub(crate) fn file_paths(conn: &Connection, source_id: &str, folder: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT path FROM plugin_files WHERE source_id = ?1 AND folder = ?2 ORDER BY path",
+    )?;
+    let paths = stmt
+        .query_map(params![source_id, folder], |r| r.get(0))?
+        .collect::<std::result::Result<Vec<String>, _>>()?;
+    Ok(paths)
+}
+
+/// One supporting file of the record.
+pub(crate) fn file(
+    conn: &Connection,
+    source_id: &str,
+    folder: &str,
+    path: &str,
+) -> Result<Option<SupportFile>> {
+    Ok(conn
+        .query_row(
+            "SELECT bytes, executable FROM plugin_files
+             WHERE source_id = ?1 AND folder = ?2 AND path = ?3",
+            params![source_id, folder, path],
+            |r| {
+                Ok(SupportFile {
+                    path: path.to_owned(),
+                    bytes: r.get(0)?,
+                    executable: r.get(1)?,
+                })
+            },
+        )
+        .optional()?)
+}
+
+/// The plugin's manifest text, as stored.
+pub(crate) fn manifest(conn: &Connection, source_id: &str, folder: &str) -> Result<Option<String>> {
+    Ok(conn
+        .query_row(
+            "SELECT manifest FROM plugin_records WHERE source_id = ?1 AND folder = ?2",
+            params![source_id, folder],
+            |r| r.get(0),
+        )
+        .optional()?)
 }
 
 /// Deletes the records of `source_id` that no part is left to use.

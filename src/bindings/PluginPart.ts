@@ -3,4 +3,4 @@
 /**
  * A kind of component a plugin can hold.
  */
-export type PluginPart = "skills" | "agents" | "commands" | "outputStyles" | "mcpServers" | "hooks" | "monitors" | "lspServers" | "mods" | "bin" | "themes" | "workflows" | "settings";
+export type PluginPart = "skills" | "agents" | "commands" | "outputStyles" | "mcpServers" | "hooks" | "monitors" | "lspServers" | "mods" | "bin" | "themes" | "workflows" | "settings" | "userConfig";
