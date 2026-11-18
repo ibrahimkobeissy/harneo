@@ -31,6 +31,15 @@ pub(crate) const SKILLS: [&str; 4] = [
 
 /// A plugin at the repo root shaped like `addyosmani/agent-skills`: skills linking
 /// `../../references/`, commands and an agent that call `agent-skills:<skill>`, and `docs/`.
+/// Scan options for a preview where the user picked parts of every plugin (plugins start whole
+/// since ADR-008's 2026-11-18 amendment).
+pub(crate) fn picking_parts() -> crate::artifact::ScanOptions {
+    crate::artifact::ScanOptions {
+        unpack_by_default: true,
+        ..crate::artifact::ScanOptions::default()
+    }
+}
+
 pub(crate) fn agent_skills_repo(root: &Path) -> io::Result<()> {
     write(
         root,
@@ -112,9 +121,12 @@ impl Lab {
         Ok(())
     }
 
-    /// The preview with Claude's answer: every skill needs `references`, docs are not needed.
+    /// The preview with the plugin split into parts (the user picked parts) and Claude's answer:
+    /// every skill needs `references`, docs are not needed.
     pub(crate) fn preview(&mut self) -> std::result::Result<Preview, Box<dyn std::error::Error>> {
-        let first = self.library.preview(&self.source())?;
+        let first = self
+            .library
+            .preview_with(&self.source(), &picking_parts())?;
         let parts: Vec<_> = first
             .candidates
             .iter()
@@ -269,7 +281,7 @@ fn a_plugin_with_an_mcp_server_or_monitors_is_offered_whole_only_with_the_reason
     ] {
         let mut lab = Lab::new()?;
         write(&lab.repo, file, text)?;
-        let preview = lab.library.preview(&lab.source())?;
+        let preview = lab.library.preview_with(&lab.source(), &picking_parts())?;
         let plugin = preview
             .candidates
             .iter()

@@ -113,7 +113,7 @@ fn an_update_keeps_a_plugin_imported_whole_whole() -> TestResult {
 
 /// A pack imported with the default (unpacked) is checked as its parts.
 #[test]
-fn an_update_replays_the_default_unpacked_choice() -> TestResult {
+fn an_update_replays_the_picked_parts_choice() -> TestResult {
     let repo = tempfile::tempdir()?;
     crate::library::unpack_tests::skills_pack(repo.path())?;
     let data = tempfile::tempdir()?;
@@ -122,7 +122,7 @@ fn an_update_replays_the_default_unpacked_choice() -> TestResult {
     };
     let one = {
         let mut library = Library::open(data.path())?;
-        let preview = library.preview(&source)?;
+        let preview = library.preview_with(&source, &unpacking(&[""]))?;
         let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
         library.import(&preview, &ids, &TagChoices::new())?;
         preview

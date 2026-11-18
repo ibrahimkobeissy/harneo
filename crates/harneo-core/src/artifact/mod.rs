@@ -200,14 +200,10 @@ pub struct ScanOptions {
     #[serde(default)]
     pub whole: Vec<String>,
     /// A preview unpacks every plugin that is in neither `unpack` nor `whole` and need not stay
-    /// whole (ADR-004). Off for an update, which replays the stored choice and so leaves a plugin
-    /// imported whole as it was.
-    #[serde(default = "yes")]
+    /// whole (ADR-004). Off by default since 2026-11-18 (ADR-008): a plugin starts whole, and is
+    /// split, with Claude asked about its parts, only when the user picks parts.
+    #[serde(default)]
     pub unpack_by_default: bool,
-}
-
-fn yes() -> bool {
-    true
 }
 
 impl Default for ScanOptions {
@@ -226,7 +222,7 @@ impl Default for ScanOptions {
             repo: None,
             unpack: Vec::new(),
             whole: Vec::new(),
-            unpack_by_default: true,
+            unpack_by_default: false,
         }
     }
 }

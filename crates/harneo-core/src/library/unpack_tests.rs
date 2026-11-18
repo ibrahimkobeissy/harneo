@@ -423,12 +423,15 @@ fn names(preview: &Preview, kind: ArtifactKind) -> Vec<String> {
 }
 
 #[test]
-fn a_skills_pack_with_no_choice_previews_as_its_parts_and_stores_the_choice() -> TestResult {
+fn a_skills_pack_previews_whole_by_default_and_picking_parts_stores_the_choice() -> TestResult {
     let repo = tempfile::tempdir()?;
     skills_pack(repo.path())?;
     let data = tempfile::tempdir()?;
     let mut library = Library::open(data.path())?;
-    let preview = library.preview(&local(&repo))?;
+    // ADR-008 (2026-11-18): a plugin starts whole; parts only when the user picks them.
+    let first = library.preview(&local(&repo))?;
+    assert_eq!(plugins_of(&first), 1);
+    let preview = library.preview_with(&local(&repo), &unpacking(&[""]))?;
     assert_eq!(plugins_of(&preview), 0);
     assert_eq!(names(&preview, ArtifactKind::Skill), ["one", "two"]);
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
@@ -511,7 +514,7 @@ fn a_plugin_already_imported_whole_from_the_source_stays_whole() -> TestResult {
 }
 
 #[test]
-fn a_new_default_import_of_a_plugin_held_whole_elsewhere_is_refused_not_converted() -> TestResult {
+fn a_parts_import_of_a_plugin_held_whole_elsewhere_is_refused_not_converted() -> TestResult {
     let first = tempfile::tempdir()?;
     skills_pack(first.path())?;
     let second = tempfile::tempdir()?;
@@ -525,7 +528,7 @@ fn a_new_default_import_of_a_plugin_held_whole_elsewhere_is_refused_not_converte
     let held = library.preview_with(&local(&first), &off)?;
     let ids: Vec<String> = held.candidates.iter().map(|c| c.id.clone()).collect();
     library.import(&held, &ids, &TagChoices::new())?;
-    let preview = library.preview(&local(&second))?;
+    let preview = library.preview_with(&local(&second), &unpacking(&[""]))?;
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
     let refused = library.import(&preview, &ids, &TagChoices::new());
     assert!(matches!(refused, Err(Error::PluginExclusive { .. })));

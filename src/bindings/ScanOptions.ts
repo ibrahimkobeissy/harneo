@@ -42,7 +42,7 @@ unpack: Array<string>,
 whole: Array<string>, 
 /**
  * A preview unpacks every plugin that is in neither `unpack` nor `whole` and need not stay
- * whole (ADR-004). Off for an update, which replays the stored choice and so leaves a plugin
- * imported whole as it was.
+ * whole (ADR-004). Off by default since 2026-11-18 (ADR-008): a plugin starts whole, and is
+ * split, with Claude asked about its parts, only when the user picks parts.
  */
 unpackByDefault: boolean, };

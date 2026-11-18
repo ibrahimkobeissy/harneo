@@ -165,6 +165,15 @@ fn whole_options() -> ScanOptions {
     }
 }
 
+/// The user picked parts of every plugin (plugins start whole since ADR-008's 2026-11-18
+/// amendment).
+fn picking_parts() -> ScanOptions {
+    ScanOptions {
+        unpack_by_default: true,
+        ..ScanOptions::default()
+    }
+}
+
 fn unpack_options(folder: &str) -> ScanOptions {
     ScanOptions {
         unpack: vec![folder.to_owned()],
@@ -291,7 +300,7 @@ fn a_skills_only_pack_imports_as_ordinary_artifacts_with_audit_tags_and_bundles(
     let source = repo.source()?;
 
     // No choice made: the preview offers the parts, not the plugin.
-    let preview = lab.library.preview(&source)?;
+    let preview = lab.library.preview_with(&source, &picking_parts())?;
     assert_eq!(names_of(&preview, ArtifactKind::Skill), SKILLS);
     assert!(names_of(&preview, ArtifactKind::Plugin).is_empty());
     for c in &preview.candidates {
@@ -362,7 +371,7 @@ fn a_skills_only_pack_imports_as_ordinary_artifacts_with_audit_tags_and_bundles(
         .all(|i| i.from_plugin.as_deref() == Some("agent-skills")));
 
     // Previewing again shows them as in the library, and the plugin is now held as parts.
-    let again = lab.library.preview(&source)?;
+    let again = lab.library.preview_with(&source, &picking_parts())?;
     assert!(again.candidates.iter().all(|c| c.already_in_library));
     assert!(lab.library.plugin_holds(&again)?[0].parts);
     Ok(())
@@ -603,7 +612,9 @@ fn a_part_tied_to_the_plugin_root_is_offered_and_a_remote_only_entry_stays_whole
     let mut lab = Lab::new()?;
 
     // The plugin root is no reason to keep a plugin whole: its skill is a part.
-    let preview = lab.library.preview(&local(src.path()))?;
+    let preview = lab
+        .library
+        .preview_with(&local(src.path()), &picking_parts())?;
     assert_eq!(names_of(&preview, ArtifactKind::Plugin), ["far"]);
     assert_eq!(names_of(&preview, ArtifactKind::Skill), ["runner"]);
     let far = plugin_candidate(&preview, "far")?;
@@ -662,7 +673,9 @@ fn stored(lab: &Lab, id: &str, rel: &str) -> R<String> {
 fn updates_replay_the_unpacked_choice_update_the_parts_and_protect_local_edits() -> R {
     let repo = Repo::new(&agent_skills_files())?;
     let mut lab = Lab::new()?;
-    let preview = lab.library.preview(&repo.source()?)?;
+    let preview = lab
+        .library
+        .preview_with(&repo.source()?, &picking_parts())?;
     lab.import_all(&preview)?;
     let spec = lab.id(ArtifactKind::Skill, "spec-driven-development")?;
     let tdd = lab.id(ArtifactKind::Skill, "test-driven-development")?;
@@ -974,7 +987,9 @@ fn scaffold_and_refit_write_a_trimmed_plugin_under_claude_skills_and_never_enabl
         "[remote \"origin\"]\n\turl = https://github.com/addyosmani/agent-skills.git\n",
     )?;
     let mut lab = Lab::new()?;
-    let preview = lab.library.preview(&local(src.path()))?;
+    let preview = lab
+        .library
+        .preview_with(&local(src.path()), &picking_parts())?;
     lab.import_all(&preview)?;
     let ids: Vec<String> = SKILLS
         .iter()
@@ -1299,7 +1314,9 @@ fn unpacked_parts_are_placed_one_by_one_a_whole_plugin_is_one_node_and_export_ro
         &skill_md("extra", "Extra."),
     )?;
     let mut lab = Lab::new()?;
-    let preview = lab.library.preview(&local(pack.path()))?;
+    let preview = lab
+        .library
+        .preview_with(&local(pack.path()), &picking_parts())?;
     lab.import_all(&preview)?;
     let whole = lab
         .library

@@ -304,12 +304,29 @@ describe("Import: the unplaced notice", () => {
     expect(screen.getByRole("button", { name: "Continue" })).toBeEnabled();
   });
 
-  it("runs by itself once the preview exists when the setting is on", async () => {
+  it("runs by itself for unplaced files in a source with no plugin when the setting is on", async () => {
     const u = userEvent.setup();
-    const { calls } = setup({ first: unplacedTicket, auto: true });
+    const loose = ticket({
+      candidates: found.filter((c) => c.artifact.kind !== "plugin"),
+      unplaced: unplacedTicket.unplaced,
+    });
+    const { calls } = setup({ first: loose, auto: true });
     await toChoose(u);
     await waitFor(() => expect(calls).toContain("library_preview_layout"));
     expect(await screen.findByText("suggested by Claude")).toBeVisible();
+  });
+
+  it("leaves unplaced files next to a plugin to the button, with the setting on", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup({ first: unplacedTicket, auto: true });
+    await toChoose(u);
+    expect(screen.getByText("5 files Harneo couldn't place")).toBeVisible();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(calls).not.toContain("library_preview_layout");
+    await u.click(
+      screen.getByRole("button", { name: "Ask Claude what's in this repo" }),
+    );
+    await waitFor(() => expect(calls).toContain("library_preview_layout"));
   });
 
   it("does not run by itself with the setting on but nothing unplaced", async () => {
