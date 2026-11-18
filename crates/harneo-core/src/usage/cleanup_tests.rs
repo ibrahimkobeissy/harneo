@@ -302,7 +302,7 @@ fn applying_a_prune_saves_versions_and_switches_the_project_with_a_backup() -> T
     assert!(done.report.backed_up >= 1);
     assert!(!p.a.path().join(".claude/agents/rev.md").exists());
     assert_eq!(lib.project(p.a_id)?.profile_version, 3);
-    assert_eq!(lib.backups(p.a_id)?.len(), 2);
+    assert_eq!(lib.backups(p.a_id)?.len(), 1);
 
     assert_eq!(report.not_switched.len(), 1);
     assert_eq!(lib.project(p.b_id)?.profile_version, 1);

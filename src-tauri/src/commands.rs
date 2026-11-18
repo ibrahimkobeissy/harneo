@@ -17,7 +17,7 @@ use harneo_core::bundles::{
 use harneo_core::drift::{AddedPreview, DriftReport, ProjectDrift, PromoteReport};
 use harneo_core::install::{
     install_plugins, uninstall_dropped, ApplyReport, Backup, Comparison, InstalledFile, Plan,
-    PluginInstall, Project, ProjectFile, RefitAction,
+    PluginInstall, Project, ProjectArtifact, ProjectFile, RefitAction,
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
@@ -1881,6 +1881,15 @@ pub fn project_files(
     state.with(|library| library.installed_files(id))
 }
 
+/// What a project's profile installs and why, read from the database.
+#[tauri::command]
+pub fn project_artifacts(
+    state: State<'_, LibraryState>,
+    id: i64,
+) -> Result<Vec<ProjectArtifact>, String> {
+    state.with(|library| library.project_artifacts(id))
+}
+
 /// The current content of one managed file of a project (cut at a size cap).
 #[tauri::command]
 pub fn project_file_content(
@@ -2733,6 +2742,7 @@ mod tests {
         assert!(projects_list(state())?.is_empty());
         assert!(project_get(state(), 1).is_err());
         assert!(project_files(state(), 1).is_err());
+        assert!(project_artifacts(state(), 1).is_err());
         assert!(project_file_content(state(), 1, "a".into()).is_err());
         assert!(switch_plan(state(), plans(), 1, 1, None).is_err());
         assert!(removal_plan(state(), plans(), 1).is_err());

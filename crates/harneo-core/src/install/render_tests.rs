@@ -4,7 +4,7 @@ use std::path::Path;
 use rusqlite::params;
 use serde_json::Value;
 
-use super::render::{set_manual_only, with_harness_import};
+use super::render::set_manual_only;
 use super::*;
 use crate::artifact::{ArtifactKind, Origin};
 use crate::library::{Library, Source, TagChoices};
@@ -135,9 +135,7 @@ fn everything(lib: &Lib) -> std::result::Result<ProfileSpec, Box<dyn std::error:
 fn every_kind_is_rendered_and_copies_are_byte_equal() -> TestResult {
     let lib = full_project()?;
     from_marketplace(&lib, "official", Some("anthropics/x"), true)?;
-    let rendered = lib
-        .library
-        .render(&everything(&lib)?, "Full", 3, "2026-10-23")?;
+    let rendered = lib.library.render(&everything(&lib)?)?;
     let paths: Vec<&str> = rendered.files.iter().map(|f| f.path.as_str()).collect();
     assert_eq!(
         paths,
@@ -147,8 +145,7 @@ fn every_kind_is_rendered_and_copies_are_byte_equal() -> TestResult {
             ".claude/skills/s/SKILL.md",
             ".claude/skills/s/scripts/run.sh",
             ".mcp.json",
-            "CLAUDE.md",
-            "HARNESS.md"
+            "CLAUDE.md"
         ]
     );
     assert_eq!(lib.text(&rendered, ".claude/skills/s/SKILL.md")?, SKILL);
@@ -168,11 +165,7 @@ fn every_kind_is_rendered_and_copies_are_byte_equal() -> TestResult {
         })
     );
     // Same inputs, same bytes.
-    assert_eq!(
-        rendered,
-        lib.library
-            .render(&everything(&lib)?, "Full", 3, "2026-10-23")?
-    );
+    assert_eq!(rendered, lib.library.render(&everything(&lib)?)?);
     Ok(())
 }
 
@@ -187,10 +180,10 @@ fn a_skill_imported_as_manual_only_stays_manual_only_unless_the_profile_turns_it
         ..ProfileSpec::default()
     };
     assert!(lib.library.resolve(&spec)?.artifacts[0].manual_only);
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     assert_eq!(lib.text(&rendered, ".claude/skills/m/SKILL.md")?, text);
     spec.manual_only.insert(skill, false);
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     assert_eq!(
         lib.text(&rendered, ".claude/skills/m/SKILL.md")?,
         text.replace("invocation: true", "invocation: false")
@@ -207,7 +200,7 @@ fn manual_only_changes_only_the_frontmatter_key() -> TestResult {
         manual_only: BTreeMap::from([(skill, true)]),
         ..ProfileSpec::default()
     };
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     assert_eq!(
         lib.text(&rendered, ".claude/skills/s/SKILL.md")?,
         "---\nname: s\ndescription: Does a thing. Then more.\ndisable-model-invocation: true\n---\nBody.\n"
@@ -270,11 +263,11 @@ fn settings_gets_plugins_and_a_template_without_plugins_is_untouched() -> TestRe
         settings: Some(settings),
         ..ProfileSpec::default()
     };
-    let rendered = lib.library.render(&plain, "P", 1, "d")?;
+    let rendered = lib.library.render(&plain)?;
     assert_eq!(lib.text(&rendered, ".claude/settings.json")?, SETTINGS);
 
     from_marketplace(&lib, "addy-skills", Some("addyosmani/agent-skills"), false)?;
-    let rendered = lib.library.render(&everything(&lib)?, "P", 1, "d")?;
+    let rendered = lib.library.render(&everything(&lib)?)?;
     let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
     assert_eq!(json["permissions"]["allow"][0], "Read");
     assert_eq!(json["enabledPlugins"]["p@addy-skills"], true);
@@ -284,7 +277,7 @@ fn settings_gets_plugins_and_a_template_without_plugins_is_untouched() -> TestRe
     );
 
     from_marketplace(&lib, "official", Some("anthropics/x"), true)?;
-    let rendered = lib.library.render(&everything(&lib)?, "P", 1, "d")?;
+    let rendered = lib.library.render(&everything(&lib)?)?;
     let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
     assert_eq!(json["enabledPlugins"]["p@official"], true);
     assert!(json.get("extraKnownMarketplaces").is_none());
@@ -299,7 +292,7 @@ fn plugins_without_a_template_make_a_minimal_settings_file() -> TestResult {
         items: vec![lib.id(ArtifactKind::Plugin, "p")?],
         ..ProfileSpec::default()
     };
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     let file = rendered
         .files
         .iter()
@@ -331,7 +324,7 @@ fn mcp_json_holds_the_servers_with_the_profiles_env() -> TestResult {
         }],
         ..ProfileSpec::default()
     };
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     let json: Value = serde_json::from_str(&lib.text(&rendered, ".mcp.json")?)?;
     assert_eq!(
         json,
@@ -344,64 +337,37 @@ fn mcp_json_holds_the_servers_with_the_profiles_env() -> TestResult {
 }
 
 #[test]
-fn claude_md_gets_the_import_once_and_only_with_a_claude_md_artifact() -> TestResult {
+fn claude_md_is_copied_without_an_import_and_only_with_a_claude_md_artifact() -> TestResult {
     let lib = full_project()?;
     let md = lib.id(ArtifactKind::ClaudeMd, "CLAUDE.md")?;
     let spec = ProfileSpec {
         items: vec![md],
         ..ProfileSpec::default()
     };
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
-    assert_eq!(
-        lib.text(&rendered, "CLAUDE.md")?,
-        "# Project\n\nNotes.\n\n@HARNESS.md\n"
-    );
-    assert_eq!(
-        with_harness_import(b"# P\n  @HARNESS.md  \nrest"),
-        b"# P\n  @HARNESS.md  \nrest".to_vec()
-    );
-    assert_eq!(
-        with_harness_import(b"no newline"),
-        b"no newline\n\n@HARNESS.md\n".to_vec()
-    );
-    assert_eq!(with_harness_import(b""), b"@HARNESS.md\n".to_vec());
+    let rendered = lib.library.render(&spec)?;
+    // No `@HARNESS.md` line (user decision 2026-11-18): the copy is byte-equal.
+    assert_eq!(lib.text(&rendered, "CLAUDE.md")?, "# Project\n\nNotes.\n");
 
     let skill = lib.id(ArtifactKind::Skill, "s")?;
-    let rendered = lib.library.render(
-        &ProfileSpec {
-            items: vec![skill],
-            ..ProfileSpec::default()
-        },
-        "P",
-        1,
-        "d",
-    )?;
+    let rendered = lib.library.render(&ProfileSpec {
+        items: vec![skill],
+        ..ProfileSpec::default()
+    })?;
     assert!(rendered.files.iter().all(|f| f.path != "CLAUDE.md"));
     Ok(())
 }
 
 #[test]
-fn harness_md_lists_artifacts_files_and_the_managed_line() -> TestResult {
+fn no_harness_md_is_rendered_whatever_the_profile_holds() -> TestResult {
     let lib = full_project()?;
     from_marketplace(&lib, "official", Some("anthropics/x"), true)?;
-    let rendered = lib
-        .library
-        .render(&everything(&lib)?, "Full stack", 3, "2026-10-23")?;
-    let text = lib.text(&rendered, "HARNESS.md")?;
-    assert!(text.starts_with(
-        "# Harness\n\nInstalled by Harneo from profile **Full stack v3** on 2026-10-23.\n\n\
-         | Artifact | Type | Source | Why it's here |\n|---|---|---|---|\n"
-    ));
-    assert!(
-        text.contains("| s | Skill | Local | Does a thing |\n"),
-        "{text}"
-    );
-    assert!(text.contains("| rev | Subagent | Local | Reviews code |\n"));
-    assert!(text.contains("| p | Plugin | anthropics/x | A plugin \\| with pipe |\n"));
-    assert!(text.contains("## Files\n\n- `.claude/agents/rev.md`\n"));
-    assert!(text.contains("- `HARNESS.md`\n"));
-    assert!(text
-        .ends_with("\nManaged by Harneo: edit the library copy, or your edits show as drift.\n"));
+    let rendered = lib.library.render(&everything(&lib)?)?;
+    assert!(rendered.files.iter().all(|f| f.path != "HARNESS.md"));
+    assert!(rendered.files.iter().all(|f| {
+        !String::from_utf8_lossy(&f.bytes)
+            .lines()
+            .any(|l| l.trim() == "@HARNESS.md")
+    }));
     Ok(())
 }
 
@@ -411,7 +377,7 @@ fn rendered_files_round_trip_through_json_as_base64() -> TestResult {
         path: "a".to_owned(),
         bytes: vec![0, 159, 255],
         from: PathFrom::Generated {
-            generated: Generated::HarnessMd,
+            generated: Generated::McpJson,
         },
         executable: false,
     };
@@ -456,7 +422,7 @@ fn plugin_spec(lib: &Lib, names: &[&str]) -> std::result::Result<ProfileSpec, St
 
 fn assert_mods_enabled(lib: &Lib) -> TestResult {
     let spec = plugin_spec(lib, &["session-radar", "waiting-bell"])?;
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
+    let rendered = lib.library.render(&spec)?;
     let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
     assert_eq!(json["enabledPlugins"]["session-radar@claude-mods"], true);
     assert_eq!(json["enabledPlugins"]["waiting-bell@claude-mods"], true);
@@ -464,9 +430,6 @@ fn assert_mods_enabled(lib: &Lib) -> TestResult {
         json["extraKnownMarketplaces"]["claude-mods"]["source"],
         serde_json::json!({"source": "github", "repo": "ibrahimkobeissy/claude-mods"})
     );
-    let harness = lib.text(&rendered, "HARNESS.md")?;
-    assert!(harness.contains("Plugins are not copied: they install from their own marketplace."));
-    assert!(!harness.contains("Not enabled"));
     assert!(lib.library.plugin_warnings(&spec)?.is_empty());
     Ok(())
 }
@@ -534,10 +497,7 @@ fn a_plugin_that_cannot_be_enabled_is_reported_never_dropped() -> TestResult {
             "loose: not installable: no marketplace"
         ]
     );
-    let rendered = lib.library.render(&spec, "P", 1, "d")?;
-    let harness = lib.text(&rendered, "HARNESS.md")?;
-    assert!(harness.contains("### Not enabled"));
-    assert!(harness.contains("- loose: not installable: no marketplace"));
+    let rendered = lib.library.render(&spec)?;
     let json: Value = serde_json::from_str(&lib.text(&rendered, ".claude/settings.json")?)?;
     assert!(json.get("enabledPlugins").is_none());
     Ok(())

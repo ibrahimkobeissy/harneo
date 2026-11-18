@@ -60,6 +60,7 @@ fn promote_makes_the_project_file_the_library_copy() -> TestResult {
 fn generated_deleted_unchanged_and_unknown_files_are_refused() -> TestResult {
     let f = fx()?;
     let (dir, id) = project(&f)?;
+    legacy_harness(&f, dir.path(), id)?;
     put(dir.path(), "HARNESS.md", "mine\n")?;
     let generated = f
         .library
@@ -78,9 +79,11 @@ fn generated_deleted_unchanged_and_unknown_files_are_refused() -> TestResult {
 }
 
 #[test]
-fn promoting_claude_md_leaves_the_harness_import_out_of_the_library() -> TestResult {
+fn promoting_claude_md_of_an_older_scaffold_leaves_the_harness_import_out_of_the_library(
+) -> TestResult {
     let f = fx()?;
     let (dir, id) = project(&f)?;
+    legacy_harness(&f, dir.path(), id)?;
     assert!(read(dir.path(), "CLAUDE.md")?.contains("@HARNESS.md"));
     put(dir.path(), "CLAUDE.md", "# Project\nmore\n\n@HARNESS.md\n")?;
     let report = f.library.promote(id, "CLAUDE.md")?;
@@ -88,7 +91,20 @@ fn promoting_claude_md_leaves_the_harness_import_out_of_the_library() -> TestRes
         library_copy(&f, &report.artifact, "CLAUDE.md")?,
         "# Project\nmore\n"
     );
-    // Rendering adds the import again, so the project stays in sync.
+    Ok(())
+}
+
+#[test]
+fn promoting_claude_md_keeps_the_project_in_sync_without_any_import() -> TestResult {
+    let f = fx()?;
+    let (dir, id) = project(&f)?;
+    assert!(!read(dir.path(), "CLAUDE.md")?.contains("@HARNESS.md"));
+    put(dir.path(), "CLAUDE.md", "# Project\nmore\n")?;
+    let report = f.library.promote(id, "CLAUDE.md")?;
+    assert_eq!(
+        library_copy(&f, &report.artifact, "CLAUDE.md")?,
+        "# Project\nmore\n"
+    );
     let check = f.library.check_project(id)?;
     assert_eq!(check.status, DriftStatus::InSync);
     assert!(check.library_newer.is_empty(), "{:?}", check.library_newer);
@@ -160,6 +176,7 @@ fn the_check_says_up_front_which_files_promote_would_refuse() -> TestResult {
     let f = fx()?;
     let (dir, id) = project(&f)?;
     put(dir.path(), AGENT, EDITED)?;
+    legacy_harness(&f, dir.path(), id)?;
     put(dir.path(), "HARNESS.md", "mine\n")?;
     fs::remove_file(dir.path().join(super::fixture::SKILL))?;
     put(
@@ -195,4 +212,9 @@ fn the_check_says_up_front_which_files_promote_would_refuse() -> TestResult {
         .map(|e| e.to_string());
     assert_eq!(refused, blocked("HARNESS.md").flatten());
     Ok(())
+}
+
+/// A project scaffolded before Harneo stopped writing `HARNESS.md`.
+fn legacy_harness(f: &super::fixture::Fx, root: &std::path::Path, id: i64) -> TestResult {
+    crate::install::fixture::make_legacy(&f.library, root, id, crate::install::fixture::OLD_HARNESS)
 }

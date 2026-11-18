@@ -119,9 +119,8 @@ fn scaffold_writes_exactly_the_plan_and_registers_the_project() -> TestResult {
         .ok_or("skill in manifest")?;
     assert!(skill.artifact_id.is_some());
     assert_eq!(skill.digest.len(), 64);
-    assert!(manifest
-        .iter()
-        .any(|m| m.path == "HARNESS.md" && m.artifact_id.is_none()));
+    assert!(manifest.iter().all(|m| m.path != "HARNESS.md"));
+    assert!(!dir.path().join("HARNESS.md").exists());
     assert!(f.library.backups(report.project_id)?.is_empty());
     assert_eq!(f.library.profiles()?[0].project_count, 1);
     Ok(())

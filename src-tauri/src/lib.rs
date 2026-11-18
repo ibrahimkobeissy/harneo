@@ -149,6 +149,7 @@ pub fn run() {
             commands::project_plugins_install,
             commands::projects_removed,
             commands::project_files,
+            commands::project_artifacts,
             commands::project_file_content,
             commands::artifact_profiles,
             commands::switch_plan,

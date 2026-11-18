@@ -1033,17 +1033,13 @@ fn scaffold_and_refit_write_a_trimmed_plugin_under_claude_skills_and_never_enabl
     ] {
         assert!(files.contains(&at(rel)), "{rel} in {files:?}");
     }
-    assert!(files.contains(&"HARNESS.md".to_owned()));
+    assert!(!files.contains(&"HARNESS.md".to_owned()));
     assert!(
         !files
             .iter()
             .any(|f| f.contains("settings.json") || f.contains("marketplace.json")),
         "{files:?}"
     );
-    let harness = read(fresh.path(), "HARNESS.md")?;
-    assert!(!harness.contains("## Plugins"));
-    assert!(harness.contains("### agent-skills (`.claude/skills/agent-skills/`)"));
-    assert!(harness.contains("- Skill `code-review`"));
     assert!(plugin_targets(fresh.path())?.is_empty());
     let bin = tempfile::tempdir()?;
     let config = fake_claude(bin.path())?;
@@ -1115,12 +1111,11 @@ fn a_whole_plugin_scaffolds_and_refits_as_before_enabled_and_never_copied() -> R
     let plan = lab.library.plan_scaffold(fresh.path(), profile, None)?;
     lab.library.apply(&plan)?;
     let files = files_under(fresh.path());
-    assert_eq!(files, [".claude/settings.json", "HARNESS.md"]);
+    assert_eq!(files, [".claude/settings.json"]);
     assert_eq!(
         settings_of(fresh.path())?["enabledPlugins"]["kit@kit-market"],
         true
     );
-    assert!(read(fresh.path(), "HARNESS.md")?.contains("Plugins are not copied"));
 
     // Refit over a project with its own settings: the permissions stay, the plugin is enabled.
     let own = tempfile::tempdir()?;

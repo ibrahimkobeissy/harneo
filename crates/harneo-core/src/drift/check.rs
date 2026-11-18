@@ -158,10 +158,10 @@ pub(super) fn disk_bytes(root: &Path, rel: &str) -> Result<Option<Vec<u8>>> {
 }
 
 impl Library {
-    /// What the project's pinned profile version renders now, with the project's own date.
-    pub(super) fn render_pinned(&self, project: &Project, date: &str) -> Result<Rendered> {
+    /// What the project's pinned profile version renders now.
+    pub(super) fn render_pinned(&self, project: &Project) -> Result<Rendered> {
         let view = self.profile(project.profile_id, Some(project.profile_version))?;
-        self.render(&view.spec, &view.name, view.version, date)
+        self.render(&view.spec)
     }
 
     /// Compares the project's files with the manifest. Writes nothing.
@@ -184,8 +184,7 @@ impl Library {
         let installed = self.installed_files(id)?;
         // A render that fails (an artifact left the library) only costs the line counts and the
         // library-newer signal.
-        let date = crate::install::utc_date(project.applied_at);
-        let rendered = self.render_pinned(&project, &date).ok();
+        let rendered = self.render_pinned(&project).ok();
         let by_path: HashMap<&str, &[u8]> = rendered
             .iter()
             .flat_map(|r| &r.files)
@@ -317,8 +316,7 @@ impl Library {
     pub fn drift_diff(&self, id: i64, path: &str) -> Result<Vec<Hunk>> {
         let project = self.project(id)?;
         let root = Path::new(&project.path);
-        let date = crate::install::utc_date(project.applied_at);
-        let rendered = self.render_pinned(&project, &date)?;
+        let rendered = self.render_pinned(&project)?;
         let profile = rendered
             .files
             .iter()
@@ -331,8 +329,7 @@ impl Library {
     /// The plan to put the profile's version back: edited and deleted files and library-newer
     /// files (`paths` narrows it, `None` takes all) are written from what the pinned version
     /// renders now. Added files are never touched. Edited files are listed in
-    /// `edited_in_project` and backed up by `apply` like every replaced file. `HARNESS.md` is refreshed too if it is untouched and out of date, since an
-    /// apply stamps the project with today's date.
+    /// `edited_in_project` and backed up by `apply` like every replaced file.
     pub fn plan_reapply(&self, id: i64, paths: Option<Vec<String>>) -> Result<Plan> {
         let project = self.project(id)?;
         let report = self.check_project(id)?;
@@ -340,10 +337,7 @@ impl Library {
             return Err(drift(format!("{} is not on disk any more", project.path)));
         }
         let root = crate::install::project_folder(&project.path)?;
-        let rendered = self.render_pinned(
-            &project,
-            &crate::install::utc_date(crate::library::records::now()),
-        )?;
+        let rendered = self.render_pinned(&project)?;
         let candidates: HashSet<&str> = report
             .files
             .iter()
@@ -367,19 +361,6 @@ impl Library {
             .into_iter()
             .map(|f| (f.path.clone(), f))
             .collect();
-        if !wanted.iter().any(|p| p == "HARNESS.md") {
-            let fresh = rendered.files.iter().find(|f| f.path == "HARNESS.md");
-            let stale = manifest.get("HARNESS.md").is_some_and(|m| {
-                matches!(
-                    (disk_bytes(&root, "HARNESS.md"), fresh),
-                    (Ok(Some(b)), Some(fresh))
-                        if crate::install::digest(&b) == m.digest && b != fresh.bytes
-                )
-            });
-            if stale {
-                wanted.push("HARNESS.md".to_owned());
-            }
-        }
         wanted.sort();
         wanted.dedup();
 

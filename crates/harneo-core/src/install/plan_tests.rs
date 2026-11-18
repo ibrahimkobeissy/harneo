@@ -2,15 +2,15 @@ use std::fs;
 use std::os::unix::fs::PermissionsExt;
 
 use super::fixture::{fx, put, TestResult};
-use super::plan::{safe_parts, utc_date, utc_stamp};
+use super::plan::{safe_parts, utc_stamp};
 use super::WriteAction;
 use crate::error::Error;
 
 #[test]
 fn utc_formats_known_instants() {
-    assert_eq!(utc_date(0), "1970-01-01");
+    assert_eq!(utc_stamp(0), "1970-01-01T00-00-00Z");
     assert_eq!(utc_stamp(1_700_000_000), "2023-11-14T22-13-20Z");
-    assert_eq!(utc_date(951_782_400), "2000-02-29");
+    assert_eq!(utc_stamp(951_782_400), "2000-02-29T00-00-00Z");
 }
 
 #[test]
@@ -20,7 +20,7 @@ fn scaffold_plans_every_rendered_file_as_new_and_writes_nothing() -> TestResult 
     put(dir.path(), "src/main.rs", "fn main() {}\n")?;
     let plan = f.library.plan_scaffold(dir.path(), f.profile, None)?;
     let paths: Vec<&str> = plan.writes.iter().map(|w| w.path.as_str()).collect();
-    assert!(paths.contains(&"CLAUDE.md") && paths.contains(&"HARNESS.md"));
+    assert!(paths.contains(&"CLAUDE.md") && !paths.contains(&"HARNESS.md"));
     assert!(paths.contains(&".claude/skills/s/SKILL.md"));
     assert!(plan
         .writes

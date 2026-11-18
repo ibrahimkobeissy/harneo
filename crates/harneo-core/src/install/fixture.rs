@@ -102,3 +102,41 @@ pub fn plan(fx: &Fx, target: &Path, writes: Vec<Write>) -> std::io::Result<Plan>
         ..Default::default()
     })
 }
+
+/// What `HARNESS.md` held before Harneo stopped writing it (user decision 2026-11-18).
+pub const OLD_HARNESS: &str = "# Harness\n\nInstalled by Harneo from profile **web v1** on 2026-01-01.\n\n| Artifact | Type | Source | Why it's here |\n|---|---|---|---|\n| s | Skill | Local | Does a thing |\n";
+
+/// Turns a project scaffolded now into one scaffolded before that decision: `HARNESS.md` is
+/// written (with `harness`) and recorded in the manifest, and `CLAUDE.md` gets the
+/// `@HARNESS.md` line, also recorded.
+pub fn make_legacy(
+    lib: &Library,
+    root: &Path,
+    project_id: i64,
+    harness: &str,
+) -> std::result::Result<(), Box<dyn std::error::Error>> {
+    let claude = std::fs::read_to_string(root.join("CLAUDE.md"))?;
+    let claude = format!("{claude}\n@HARNESS.md\n");
+    put(root, "CLAUDE.md", &claude)?;
+    put(root, "HARNESS.md", harness)?;
+    let record = |path: &str, text: &str, artifact: Option<String>| {
+        lib.store.conn.execute(
+            "INSERT OR REPLACE INTO installed_files (project_id, path, digest, artifact_id)
+             VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![
+                project_id,
+                path,
+                super::plan::digest(text.as_bytes()),
+                artifact
+            ],
+        )
+    };
+    let claude_artifact = lib
+        .installed_files(project_id)?
+        .into_iter()
+        .find(|f| f.path == "CLAUDE.md")
+        .and_then(|f| f.artifact_id);
+    record("CLAUDE.md", &claude, claude_artifact)?;
+    record("HARNESS.md", harness, None)?;
+    Ok(())
+}

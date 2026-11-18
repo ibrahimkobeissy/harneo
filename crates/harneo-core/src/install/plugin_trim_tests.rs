@@ -129,17 +129,8 @@ fn three_skills_and_a_command_scaffold_the_trimmed_plugin_and_nothing_else_of_it
     );
     // No settings, no enabled plugin, no marketplace.
     assert!(!project.path().join(".claude/settings.json").exists());
-    // HARNESS.md lists the folder under its plugin, with each part.
-    let harness = fs::read_to_string(project.path().join("HARNESS.md"))?;
-    assert!(harness.contains("### agent-skills (`.claude/skills/agent-skills/`)"));
-    for part in [
-        "Command `build`",
-        "Skill `planning`",
-        "Skill `test-driven-development`",
-    ] {
-        assert!(harness.contains(&format!("- {part}")), "{part}\n{harness}");
-    }
-    assert!(!harness.contains("code-review"));
+    // Nothing is written about the plugin besides its files.
+    assert!(!project.path().join("HARNESS.md").exists());
     Ok(())
 }
 

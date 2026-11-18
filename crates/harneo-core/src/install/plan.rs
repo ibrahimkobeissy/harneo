@@ -187,12 +187,6 @@ fn utc(secs: i64) -> (i64, i64, i64, i64, i64, i64) {
     (year, month, day, rem / 3_600, rem % 3_600 / 60, rem % 60)
 }
 
-/// `2026-10-23`.
-pub(crate) fn utc_date(secs: i64) -> String {
-    let (y, m, d, ..) = utc(secs);
-    format!("{y:04}-{m:02}-{d:02}")
-}
-
 /// `2026-10-23T14-05-09Z`: sorts by time and is a valid folder name everywhere.
 pub(crate) fn utc_stamp(secs: i64) -> String {
     let (y, mo, d, h, mi, s) = utc(secs);
@@ -401,12 +395,7 @@ impl Library {
     ) -> Result<Plan> {
         let canonical = scaffold_folder(target)?;
         let view = self.profile(profile_id, version)?;
-        let rendered = self.render(
-            &view.spec,
-            &view.name,
-            view.version,
-            &utc_date(crate::library::records::now()),
-        )?;
+        let rendered = self.render(&view.spec)?;
         let writes = rendered
             .files
             .into_iter()

@@ -29,6 +29,7 @@ mod plugin_trim_tests;
 mod plugins;
 #[cfg(test)]
 mod plugins_tests;
+mod project_artifacts;
 mod registry;
 #[cfg(test)]
 mod registry_tests;
@@ -51,14 +52,14 @@ mod trimmed_tests;
 pub use apply::ApplyReport;
 pub(crate) use backup::write_atomic;
 pub use compare::{Comparison, InProfile, InProject, Loss, LossUnit, RefitAction, Row, RowKind};
-pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts, utc_date};
+pub(crate) use plan::{digest, project_folder, resolve_inside, safe_parts};
 pub use plan::{Plan, PlanKind, Write, WriteAction, TRUST_NOTE};
 pub use plugins::{
     install_plugins, targets as plugin_targets, uninstall_dropped, PluginInstall,
     PluginInstallStatus, PluginTarget,
 };
+pub use project_artifacts::ProjectArtifact;
 pub(crate) use registry::{project_count, project_names};
 pub use registry::{Backup, InstalledFile, Project, ProjectFile, MAX_FILE_BYTES};
-pub(crate) use render::with_harness_import;
 pub use render::{Rendered, RenderedFile};
 pub use reset::reset_data;

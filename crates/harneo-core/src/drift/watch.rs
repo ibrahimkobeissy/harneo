@@ -21,7 +21,7 @@ const MAX_WAIT: Duration = Duration::from_secs(2);
 pub(super) const RETRY: Duration = Duration::from_secs(2);
 /// What of a project the watcher looks at, relative to its root.
 const CLAUDE_DIR: &str = ".claude";
-const HARNESS_FILES: [&str; 3] = ["CLAUDE.md", ".mcp.json", "HARNESS.md"];
+const HARNESS_FILES: [&str; 2] = ["CLAUDE.md", ".mcp.json"];
 
 /// Where a watched path belongs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, TS)]

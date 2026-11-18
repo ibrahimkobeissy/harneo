@@ -259,45 +259,6 @@ fn check_all_isolates_a_project_whose_check_fails() -> TestResult {
     Ok(())
 }
 
-#[test]
-fn reapply_all_refreshes_a_stale_harness_md_applied_on_an_earlier_day() -> TestResult {
-    let f = fx()?;
-    let (dir, id) = project(&f)?;
-    // Make the project look applied on an earlier day: HARNESS.md carries that day's date.
-    let old = 1_767_225_600_i64; // 2026-01-01
-    let project_row = f.library.project(id)?;
-    let rendered = f
-        .library
-        .render_pinned(&project_row, &crate::install::utc_date(old))?;
-    let harness = rendered
-        .files
-        .iter()
-        .find(|x| x.path == "HARNESS.md")
-        .ok_or("no HARNESS.md")?;
-    fs::write(dir.path().join("HARNESS.md"), &harness.bytes)?;
-    f.library.store.conn.execute(
-        "UPDATE installed_files SET digest = ?1 WHERE project_id = ?2 AND path = 'HARNESS.md'",
-        rusqlite::params![crate::install::digest(&harness.bytes), id],
-    )?;
-    f.library.store.conn.execute(
-        "UPDATE projects SET applied_at = ?1 WHERE id = ?2",
-        rusqlite::params![old, id],
-    )?;
-    assert_eq!(f.library.check_project(id)?.status, DriftStatus::InSync);
-
-    put(dir.path(), AGENT, "mine\n")?;
-    let plan = f.library.plan_reapply(id, None)?;
-    f.library.apply(&plan)?;
-    let report = f.library.check_project(id)?;
-    assert!(
-        report.library_newer.is_empty(),
-        "{:?}",
-        report.library_newer
-    );
-    assert_eq!(report.status, DriftStatus::InSync, "{:?}", report.files);
-    Ok(())
-}
-
 /// Skill `s` gains a file at its source, and the library takes the update.
 fn skill_gains_a_file(f: &mut super::fixture::Fx) -> TestResult {
     put(f.src.path(), ".claude/skills/s/s.conf", "key = value\n")?;

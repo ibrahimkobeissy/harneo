@@ -2,7 +2,7 @@ use std::fs;
 use std::io;
 
 use super::apply::ApplyHooks;
-use super::fixture::{fx, put, TestResult};
+use super::fixture::{fx, make_legacy, put, TestResult, OLD_HARNESS};
 use super::fixture_lifecycle::{
     files_under, install_over, mini_profile, read, with_agent, without_agent,
 };
@@ -32,13 +32,10 @@ fn a_switch_plans_and_applies_only_the_difference() -> TestResult {
     assert_eq!(plan.reason, format!("Upgrade web to v{v2}"));
     assert_eq!(
         actions(&plan),
-        [
-            (".claude/agents/rev.md", WriteAction::Delete),
-            ("HARNESS.md", WriteAction::Replace)
-        ]
+        [(".claude/agents/rev.md", WriteAction::Delete)]
     );
     assert!(plan.edited_in_project.is_empty() && plan.restored.is_empty());
-    assert_eq!(plan.backup_count, 2);
+    assert_eq!(plan.backup_count, 1);
 
     let applied = f.library.apply(&plan)?;
     assert_eq!(applied.project_id, report.project_id);
@@ -57,10 +54,36 @@ fn a_switch_plans_and_applies_only_the_difference() -> TestResult {
         .map(|m| m.path)
         .collect();
     assert!(!paths.contains(&AGENT.to_owned()));
-    assert!(!String::from_utf8(read(dir.path(), "HARNESS.md")?)?.contains("rev"));
-    // Switching again has nothing left to do but the generated file's own date.
+    assert!(!dir.path().join("HARNESS.md").exists());
+    // Switching again has nothing left to do.
     let again = f.library.plan_switch(report.project_id, f.profile, None)?;
     assert!(again.writes.is_empty(), "{:?}", actions(&again));
+    Ok(())
+}
+
+#[test]
+fn a_switch_removes_the_old_harness_md_and_the_import_line() -> TestResult {
+    let f = fx()?;
+    let dir = tempfile::tempdir()?;
+    let report = install_over(&f, dir.path(), f.profile)?;
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
+    assert!(String::from_utf8(read(dir.path(), "CLAUDE.md")?)?.contains("@HARNESS.md"));
+    let plan = f.library.plan_switch(report.project_id, f.profile, None)?;
+    assert_eq!(
+        actions(&plan),
+        [
+            ("CLAUDE.md", WriteAction::Replace),
+            ("HARNESS.md", WriteAction::Delete)
+        ]
+    );
+    f.library.apply(&plan)?;
+    assert!(!dir.path().join("HARNESS.md").exists());
+    assert!(!String::from_utf8(read(dir.path(), "CLAUDE.md")?)?.contains("@HARNESS.md"));
+    assert!(f
+        .library
+        .installed_files(report.project_id)?
+        .iter()
+        .all(|m| m.path != "HARNESS.md"));
     Ok(())
 }
 
@@ -97,6 +120,7 @@ fn an_edited_file_is_flagged_and_still_backed_up() -> TestResult {
     let f = fx()?;
     let dir = tempfile::tempdir()?;
     let report = install_over(&f, dir.path(), f.profile)?;
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
     without_agent(&f)?;
     fs::write(dir.path().join(AGENT), "my edit\n")?;
     fs::write(dir.path().join("HARNESS.md"), "my notes\n")?;
@@ -152,6 +176,7 @@ fn files_missing_from_the_project_are_created_or_dropped_quietly() -> TestResult
     let f = fx()?;
     let dir = tempfile::tempdir()?;
     let report = install_over(&f, dir.path(), f.profile)?;
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
     without_agent(&f)?;
     fs::remove_file(dir.path().join("HARNESS.md"))?;
     fs::remove_file(dir.path().join(AGENT))?;
@@ -160,12 +185,13 @@ fn files_missing_from_the_project_are_created_or_dropped_quietly() -> TestResult
         actions(&plan),
         [
             (AGENT, WriteAction::Delete),
-            ("HARNESS.md", WriteAction::New)
+            ("CLAUDE.md", WriteAction::Replace),
+            ("HARNESS.md", WriteAction::Delete)
         ]
     );
     assert!(plan.edited_in_project.is_empty());
     f.library.apply(&plan)?;
-    assert!(dir.path().join("HARNESS.md").exists());
+    assert!(!dir.path().join("HARNESS.md").exists());
     Ok(())
 }
 
@@ -184,18 +210,20 @@ fn a_failed_switch_changes_nothing() -> TestResult {
     let f = fx()?;
     let dir = tempfile::tempdir()?;
     let report = install_over(&f, dir.path(), f.profile)?;
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
     let before = files_under(dir.path());
-    let harness = read(dir.path(), "HARNESS.md")?;
+    let claude = read(dir.path(), "CLAUDE.md")?;
     without_agent(&f)?;
     let plan = f.library.plan_switch(report.project_id, f.profile, None)?;
     let error = f
         .library
-        .apply_with(&plan, &FailAt("HARNESS.md"))
+        .apply_with(&plan, &FailAt("CLAUDE.md"))
         .err()
         .ok_or("must fail")?;
     assert!(error.to_string().contains("Rolled back"), "{error}");
     assert_eq!(files_under(dir.path()), before);
-    assert_eq!(read(dir.path(), "HARNESS.md")?, harness);
+    assert_eq!(read(dir.path(), "CLAUDE.md")?, claude);
+    assert!(dir.path().join("HARNESS.md").exists());
     assert_eq!(f.library.project(report.project_id)?.profile_version, 1);
     assert!(f.library.backups(report.project_id)?.is_empty());
     Ok(())

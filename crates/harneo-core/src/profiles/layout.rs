@@ -17,8 +17,6 @@ use crate::library::{stored_view, ArtifactId, Library};
 #[serde(rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum Generated {
-    /// `HARNESS.md`: what is installed and why.
-    HarnessMd,
     /// `.mcp.json`, built from the profile's servers.
     McpJson,
     /// `.claude/settings.json` when there is no template: only the plugins' keys.
@@ -76,7 +74,6 @@ pub struct Layout {
 
 const SETTINGS: &str = ".claude/settings.json";
 const MCP_JSON: &str = ".mcp.json";
-const HARNESS_MD: &str = "HARNESS.md";
 
 pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<Artifact>> {
     let json: Option<String> = conn
@@ -115,7 +112,7 @@ pub(crate) fn in_harness(path: &str) -> bool {
             .any(|c| c.is_empty() || c == "." || c == ".." || c.contains('\\'))
     };
     normal(path)
-        && (matches!(path, "CLAUDE.md" | ".mcp.json" | "HARNESS.md")
+        && (matches!(path, "CLAUDE.md" | ".mcp.json")
             || path.starts_with(".claude/")
             || path.starts_with("scripts/"))
 }
@@ -406,13 +403,6 @@ pub(super) fn layout(
             None,
         );
     }
-    claim(
-        HARNESS_MD.to_owned(),
-        PathFrom::Generated {
-            generated: Generated::HarnessMd,
-        },
-        None,
-    );
     let mut out = Layout {
         paths: Vec::new(),
         conflicts: Vec::new(),

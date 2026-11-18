@@ -114,12 +114,7 @@ impl Library {
         let project = self.live_project(project_id)?;
         let target = project_folder(&project.path)?;
         let profile_id = view.id;
-        let rendered = self.render(
-            &view.spec,
-            &view.name,
-            view.version,
-            &super::plan::utc_date(crate::library::records::now()),
-        )?;
+        let rendered = self.render(&view.spec)?;
         let installed = self.installed_files(project_id)?;
         let manifest: HashMap<&str, &InstalledFile> =
             installed.iter().map(|f| (f.path.as_str(), f)).collect();

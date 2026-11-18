@@ -152,7 +152,6 @@ fn every_kind_lands_where_the_adapter_installs_it() -> TestResult {
             ".claude/skills/s/scripts/run.sh",
             ".mcp.json",
             "CLAUDE.md",
-            "HARNESS.md",
             "scripts/hook.sh",
         ]
     );
@@ -180,12 +179,7 @@ fn every_kind_lands_where_the_adapter_installs_it() -> TestResult {
             generated: Generated::McpJson
         })
     );
-    assert_eq!(
-        from("HARNESS.md"),
-        Some(PathFrom::Generated {
-            generated: Generated::HarnessMd
-        })
-    );
+    assert_eq!(from("HARNESS.md"), None);
     Ok(())
 }
 
@@ -202,8 +196,7 @@ fn claude_md_only_when_the_profile_has_one_and_generated_files_follow_the_conten
         paths(&layout),
         [
             ".claude/skills/s/SKILL.md",
-            ".claude/skills/s/scripts/run.sh",
-            "HARNESS.md"
+            ".claude/skills/s/scripts/run.sh"
         ]
     );
     Ok(())
@@ -229,7 +222,7 @@ fn a_plugin_alone_produces_only_the_settings_key_and_a_template_keeps_its_own_fi
         items: vec![plugin.clone()],
         ..ProfileSpec::default()
     })?;
-    assert_eq!(paths(&alone), [".claude/settings.json", "HARNESS.md"]);
+    assert_eq!(paths(&alone), [".claude/settings.json"]);
     assert_eq!(
         alone.paths[0].from,
         PathFrom::Generated {
@@ -242,7 +235,7 @@ fn a_plugin_alone_produces_only_the_settings_key_and_a_template_keeps_its_own_fi
         settings: Some(settings.clone()),
         ..ProfileSpec::default()
     })?;
-    assert_eq!(paths(&with), [".claude/settings.json", "HARNESS.md"]);
+    assert_eq!(paths(&with), [".claude/settings.json"]);
     assert_eq!(
         with.paths[0].from,
         PathFrom::Artifact { artifact: settings }
@@ -281,7 +274,7 @@ fn two_artifacts_claiming_one_path_are_a_conflict() -> TestResult {
     let mut expected = ids;
     expected.sort();
     assert_eq!(claimants, expected);
-    assert_eq!(paths(&layout), [".claude/skills/x/SKILL.md", "HARNESS.md"]);
+    assert_eq!(paths(&layout), [".claude/skills/x/SKILL.md"]);
     Ok(())
 }
 
@@ -298,6 +291,7 @@ fn only_harness_paths_are_placed() {
     }
     for bad in [
         ".envrc",
+        "HARNESS.md",
         "package.json",
         "Makefile",
         ".husky/pre-commit",

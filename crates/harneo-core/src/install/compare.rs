@@ -2,7 +2,7 @@
 //! user's choices into a [`Plan`]. Nothing here writes to the project.
 //!
 //! An *item* is one artifact install unit (a skill folder, an agent file, `settings.json` with
-//! its hook scripts, `.mcp.json`, `CLAUDE.md`, `HARNESS.md`), matched by install path.
+//! its hook scripts, `.mcp.json`, `CLAUDE.md`), matched by install path.
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs;
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
-use super::plan::{check_plan, digest, resolve_inside, safe_parts, utc_date};
+use super::plan::{check_plan, digest, resolve_inside, safe_parts};
 use super::{Plan, PlanKind, Write, WriteAction};
 use crate::artifact::walk::Walker;
 use crate::artifact::{AgentAdapter, ArtifactKind, ClaudeAdapter, Origin, ScanOptions};
@@ -25,6 +25,7 @@ use crate::updates::hunks;
 const SETTINGS: &str = ".claude/settings.json";
 const MCP_JSON: &str = ".mcp.json";
 const CLAUDE_MD: &str = "CLAUDE.md";
+const HARNESS_MD: &str = "HARNESS.md";
 /// The most lost lines a [`Loss`] lists; `count` stays exact.
 pub const MAX_LOSS_LINES: usize = 200;
 
@@ -414,10 +415,7 @@ impl Library {
         let same_version = registered
             .as_ref()
             .filter(|p| p.profile_id == profile_id && p.profile_version == view.version);
-        // HARNESS.md carries the install date: reuse the project's own so it stays comparable.
-        let date =
-            utc_date(same_version.map_or_else(crate::library::records::now, |p| p.applied_at));
-        let rendered = self.render(&view.spec, &view.name, view.version, &date)?;
+        let rendered = self.render(&view.spec)?;
 
         let mut groups: BTreeMap<String, (BTreeMap<String, ProfileFile>, BTreeSet<String>)> =
             BTreeMap::new();
@@ -429,9 +427,6 @@ impl Library {
                 PathFrom::Generated {
                     generated: Generated::McpJson,
                 } => (MCP_JSON.to_owned(), None),
-                PathFrom::Generated {
-                    generated: Generated::HarnessMd,
-                } => (file.path.clone(), None),
                 PathFrom::Plugin { artifact: id } => {
                     // The manifest and supporting files of a trimmed plugin belong to its item.
                     let loaded = load(&self.store.conn, id)?;
@@ -517,6 +512,15 @@ impl Library {
                 }
             }
         }
+        // A HARNESS.md that an earlier version wrote is not produced any more (#305): the row
+        // offers to delete it and does so by default.
+        if self.wrote_harness_md(registered.as_ref().map(|p| p.id), &root)? {
+            groups
+                .entry(HARNESS_MD.to_owned())
+                .or_default()
+                .1
+                .insert(HARNESS_MD.to_owned());
+        }
         // Profile files already on disk belong to their item whether or not a scan found them.
         for (profile, project) in groups.values_mut() {
             for path in profile.keys() {
@@ -554,6 +558,9 @@ impl Library {
             };
             let all: BTreeSet<&String> = profile.keys().chain(project.keys()).collect();
             let mut row = Row::new(&key, kind, all.into_iter().cloned().collect());
+            if key == HARNESS_MD && kind == RowKind::ProjectOnly {
+                row.default_action = RefitAction::Delete;
+            }
             if matches!(kind, RowKind::Both | RowKind::ProjectOnly) {
                 row.loss = loss_of(&key, &project, &profile);
             }
@@ -566,10 +573,10 @@ impl Library {
 
         let nothing_to_change = match same_version {
             Some(p) => {
-                items
-                    .iter()
-                    .all(|i| matches!(i.row.kind, RowKind::Same | RowKind::ProjectOnly))
-                    && self.manifest_matches(p.id, &root)?
+                items.iter().all(|i| {
+                    matches!(i.row.kind, RowKind::Same | RowKind::ProjectOnly)
+                        && i.row.default_action != RefitAction::Delete
+                }) && self.manifest_matches(p.id, &root)?
             }
             None => false,
         };
@@ -582,6 +589,25 @@ impl Library {
             nothing_to_change,
         };
         Ok((comparison, items))
+    }
+
+    /// The project has a `HARNESS.md` that Harneo wrote: it is in the project's manifest, or it
+    /// opens the way Harneo's did.
+    fn wrote_harness_md(&self, project_id: Option<i64>, root: &Path) -> Result<bool> {
+        let path = resolve_inside(root, HARNESS_MD)?;
+        if !is_file(&path)? {
+            return Ok(false);
+        }
+        if let Some(id) = project_id {
+            if self
+                .installed_files(id)?
+                .iter()
+                .any(|f| f.path == HARNESS_MD)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(text(&read(&path)?).is_some_and(|t| t.starts_with("# Harness\n\nInstalled by Harneo")))
     }
 
     /// Every file Harneo recorded for the project is on disk with the recorded content.

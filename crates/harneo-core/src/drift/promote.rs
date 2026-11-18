@@ -52,10 +52,12 @@ fn io_error(path: &Path, source: std::io::Error) -> Error {
     }
 }
 
-/// The project's `CLAUDE.md` without the `@HARNESS.md` import an install added (the library copy
-/// never has it), when the library copy lacks it. Everything else is kept.
+/// The project's `CLAUDE.md` without the `@HARNESS.md` import an install of an earlier version
+/// added (the library copy never has it), when the library copy lacks it. Everything else is kept.
 fn without_import(project: &[u8], stored: &[u8]) -> Vec<u8> {
-    let added = crate::install::with_harness_import(stored) != stored;
+    let added = !String::from_utf8_lossy(stored)
+        .lines()
+        .any(|l| l.trim() == "@HARNESS.md");
     let Ok(text) = std::str::from_utf8(project) else {
         return project.to_vec();
     };
@@ -284,9 +286,8 @@ impl Library {
         let mut replaced_keys: Option<Vec<String>> = None;
         let bytes = match artifact.kind {
             ArtifactKind::Settings if main => {
-                let date = crate::install::utc_date(project.applied_at);
                 let rendered = self
-                    .render_pinned(project, &date)
+                    .render_pinned(project)
                     .ok()
                     .and_then(|r| r.files.into_iter().find(|f| f.path == path))
                     .map(|f| f.bytes);

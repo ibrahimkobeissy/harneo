@@ -1,6 +1,6 @@
 use std::fs;
 
-use super::fixture::{fx, put, TestResult};
+use super::fixture::{fx, make_legacy, put, TestResult, OLD_HARNESS};
 use super::fixture_lifecycle::{install_over, read, without_agent};
 use super::PlanKind;
 use crate::error::Error;
@@ -43,28 +43,30 @@ fn restoring_harnesss_own_version_keeps_it_in_the_manifest_with_the_restored_dig
     let f = fx()?;
     let dir = tempfile::tempdir()?;
     let report = install_over(&f, dir.path(), f.profile)?;
-    let old_harness = read(dir.path(), "HARNESS.md")?;
+    // A project scaffolded before the `@HARNESS.md` line went away: the switch rewrites CLAUDE.md.
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
+    let old_claude = read(dir.path(), "CLAUDE.md")?;
     without_agent(&f)?;
     let switch = f.library.plan_switch(report.project_id, f.profile, None)?;
     let applied = f.library.apply(&switch)?;
     let set = applied.backup_id.ok_or("set")?;
-    assert_ne!(read(dir.path(), "HARNESS.md")?, old_harness);
+    assert_ne!(read(dir.path(), "CLAUDE.md")?, old_claude);
 
     f.library.restore_backup(set)?;
-    assert_eq!(read(dir.path(), "HARNESS.md")?, old_harness);
+    assert_eq!(read(dir.path(), "CLAUDE.md")?, old_claude);
     assert!(!read(dir.path(), AGENT)?.is_empty());
     let manifest = f.library.installed_files(report.project_id)?;
-    let harness = manifest
+    let claude = manifest
         .iter()
-        .find(|m| m.path == "HARNESS.md")
+        .find(|m| m.path == "CLAUDE.md")
         .ok_or("row")?;
-    assert_eq!(harness.digest, super::plan::digest(&old_harness));
+    assert_eq!(claude.digest, super::plan::digest(&old_claude));
     // The restored agent was removed from the manifest by the switch, so it is untracked now.
     assert!(!manifest.iter().any(|m| m.path == AGENT));
     // A removal afterwards still deletes the managed file and leaves the untracked one.
     let removal = f.library.plan_removal(report.project_id)?;
     f.library.apply(&removal)?;
-    assert!(!dir.path().join("HARNESS.md").exists());
+    assert!(!dir.path().join("CLAUDE.md").exists());
     assert!(dir.path().join(AGENT).exists());
     Ok(())
 }

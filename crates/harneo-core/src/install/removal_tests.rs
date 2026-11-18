@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 
-use super::fixture::{fx, put, TestResult};
+use super::fixture::{fx, make_legacy, put, TestResult, OLD_HARNESS};
 use super::fixture_lifecycle::{files_under, install_over, read, refit_plan, without_agent};
 use super::{PlanKind, WriteAction};
 use crate::error::Error;
@@ -16,7 +16,7 @@ fn removing_a_scaffold_deletes_every_file_and_unregisters_the_project() -> TestR
     put(dir.path(), "CLAUDE.local.md", "mine\n")?;
     let plan = f.library.plan_scaffold(dir.path(), f.profile, None)?;
     let report = f.library.apply(&plan)?;
-    assert!(dir.path().join("HARNESS.md").exists());
+    assert!(!dir.path().join("HARNESS.md").exists());
 
     let removal = f.library.plan_removal(report.project_id)?;
     assert_eq!(removal.kind, PlanKind::Removal);
@@ -41,13 +41,27 @@ fn removing_a_scaffold_deletes_every_file_and_unregisters_the_project() -> TestR
     // The files that were taken out are still on disk, in the backup folder of the removal.
     let folder = done.backup_folder.ok_or("backup folder")?;
     assert_eq!(
-        read(&f.data.path().join(folder), "HARNESS.md")?,
+        read(&f.data.path().join(folder), "CLAUDE.md")?,
         plan.writes
             .iter()
-            .find(|w| w.path == "HARNESS.md")
+            .find(|w| w.path == "CLAUDE.md")
             .and_then(|w| w.bytes.clone())
-            .ok_or("harness")?
+            .ok_or("claude")?
     );
+    Ok(())
+}
+
+#[test]
+fn a_removal_still_removes_a_leftover_harness_md() -> TestResult {
+    let f = fx()?;
+    let dir = tempfile::tempdir()?;
+    let plan = f.library.plan_scaffold(dir.path(), f.profile, None)?;
+    let report = f.library.apply(&plan)?;
+    make_legacy(&f.library, dir.path(), report.project_id, OLD_HARNESS)?;
+    let removal = f.library.plan_removal(report.project_id)?;
+    assert!(removal.writes.iter().any(|w| w.path == "HARNESS.md"));
+    f.library.apply(&removal)?;
+    assert!(files_under(dir.path()).is_empty());
     Ok(())
 }
 

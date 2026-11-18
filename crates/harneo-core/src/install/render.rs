@@ -21,9 +21,7 @@ use crate::profiles::layout::{load, placed_in, trim_groups, trim_of, TrimGroup};
 use crate::profiles::{Generated, PathFrom, ProfileSpec, Resolved, ResolvedItem};
 
 const SETTINGS: &str = ".claude/settings.json";
-const CLAUDE_MD: &str = "CLAUDE.md";
 const SERVER_FILE: &str = "server.json";
-const IMPORT_LINE: &str = "@HARNESS.md";
 const MANUAL_KEY: &str = "disable-model-invocation";
 
 /// One file of a profile, with its exact content.
@@ -123,26 +121,6 @@ pub(super) fn set_manual_only(bytes: &[u8], on: bool) -> Vec<u8> {
     format!("{bom}{}", out.concat()).into_bytes()
 }
 
-/// `text` followed by the `@HARNESS.md` import, unless a line already is that import.
-pub(crate) fn with_harness_import(bytes: &[u8]) -> Vec<u8> {
-    let Ok(text) = std::str::from_utf8(bytes) else {
-        return bytes.to_vec();
-    };
-    if text.lines().any(|l| l.trim() == IMPORT_LINE) {
-        return bytes.to_vec();
-    }
-    let mut out = text.to_owned();
-    if !out.is_empty() {
-        if !out.ends_with('\n') {
-            out.push('\n');
-        }
-        out.push('\n');
-    }
-    out.push_str(IMPORT_LINE);
-    out.push('\n');
-    out.into_bytes()
-}
-
 fn pretty(value: &Value) -> Result<Vec<u8>> {
     let mut out = serde_json::to_vec_pretty(value)?;
     out.push(b'\n');
@@ -226,12 +204,6 @@ fn settings_bytes(template: Option<Vec<u8>>, plugins: &[Artifact]) -> Result<Vec
     pretty(&root)
 }
 
-/// Said in `HARNESS.md` and by the scaffold and refit screens.
-pub(crate) const PLUGINS_NOTE: &str = "Plugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them, and Harneo installs them for this project through the `claude` CLI when it scaffolds or refits it. Anyone else who opens the project is offered them by Claude Code when trusting the folder.";
-
-/// Said in `HARNESS.md` about the parts of a plugin (ADR-008).
-pub(crate) const PARTS_NOTE: &str = "The parts of these plugins are written as a trimmed plugin each: the plugin's manifest, the parts a profile kept and the files they need, under `.claude/skills/<plugin>/`. Claude Code loads it in place, namespaced as `<plugin>:<part>`, only when this project is trusted. Nothing is installed from a marketplace.";
-
 /// `name: reason` for every plugin that cannot be enabled.
 fn warnings_of(plugins: &[Artifact]) -> Vec<String> {
     plugins
@@ -240,61 +212,10 @@ fn warnings_of(plugins: &[Artifact]) -> Vec<String> {
         .collect()
 }
 
-fn kind_label(kind: ArtifactKind) -> &'static str {
-    match kind {
-        ArtifactKind::ClaudeMd => "CLAUDE.md",
-        ArtifactKind::Rule => "Rule",
-        ArtifactKind::Skill => "Skill",
-        ArtifactKind::Command => "Command",
-        ArtifactKind::Agent => "Subagent",
-        ArtifactKind::Settings => "Settings",
-        ArtifactKind::Mcp => "MCP server",
-        ArtifactKind::OutputStyle => "Output style",
-        ArtifactKind::Workflow => "Workflow",
-        ArtifactKind::Plugin => "Plugin",
-    }
-}
-
-/// The first sentence of a description, on one line and safe inside a table cell.
-fn first_sentence(description: &str) -> String {
-    let flat = description.split_whitespace().collect::<Vec<_>>().join(" ");
-    let end = flat
-        .char_indices()
-        .find(|&(i, c)| c == '.' && flat[i + 1..].chars().next().is_none_or(char::is_whitespace))
-        .map_or(flat.len(), |(i, _)| i);
-    flat[..end].replace('|', "\\|")
-}
-
-/// Where the artifact came from, for the HARNESS.md table.
-fn source_label(artifact: &Artifact, location: &str, git: bool) -> String {
-    let text = match &artifact.origin {
-        Origin::Marketplace { name, repo, .. } => repo.clone().unwrap_or_else(|| name.clone()),
-        Origin::ClaudeSynced => "Claude synced".to_owned(),
-        Origin::DevMod => "Dev mod".to_owned(),
-        Origin::Own if git => {
-            let trimmed = location.trim_end_matches('/').trim_end_matches(".git");
-            let tail: Vec<&str> = trimmed.rsplit(['/', ':']).take(2).collect();
-            match tail.as_slice() {
-                [repo, owner] if !owner.is_empty() => format!("{owner}/{repo}"),
-                _ => trimmed.to_owned(),
-            }
-        }
-        Origin::Own => "Local".to_owned(),
-    };
-    text.replace('|', "\\|")
-}
-
 impl Library {
-    /// The exact content of every file profile `profile_name` (at `version`, on `date`) writes
-    /// into a project, in layout order. Library copies are byte-equal except for the
-    /// documented edits; see the install-engine spec.
-    pub fn render(
-        &self,
-        spec: &ProfileSpec,
-        profile_name: &str,
-        version: u32,
-        date: &str,
-    ) -> Result<Rendered> {
+    /// The exact content of every file the profile writes into a project, in layout order. Library
+    /// copies are byte-equal except for the documented edits; see the install-engine spec.
+    pub fn render(&self, spec: &ProfileSpec) -> Result<Rendered> {
         let layout = self.layout(spec)?;
         let resolved = self.resolve(spec)?;
         let plugins = self.plugins_of(&resolved)?;
@@ -302,9 +223,6 @@ impl Library {
         let mut files = Vec::new();
         for planned in &layout.paths {
             let (bytes, executable) = match &planned.from {
-                PathFrom::Generated {
-                    generated: Generated::HarnessMd,
-                } => continue,
                 PathFrom::Generated {
                     generated: Generated::McpJson,
                 } => (self.mcp_json(spec, &resolved)?, false),
@@ -331,21 +249,6 @@ impl Library {
                 executable,
             });
         }
-        let harness = self.harness_md(
-            &resolved,
-            &layout.paths,
-            &plugins,
-            &groups,
-            &format!("Installed by Harneo from profile **{profile_name} v{version}** on {date}."),
-        )?;
-        files.push(RenderedFile {
-            path: "HARNESS.md".to_owned(),
-            bytes: harness.into_bytes(),
-            from: PathFrom::Generated {
-                generated: Generated::HarnessMd,
-            },
-            executable: false,
-        });
         files.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(Rendered { files })
     }
@@ -441,7 +344,6 @@ impl Library {
         let executable = is_executable(&file);
         let bytes = match artifact.kind {
             ArtifactKind::Settings if main => settings_bytes(Some(bytes), plugins)?,
-            ArtifactKind::ClaudeMd if path == CLAUDE_MD => with_harness_import(&bytes),
             ArtifactKind::Skill if stored == "SKILL.md" => {
                 let manual = resolved
                     .artifacts
@@ -486,76 +388,5 @@ impl Library {
             }
         }
         pretty(&json!({ "mcpServers": servers }))
-    }
-
-    fn harness_md(
-        &self,
-        resolved: &Resolved,
-        paths: &[crate::profiles::PlannedPath],
-        plugins: &[Artifact],
-        groups: &[TrimGroup],
-        installed_by: &str,
-    ) -> Result<String> {
-        let mut out = format!(
-            "# Harness\n\n{installed_by}\n\n\
-             | Artifact | Type | Source | Why it's here |\n|---|---|---|---|\n"
-        );
-        for item in &resolved.artifacts {
-            let detail = self.detail(&item.id)?;
-            let source = source_label(
-                &detail.artifact,
-                &detail.provenance.source.location,
-                detail.provenance.source.kind == "git",
-            );
-            let why = detail
-                .artifact
-                .description
-                .as_deref()
-                .map(first_sentence)
-                .unwrap_or_default();
-            out.push_str(&format!(
-                "| {} | {} | {} | {} |\n",
-                item.name.replace('|', "\\|"),
-                kind_label(item.kind),
-                source,
-                why
-            ));
-        }
-        if !plugins.is_empty() {
-            out.push_str(&format!("\n## Plugins\n\n{PLUGINS_NOTE}\n"));
-            let missing = warnings_of(plugins);
-            if !missing.is_empty() {
-                out.push_str("\n### Not enabled\n\n");
-                for line in missing {
-                    out.push_str(&format!("- {line}\n"));
-                }
-            }
-        }
-        if !groups.is_empty() {
-            out.push_str(&format!("\n## Plugin parts\n\n{PARTS_NOTE}\n"));
-            for group in groups {
-                out.push_str(&format!(
-                    "\n### {} (`{}/`)\n\n",
-                    group.trim.name, group.trim.dir
-                ));
-                for (_, part) in &group.parts {
-                    out.push_str(&format!(
-                        "- {} `{}`\n",
-                        kind_label(part.kind),
-                        part.name.replace('`', "")
-                    ));
-                }
-            }
-        }
-        out.push_str("\n## Files\n\n");
-        let mut listed: Vec<&str> = paths.iter().map(|p| p.path.as_str()).collect();
-        listed.push("HARNESS.md");
-        listed.sort_unstable();
-        listed.dedup();
-        for path in listed {
-            out.push_str(&format!("- `{path}`\n"));
-        }
-        out.push_str("\nManaged by Harneo: edit the library copy, or your edits show as drift.\n");
-        Ok(out)
     }
 }

@@ -3,4 +3,4 @@
 /**
  * A file Harneo writes itself.
  */
-export type Generated = "harnessMd" | "mcpJson" | "settings";
+export type Generated = "mcpJson" | "settings";

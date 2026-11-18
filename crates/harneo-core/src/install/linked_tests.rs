@@ -208,9 +208,7 @@ fn scaffolding_writes_a_shared_linked_file_once_under_the_first_skill() -> TestR
         .find(|m| m.path == ".claude/references/a.md")
         .ok_or("not in the manifest")?;
     assert_eq!(entry.artifact_id.as_deref(), Some(id.as_str()));
-    // Listed in HARNESS.md and not reported as drift.
-    let harness = fs::read_to_string(dir.path().join("HARNESS.md"))?;
-    assert!(harness.contains("`.claude/references/a.md`"));
+    // Not reported as drift.
     let drift = library.check_project(report.project_id)?;
     assert!(drift.files.is_empty(), "{:?}", drift.files);
     Ok(())

@@ -54,8 +54,9 @@ fn harness_files_in_the_root_fire_and_other_files_do_not() {
     let (_watcher, rx) = start(vec![project(1, dir.path())]);
     fs::write(dir.path().join("README.md"), "x").expect("write");
     fs::write(dir.path().join("src.rs"), "x").expect("write");
+    fs::write(dir.path().join("HARNESS.md"), "x").expect("write");
     assert!(rx.recv_timeout(QUIET).is_err(), "unwatched files are quiet");
-    for name in ["CLAUDE.md", ".mcp.json", "HARNESS.md"] {
+    for name in ["CLAUDE.md", ".mcp.json"] {
         fs::write(dir.path().join(name), "x").expect("write");
         assert_eq!(
             rx.recv_timeout(WITHIN).expect(name),

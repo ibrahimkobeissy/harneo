@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use super::compare::MAX_LOSS_LINES;
-use super::fixture::{fx, put, Fx, TestResult};
+use super::fixture::{fx, make_legacy, put, Fx, TestResult, OLD_HARNESS};
 use super::{
     Comparison, InProfile, InProject, LossUnit, RefitAction as A, Row, RowKind, WriteAction,
 };
@@ -64,12 +64,9 @@ fn project(f: &Fx) -> Result<tempfile::TempDir, Box<dyn std::error::Error>> {
         "---\ndescription: Deploy it\n---\nRun make deploy\nthen ping\n",
     )?;
     put(r, ".claude/settings.local.json", "{}")?;
-    let skill = f.library.render(
-        &f.library.profile(f.profile, None)?.spec,
-        "web",
-        1,
-        "2026-01-01",
-    )?;
+    let skill = f
+        .library
+        .render(&f.library.profile(f.profile, None)?.spec)?;
     for file in skill
         .files
         .iter()
@@ -117,21 +114,113 @@ fn rows_get_their_kind_default_and_options() -> TestResult {
     assert_eq!(only.options, vec![A::Keep, A::Delete]);
     assert_eq!(only.loss.as_ref().map(|l| l.count), Some(5));
 
-    let new = row(&c, "HARNESS.md")?;
-    assert_eq!(new.kind, RowKind::ProfileOnly);
-    assert_eq!(
-        (new.in_project, new.in_profile),
-        (InProject::Absent, InProfile::New)
-    );
-    assert_eq!(new.default_action, A::Add);
-    assert_eq!(new.options, vec![A::Add, A::Skip]);
-    assert!(new.loss.is_none());
+    // Harneo writes no HARNESS.md any more (user decision 2026-11-18).
+    assert!(c.rows.iter().all(|r| r.item != "HARNESS.md"));
 
     assert_eq!(row(&c, ".claude/agents/rev.md")?.kind, RowKind::Both);
     assert!(c
         .rows
         .iter()
         .all(|r| !r.paths.iter().any(|p| p.contains("local"))));
+    Ok(())
+}
+
+#[test]
+fn a_profile_file_the_project_lacks_is_a_profile_only_row() -> TestResult {
+    let f = fx()?;
+    let dir = project(&f)?;
+    fs::remove_dir_all(dir.path().join(".claude/skills"))?;
+    let c = f.library.compare(dir.path(), f.profile, None)?;
+    let new = row(&c, ".claude/skills/s")?;
+    assert_eq!(new.kind, RowKind::ProfileOnly);
+    assert_eq!(
+        (new.in_project, new.in_profile),
+        (InProject::Absent, InProfile::New)
+    );
+    assert_eq!(
+        (new.default_action, new.options.clone()),
+        (A::Add, vec![A::Add, A::Skip])
+    );
+    let skip = BTreeMap::from([(".claude/skills/s".to_owned(), A::Skip)]);
+    let plan = f.library.plan_refit(&c, &skip)?;
+    assert!(plan
+        .writes
+        .iter()
+        .filter(|w| w.path.starts_with(".claude/skills/s/"))
+        .all(|w| w.action == WriteAction::Skip));
+    Ok(())
+}
+
+#[test]
+fn a_refit_removes_the_old_harness_md_and_its_import_line() -> TestResult {
+    let f = fx()?;
+    let scaffolded = tempfile::tempdir()?;
+    let plan = f
+        .library
+        .plan_scaffold(scaffolded.path(), f.profile, None)?;
+    let id = f.library.apply(&plan)?.project_id;
+    make_legacy(&f.library, scaffolded.path(), id, OLD_HARNESS)?;
+    let before = fs::read_to_string(scaffolded.path().join("CLAUDE.md"))?;
+    assert!(before.contains("@HARNESS.md"));
+
+    let c = f.library.compare(scaffolded.path(), f.profile, None)?;
+    assert!(!c.nothing_to_change);
+    let harness = row(&c, "HARNESS.md")?;
+    assert_eq!(harness.kind, RowKind::ProjectOnly);
+    assert_eq!(harness.default_action, A::Delete);
+    assert_eq!(harness.options, vec![A::Keep, A::Delete]);
+    assert_eq!(row(&c, "CLAUDE.md")?.default_action, A::Replace);
+
+    let plan = f.library.plan_refit(&c, &BTreeMap::new())?;
+    let act = |p: &str| plan.writes.iter().find(|w| w.path == p).map(|w| w.action);
+    assert_eq!(act("HARNESS.md"), Some(WriteAction::Delete));
+    assert_eq!(act("CLAUDE.md"), Some(WriteAction::Replace));
+    f.library.apply(&plan)?;
+    assert!(!scaffolded.path().join("HARNESS.md").exists());
+    let after = fs::read_to_string(scaffolded.path().join("CLAUDE.md"))?;
+    assert!(!after.contains("@HARNESS.md"), "{after}");
+    let manifest = f.library.installed_files(id)?;
+    assert!(manifest.iter().all(|m| m.path != "HARNESS.md"));
+    assert!(
+        f.library
+            .compare(scaffolded.path(), f.profile, None)?
+            .nothing_to_change
+    );
+    Ok(())
+}
+
+#[test]
+fn an_edited_old_harness_md_is_backed_up_before_the_refit_removes_it() -> TestResult {
+    let f = fx()?;
+    let scaffolded = tempfile::tempdir()?;
+    let plan = f
+        .library
+        .plan_scaffold(scaffolded.path(), f.profile, None)?;
+    let id = f.library.apply(&plan)?.project_id;
+    make_legacy(&f.library, scaffolded.path(), id, OLD_HARNESS)?;
+    put(scaffolded.path(), "HARNESS.md", "my own notes\n")?;
+
+    let c = f.library.compare(scaffolded.path(), f.profile, None)?;
+    let plan = f.library.plan_refit(&c, &BTreeMap::new())?;
+    assert_eq!(plan.backup_count, 2, "CLAUDE.md and HARNESS.md");
+    let applied = f.library.apply(&plan)?;
+    assert!(!scaffolded.path().join("HARNESS.md").exists());
+    let set = applied.backup_id.ok_or("no backup set")?;
+    f.library.restore_backup(set)?;
+    assert_eq!(
+        fs::read_to_string(scaffolded.path().join("HARNESS.md"))?,
+        "my own notes\n"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_harness_md_that_harneo_did_not_write_is_left_alone() -> TestResult {
+    let f = fx()?;
+    let dir = project(&f)?;
+    put(dir.path(), "HARNESS.md", "# Harness\nMy own page\n")?;
+    let c = f.library.compare(dir.path(), f.profile, None)?;
+    assert!(c.rows.iter().all(|r| r.item != "HARNESS.md"));
     Ok(())
 }
 
@@ -227,7 +316,7 @@ fn choices_change_the_plan_and_replace_carries_a_diff() -> TestResult {
     let act = |p: &str| plan.writes.iter().find(|w| w.path == p).map(|w| w.action);
     assert_eq!(act("CLAUDE.md"), Some(WriteAction::Replace));
     assert_eq!(act(".claude/agents/rev.md"), Some(WriteAction::Replace));
-    assert_eq!(act("HARNESS.md"), Some(WriteAction::New));
+    assert_eq!(act("HARNESS.md"), None);
     assert_eq!(act(".claude/commands/deploy.md"), Some(WriteAction::Keep));
     assert_eq!(act(".claude/skills/s/SKILL.md"), Some(WriteAction::Keep));
     assert_eq!(plan.backup_count, 2);
@@ -256,13 +345,11 @@ fn choices_change_the_plan_and_replace_carries_a_diff() -> TestResult {
     let choices = BTreeMap::from([
         ("CLAUDE.md".to_owned(), A::Keep),
         (".claude/commands/deploy.md".to_owned(), A::Delete),
-        ("HARNESS.md".to_owned(), A::Skip),
     ]);
     let plan = f.library.plan_refit(&c, &choices)?;
     let act = |p: &str| plan.writes.iter().find(|w| w.path == p).map(|w| w.action);
     assert_eq!(act("CLAUDE.md"), Some(WriteAction::Keep));
     assert_eq!(act(".claude/commands/deploy.md"), Some(WriteAction::Delete));
-    assert_eq!(act("HARNESS.md"), Some(WriteAction::Skip));
     assert_eq!(plan.backup_count, 2);
     assert!(plan.writes.iter().all(|w| !w.path.contains("local")));
     Ok(())
@@ -310,7 +397,7 @@ fn applying_the_default_plan_then_comparing_again_changes_nothing() -> TestResul
         .any(|m| m.path == ".claude/commands/deploy.md"));
 
     // An edit after the apply is a difference again.
-    put(dir.path(), "HARNESS.md", "edited\n")?;
+    put(dir.path(), "CLAUDE.md", "edited\n")?;
     assert!(
         !f.library
             .compare(dir.path(), f.profile, None)?
