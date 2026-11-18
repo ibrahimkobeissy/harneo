@@ -336,9 +336,7 @@ impl Library {
             &layout.paths,
             &plugins,
             &groups,
-            profile_name,
-            version,
-            date,
+            &format!("Installed by Harneo from profile **{profile_name} v{version}** on {date}."),
         )?;
         files.push(RenderedFile {
             path: "HARNESS.md".to_owned(),
@@ -496,12 +494,10 @@ impl Library {
         paths: &[crate::profiles::PlannedPath],
         plugins: &[Artifact],
         groups: &[TrimGroup],
-        profile_name: &str,
-        version: u32,
-        date: &str,
+        installed_by: &str,
     ) -> Result<String> {
         let mut out = format!(
-            "# Harness\n\nInstalled by Harneo from profile **{profile_name} v{version}** on {date}.\n\n\
+            "# Harness\n\n{installed_by}\n\n\
              | Artifact | Type | Source | Why it's here |\n|---|---|---|---|\n"
         );
         for item in &resolved.artifacts {
