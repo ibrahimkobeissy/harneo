@@ -124,6 +124,12 @@ interface Opts {
   versioned?: boolean;
 }
 
+async function openFiles() {
+  await userEvent.click(
+    await screen.findByRole("tab", { name: /Installed files/ }),
+  );
+}
+
 function Where() {
   const l = useLocation();
   return (
@@ -151,8 +157,18 @@ function setup(path: string, opts: Opts = {}) {
       case "project_files":
         return [
           { path: "CLAUDE.md", digest: "d", artifactId: null },
-          { path: "HARNESS.md", digest: "e", artifactId: null },
+          { path: ".mcp.json", digest: "e", artifactId: null },
           { path: ".claude/skills/tdd/SKILL.md", digest: "f", artifactId: "a" },
+        ];
+      case "project_artifacts":
+        return [
+          {
+            id: "a",
+            name: "tdd",
+            kind: "skill",
+            why: "Drives work with tests",
+          },
+          { id: "b", name: "reviewer", kind: "agent", why: "Reviews code" },
         ];
       case "project_file_content": {
         if (opts.contentError) throw new Error(opts.contentError);
@@ -361,34 +377,42 @@ describe("Project detail", () => {
     );
     expect(screen.getByText("3 hours ago")).toBeInTheDocument();
     expect(screen.queryByText(/Upgrade to/)).not.toBeInTheDocument();
+    await openFiles();
     const view = await screen.findByRole("region", {
-      name: "Content of HARNESS.md",
+      name: "Content of CLAUDE.md",
     });
-    expect(view).toHaveTextContent("# HARNESS.md");
-    await userEvent.click(screen.getByRole("treeitem", { name: "CLAUDE.md" }));
+    expect(view).toHaveTextContent("# CLAUDE.md");
+    await userEvent.click(screen.getByRole("treeitem", { name: ".mcp.json" }));
     expect(
-      await screen.findByRole("region", { name: "Content of CLAUDE.md" }),
+      await screen.findByRole("region", { name: "Content of .mcp.json" }),
     ).toHaveTextContent("line two ✓");
   });
 
-  it("notes a truncated file and a file that cannot be read", async () => {
-    setup("/projects/1", { truncated: true });
+  it("opens on the artifacts the profile installs and why, read from the database", async () => {
+    const calls = setup("/projects/1", { profiles: [profile(10, "Web", 1)] });
+    const list = await screen.findByRole("list", {
+      name: "Installed artifacts",
+    });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+    expect(list).toHaveTextContent("tdd");
+    expect(list).toHaveTextContent("Skill");
+    expect(list).toHaveTextContent("Drives work with tests");
+    expect(list).toHaveTextContent("reviewer");
+    expect(list).toHaveTextContent("Reviews code");
+    expect(screen.getByRole("tab", { name: /Artifacts/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByRole("link", { name: "Web" })).toHaveTextContent("Web");
     expect(
-      await screen.findByText(/only the start is shown/),
-    ).toBeInTheDocument();
+      calls.some((c) => c.cmd === "project_file_content"),
+      "no file is read for it",
+    ).toBe(false);
   });
 
-  it("shows a read failure in the viewer", async () => {
-    setup("/projects/1", { contentError: "gone" });
-    expect(
-      await screen.findByText(/Could not read HARNESS.md/),
-    ).toHaveTextContent("gone");
-  });
-
-  it("says when Harneo wrote no files", async () => {
+  it("says when the profile holds no artifacts", async () => {
     mockIPC((cmd) => {
       if (cmd === "project_get") return project();
-      if (cmd === "project_files" || cmd === "project_backups") return [];
       if (cmd === "drift_check") return null;
       return [];
     });
@@ -399,6 +423,47 @@ describe("Project detail", () => {
         </Routes>
       </MemoryRouter>,
     );
+    expect(
+      await screen.findByText("This profile holds no artifacts."),
+    ).toBeVisible();
+  });
+
+  it("notes a truncated file and a file that cannot be read", async () => {
+    setup("/projects/1", { truncated: true });
+    await openFiles();
+    expect(
+      await screen.findByText(/only the start is shown/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a read failure in the viewer", async () => {
+    setup("/projects/1", { contentError: "gone" });
+    await openFiles();
+    expect(
+      await screen.findByText(/Could not read CLAUDE.md/),
+    ).toHaveTextContent("gone");
+  });
+
+  it("says when Harneo wrote no files", async () => {
+    mockIPC((cmd) => {
+      if (cmd === "project_get") return project();
+      if (
+        cmd === "project_files" ||
+        cmd === "project_artifacts" ||
+        cmd === "project_backups"
+      )
+        return [];
+      if (cmd === "drift_check") return null;
+      return [];
+    });
+    render(
+      <MemoryRouter initialEntries={["/projects/1"]}>
+        <Routes>
+          <Route path="/projects/:id" element={<ProjectScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await openFiles();
     expect(
       await screen.findByText(/has not written any files/),
     ).toBeInTheDocument();
@@ -588,13 +653,14 @@ describe("Switch / Upgrade modal", () => {
 
   it("shows the selected file's new content after an apply", async () => {
     await upgradeSetup({ versioned: true });
-    expect(await screen.findByText(/# HARNESS\.md read 1/)).toBeVisible();
+    await openFiles();
+    expect(await screen.findByText(/# CLAUDE\.md read 1/)).toBeVisible();
     const dialog = await screen.findByRole("dialog", { name: "Upgrade shop" });
     await within(dialog).findByText(".claude/skills/new/SKILL.md");
     await userEvent.click(
       within(dialog).getByRole("button", { name: "Apply difference" }),
     );
-    expect(await screen.findByText(/# HARNESS\.md read 2/)).toBeVisible();
+    expect(await screen.findByText(/# CLAUDE\.md read 2/)).toBeVisible();
   });
 
   it("shows a plan failure and a failed apply, and stays open", async () => {

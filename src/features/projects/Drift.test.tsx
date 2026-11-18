@@ -139,6 +139,7 @@ function setup(path: string, opts: Opts = {}) {
             },
           ];
         case "project_files":
+        case "project_artifacts":
         case "project_backups":
           return [];
         case "app_info":
@@ -360,12 +361,12 @@ describe("Drift tab", () => {
     expect(tab).toHaveTextContent("Drift 2");
   });
 
-  it("falls back to Installed files when nothing drifted, and says No drift", async () => {
+  it("falls back to Artifacts when nothing drifted, and says No drift", async () => {
     const u = userEvent.setup();
     setup("/projects/1", { report: report({ status: "inSync", files: [] }) });
-    await screen.findByRole("tab", { name: /Installed files/ });
+    await screen.findByRole("tab", { name: /Artifacts/ });
     await waitFor(() =>
-      expect(screen.getByRole("tab", { name: /Installed/ })).toHaveAttribute(
+      expect(screen.getByRole("tab", { name: /Artifacts/ })).toHaveAttribute(
         "aria-selected",
         "true",
       ),

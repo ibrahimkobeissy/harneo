@@ -64,6 +64,7 @@ import type { Resolved } from "../bindings/Resolved";
 import type { ApplyReport } from "../bindings/ApplyReport";
 import type { Backup } from "../bindings/Backup";
 import type { InstalledFile } from "../bindings/InstalledFile";
+import type { ProjectArtifact } from "../bindings/ProjectArtifact";
 import type { Comparison } from "../bindings/Comparison";
 import type { PlanTicket } from "../bindings/PlanTicket";
 import type { PreviewTicket } from "../bindings/PreviewTicket";
@@ -959,6 +960,11 @@ export function onPluginsInstallProgress(
 /** The files Harneo wrote into a project. */
 export function projectFiles(id: bigint): Promise<InstalledFile[]> {
   return invoke<InstalledFile[]>("project_files", { id: Number(id) });
+}
+
+/** What a project's profile installs and why, from the database. */
+export function projectArtifacts(id: bigint): Promise<ProjectArtifact[]> {
+  return invoke<ProjectArtifact[]>("project_artifacts", { id: Number(id) });
 }
 
 /** The current content of one managed file of a project. */

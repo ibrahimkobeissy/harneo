@@ -37,9 +37,8 @@ export function DoneStep({
         Scaffolded {folder} with {profile}
       </h2>
       <p>
-        {written} {written === 1 ? "file" : "files"} written, including{" "}
-        <span className={styles.mono}>HARNESS.md</span>. The project is in your
-        registry.
+        {written} {written === 1 ? "file" : "files"} written. The project is in
+        your registry.
       </p>
       {plugins && (
         <PluginsInstall projectId={projectId} onRunningChange={setInstalling} />

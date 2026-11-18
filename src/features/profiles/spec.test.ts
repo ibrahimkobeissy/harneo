@@ -114,10 +114,10 @@ describe("spec helpers", () => {
   });
 
   it("lays the tree out with folders first and flags conflicts", () => {
-    const from = { type: "generated", generated: "harnessMd" } as const;
+    const from = { type: "generated", generated: "mcpJson" } as const;
     const rows = treeRows({
       paths: [
-        { path: "HARNESS.md", from },
+        { path: ".mcp.json", from },
         { path: ".claude/skills/b/SKILL.md", from },
         { path: ".claude/skills/a.md", from },
       ],
@@ -129,10 +129,10 @@ describe("spec helpers", () => {
       "2:b",
       "3:SKILL.md",
       "2:a.md",
-      "0:HARNESS.md",
+      "0:.mcp.json",
     ]);
     expect(rows.find((r) => r.name === "a.md")?.conflict).toBe(true);
-    expect(rows.find((r) => r.name === "HARNESS.md")?.conflict).toBe(false);
+    expect(rows.find((r) => r.name === ".mcp.json")?.conflict).toBe(false);
   });
 });
 

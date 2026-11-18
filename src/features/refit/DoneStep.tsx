@@ -60,8 +60,7 @@ export function DoneStep({
         Refitted {folder} with {profile}
       </h2>
       <p>
-        {backedUp} {originals} backed up. The project is in your registry with a
-        fresh <span className={styles.mono}>HARNESS.md</span>.
+        {backedUp} {originals} backed up. The project is in your registry.
       </p>
       {plugins && (
         <PluginsInstall

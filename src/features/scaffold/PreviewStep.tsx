@@ -14,8 +14,7 @@ export function PreviewStep({
   displayPath: string;
   error: string | null;
 }) {
-  const first =
-    plan.writes.find((w) => w.path === "HARNESS.md") ?? plan.writes[0];
+  const first = plan.writes[0];
   const [picked, setPicked] = useState<string | null>(null);
   const current = plan.writes.find((w) => w.path === picked) ?? first;
   const count = plan.writes.length;

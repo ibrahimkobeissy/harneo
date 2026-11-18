@@ -14,8 +14,7 @@ export function FilesTab({
   projectId: bigint;
   files: InstalledFile[];
 }) {
-  const first =
-    files.find((f) => f.path === "HARNESS.md")?.path ?? files[0]?.path ?? null;
+  const first = files[0]?.path ?? null;
   const [picked, setPicked] = useState<string | null>(null);
   const selected = files.find((f) => f.path === picked)?.path ?? first;
   const [loaded, setLoaded] = useState<{

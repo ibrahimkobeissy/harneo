@@ -16,15 +16,16 @@ import { Callout } from "./Callout";
 import { decodeText } from "./CodeView";
 import styles from "./PluginsInstall.module.css";
 
-/** HARNESS.md carries this sentence whenever the profile holds a plugin. */
-const MARK = "Plugins are not copied: they install from their own marketplace.";
+/** `settings.json` carries this key whenever the profile enables a marketplace plugin. */
+const MARK = '"enabledPlugins"';
 
-/** True when the plan's HARNESS.md lists plugins, or one cannot be enabled. */
+/** True when the plan writes a `settings.json` that enables plugins, or one cannot be enabled. */
 export function hasPlugins(plan: Plan): boolean {
   if (plan.warnings.length > 0) return true;
   return plan.writes.some(
     (w) =>
-      w.path === "HARNESS.md" &&
+      w.path === ".claude/settings.json" &&
+      w.action !== "delete" &&
       w.bytes !== null &&
       decodeText(w.bytes)?.includes(MARK),
   );

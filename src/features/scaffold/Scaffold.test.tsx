@@ -43,9 +43,9 @@ const plan = {
       artifact: null,
     },
     {
-      path: "HARNESS.md",
+      path: ".claude/settings.json",
       action: "new",
-      bytes: b64("# Harness\nline two\n"),
+      bytes: b64('{\n  "permissions": {}\n}\n'),
       diff: null,
       artifact: null,
     },
@@ -63,12 +63,10 @@ const pluginPlan = {
   ...plan,
   warnings: ["loose: not installable: no marketplace"],
   writes: plan.writes.map((w) =>
-    w.path === "HARNESS.md"
+    w.path === ".claude/settings.json"
       ? {
           ...w,
-          bytes: b64(
-            "# Harness\n\n## Plugins\n\nPlugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them.\n",
-          ),
+          bytes: b64('{\n  "enabledPlugins": {"p@market": true}\n}\n'),
         }
       : w,
   ),
@@ -240,13 +238,16 @@ describe("Scaffold flow", () => {
     expect(await screen.findByText(/Dry run/)).toBeInTheDocument();
     const call = calls.find((c) => c.cmd === "scaffold_plan");
     expect(call?.args).toMatchObject({ target: "/work/app", profileId: 1 });
-    // Every file is new, HARNESS.md is open with its full content and line numbers.
+    // Every file is new, the first is open with its full content and line numbers.
     expect(screen.getAllByText("new")).toHaveLength(3);
-    const code = screen.getByRole("region", { name: "Content of HARNESS.md" });
-    expect(within(code).getByText("line two")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("treeitem", { name: /CLAUDE\.md/ }));
+    const code = screen.getByRole("region", { name: "Content of CLAUDE.md" });
+    expect(within(code).getByText("# Hi")).toBeInTheDocument();
+    expect(screen.queryByText("HARNESS.md")).toBeNull();
+    await userEvent.click(
+      screen.getByRole("treeitem", { name: /settings\.json/ }),
+    );
     expect(
-      screen.getByRole("region", { name: "Content of CLAUDE.md" }),
+      screen.getByRole("region", { name: "Content of .claude/settings.json" }),
     ).toBeInTheDocument();
     await userEvent.click(
       screen.getByRole("button", { name: "Write 3 files" }),
@@ -254,7 +255,7 @@ describe("Scaffold flow", () => {
     expect(
       await screen.findByText("Scaffolded app with Web v2"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/3 files written, including/)).toBeInTheDocument();
+    expect(screen.getByText(/3 files written\./)).toBeInTheDocument();
     expect(calls.some((c) => c.cmd === "install_apply")).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Open project" }));
     expect(screen.getByTestId("where")).toHaveTextContent("/projects/7");

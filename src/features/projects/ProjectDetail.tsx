@@ -7,6 +7,7 @@ import {
   GitCompare,
   FolderTree,
   Archive,
+  Sparkles,
   FolderOpen,
   MoreHorizontal,
   Undo2,
@@ -16,11 +17,13 @@ import { Link, useNavigate, useParams } from "react-router";
 import type { Backup } from "../../bindings/Backup";
 import type { DriftReport } from "../../bindings/DriftReport";
 import type { InstalledFile } from "../../bindings/InstalledFile";
+import type { ProjectArtifact } from "../../bindings/ProjectArtifact";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
 import type { Project } from "../../bindings/Project";
 import { useAppInfo } from "../../app/useAppInfo";
 import {
   driftCheck,
+  projectArtifacts,
   openBackupsFolder,
   openProjectFolder,
   profilesList,
@@ -32,6 +35,7 @@ import { useChanged } from "../../lib/useChanged";
 import { Button, Callout, EmptyState, Panel, Screen } from "../../ui";
 import { BackupsTab } from "./BackupsTab";
 import { DriftTab } from "./DriftTab";
+import { ArtifactsTab } from "./ArtifactsTab";
 import { FilesTab } from "./FilesTab";
 import { ago, messageOf, statusOf } from "./format";
 import styles from "./Projects.module.css";
@@ -40,7 +44,7 @@ import { StatusPill } from "./StatusPill";
 import { SwitchDialog } from "./SwitchDialog";
 import { Toast, type Notice } from "./Toast";
 
-type Tab = "drift" | "files" | "backups";
+type Tab = "drift" | "artifacts" | "files" | "backups";
 type Dialog = "switch" | "upgrade" | "remove" | null;
 
 function parseId(raw: string | undefined): bigint | null {
@@ -54,6 +58,7 @@ export function ProjectScreen() {
   const app = useAppInfo();
   const [project, setProject] = useState<Project | null>(null);
   const [files, setFiles] = useState<InstalledFile[]>([]);
+  const [artifacts, setArtifacts] = useState<ProjectArtifact[]>([]);
   const [backups, setBackups] = useState<Backup[]>([]);
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -82,20 +87,30 @@ export function ProjectScreen() {
               projectBackups(id),
               profilesList().catch(() => [] as ProfileSummary[]),
               driftCheck(id).catch(() => null),
-            ]).then(([f, b, list, drift]) => ({ p, f, b, list, drift }))
+              projectArtifacts(id).catch(() => [] as ProjectArtifact[]),
+            ]).then(([f, b, list, drift, arts]) => ({
+              p,
+              f,
+              b,
+              list,
+              drift,
+              arts,
+            }))
           : projectBackups(id).then((b) => ({
               p,
               f: [] as InstalledFile[],
+              arts: [] as ProjectArtifact[],
               b,
               list: [] as ProfileSummary[],
               drift: null,
             })),
       )
       .then(
-        ({ p, f, b, list, drift }) => {
+        ({ p, f, b, list, drift, arts }) => {
           if (!live) return;
           setProject(p);
           setFiles(f);
+          setArtifacts(arts);
           setBackups(b);
           setProfiles(list);
           setReport(drift ?? null);
@@ -203,7 +218,7 @@ export function ProjectScreen() {
       report.libraryNewer.length > 0 ||
       report.status === "missing")
       ? "drift"
-      : "files");
+      : "artifacts");
   const dataDir = app.status === "ready" ? app.info.dataDir : null;
 
   const backupDir = dataDir ? `${dataDir}/backups/` : null;
@@ -314,6 +329,17 @@ export function ProjectScreen() {
         <button
           type="button"
           role="tab"
+          id="tab-artifacts"
+          aria-selected={tab === "artifacts"}
+          aria-controls="panel-artifacts"
+          onClick={() => setTab("artifacts")}
+        >
+          <Sparkles size={14} aria-hidden="true" />
+          Artifacts <span className={styles.muted}>{artifacts.length}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
           id="tab-files"
           aria-selected={tab === "files"}
           aria-controls="panel-files"
@@ -347,6 +373,8 @@ export function ProjectScreen() {
           ) : (
             <p className={styles.muted}>Could not check this project.</p>
           )
+        ) : tab === "artifacts" ? (
+          <ArtifactsTab artifacts={artifacts} />
         ) : tab === "files" ? (
           <FilesTab projectId={project.id} files={files} />
         ) : (

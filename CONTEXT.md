@@ -118,14 +118,14 @@ flowchart LR
 
 1. Pick an empty folder and a profile.
 2. **Dry-run preview:** every file that will be written, with its full content, before anything touches disk.
-3. Write. Harneo also writes a short **`HARNESS.md`** describing what's installed, from which profile and version, and what each part is for.
+3. Write. Harneo writes only the profile's files: no `HARNESS.md`, and no `@HARNESS.md` line in `CLAUDE.md`. *Amended 2026-11-18 (#305, user decision):* `HARNESS.md` was about 47k in a real project and the import made Claude Code load it every session. What is installed, from which profile and version, and why lives in Harneo's database (registry, manifest, drift) and shows on the Projects screen.
 4. The project joins the **project registry**.
 
 ### Stage 5 — Refit an existing project: "upgrade without fear"
 
 1. Open a folder that already has a harness. Harneo shows **what exists vs what the profile brings**, item by item.
 2. For each item, choose **keep / replace / delete**. **Replacing always wins over merging**: Harneo never merges file contents. **Every replaced file is backed up first.**
-3. Same dry-run preview (now as a content diff) and `HARNESS.md` as Stage 4.
+3. Same dry-run preview (now as a content diff) as Stage 4. A project scaffolded before 2026-11-18 has a `HARNESS.md` and an `@HARNESS.md` line: the refit plans to remove both like any file the profile no longer produces (an edited `HARNESS.md` is backed up first).
 
 > [!WARNING]
 > **The risk the replace-don't-merge rule creates.** Replacing `CLAUDE.md` or `settings.json` in an existing project wipes that project's own content: its build commands, its deny rules. The backup makes it recoverable, but the preview must **flag these two files in red** whenever the project's version contains lines the profile doesn't have.
@@ -157,7 +157,7 @@ flowchart LR
 | Nested profiles | ❌ → **Clone** | Clone a profile and add to it |
 | Scaffold new · refit existing · add MCP servers | ✅ | |
 | Per-type merge rules | ❌ → **Replace** | Replacing always wins, always with a backup |
-| Dry-run preview · backup + clean removal · switch profile · `HARNESS.md` | ✅ | |
+| Dry-run preview · backup + clean removal · switch profile | ✅ | No `HARNESS.md` any more (user decision 2026-11-18, #305): the registry in the database keeps what is installed and why |
 | Security audit · permission transparency | ✅ | Inspired by HarnessKit's audit rules |
 | Outdated flag · protect local edits · usage tracking · cleanup suggestions | ✅ | |
 | Drift check · project registry · live rescan | ✅ | |

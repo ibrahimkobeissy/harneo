@@ -70,7 +70,7 @@ const rows: Row[] = [
     loss: { lines: ["deploy it", "carefully"], count: 5, unit: "lines" },
   }),
   row({
-    item: "HARNESS.md",
+    item: ".mcp.json",
     kind: "profileOnly",
     inProject: "absent",
     inProfile: "new",
@@ -113,7 +113,7 @@ const plan = {
           newStart: 1,
           lines: [
             { kind: "removed", text: "## Deploy" },
-            { kind: "added", text: "@HARNESS.md" },
+            { kind: "added", text: "# new" },
           ],
         },
       ],
@@ -127,9 +127,9 @@ const plan = {
       artifact: null,
     },
     {
-      path: "HARNESS.md",
+      path: ".mcp.json",
       action: "new",
-      bytes: b64("# Harness\n"),
+      bytes: b64("{}\n"),
       diff: null,
       artifact: null,
     },
@@ -146,16 +146,16 @@ const plan = {
 const pluginPlan = {
   ...plan,
   warnings: ["loose: not installable: no marketplace"],
-  writes: plan.writes.map((w) =>
-    w.path === "HARNESS.md"
-      ? {
-          ...w,
-          bytes: b64(
-            "# Harness\n\n## Plugins\n\nPlugins are not copied: they install from their own marketplace. `.claude/settings.json` enables them.\n",
-          ),
-        }
-      : w,
-  ),
+  writes: [
+    ...plan.writes,
+    {
+      path: ".claude/settings.json",
+      action: "replace",
+      bytes: b64('{"enabledPlugins": {"p@market": true}}\n'),
+      diff: null,
+      artifact: null,
+    },
+  ],
 };
 
 /** A refit that leaves a trimmed plugin under .claude/skills/ (ADR-008). */
@@ -468,7 +468,7 @@ describe("Refit flow", () => {
     expect(screen.getByText("delete")).toBeInTheDocument();
     expect(screen.getByText("new")).toBeInTheDocument();
     expect(screen.queryByText("reviewer.md")).toBeNull();
-    expect(screen.getByText("@HARNESS.md")).toBeInTheDocument();
+    expect(screen.getByText("# new")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("treeitem", { name: /deploy\.md/ }));
     expect(screen.getByText(/removed from the project/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Apply refit/ }));
@@ -538,7 +538,8 @@ describe("Refit flow", () => {
     const sortBy = (name: string) =>
       userEvent.click(screen.getByRole("button", { name }));
     await sortBy("File");
-    expect(items()[0]).toContain("HARNESS.md");
+    expect(items()[0]).toContain("CLAUDE.md");
+    expect(items().join()).not.toContain("HARNESS.md");
     await sortBy("In project");
     await sortBy("In Web");
     await sortBy("Action");
