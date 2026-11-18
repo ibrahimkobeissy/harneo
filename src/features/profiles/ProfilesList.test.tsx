@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { describe, expect, it } from "vitest";
 import type { ProfileImportPreview } from "../../bindings/ProfileImportPreview";
 import type { ProfileSummary } from "../../bindings/ProfileSummary";
-import { draftFor, keepDraft } from "./drafts";
+import { draftFor, dropDraft, keepDraft, newProfileDraft } from "./drafts";
 import { ProfilesScreen } from ".";
 
 function summary(id: number, name: string, projectCount = 0): ProfileSummary {
@@ -121,6 +121,72 @@ describe("Profiles list states", () => {
     expect(await screen.findByTestId("where")).toHaveTextContent(
       "/profiles/new",
     );
+  });
+});
+
+describe("An unsaved new profile", () => {
+  const leftDraft = () =>
+    keepDraft("new", {
+      base: "null||1|",
+      name: "Software Factory",
+      spec: { items: ["a", "b"], settings: null, mcp: [], manualOnly: {} },
+    });
+
+  it("shows as a draft card that continues or discards it", async () => {
+    const user = userEvent.setup();
+    leftDraft();
+    mockIPC((cmd) => (cmd === "profiles_list" ? [] : null));
+    show();
+    await screen.findByText("No profiles yet");
+    const card = within(screen.getByRole("list", { name: "Unsaved draft" }));
+    expect(card.getByText("Software Factory")).toBeVisible();
+    expect(card.getByText("Unsaved draft")).toBeVisible();
+    expect(card.getByText("2 artifacts")).toBeVisible();
+    await user.click(card.getByRole("button", { name: "Discard" }));
+    expect(screen.queryByRole("list", { name: "Unsaved draft" })).toBeNull();
+    expect(newProfileDraft()).toBeUndefined();
+  });
+
+  it("makes New profile ask, and starting new drops it", async () => {
+    const user = userEvent.setup();
+    leftDraft();
+    mockIPC((cmd) => (cmd === "profiles_list" ? [] : null));
+    show();
+    await screen.findByText("No profiles yet");
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "You have an unsaved new profile",
+    });
+    expect(dialog).toHaveTextContent("Software Factory · 2 artifacts");
+    await user.click(
+      within(dialog).getByRole("button", {
+        name: "Discard it and start a new one",
+      }),
+    );
+    expect(await screen.findByTestId("where")).toHaveTextContent(
+      "/profiles/new",
+    );
+    expect(newProfileDraft()).toBeUndefined();
+  });
+
+  it("makes New profile ask, and continuing keeps it", async () => {
+    const user = userEvent.setup();
+    leftDraft();
+    mockIPC((cmd) => (cmd === "profiles_list" ? [] : null));
+    show();
+    await screen.findByText("No profiles yet");
+    await user.click(screen.getByRole("button", { name: "New profile" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "You have an unsaved new profile",
+    });
+    await user.click(
+      within(dialog).getByRole("button", { name: "Continue draft" }),
+    );
+    expect(await screen.findByTestId("where")).toHaveTextContent(
+      "/profiles/new",
+    );
+    expect(newProfileDraft()?.name).toBe("Software Factory");
+    dropDraft("new");
   });
 });
 

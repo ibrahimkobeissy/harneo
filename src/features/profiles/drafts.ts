@@ -23,3 +23,9 @@ export const keepDraft = (key: string, draft: Draft): void => {
 export const dropDraft = (key: string): void => {
   drafts.delete(key);
 };
+
+/** The route key of the profile being created (`/profiles/new`). */
+export const NEW_PROFILE = "new";
+
+/** The unsaved profile being created, if the user left it with edits. */
+export const newProfileDraft = (): Draft | undefined => drafts.get(NEW_PROFILE);

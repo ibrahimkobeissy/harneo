@@ -9,9 +9,11 @@ import {
   profileImportPreview,
   profilesList,
 } from "../../lib/ipc";
-import { Button, EmptyState, Kbd, Screen } from "../../ui";
+import { Badge, Button, EmptyState, Kbd, Screen } from "../../ui";
 import { labelOf, useTemplates } from "./category";
 import { CloneDialog } from "./CloneDialog";
+import { Dialog } from "./Dialog";
+import { dropDraft, NEW_PROFILE, newProfileDraft, type Draft } from "./drafts";
 import { ExportDialog, type ExportChoice } from "./ExportDialog";
 import { ImportDialog } from "./ImportDialog";
 import { DeleteDialog, RenameDialog } from "./ProfileDialogs";
@@ -67,10 +69,18 @@ export function ProfilesScreen() {
   }, []);
   useEffect(reload, [reload]);
 
-  const newProfile = useCallback(
-    () => void navigate("/profiles/new"),
-    [navigate],
-  );
+  // A new profile the user left with edits: shown as a card, and New profile asks about it.
+  const [draft, setDraft] = useState<Draft | undefined>(newProfileDraft);
+  const [askDraft, setAskDraft] = useState(false);
+  const openNew = useCallback(() => void navigate("/profiles/new"), [navigate]);
+  const discardDraft = useCallback(() => {
+    dropDraft(NEW_PROFILE);
+    setDraft(undefined);
+  }, []);
+  const newProfile = useCallback(() => {
+    if (newProfileDraft()) setAskDraft(true);
+    else openNew();
+  }, [openNew]);
 
   // N starts a new profile, unless the user is typing or a dialog is open.
   useEffect(() => {
@@ -199,6 +209,15 @@ export function ProfilesScreen() {
           {load.message}
         </EmptyState>
       )}
+      {draft && (
+        <ul className={styles.grid} aria-label="Unsaved draft">
+          <DraftCard
+            draft={draft}
+            onContinue={openNew}
+            onDiscard={discardDraft}
+          />
+        </ul>
+      )}
       {load.status === "ready" && profiles.length === 0 && (
         <EmptyState
           icon={Layers}
@@ -277,6 +296,68 @@ export function ProfilesScreen() {
           }}
         />
       )}
+      {askDraft && draft && (
+        <Dialog
+          title="You have an unsaved new profile"
+          sub={`${draftLabel(draft)}. Continue it, or discard it and start a new one.`}
+          submit="Continue draft"
+          busy={false}
+          onSubmit={() => {
+            setAskDraft(false);
+            openNew();
+          }}
+          onClose={() => setAskDraft(false)}
+        >
+          <Button
+            variant="ghost"
+            onClick={() => {
+              discardDraft();
+              setAskDraft(false);
+              openNew();
+            }}
+          >
+            Discard it and start a new one
+          </Button>
+        </Dialog>
+      )}
     </Screen>
+  );
+}
+
+/** "Software Factory · 60 artifacts", or "Untitled" for a draft not named yet. */
+function draftLabel(draft: Draft): string {
+  const n = draft.spec.items.length;
+  const name = draft.name.trim() || "Untitled";
+  return `${name} · ${n} ${n === 1 ? "artifact" : "artifacts"}`;
+}
+
+/** The new profile the user left with edits, until they continue or discard it. */
+function DraftCard({
+  draft,
+  onContinue,
+  onDiscard,
+}: {
+  draft: Draft;
+  onContinue: () => void;
+  onDiscard: () => void;
+}) {
+  return (
+    <li className={styles.card}>
+      <div className={styles.topText}>
+        <h2 className={styles.title}>
+          <span>{draft.name.trim() || "Untitled"}</span>{" "}
+          <Badge tone="warn">Unsaved draft</Badge>
+        </h2>
+        <p className={styles.category}>{draftLabel(draft).split(" · ")[1]}</p>
+      </div>
+      <div className={styles.foot}>
+        <Button small variant="primary" onClick={onContinue}>
+          Continue
+        </Button>
+        <Button small variant="ghost" onClick={onDiscard}>
+          Discard
+        </Button>
+      </div>
+    </li>
   );
 }
