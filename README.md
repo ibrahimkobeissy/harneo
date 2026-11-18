@@ -306,7 +306,7 @@ Harneo has no server, no account and no analytics. It talks to the network in tw
 | Feature | Default | What is sent |
 | ------- | ------- | ------------ |
 | Confirm audit findings with Claude | **On** | For each audit finding: its rule, file, line and 3 lines of context each side (secret values replaced), plus the artifact's name and description, so Claude can tell an attack from text that defends against one. Nothing else from the artifact. `harneo audit --no-claude` skips it for one run. |
-| Ask Claude about repo layouts at import | **On** | Only when an import leaves files Harneo couldn't place: file paths, manifests and the first 40 lines of the unplaced Markdown files. Secret-looking files are listed by name, never read. |
+| Ask Claude about repo layouts at import | **On** | When you split a plugin into parts (to learn which folders each part needs), and on its own for files Harneo couldn't place only in a source with no plugin (next to a plugin, a button asks): file paths, manifests and the first 40 lines of the Markdown files concerned. Secret-looking files are listed by name, never read. A plugin taken whole is never sent. |
 | Detect bundles and tags at import | Off | Artifact text, to propose bundles and tags. |
 
 **Sent to Claude when you press the button**, with no setting (the button is the go-ahead, and what it sends is listed next to it):
