@@ -60,13 +60,6 @@ pub enum Error {
         /// The artifact's name.
         name: String,
     },
-    /// A part of an unpacked plugin refers to files outside itself, so it only works with the
-    /// whole plugin.
-    #[error("{name} only works with its whole plugin: it reaches files outside itself")]
-    PartNeedsPlugin {
-        /// The part's name.
-        name: String,
-    },
     /// A path from a scanned source was absolute, climbed out with `..`, or went through a
     /// symlink, so it was not copied.
     #[error("unsafe path in the source: {path}")]

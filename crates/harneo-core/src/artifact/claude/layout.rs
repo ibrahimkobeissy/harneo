@@ -202,8 +202,8 @@ fn unpack_plugins(walker: &mut Walker, options: &ScanOptions, report: &mut ScanR
                 "this marketplace entry points to another repo that is never fetched, so it can only be taken whole",
             ));
             kept.push(a);
-        } else if let Some(reason) = crate::plugin::must_stay_whole(walker, &a) {
-            // ADR-006: a plugin is unpacked only when every part works as a copy.
+        } else if let Some(reason) = crate::plugin::kept_whole(walker, &a) {
+            // ADR-008: a plugin with monitors, MCP servers or LSP servers stays whole.
             a.diagnostics.push(Diagnostic::warning(
                 "plugin.unpack-refused",
                 &plugin::manifest_path(Path::new(&a.path)),

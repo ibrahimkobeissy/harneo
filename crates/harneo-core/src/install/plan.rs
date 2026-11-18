@@ -106,10 +106,6 @@ pub struct Plan {
     /// that `settings.json` cannot enable ("name: not installable: no marketplace").
     #[serde(default)]
     pub warnings: Vec<String>,
-    /// Plugins whose parts the profile holds although they must now stay whole (ADR-006): the
-    /// write is not blocked, each warning links to *Replace with the whole plugin*.
-    #[serde(default)]
-    pub stay_whole: Vec<crate::library::StayWholeWarning>,
 }
 
 mod optional_bytes {
@@ -402,7 +398,6 @@ impl Library {
             })
             .collect();
         let warnings = self.plugin_warnings(&view.spec)?;
-        let stay_whole = self.stay_whole_warnings(&view.spec)?;
         let plan = Plan {
             target: canonical.display().to_string(),
             profile_id,
@@ -415,7 +410,6 @@ impl Library {
             edited_in_project: Vec::new(),
             restored: Vec::new(),
             warnings,
-            stay_whole,
         };
         check_plan(&plan)?;
         Ok(plan)

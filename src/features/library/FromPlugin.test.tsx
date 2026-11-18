@@ -85,4 +85,48 @@ describe("unpacked parts in the library", () => {
     const panel = await screen.findByRole("dialog", { name: "alpha details" });
     expect(within(panel).getByText("from plugin toolbox")).toBeInTheDocument();
   });
+
+  it("marks a part with no plugin record Re-import to update, and only that part", async () => {
+    const old = item("alpha", {
+      fromPlugin: "toolbox",
+      reimportToUpdate: true,
+    });
+    const fresh = item("beta", { fromPlugin: "toolbox" });
+    const { unmount } = render(<ItemCard item={fresh} onOpen={() => {}} />);
+    expect(screen.queryByText("Re-import to update")).toBeNull();
+    unmount();
+    render(<ItemCard item={old} onOpen={() => {}} />);
+    expect(screen.getByText("Re-import to update")).toBeInTheDocument();
+  });
+
+  it("says so in the detail panel, with what happens meanwhile", async () => {
+    const old = item("alpha", {
+      fromPlugin: "toolbox",
+      reimportToUpdate: true,
+    });
+    mockIPC((cmd) => {
+      if (cmd === "library_list") return page([old]);
+      if (cmd === "library_detail")
+        return { ...detail, reimportToUpdate: true };
+      return cmd === "tags_list" || cmd === "artifact_tags" ? [] : undefined;
+    });
+    render(
+      <MemoryRouter initialEntries={["/library"]}>
+        <Routes>
+          <Route path="/library" element={<LibraryScreen />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: /alpha/ }));
+    const panel = await screen.findByRole("dialog", { name: "alpha details" });
+    const note = within(panel).getByRole("region", {
+      name: "Re-import to update",
+    });
+    expect(note).toHaveTextContent(/installs as a loose copy/);
+    expect(
+      within(panel).queryByText("Replace with the whole plugin"),
+    ).toBeNull();
+  });
 });

@@ -3,16 +3,14 @@
 
 use std::collections::HashSet;
 
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
 use super::Candidate;
-use crate::artifact::{Artifact, ArtifactKind, Severity};
+use crate::artifact::{Artifact, ArtifactKind};
 use crate::error::{Error, Result};
-
-const NEEDS_PLUGIN: &str = "plugin.part-needs-plugin";
 
 /// The plugin an unpacked part came from: its name and folder in the source.
 fn part_of(artifact: &Artifact) -> Option<(String, String)> {
@@ -79,23 +77,10 @@ fn held(conn: &Connection) -> Result<(HashSet<Identity>, HashSet<Identity>)> {
     Ok((whole, parts))
 }
 
-/// Refuses a selection that breaks the rules: a part that only works with its plugin, a plugin
-/// and its parts picked together, parts while the plugin is in the library whole, or the plugin
+/// Refuses a selection that breaks the rules: a plugin and its parts picked together, parts while the plugin is in the library whole, or the plugin
 /// whole while parts of it are. `chosen` is the whole selection; `fresh` the part of it not in
 /// the library yet.
 pub(super) fn check(conn: &Connection, chosen: &[&Candidate], fresh: &[&Candidate]) -> Result<()> {
-    for c in chosen {
-        let needs = c
-            .artifact
-            .diagnostics
-            .iter()
-            .any(|d| d.severity == Severity::Error && d.code == NEEDS_PLUGIN);
-        if needs {
-            return Err(Error::PartNeedsPlugin {
-                name: c.artifact.name.clone(),
-            });
-        }
-    }
     for whole in chosen.iter().filter_map(|c| whole_of(&c.artifact)) {
         let has_parts = chosen
             .iter()
@@ -182,4 +167,24 @@ pub(super) fn holds(conn: &Connection, candidates: &[Candidate]) -> Result<Vec<P
         });
     }
     Ok(out)
+}
+
+/// The folders of every plugin the library holds parts of from this source: the ones its import
+/// stored, and the ones its parts say they came from (`fromPlugin`), however they got in.
+pub(crate) fn held_folders(conn: &Connection, source_id: &str) -> Result<Vec<String>> {
+    let mut folders = super::records::stored_unpack(conn, source_id)?;
+    let mut stmt = conn.prepare("SELECT artifact FROM artifacts WHERE source_id = ?1")?;
+    let rows = stmt.query_map(params![source_id], |r| r.get::<_, String>(0))?;
+    for row in rows {
+        if let Some(folder) = serde_json::from_str::<Artifact>(&row?)
+            .ok()
+            .as_ref()
+            .and_then(part_folder)
+        {
+            folders.push(folder);
+        }
+    }
+    folders.sort();
+    folders.dedup();
+    Ok(folders)
 }

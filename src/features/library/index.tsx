@@ -681,12 +681,6 @@ export function LibraryScreen({
             reload();
             refreshCollections();
           }}
-          onReplaced={(plugin) => {
-            setTrail([]);
-            openPanel(plugin);
-            reload();
-            refreshCollections();
-          }}
         />
       )}
       {finding && (

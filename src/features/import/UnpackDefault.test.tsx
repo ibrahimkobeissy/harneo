@@ -13,7 +13,7 @@ function candidate(
   kind: Candidate["artifact"]["kind"],
   path: string,
   metadata: Record<string, unknown> = {},
-  mustStayWhole?: WholeReason,
+  keptWhole?: WholeReason,
 ): Candidate {
   return {
     id: `id-${name}`,
@@ -43,11 +43,10 @@ function candidate(
       dismissed: [],
       confirmation: null,
     },
-    ...(mustStayWhole && {
-      mustStayWhole,
+    ...(keptWhole && {
+      keptWhole,
       // The sentence the core sends with the reason.
-      mustStayWholeText:
-        "Has hooks and mods: they only work inside the plugin.",
+      keptWholeText: "Has hooks and mods: they only work inside the plugin.",
     }),
   };
 }

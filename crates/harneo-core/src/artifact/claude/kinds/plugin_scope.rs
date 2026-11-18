@@ -415,15 +415,6 @@ pub(super) fn root_references(text: &str) -> Vec<String> {
     out
 }
 
-/// Every use of `${CLAUDE_PLUGIN_ROOT}` in `text`: the plugin-relative path after it, or an empty
-/// string for a bare use (the plugin root itself).
-pub(super) fn root_uses(text: &str) -> Vec<String> {
-    let mut uses = root_references(text);
-    let bare = text.matches(ROOT_VAR).count().saturating_sub(uses.len());
-    uses.extend(std::iter::repeat_n(String::new(), bare));
-    uses
-}
-
 /// The root `README*` and `LICENSE*` files among `all`.
 fn root_docs(all: &[String], folder: &Path) -> Vec<String> {
     all.iter()
@@ -455,15 +446,6 @@ mod tests {
         );
         assert!(root_references("${CLAUDE_PLUGIN_ROOT}").is_empty());
         assert!(root_references("no variable").is_empty());
-    }
-
-    #[test]
-    fn root_uses_counts_bare_uses_as_empty() {
-        assert_eq!(
-            root_uses("a ${CLAUDE_PLUGIN_ROOT}/x ${CLAUDE_PLUGIN_ROOT}"),
-            ["x", ""]
-        );
-        assert!(root_uses("nothing").is_empty());
     }
 
     #[test]

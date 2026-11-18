@@ -65,10 +65,19 @@ pub struct ArtifactDetail {
     /// A skill installed with `disable-model-invocation` by default: the library flag, or the
     /// skill's own frontmatter.
     pub manual_only: bool,
-    /// Set on a part of an unpacked plugin that must now stay whole (ADR-006): why, as a sentence.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub must_stay_whole: Option<String>,
+    /// A plugin part imported before the plugin was recorded (ADR-008): *Re-import to update*.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(as = "Option<bool>", optional)]
+    pub reimport_to_update: bool,
+}
+
+/// A part that says it came from a plugin but has no plugin record: its `fromPlugin` lacks the
+/// `needs` list that every part imported since ADR-008 carries.
+pub(crate) fn is_old_part(artifact: &Artifact) -> bool {
+    artifact
+        .metadata
+        .get("fromPlugin")
+        .is_some_and(|from| !from.get("needs").is_some_and(serde_json::Value::is_array))
 }
 
 pub(crate) fn now() -> i64 {
@@ -450,6 +459,7 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
         Some(serde_json::Value::String(text)) => text == "true",
         _ => false,
     };
+    let reimport_to_update = is_old_part(&artifact);
     let manual_only = artifact.kind == crate::artifact::ArtifactKind::Skill && (flag || own);
     Ok(Some(ArtifactDetail {
         id: id.to_owned(),
@@ -460,7 +470,7 @@ pub(crate) fn load(conn: &Connection, id: &str) -> Result<Option<ArtifactDetail>
         audited_at: stored.map(|(_, at)| at),
         links: crate::bundles::links_of(conn, id)?,
         manual_only,
-        must_stay_whole: super::whole::notice_of(conn, id)?,
+        reimport_to_update,
     }))
 }
 
@@ -477,6 +487,7 @@ pub(crate) fn delete(conn: &Connection, id: &str) -> Result<bool> {
         return Ok(false);
     };
     conn.execute("DELETE FROM artifacts WHERE id = ?1", params![id])?;
+    super::plugin_record::prune(conn, &source_id)?;
     conn.execute(
         "DELETE FROM sources WHERE id = ?1
            AND NOT EXISTS (SELECT 1 FROM artifacts WHERE source_id = ?1)",

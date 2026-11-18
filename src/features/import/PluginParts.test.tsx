@@ -70,14 +70,7 @@ const parts: Preview = {
     candidate("alpha", "skill", "skills/alpha", from),
     candidate("beta", "skill", "skills/beta", from),
     candidate("gamma", "skill", "skills/gamma", from),
-    candidate("needy", "skill", "skills/needy", from, [
-      {
-        severity: "error",
-        code: "plugin.part-needs-plugin",
-        message: "uses ${CLAUDE_PLUGIN_ROOT}/shared/tool.sh",
-        file: "skills/needy/SKILL.md",
-      },
-    ]),
+    candidate("needy", "skill", "skills/needy", from),
     candidate("db", "mcp", ".mcp.json#db", from),
   ],
 };
@@ -150,25 +143,22 @@ describe("choosing a plugin's parts", () => {
     expect(
       within(within(skills).getByRole("list")).getAllByRole("checkbox"),
     ).toHaveLength(4);
-    // Every part that can be picked starts ticked; the one that needs its plugin can't be.
-    for (const name of [/alpha/, /beta/, /gamma/]) {
+    // Every part starts ticked, one that uses the plugin root included (ADR-008).
+    for (const name of [/alpha/, /beta/, /gamma/, /needy/]) {
       expect(within(skills).getByRole("checkbox", { name })).toBeChecked();
     }
     expect(
-      within(skills).getByRole("checkbox", { name: /needy/ }),
-    ).not.toBeChecked();
-    expect(
       screen.getByRole("region", { name: /MCP servers of toolbox/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/come only with the whole plugin/)).toBeVisible();
+    expect(screen.getByText(/install as a trimmed plugin/)).toBeVisible();
     // The loose skill keeps its own tick, next to the three skills and the MCP server.
-    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
+    expect(screen.getByText(/6 to import/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("checkbox", { name: /gamma/ }));
     await user.click(screen.getByRole("checkbox", { name: /db/ }));
-    expect(screen.getByText(/3 to import/)).toBeInTheDocument();
+    expect(screen.getByText(/4 to import/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(await screen.findByRole("button", { name: /^Import 3/ }));
+    await user.click(await screen.findByRole("button", { name: /^Import 4/ }));
     await waitFor(() =>
       expect(calls.some((c) => c.cmd === "library_import")).toBe(true),
     );
@@ -177,6 +167,7 @@ describe("choosing a plugin's parts", () => {
       "id-loose",
       "id-alpha",
       "id-beta",
+      "id-needy",
     ]);
   });
 
@@ -193,24 +184,6 @@ describe("choosing a plugin's parts", () => {
     expect(wholeRadio()).toBeChecked();
     const last = calls.filter((c) => c.cmd === "library_preview").at(-1);
     expect(last?.args.unpack).toBeUndefined();
-  });
-
-  it("shows a part that needs its plugin disabled, with the reason in words", async () => {
-    const user = userEvent.setup();
-    setup();
-    await toChoose(user);
-    await user.click(pick());
-    const needy = await screen.findByRole("checkbox", { name: /needy/ });
-    expect(needy).toHaveAttribute("aria-disabled", "true");
-    expect(needy).toHaveAccessibleDescription(
-      /uses \$\{CLAUDE_PLUGIN_ROOT\}\/shared\/tool\.sh/,
-    );
-    expect(screen.getByText(/Stays with the plugin/)).toBeVisible();
-    needy.focus();
-    expect(needy).toHaveFocus();
-    await user.click(needy);
-    expect(needy).not.toBeChecked();
-    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
   });
 
   it("makes Pick parts unavailable, with the reason, while the plugin is in the library whole", async () => {
@@ -257,7 +230,7 @@ describe("excluding a plugin in Pick parts mode (#260)", () => {
     await toChoose(user);
     await user.click(pick());
     await screen.findByRole("checkbox", { name: /alpha/ });
-    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
+    expect(screen.getByText(/6 to import/)).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Exclude toolbox" }));
     // The plugin and its parts leave the list; only the loose skill is left to import.
@@ -265,7 +238,7 @@ describe("excluding a plugin in Pick parts mode (#260)", () => {
     expect(screen.getByText(/1 to import/)).toBeInTheDocument();
     const out = screen.getByRole("region", { name: "Excluded, 1" });
     expect(within(out).getByText("toolbox")).toBeVisible();
-    expect(within(out).getByText("4 parts")).toBeVisible();
+    expect(within(out).getByText("5 parts")).toBeVisible();
 
     await user.click(
       within(out).getByRole("button", { name: "Restore toolbox" }),
@@ -273,7 +246,7 @@ describe("excluding a plugin in Pick parts mode (#260)", () => {
     expect(
       await screen.findByRole("checkbox", { name: /alpha/ }),
     ).toBeChecked();
-    expect(screen.getByText(/5 to import/)).toBeInTheDocument();
+    expect(screen.getByText(/6 to import/)).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /^Excluded/ })).toBeNull();
 
     // Unticking every part by hand keeps the plugin in place, still offering its boxes.
@@ -322,22 +295,8 @@ describe("folding a plugin's parts", () => {
     expect(screen.getByRole("checkbox", { name: /^s1/ })).toBeChecked();
   });
 
-  it("starts a small plugin, or one with a part that needs attention, open", () => {
-    const { view } = show([], many.slice(0, 3));
-    expect(screen.getByRole("button", { name: "Parts" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    view.unmount();
-    const needy = candidate("needy", "skill", "skills/needy", from, [
-      {
-        severity: "error",
-        code: "plugin.part-needs-plugin",
-        message: "uses ${CLAUDE_PLUGIN_ROOT}/x",
-        file: "skills/needy/SKILL.md",
-      },
-    ]);
-    show([], [...many, needy]);
+  it("starts a small plugin open", () => {
+    show([], many.slice(0, 3));
     expect(screen.getByRole("button", { name: "Parts" })).toHaveAttribute(
       "aria-expanded",
       "true",

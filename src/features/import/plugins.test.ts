@@ -4,7 +4,6 @@ import type { WholeReason } from "../../bindings/WholeReason";
 import { wholeText } from "../../ui/plugin";
 import {
   fromPlugin,
-  needsPlugin,
   partsRefusal,
   pluginGroups,
   remoteOnly,
@@ -32,7 +31,6 @@ describe("plugin helpers", () => {
       fromPlugin(cand("skill", "a", { fromPlugin: { name: 1 } })),
     ).toBeNull();
     expect(fromPlugin(cand("skill", "a"))).toBeNull();
-    expect(needsPlugin(cand("skill", "a"))).toBeNull();
   });
 
   it("groups a plugin's parts and flags a remote entry as whole only", () => {
@@ -72,35 +70,16 @@ describe("plugin helpers", () => {
 describe("why a plugin stays whole", () => {
   const say = (reason: WholeReason) => wholeText({ reason, text: "" });
   it("words every reason as the core does", () => {
-    expect(say({ type: "wholeOnlyParts", parts: ["hooks", "mods"] })).toBe(
-      "Has hooks and mods: they only work inside the plugin.",
-    );
-    expect(say({ type: "wholeOnlyParts", parts: ["hooks"] })).toBe(
-      "Has hooks: they only work inside the plugin.",
-    );
-    expect(say({ type: "pluginOnlyKey", key: "userConfig" })).toBe(
-      "Its manifest has `userConfig`, which only means something inside the plugin.",
-    );
-    expect(say({ type: "unknownKey", key: "x" })).toBe(
-      "Its manifest has `x`, which Harneo does not know, so it cannot tell a copy would work.",
-    );
     expect(
-      say({
-        type: "pluginVariable",
-        variable: "${CLAUDE_PLUGIN_ROOT}",
-        parts: ["skills", "agents", "commands"],
-      }),
+      say({ type: "wholeOnlyParts", parts: ["mcpServers", "monitors"] }),
     ).toBe(
-      "Its skills, agents and commands use `${CLAUDE_PLUGIN_ROOT}`, which only resolves inside the plugin.",
+      "Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
     );
-    expect(say({ type: "namespacedSelfReference", parts: ["skills"] })).toBe(
-      "Its skills call other parts of the plugin by their `plugin:name`, which a copy loses.",
-    );
-    expect(say({ type: "agentField", field: "hooks" })).toBe(
-      "An agent sets `hooks`, which Claude Code ignores in a plugin but runs when copied.",
+    expect(say({ type: "wholeOnlyParts", parts: ["lspServers"] })).toBe(
+      "Has LSP servers, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
     );
     expect(say({ type: "noParts" })).toBe(
-      "It has no skills, agents, commands, output styles or MCP servers to unpack.",
+      "It has no skills, agents, commands or output styles to unpack.",
     );
     expect(say({ type: "remoteOnly" })).toBe(
       "Its files live in another repo that is never fetched, so it can only be taken whole.",

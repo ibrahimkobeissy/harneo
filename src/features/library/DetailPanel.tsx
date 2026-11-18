@@ -54,13 +54,12 @@ import { FindBundlesDialog } from "./FindBundles";
 import styles from "./Detail.module.css";
 import { FileDialog } from "./FileDialog";
 import { formatDate } from "./ItemMeta";
-import { KindChip } from "../../ui";
+import { Callout, KindChip } from "../../ui";
 import { kinds } from "./kinds";
 import { ManualOnlySection, UsedInSection } from "./ProfileSections";
 import { useDetailWidth } from "./useDetailWidth";
 import { useNarrow } from "../../ui";
 import { TagsSection } from "./TagsSection";
-import { WholeNotice } from "./ReplaceWithWhole";
 import { StaysWhole, UnpackButton, useUnpackPlan } from "./UnpackPlugin";
 import { UsageSection } from "./UsageSection";
 
@@ -545,7 +544,6 @@ export function DetailPanel({
   onLeftCollection = () => {},
   onUpdated = () => {},
   onUnpacked = () => {},
-  onReplaced = () => {},
 }: {
   id: string;
   /** Scroll to the Trust section and move focus to its heading (`?focus=trust`). */
@@ -568,8 +566,6 @@ export function DetailPanel({
   onUpdated?: () => void;
   /** The plugin became its parts: the id of the first one, or null when there is none. */
   onUnpacked?: (firstPart: string | null) => void;
-  /** The parts became the whole plugin: its id. */
-  onReplaced?: (pluginId: string) => void;
 }) {
   const [tick, setTick] = useState(0);
   useChanged((change) => {
@@ -798,7 +794,21 @@ export function DetailPanel({
                 </p>
               </section>
               <StaysWhole plan={unpackPlan} />
-              <WholeNotice detail={detail} onReplaced={onReplaced} />
+              {detail.reimportToUpdate && (
+                <section
+                  className={styles.sec}
+                  aria-label="Re-import to update"
+                >
+                  <Callout tone="warn" icon={CircleArrowUp}>
+                    <b>Re-import to update</b>
+                    <p>
+                      Imported before Harneo recorded this part&apos;s plugin.
+                      Import it again from its source to update it; until then
+                      it installs as a loose copy.
+                    </p>
+                  </Callout>
+                </section>
+              )}
               <TagsSection
                 key={`tags:${id}`}
                 artifactId={id}

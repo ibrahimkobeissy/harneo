@@ -182,10 +182,11 @@ pub struct LibraryItem {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub from_plugin: Option<String>,
-    /// Why the plugin an unpacked part came from must now stay whole (ADR-006), as a sentence.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub must_stay_whole: Option<String>,
+    /// A part imported before the plugin was recorded (ADR-008): it has no supporting paths or
+    /// manifest to update from, so it installs as a loose copy until it is imported again.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(as = "Option<bool>", optional)]
+    pub reimport_to_update: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -516,7 +517,8 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
                 (SELECT COUNT(*) FROM json_each(p.artifact, '$.references')
                   WHERE json_extract(value, '$.resolved') = 1),
                 {sessions}, {last_used}, {status}, {manual},
-                json_extract(p.artifact, '$.metadata.fromPlugin.name')
+                json_extract(p.artifact, '$.metadata.fromPlugin.name'),
+                json_type(p.artifact, '$.metadata.fromPlugin.needs') = 'array'
          FROM (SELECT a.id, a.kind, a.name, a.description, a.imported_at, a.source_id, a.artifact,
                       a.trust_score, a.tier, a.findings, a.manual_only, s.kind AS skind, s.location, s.branch
                FROM artifacts a JOIN sources s ON s.id = a.source_id
@@ -553,6 +555,7 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             r.get::<_, String>(19)?,
             r.get::<_, bool>(20)?,
             r.get::<_, Option<String>>(21)?,
+            r.get::<_, Option<bool>>(22)?,
         ))
     })?;
     let mut items = Vec::new();
@@ -580,7 +583,9 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             status,
             manual_only,
             from_plugin,
+            has_record,
         ) = row?;
+        let has_record = has_record.unwrap_or(false);
         let kind = parse_kind(kind)?;
         items.push(LibraryItem {
             id,
@@ -613,13 +618,12 @@ pub(crate) fn list_in(conn: &Connection, query: &Query, scope: Option<&Scope>) -
             }),
             status: Status::parse(&status),
             manual_only,
+            reimport_to_update: from_plugin.is_some() && !has_record,
             from_plugin,
-            must_stay_whole: None,
         });
     }
     drop(stmt);
     attach_tags(conn, &mut items)?;
-    super::whole::mark_items(conn, &mut items)?;
     let ids: Vec<&str> = items.iter().map(|i| i.id.as_str()).collect();
     let sizes = crate::bundles::bundle_sizes(conn, &ids)?;
     for item in &mut items {

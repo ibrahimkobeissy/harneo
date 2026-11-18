@@ -25,7 +25,6 @@ import type { Links } from "../bindings/Links";
 import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { RemovalPlan } from "../bindings/RemovalPlan";
-import type { ReplaceOutcome } from "../bindings/ReplaceOutcome";
 import type { UnpackOutcome } from "../bindings/UnpackOutcome";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
@@ -46,7 +45,6 @@ import type { UpdateStatus } from "../bindings/UpdateStatus";
 import type { Layout } from "../bindings/Layout";
 import type { ProfileImportReport } from "../bindings/ProfileImportReport";
 import type { ProfileSpec } from "../bindings/ProfileSpec";
-import type { StayWholeWarning } from "../bindings/StayWholeWarning";
 import type { ProfileSummary } from "../bindings/ProfileSummary";
 import type { CategoryId } from "../bindings/CategoryId";
 import type { Template } from "../bindings/Template";
@@ -143,17 +141,6 @@ export function libraryUnpackPlan(id: string): Promise<UnpackOutcome> {
 /** Turns a whole plugin into its parts; profiles holding it get the parts instead. */
 export function libraryUnpackPlugin(id: string): Promise<UnpackOutcome> {
   return invoke<UnpackOutcome>("library_unpack_plugin", { id });
-}
-
-/** What replacing the parts of a plugin that must stay whole with the plugin would do. */
-export function libraryReplacePlan(id: string): Promise<ReplaceOutcome> {
-  return invoke<ReplaceOutcome>("library_replace_plan", { id });
-}
-
-/** Replaces the parts with the whole plugin, read from its source; profiles holding the parts
- * get the plugin instead. */
-export function libraryReplaceWithWhole(id: string): Promise<ReplaceOutcome> {
-  return invoke<ReplaceOutcome>("library_replace_with_whole", { id });
 }
 
 /** The id of the library artifact of this kind and name, or null when it is not imported. */
@@ -814,13 +801,6 @@ export function profileFromCollection(
 /** What a spec installs: bundles pulled in, Settings, MCP servers, missing ids. */
 export function profileResolve(spec: ProfileSpec): Promise<Resolved> {
   return invoke<Resolved>("profile_resolve", { spec });
-}
-
-/** The plugins whose parts a spec holds although they must stay whole (ADR-006). */
-export function profileStayWhole(
-  spec: ProfileSpec,
-): Promise<StayWholeWarning[]> {
-  return invoke<StayWholeWarning[]>("profile_stay_whole", { spec });
 }
 
 /** The file tree a spec installs, with conflicts. */

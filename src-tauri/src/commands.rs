@@ -22,7 +22,7 @@ use harneo_core::install::{
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
     Filter, ImportReport, LayoutStage, Library, Page, PluginHold, Preview, Query, ReauditReport,
-    RemovalPlan, Source, StayWholeWarning, Tag, TagColor, TagWithCount,
+    RemovalPlan, Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     ExportOptions, Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec,
@@ -302,40 +302,6 @@ pub fn library_unpack_plugin(
     id: String,
 ) -> Result<harneo_core::library::UnpackOutcome, String> {
     state.with_mut(|library| library.unpack_in_library(&id))
-}
-
-/// What replacing the parts of a plugin that must stay whole with the plugin would do: the parts
-/// that leave and the profiles that change. Changes nothing.
-#[tauri::command]
-pub fn library_replace_plan(
-    state: State<'_, LibraryState>,
-    id: String,
-) -> Result<harneo_core::library::ReplaceOutcome, String> {
-    state.with(|library| library.replace_with_whole_plan(&id))
-}
-
-/// Replaces the parts of a plugin that must stay whole with the whole plugin, read from its
-/// source; profiles holding the parts get the plugin as a new version.
-#[tauri::command]
-pub async fn library_replace_with_whole(
-    app: AppHandle,
-    id: String,
-) -> Result<harneo_core::library::ReplaceOutcome, String> {
-    tauri::async_runtime::spawn_blocking(move || replace_with_whole(&app, &id))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-/// Reads and imports the plugin without the library lock (a clone can be slow); the lock is
-/// held only to read what is needed and to write.
-fn replace_with_whole<R: tauri::Runtime>(
-    app: &AppHandle<R>,
-    id: &str,
-) -> Result<harneo_core::library::ReplaceOutcome, String> {
-    let state = app.state::<LibraryState>();
-    let job = state.with(|library| library.prepare_replace_with_whole(id))?;
-    let prepared = job.run().map_err(|e| e.to_string())?;
-    state.with_mut(|library| library.finish_replace_with_whole(prepared))
 }
 
 /// The id of the library artifact of `kind` named `name`, if any (for opening a reference).
@@ -1629,15 +1595,6 @@ pub fn profile_resolve(
     state.with(|library| library.resolve(&spec))
 }
 
-/// The plugins whose parts a spec holds although they must stay whole (ADR-006).
-#[tauri::command]
-pub fn profile_stay_whole(
-    state: State<'_, LibraryState>,
-    spec: ProfileSpec,
-) -> Result<Vec<StayWholeWarning>, String> {
-    state.with(|library| library.stay_whole_warnings(&spec))
-}
-
 /// The file tree a spec installs, with conflicts.
 #[tauri::command]
 pub fn profile_layout(state: State<'_, LibraryState>, spec: ProfileSpec) -> Result<Layout, String> {
@@ -2554,10 +2511,6 @@ mod tests {
         let plan = library_unpack_plan(state(), "0000000000000000".into()).err();
         assert!(plan.is_some_and(|m| m.contains("not in the library")));
         let done = library_unpack_plugin(state(), "0000000000000000".into()).err();
-        assert!(done.is_some_and(|m| m.contains("not in the library")));
-        let plan = library_replace_plan(state(), "0000000000000000".into()).err();
-        assert!(plan.is_some_and(|m| m.contains("not in the library")));
-        let done = replace_with_whole(app.handle(), "0000000000000000").err();
         assert!(done.is_some_and(|m| m.contains("not in the library")));
         Ok(())
     }

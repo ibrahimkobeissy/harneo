@@ -70,7 +70,6 @@ impl Library {
         restored.sort();
         Ok(Plan {
             warnings: Vec::new(),
-            stay_whole: Vec::new(),
             target: project.path,
             profile_id: project.profile_id,
             reason: format!(

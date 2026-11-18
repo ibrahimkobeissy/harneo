@@ -32,7 +32,7 @@ import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
 import { LayoutNotes, PlacementLabel } from "./Layout";
 import { PluginChoice, type PluginMode, PluginParts } from "./PluginRows";
-import { fromPlugin, needsPlugin, pluginGroups, wholeRefusal } from "./plugins";
+import { fromPlugin, pluginGroups, wholeRefusal } from "./plugins";
 import type { LayoutRun } from "./useLayoutRun";
 import styles from "./Import.module.css";
 
@@ -374,9 +374,8 @@ export function ChooseStep({
   const shown = all.filter((c) => fromPlugin(c) === null);
   const plugins = pluginGroups(all);
   const unpacked = plugins.filter((g) => g.parts.length > 0);
-  /** The parts of an unpacked plugin that can be picked, the ones its × excludes. */
-  const partIds = (g: (typeof plugins)[number]) =>
-    g.parts.filter((c) => needsPlugin(c) === null).map((c) => c.id);
+  /** The parts of an unpacked plugin, the ones its × excludes. */
+  const partIds = (g: (typeof plugins)[number]) => g.parts.map((c) => c.id);
   const isDropped = (g: (typeof plugins)[number]) =>
     dropped.has(g.folder) &&
     partIds(g).length > 0 &&
@@ -400,9 +399,7 @@ export function ChooseStep({
   }
   const free = all.filter((c) => !c.alreadyInLibrary);
   const freeIds = free.map((c) => c.id);
-  const withErrors = free
-    .filter((c) => hasErrors(c) && needsPlugin(c) === null)
-    .map((c) => c.id);
+  const withErrors = free.filter((c) => hasErrors(c)).map((c) => c.id);
   const errorsOut =
     withErrors.length > 0 && withErrors.every((id) => excluded.has(id));
   const claude = claudeProvidedIds(all);
@@ -443,8 +440,8 @@ export function ChooseStep({
   const flipCopies = flipIn(setCopiesOpen);
   /** Bulk restore: rows with a critical finding stay out and come back one by one. */
   function restoreMany(list: Candidate[]) {
-    // A part that cannot leave its plugin and a plugin the library refuses stay out.
-    list = list.filter((c) => needsPlugin(c) === null && !refused.has(c.id));
+    // A plugin the library refuses stays out.
+    list = list.filter((c) => !refused.has(c.id));
     const stay = list.filter((c) => criticalRule(c) !== null);
     onRestore(list.filter((c) => criticalRule(c) === null).map((c) => c.id));
     setSkipNote(

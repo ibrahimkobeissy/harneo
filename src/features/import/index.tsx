@@ -771,10 +771,10 @@ function choicesOf(
 function reasonsOf(found: PreviewTicket): Map<string, WholeNote> {
   const out = new Map<string, WholeNote>();
   for (const c of found.candidates) {
-    if (isPlugin(c.artifact.kind) && c.mustStayWhole) {
+    if (isPlugin(c.artifact.kind) && c.keptWhole) {
       out.set(c.artifact.path, {
-        reason: c.mustStayWhole,
-        text: c.mustStayWholeText ?? "",
+        reason: c.keptWhole,
+        text: c.keptWholeText ?? "",
       });
     }
   }

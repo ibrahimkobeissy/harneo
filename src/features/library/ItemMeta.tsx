@@ -33,15 +33,15 @@ export function UpdateTag({ item }: { item: LibraryItem }) {
   );
 }
 
-/** On a part of a plugin that must now stay whole (ADR-006): the reason is the tooltip. */
-export function WholeTag({ item }: { item: LibraryItem }) {
-  if (item.mustStayWhole === undefined) return null;
+/** On a plugin part imported before its plugin was recorded (ADR-008): it needs a re-import. */
+export function ReimportTag({ item }: { item: LibraryItem }) {
+  if (!item.reimportToUpdate) return null;
   return (
     <Badge tone="warn">
       <span
-        title={`Taken apart from ${item.fromPlugin ?? "its plugin"}, which only works whole: ${item.mustStayWhole}`}
+        title={`Imported before Harneo kept ${item.fromPlugin ?? "its plugin"}'s record: import it again to update it. Until then it installs as a loose copy.`}
       >
-        Stays whole
+        Re-import to update
       </span>
     </Badge>
   );
@@ -288,7 +288,7 @@ export function CardBadge({
   status: Status;
 }) {
   if (item.update) return <UpdateTag item={item} />;
-  if (item.mustStayWhole !== undefined) return <WholeTag item={item} />;
+  if (item.reimportToUpdate) return <ReimportTag item={item} />;
   if (
     (item.tier === "risky" || item.tier === "dangerous") &&
     item.findingCount > 0

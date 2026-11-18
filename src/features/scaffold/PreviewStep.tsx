@@ -1,14 +1,7 @@
 import { CircleAlert, Eye } from "lucide-react";
 import { useState } from "react";
 import type { Plan } from "../../bindings/Plan";
-import {
-  Callout,
-  CodeView,
-  FileTree,
-  markOf,
-  PluginNotice,
-  StayWholeNotice,
-} from "../../ui";
+import { Callout, CodeView, FileTree, markOf, PluginNotice } from "../../ui";
 import styles from "./Scaffold.module.css";
 
 /** Step 3: the dry run. Every file is new; click one to read what will be written. */
@@ -49,7 +42,6 @@ export function PreviewStep({
         </Callout>
       )}
       <PluginNotice plan={plan} />
-      <StayWholeNotice warnings={plan.stayWhole} />
       <div className={styles.split}>
         <FileTree
           label="Files to write"

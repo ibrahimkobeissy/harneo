@@ -127,7 +127,7 @@ impl Library {
         }
         let options = ScanOptions::default();
         let mut walker = Walker::new(scan_root.path(), &options);
-        let mut refused = plugin::must_stay_whole(&mut walker, &plugin);
+        let mut refused = plugin::kept_whole(&mut walker, &plugin);
         let mut parts = Vec::new();
         if refused.is_none() {
             let found =

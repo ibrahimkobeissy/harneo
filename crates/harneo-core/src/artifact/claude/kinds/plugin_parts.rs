@@ -5,23 +5,20 @@
 //! not parts: they only work with the whole plugin.
 //!
 //! Every part carries `metadata.fromPlugin` (`name`, `folder`, `marketplace`) and
-//! `layoutBy: "plugin.json"`. A part that uses `${CLAUDE_PLUGIN_ROOT}` to reach outside its own
-//! files is still listed, with the error `plugin.part-needs-plugin` naming the reference.
+//! `layoutBy: "plugin.json"`. Any part can be kept (ADR-008): what it needs from outside its own
+//! files is Claude's answer, stored with the source, not an error here.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
-use super::plugin_scope::{
-    add_replaced, add_skills, collect_strings, contained, paths_of, root_uses, Scope,
-};
+use super::plugin_scope::{add_replaced, add_skills, contained, paths_of, Scope};
 use super::rule::{read_file, Parser};
 use super::{agent, command, mcp, output_style, skill};
-use crate::artifact::walk::{resolve_reference, Walker};
+use crate::artifact::walk::Walker;
 use crate::artifact::{rel_string, Artifact, Diagnostic, ScanReport};
 
-const ROOT_VAR: &str = "${CLAUDE_PLUGIN_ROOT}";
 const MCP_FILE: &str = ".mcp.json";
 
 /// The parts of `plugin` (a Plugin read from a local folder), sorted by path. Findings about the
@@ -51,9 +48,7 @@ pub(crate) fn unpack(
     for dir in skill_dirs(walker, &skills) {
         let mut found = ScanReport::default();
         skill::read_skill(walker, &dir, &mut found);
-        for mut part in found.artifacts {
-            let own = dir.clone();
-            check_root_uses(walker, folder, &mut part, Some(&own));
+        for part in found.artifacts {
             parts.push(part);
         }
     }
@@ -74,8 +69,7 @@ pub(crate) fn unpack(
             &mut diagnostics,
         );
         for (rel, base) in markdown_files(walker, &scope) {
-            let mut part = read_file(walker, &base, &rel, parse);
-            check_root_uses(walker, folder, &mut part, None);
+            let part = read_file(walker, &base, &rel, parse);
             parts.push(part);
         }
     }
@@ -142,51 +136,6 @@ fn markdown_files(walker: &Walker, scope: &Scope) -> BTreeMap<PathBuf, PathBuf> 
     out
 }
 
-/// Adds `plugin.part-needs-plugin` for each `${CLAUDE_PLUGIN_ROOT}` use in the part's files that
-/// leaves them. `own_dir` is the part's folder, when it has one.
-fn check_root_uses(
-    walker: &mut Walker,
-    folder: &Path,
-    part: &mut Artifact,
-    own_dir: Option<&Path>,
-) {
-    let mut found = Vec::new();
-    for file in part.files.clone() {
-        let Some(text) = walker.read_text(Path::new(&file), &mut Vec::new()) else {
-            continue;
-        };
-        for reference in root_uses(&text) {
-            if !stays_inside(folder, &reference, own_dir, &part.files) {
-                found.push((file.clone(), reference));
-            }
-        }
-    }
-    for (file, reference) in found {
-        part.diagnostics.push(needs_plugin(&file, &reference));
-    }
-}
-
-fn needs_plugin(file: &str, reference: &str) -> Diagnostic {
-    let written = if reference.is_empty() {
-        ROOT_VAR.to_owned()
-    } else {
-        format!("{ROOT_VAR}/{reference}")
-    };
-    Diagnostic::error(
-        "plugin.part-needs-plugin",
-        Path::new(file),
-        &format!("`{written}` reaches outside this part's own files; it only works with the whole plugin"),
-    )
-}
-
-/// True when `${CLAUDE_PLUGIN_ROOT}/<reference>` lies within the part's folder or files.
-fn stays_inside(folder: &Path, reference: &str, own_dir: Option<&Path>, files: &[String]) -> bool {
-    let Ok(target) = resolve_reference(folder, reference) else {
-        return false;
-    };
-    own_dir.is_some_and(|d| target.starts_with(d)) || files.contains(&rel_string(&target))
-}
-
 /// Each server of the plugin's `mcpServers` field and default `.mcp.json`, one artifact each.
 /// A server that names a later definition of the same name is replaced by it, as Claude Code
 /// merges them.
@@ -239,12 +188,7 @@ fn mcp_servers(
             if !def.is_object() {
                 continue;
             }
-            let mut part = mcp::server(&config, name, def, &|_| false);
-            let mut strings = Vec::new();
-            collect_strings(def, &mut strings);
-            for reference in strings.iter().flat_map(|s| root_uses(s)) {
-                part.diagnostics.push(needs_plugin(&config, &reference));
-            }
+            let part = mcp::server(&config, name, def, &|_| false);
             servers.insert(name.clone(), part);
         }
     }

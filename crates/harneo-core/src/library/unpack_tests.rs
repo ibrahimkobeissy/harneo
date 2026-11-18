@@ -22,7 +22,7 @@ fn skill(name: &str) -> String {
     format!("---\nname: {name}\ndescription: The {name} skill\n---\nBody\n")
 }
 
-/// A plugin at the repo root: three skills and two MCP servers in one `.mcp.json`.
+/// A plugin at the repo root: three skills.
 pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
     write(
         root,
@@ -32,11 +32,7 @@ pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
     for name in ["alpha", "beta", "gamma"] {
         write(root, &format!("skills/{name}/SKILL.md"), &skill(name))?;
     }
-    write(
-        root,
-        ".mcp.json",
-        r#"{"mcpServers":{"db":{"command":"db-server","env":{"API_KEY":"harneo-test-literal-value-123"}},"cache":{"command":"cache-server"}}}"#,
-    )
+    Ok(())
 }
 
 pub(crate) fn unpacking(folders: &[&str]) -> ScanOptions {
@@ -136,34 +132,6 @@ fn two_of_three_skills_are_stored_with_their_plugin_and_no_plugin() -> TestResul
 }
 
 #[test]
-fn an_unpacked_mcp_part_is_stored_as_its_own_server_json() -> TestResult {
-    let mut s = setup()?;
-    let preview = s.parts()?;
-    let db = id(&preview, ArtifactKind::Mcp, "db")?;
-    s.library
-        .import(&preview, std::slice::from_ref(&db), &TagChoices::new())?;
-    let detail = s.library.detail(&db)?;
-    assert_eq!(detail.files, ["server.json"]);
-    let text = fs::read_to_string(
-        s.library
-            .store
-            .artifacts_dir()
-            .join(&db)
-            .join("server.json"),
-    )?;
-    let stored: serde_json::Value = serde_json::from_str(&text)?;
-    assert_eq!(
-        stored,
-        serde_json::json!({"db": {"command": "db-server", "env": {"API_KEY": "${API_KEY}"}}})
-    );
-    assert!(
-        !text.contains("cache"),
-        "the other server stays out: {text}"
-    );
-    Ok(())
-}
-
-#[test]
 fn a_plugin_and_its_parts_cannot_be_picked_together() -> TestResult {
     let mut s = setup()?;
     let whole = s.whole()?;
@@ -250,22 +218,22 @@ fn needy_skill(s: &Setup) -> std::io::Result<()> {
 }
 
 #[test]
-fn a_part_that_needs_its_plugin_keeps_the_whole_plugin_whole() -> TestResult {
+fn a_part_that_uses_the_plugin_root_is_still_offered_as_a_part() -> TestResult {
     let mut s = setup()?;
     needy_skill(&s)?;
     let preview = s.parts()?;
-    assert!(names(&preview, ArtifactKind::Skill).is_empty());
-    let plugin = id(&preview, ArtifactKind::Plugin, "toolbox")?;
-    let reason = preview
+    let needy = id(&preview, ArtifactKind::Skill, "needy")?;
+    let candidate = preview
         .candidates
         .iter()
-        .find(|c| c.id == plugin)
-        .and_then(|c| c.must_stay_whole.clone());
-    assert!(matches!(
-        reason,
-        Some(crate::plugin::WholeReason::PluginVariable { .. })
-    ));
-    s.library.import(&preview, &[plugin], &TagChoices::new())?;
+        .find(|c| c.id == needy)
+        .ok_or("no needy")?;
+    assert!(candidate
+        .artifact
+        .diagnostics
+        .iter()
+        .all(|d| d.code != "plugin.part-needs-plugin"));
+    s.library.import(&preview, &[needy], &TagChoices::new())?;
     assert_eq!(s.rows(), 1);
     Ok(())
 }
@@ -385,9 +353,12 @@ fn a_listed_part_names_its_plugin() -> TestResult {
 }
 
 #[test]
-fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
+fn the_preview_carries_why_a_plugin_stays_whole() -> TestResult {
     let s = setup()?;
-    needy_skill(&s)?;
+    let Source::Local { path } = &s.source else {
+        return Err("local".into());
+    };
+    write(path, "monitors/monitors.json", "[]")?;
     let whole = s.whole()?;
     let plugin = whole
         .candidates
@@ -395,10 +366,9 @@ fn the_preview_carries_why_a_plugin_must_stay_whole() -> TestResult {
         .find(|c| c.artifact.kind == ArtifactKind::Plugin)
         .ok_or("no plugin")?;
     assert_eq!(
-        plugin.must_stay_whole,
-        Some(crate::plugin::WholeReason::PluginVariable {
-            variable: "${CLAUDE_PLUGIN_ROOT}".to_owned(),
-            parts: vec![crate::plugin::PluginPart::Skills]
+        plugin.kept_whole,
+        Some(crate::plugin::WholeReason::WholeOnlyParts {
+            parts: vec![crate::plugin::PluginPart::Monitors]
         })
     );
     // Asking to unpack it changes nothing: it is still the one whole plugin.
@@ -489,14 +459,10 @@ fn an_explicit_whole_choice_beats_the_default() -> TestResult {
 }
 
 #[test]
-fn a_plugin_with_hooks_is_proposed_whole_with_its_reason() -> TestResult {
+fn a_plugin_with_monitors_is_proposed_whole_with_its_reason() -> TestResult {
     let repo = tempfile::tempdir()?;
     skills_pack(repo.path())?;
-    write(
-        repo.path(),
-        "hooks/hooks.json",
-        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo hi"}]}]}}"#,
-    )?;
+    write(repo.path(), "monitors/monitors.json", "[]")?;
     let data = tempfile::tempdir()?;
     let library = Library::open(data.path())?;
     let preview = library.preview(&local(&repo))?;
@@ -505,12 +471,13 @@ fn a_plugin_with_hooks_is_proposed_whole_with_its_reason() -> TestResult {
         .iter()
         .find(|c| c.artifact.kind == ArtifactKind::Plugin)
         .ok_or("the plugin stays whole")?;
-    let reason = plugin.must_stay_whole.as_ref().ok_or("a reason")?;
-    assert_eq!(
-        reason.text(),
-        "Has hooks: they only work inside the plugin."
+    let reason = plugin.kept_whole.as_ref().ok_or("a reason")?;
+    assert!(
+        reason.text().starts_with("Has monitors, which"),
+        "{}",
+        reason.text()
     );
-    // A mixed plugin cannot be unpacked either (ADR-006): asking leaves it whole.
+    // Such a plugin cannot be unpacked either (ADR-008): asking leaves it whole.
     let parts = library.preview_with(&local(&repo), &unpacking(&[""]))?;
     assert_eq!(plugins_of(&parts), 1);
     assert!(names(&parts, ArtifactKind::Skill).is_empty());

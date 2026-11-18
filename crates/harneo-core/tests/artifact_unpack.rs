@@ -15,7 +15,8 @@ fn write(root: &Path, rel: &str, contents: &str) -> std::io::Result<()> {
     fs::write(path, contents)
 }
 
-/// A plugin at `base` (`""` for the repo root) with one part of every kind.
+/// A plugin at `base` (`""` for the repo root) with a skill, an agent, a command and an output
+/// style (a plugin with an MCP server stays whole, ADR-008).
 fn plugin(root: &Path, base: &str, manifest: &str) -> std::io::Result<()> {
     let at = |rel: &str| {
         if base.is_empty() {
@@ -46,11 +47,6 @@ fn plugin(root: &Path, base: &str, manifest: &str) -> std::io::Result<()> {
         &at("output-styles/terse.md"),
         "---\nname: terse\ndescription: Short\n---\nBe brief",
     )?;
-    write(
-        root,
-        &at(".mcp.json"),
-        r#"{"mcpServers":{"db":{"command":"db-server","args":["--ro"]}}}"#,
-    )?;
     Ok(())
 }
 
@@ -75,7 +71,7 @@ fn kinds(report: &ScanReport) -> Vec<(ArtifactKind, &str)> {
 const MANIFEST: &str = r#"{"name":"toolbox","description":"Tools"}"#;
 
 #[test]
-fn unpacking_reports_the_five_parts_and_no_plugin() -> TestResult {
+fn unpacking_reports_the_four_parts_and_no_plugin() -> TestResult {
     let dir = tempfile::tempdir()?;
     plugin(dir.path(), "toolbox", MANIFEST)?;
     let report = scan(dir.path(), &["toolbox"])?;
@@ -83,7 +79,6 @@ fn unpacking_reports_the_five_parts_and_no_plugin() -> TestResult {
         (ArtifactKind::Skill, "lint"),
         (ArtifactKind::Command, "ship"),
         (ArtifactKind::Agent, "fixer"),
-        (ArtifactKind::Mcp, "db"),
         (ArtifactKind::OutputStyle, "terse"),
     ];
     expected.sort();
@@ -111,10 +106,6 @@ fn unpacking_reports_the_five_parts_and_no_plugin() -> TestResult {
         by("ship").ok_or("no command")?.path,
         "toolbox/commands/ship.md"
     );
-    let server = by("db").ok_or("no server")?;
-    assert_eq!(server.path, "toolbox/.mcp.json#db");
-    assert_eq!(server.files, ["toolbox/.mcp.json"]);
-    assert_eq!(server.metadata["command"], "db-server");
     assert!(report.unplaced.is_empty());
     Ok(())
 }
@@ -131,46 +122,34 @@ fn without_unpack_the_plugin_is_reported_whole() -> TestResult {
 }
 
 #[test]
-fn a_part_using_a_plugin_variable_keeps_the_plugin_whole_with_a_note() -> TestResult {
-    for (rel, body) in [
+fn a_part_using_a_plugin_variable_is_still_a_part_with_no_note() -> TestResult {
+    for (rel, body, name) in [
         (
             "toolbox/skills/shared-user/SKILL.md",
             "---\nname: shared-user\ndescription: d\n---\nsh ${CLAUDE_PLUGIN_ROOT}/../shared/x.sh",
-        ),
-        (
-            "toolbox/skills/inside/SKILL.md",
-            "---\nname: inside\ndescription: d\n---\nsh ${CLAUDE_PLUGIN_ROOT}/skills/inside/x.sh",
+            "shared-user",
         ),
         (
             "toolbox/agents/helper.md",
             "---\nname: helper\ndescription: d\n---\nuse ${CLAUDE_PLUGIN_DATA}/cache",
+            "helper",
         ),
     ] {
         let dir = tempfile::tempdir()?;
         plugin(dir.path(), "toolbox", MANIFEST)?;
         write(dir.path(), rel, body)?;
         let report = scan(dir.path(), &["toolbox"])?;
-        assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")], "{rel}");
-        let note = report.artifacts[0]
-            .diagnostics
+        let part = report
+            .artifacts
             .iter()
-            .find(|d| d.code == "plugin.unpack-refused")
-            .ok_or("a note")?;
-        assert!(
-            note.message.contains("only resolves inside the plugin"),
-            "{}",
-            note.message
-        );
+            .find(|a| a.name == name)
+            .ok_or("the part is offered")?;
+        assert!(part.diagnostics.is_empty(), "{:?}", part.diagnostics);
+        assert!(report
+            .artifacts
+            .iter()
+            .all(|a| a.kind != ArtifactKind::Plugin));
     }
-    let dir = tempfile::tempdir()?;
-    plugin(dir.path(), "toolbox", MANIFEST)?;
-    write(
-        dir.path(),
-        "toolbox/.claude-plugin/plugin.json",
-        r#"{"name":"toolbox","mcpServers":{"inline":{"command":"${CLAUDE_PLUGIN_ROOT}/bin/srv"}}}"#,
-    )?;
-    let report = scan(dir.path(), &["toolbox"])?;
-    assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")]);
     Ok(())
 }
 
@@ -180,7 +159,7 @@ fn a_plugin_at_the_repo_root_unpacks() -> TestResult {
     plugin(dir.path(), "", MANIFEST)?;
     for spelling in ["", ".", "./"] {
         let report = scan(dir.path(), &[spelling])?;
-        assert_eq!(report.artifacts.len(), 5, "{spelling:?}");
+        assert_eq!(report.artifacts.len(), 4, "{spelling:?}");
         assert!(report
             .artifacts
             .iter()
@@ -188,7 +167,7 @@ fn a_plugin_at_the_repo_root_unpacks() -> TestResult {
         assert!(report
             .artifacts
             .iter()
-            .any(|a| a.path == ".mcp.json#db" && a.metadata["fromPlugin"]["folder"] == ""));
+            .any(|a| a.path == "skills/lint" && a.metadata["fromPlugin"]["folder"] == ""));
     }
     Ok(())
 }
@@ -225,7 +204,7 @@ fn a_marketplace_entry_with_a_local_source_unpacks_and_a_remote_one_stays_whole(
         .iter()
         .filter(|a| a.kind != ArtifactKind::Plugin)
         .collect();
-    assert_eq!(parts.len(), 5);
+    assert_eq!(parts.len(), 4);
     assert!(parts
         .iter()
         .all(|a| a.metadata["fromPlugin"]["marketplace"] == "team"));
@@ -240,7 +219,7 @@ fn declared_paths_are_honoured() -> TestResult {
         r,
         "p/.claude-plugin/plugin.json",
         r#"{"name":"p","agents":["./team/a.md"],"commands":{"go":{"source":"./cmds/go.md"}},
-            "skills":"./extra","mcpServers":"./servers.json"}"#,
+            "skills":"./extra"}"#,
     )?;
     write(r, "p/team/a.md", "---\nname: a\ndescription: d\n---\n")?;
     write(
@@ -254,23 +233,10 @@ fn declared_paths_are_honoured() -> TestResult {
         "p/extra/one/SKILL.md",
         "---\nname: one\ndescription: d\n---\n",
     )?;
-    write(
-        r,
-        "p/servers.json",
-        r#"{"s1":{"command":"x"},"s2":"not a server"}"#,
-    )?;
     let report = scan(r, &["p"])?;
     let mut found: Vec<_> = report.artifacts.iter().map(|a| a.path.as_str()).collect();
     found.sort_unstable();
-    assert_eq!(
-        found,
-        [
-            "p/cmds/go.md",
-            "p/extra/one",
-            "p/servers.json#s1",
-            "p/team/a.md"
-        ]
-    );
+    assert_eq!(found, ["p/cmds/go.md", "p/extra/one", "p/team/a.md"]);
     Ok(())
 }
 
@@ -318,11 +284,7 @@ fn a_plugin_with_nothing_to_pick_stays_whole_with_a_note() -> TestResult {
         ".claude-plugin/plugin.json",
         r#"{"name":"hooksonly"}"#,
     )?;
-    write(
-        dir.path(),
-        "hooks/hooks.json",
-        r#"{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"true"}]}]}}"#,
-    )?;
+    write(dir.path(), "monitors/monitors.json", "[]")?;
     let report = scan(dir.path(), &[""])?;
     let plugin = report
         .artifacts
@@ -334,7 +296,7 @@ fn a_plugin_with_nothing_to_pick_stays_whole_with_a_note() -> TestResult {
         .iter()
         .find(|d| d.code == "plugin.unpack-refused")
         .ok_or("a note")?;
-    assert!(note.message.contains("Has hooks"), "{}", note.message);
+    assert!(note.message.contains("Has monitors"), "{}", note.message);
 
     let empty = tempfile::tempdir()?;
     write(
@@ -354,7 +316,7 @@ fn a_plugin_with_nothing_to_pick_stays_whole_with_a_note() -> TestResult {
 fn a_mixed_plugin_stays_whole_when_asked_to_unpack() -> TestResult {
     let dir = tempfile::tempdir()?;
     plugin(dir.path(), "toolbox", MANIFEST)?;
-    write(dir.path(), "toolbox/hooks/hooks.json", r#"{"hooks":{}}"#)?;
+    write(dir.path(), "toolbox/monitors/monitors.json", "[]")?;
     let report = scan(dir.path(), &["toolbox"])?;
     assert_eq!(kinds(&report), [(ArtifactKind::Plugin, "toolbox")]);
     Ok(())

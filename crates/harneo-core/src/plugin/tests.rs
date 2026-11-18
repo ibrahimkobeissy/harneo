@@ -37,7 +37,7 @@ fn ask(root: &Path) -> Result<Option<WholeReason>, Box<dyn std::error::Error>> {
     let plugin = read(root)?;
     let options = ScanOptions::default();
     let mut walker = Walker::new(root, &options);
-    Ok(must_stay_whole(&mut walker, &plugin))
+    Ok(kept_whole(&mut walker, &plugin))
 }
 
 fn manifest(root: &Path) -> std::io::Result<()> {
@@ -45,226 +45,81 @@ fn manifest(root: &Path) -> std::io::Result<()> {
 }
 
 #[test]
-fn a_skills_only_pack_can_be_unpacked() -> TestResult {
+fn any_plugin_can_be_split_hooks_scripts_config_and_namespaced_calls_included() -> TestResult {
     let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    skill(dir.path(), "a", "Body")?;
     write(
         dir.path(),
-        ".mcp.json",
-        r#"{"mcpServers":{"db":{"command":"x"}}}"#,
+        ".claude-plugin/plugin.json",
+        r#"{"name":"pack","userConfig":{"token":{}},"dependencies":["x"],"experimental":{"a":1},"strange":true}"#,
     )?;
+    skill(
+        dir.path(),
+        "a",
+        "Run ${CLAUDE_PLUGIN_ROOT}/x.sh and pack:b and ${user_config.token}",
+    )?;
+    skill(dir.path(), "b", "Body")?;
+    write(dir.path(), "hooks/hooks.json", r#"{"hooks":{}}"#)?;
+    write(dir.path(), "bin/tool", "#!/bin/sh")?;
+    write(dir.path(), "settings.json", "{}")?;
+    write(dir.path(), "themes/dark.json", "{}")?;
     write(
         dir.path(),
-        "commands/go.md",
-        "---\ndescription: Go\n---\nGo\n",
+        "agents/x.md",
+        "---\nname: x\ndescription: d\nhooks: {}\npermissionMode: plan\n---\nBody\n",
     )?;
     assert_eq!(ask(dir.path())?, None);
     Ok(())
 }
 
 #[test]
-fn a_hooks_only_plugin_must_stay_whole() -> TestResult {
+fn monitors_mcp_servers_and_lsp_servers_keep_a_plugin_whole() -> TestResult {
+    let cases: [(&str, &str, PluginPart); 3] = [
+        (
+            ".mcp.json",
+            r#"{"mcpServers":{"db":{"command":"x"}}}"#,
+            PluginPart::McpServers,
+        ),
+        ("monitors/monitors.json", "[]", PluginPart::Monitors),
+        (".lsp.json", "{}", PluginPart::LspServers),
+    ];
+    for (file, text, part) in cases {
+        let dir = tempfile::tempdir()?;
+        manifest(dir.path())?;
+        skill(dir.path(), "a", "Body")?;
+        write(dir.path(), file, text)?;
+        assert_eq!(
+            ask(dir.path())?,
+            Some(WholeReason::WholeOnlyParts { parts: vec![part] }),
+            "{file}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn manifest_declared_servers_and_monitors_keep_a_plugin_whole() -> TestResult {
     let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    write(dir.path(), "hooks/hooks.json", r#"{"hooks":{}}"#)?;
+    write(
+        dir.path(),
+        ".claude-plugin/plugin.json",
+        r#"{"name":"pack","mcpServers":{"db":{"command":"x"}},"lspServers":{"rust":{"command":"ra"}},"monitors":[]}"#,
+    )?;
+    skill(dir.path(), "a", "Body")?;
     assert_eq!(
         ask(dir.path())?,
         Some(WholeReason::WholeOnlyParts {
-            parts: vec![PluginPart::Hooks]
+            parts: vec![
+                PluginPart::McpServers,
+                PluginPart::Monitors,
+                PluginPart::LspServers
+            ]
         })
     );
     Ok(())
 }
 
 #[test]
-fn a_mixed_plugin_lists_both_kinds_and_every_whole_only_part() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    write(
-        dir.path(),
-        ".claude-plugin/plugin.json",
-        r#"{"name":"pack","lspServers":{"rust":{"command":"ra"}}}"#,
-    )?;
-    skill(dir.path(), "a", "Body")?;
-    write(dir.path(), "bin/tool", "#!/bin/sh")?;
-    write(
-        dir.path(),
-        "hooks/hooks.json",
-        r#"{"modules":["./register.tsx"]}"#,
-    )?;
-    write(dir.path(), "settings.json", "{}")?;
-    write(dir.path(), "themes/dark.json", "{}")?;
-    write(dir.path(), "workflows/w.md", "w")?;
-    write(dir.path(), "monitors/monitors.json", "[]")?;
-    let all = vec![
-        PluginPart::Monitors,
-        PluginPart::LspServers,
-        PluginPart::Mods,
-        PluginPart::Bin,
-        PluginPart::Themes,
-        PluginPart::Workflows,
-        PluginPart::Settings,
-    ];
-    assert_eq!(
-        ask(dir.path())?,
-        Some(WholeReason::WholeOnlyParts { parts: all })
-    );
-    Ok(())
-}
-
-#[test]
-fn a_plugin_variable_anywhere_in_a_part_keeps_the_plugin_whole() -> TestResult {
-    for (variable, body) in [
-        // Even pointing inside the part's own folder: the copy leaves the variable empty.
-        (
-            "${CLAUDE_PLUGIN_ROOT}",
-            "Run ${CLAUDE_PLUGIN_ROOT}/skills/needy/run.sh",
-        ),
-        (
-            "${CLAUDE_PLUGIN_ROOT}",
-            "Run ${CLAUDE_PLUGIN_ROOT}/shared/x.sh",
-        ),
-        ("${CLAUDE_PLUGIN_DATA}", "Cache in ${CLAUDE_PLUGIN_DATA}/c"),
-        ("${user_config.", "Token ${user_config.token}"),
-    ] {
-        let dir = tempfile::tempdir()?;
-        manifest(dir.path())?;
-        skill(dir.path(), "ok", "Body")?;
-        skill(dir.path(), "needy", body)?;
-        let reason = ask(dir.path())?;
-        assert_eq!(
-            reason,
-            Some(WholeReason::PluginVariable {
-                variable: variable.to_owned(),
-                parts: vec![PluginPart::Skills]
-            })
-        );
-        assert!(reason.is_some_and(|r| r.text().contains(variable)));
-    }
-    Ok(())
-}
-
-#[test]
-fn a_variable_in_an_mcp_server_keeps_the_plugin_whole() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    write(
-        dir.path(),
-        ".mcp.json",
-        r#"{"mcpServers":{"db":{"command":"${CLAUDE_PLUGIN_ROOT}/bin/db"}}}"#,
-    )?;
-    assert!(matches!(
-        ask(dir.path())?,
-        Some(WholeReason::PluginVariable { .. })
-    ));
-    Ok(())
-}
-
-#[test]
-fn a_manifest_key_beyond_the_allowed_ones_keeps_the_plugin_whole() -> TestResult {
-    for (key, plugin_only) in [
-        ("userConfig", true),
-        ("dependencies", true),
-        ("somethingNew", false),
-    ] {
-        let dir = tempfile::tempdir()?;
-        write(
-            dir.path(),
-            ".claude-plugin/plugin.json",
-            &format!(r#"{{"name":"pack","version":"1","{key}":{{}}}}"#),
-        )?;
-        skill(dir.path(), "a", "Body")?;
-        let expected = if plugin_only {
-            WholeReason::PluginOnlyKey { key: key.into() }
-        } else {
-            WholeReason::UnknownKey { key: key.into() }
-        };
-        assert_eq!(ask(dir.path())?, Some(expected));
-    }
-    Ok(())
-}
-
-#[test]
-fn metadata_and_component_keys_are_allowed() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    write(
-        dir.path(),
-        ".claude-plugin/plugin.json",
-        r#"{"name":"pack","displayName":"P","version":"1","author":{"name":"a"},"keywords":["k"],"$schema":"x","skills":"./skills","defaultEnabled":true}"#,
-    )?;
-    skill(dir.path(), "a", "Body")?;
-    assert_eq!(ask(dir.path())?, None);
-    Ok(())
-}
-
-#[test]
-fn a_plugin_without_its_own_manifest_is_not_judged_on_harneos_metadata() -> TestResult {
-    // A marketplace entry for a folder with no `plugin.json`: Claude Code loads the default
-    // folders, and Harneo's own metadata keys (`layoutBy`, `source`...) are not manifest keys.
-    let dir = tempfile::tempdir()?;
-    write(
-        dir.path(),
-        ".claude-plugin/marketplace.json",
-        r#"{"name":"m","owner":{"name":"o"},"plugins":[{"name":"pack","source":"./pack","strict":false}]}"#,
-    )?;
-    skill(&dir.path().join("pack"), "a", "Body")?;
-    assert_eq!(ask(dir.path())?, None);
-    Ok(())
-}
-
-#[test]
-fn a_part_calling_another_by_its_namespaced_name_keeps_the_plugin_whole() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    skill(dir.path(), "a", "Then run /pack:b for the rest")?;
-    skill(dir.path(), "b", "Body")?;
-    assert_eq!(
-        ask(dir.path())?,
-        Some(WholeReason::NamespacedSelfReference {
-            parts: vec![PluginPart::Skills]
-        })
-    );
-    // Another plugin's name, an unknown part and a longer word are not a self-reference.
-    let other = tempfile::tempdir()?;
-    manifest(other.path())?;
-    skill(
-        other.path(),
-        "a",
-        "See /other:b, pack:zzz and repack:b and pack:bb",
-    )?;
-    skill(other.path(), "b", "Body")?;
-    assert_eq!(ask(other.path())?, None);
-    // An MCP tool of the plugin's own server.
-    let mcp = tempfile::tempdir()?;
-    manifest(mcp.path())?;
-    skill(mcp.path(), "a", "Use mcp__plugin_pack_db__query")?;
-    assert!(matches!(
-        ask(mcp.path())?,
-        Some(WholeReason::NamespacedSelfReference { .. })
-    ));
-    Ok(())
-}
-
-#[test]
-fn an_agent_with_a_field_inert_in_a_plugin_keeps_the_plugin_whole() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    write(
-        dir.path(),
-        "agents/r.md",
-        "---\nname: r\ndescription: R\nhooks:\n  Stop: []\n---\nBody\n",
-    )?;
-    assert_eq!(
-        ask(dir.path())?,
-        Some(WholeReason::AgentField {
-            field: "hooks".into()
-        })
-    );
-    Ok(())
-}
-
-#[test]
-fn a_remote_only_entry_must_stay_whole_and_holds_nothing_visible() -> TestResult {
+fn a_remote_only_marketplace_entry_stays_whole() -> TestResult {
     let dir = tempfile::tempdir()?;
     write(
         dir.path(),
@@ -275,7 +130,7 @@ fn a_remote_only_entry_must_stay_whole_and_holds_nothing_visible() -> TestResult
     let options = ScanOptions::default();
     let mut walker = Walker::new(dir.path(), &options);
     assert_eq!(
-        must_stay_whole(&mut walker, &plugin),
+        kept_whole(&mut walker, &plugin),
         Some(WholeReason::RemoteOnly)
     );
     Ok(())
@@ -289,56 +144,25 @@ fn only_a_plugin_can_be_asked_whether_it_stays_whole() -> TestResult {
     plugin.kind = ArtifactKind::Skill;
     let options = ScanOptions::default();
     let mut walker = Walker::new(dir.path(), &options);
-    assert_eq!(must_stay_whole(&mut walker, &plugin), None);
+    assert_eq!(kept_whole(&mut walker, &plugin), None);
     Ok(())
 }
 
 #[test]
 fn reasons_read_as_sentences_and_cross_the_wire_tagged() -> TestResult {
     let whole = WholeReason::WholeOnlyParts {
-        parts: vec![PluginPart::Hooks, PluginPart::Mods],
+        parts: vec![PluginPart::McpServers, PluginPart::Monitors],
     };
-    assert_eq!(
-        whole.text(),
-        "Has hooks and mods: they only work inside the plugin."
-    );
+    assert!(whole
+        .text()
+        .starts_with("Has MCP servers and monitors, which a plugin scaffolded under .claude/skills/ does not load"));
     assert_eq!(
         serde_json::to_value(&whole)?,
-        serde_json::json!({"type": "wholeOnlyParts", "parts": ["hooks", "mods"]})
+        serde_json::json!({"type": "wholeOnlyParts", "parts": ["mcpServers", "monitors"]})
     );
-    let many = WholeReason::PluginVariable {
-        variable: "${CLAUDE_PLUGIN_ROOT}".into(),
-        parts: vec![PluginPart::Skills, PluginPart::Agents, PluginPart::Commands],
-    };
-    assert!(many
-        .text()
-        .starts_with("Its skills, agents and commands use `${CLAUDE_PLUGIN_ROOT}`"));
-    assert!(WholeReason::UnknownKey { key: "x".into() }
-        .text()
-        .contains("`x`"));
     assert!(WholeReason::RemoteOnly.text().contains("another repo"));
+    assert!(WholeReason::NoParts.text().contains("no skills"));
     assert_eq!(join(&[]), "");
-    Ok(())
-}
-
-/// A mod is a hooks module (`hooks/hooks.json` → `modules`); with ordinary hooks beside it, the
-/// plugin holds both.
-#[test]
-fn hooks_json_with_modules_and_hooks_holds_mods_and_hooks() -> TestResult {
-    let dir = tempfile::tempdir()?;
-    manifest(dir.path())?;
-    skill(dir.path(), "a", "Body")?;
-    write(
-        dir.path(),
-        "hooks/hooks.json",
-        r#"{"hooks":{"Stop":[]},"modules":["./register.tsx"]}"#,
-    )?;
-    assert_eq!(
-        ask(dir.path())?,
-        Some(WholeReason::WholeOnlyParts {
-            parts: vec![PluginPart::Hooks, PluginPart::Mods]
-        })
-    );
     Ok(())
 }
 

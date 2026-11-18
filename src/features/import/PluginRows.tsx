@@ -7,10 +7,9 @@ import { type WholeNote, wholeText } from "../../ui/plugin";
 import { groupByKind } from "./groupByKind";
 import { kindPlurals } from "./kindLabels";
 import {
-  needsPlugin,
   partsRefusal,
   type PluginGroup,
-  WHOLE_ONLY,
+  PARTS_NOTE,
   wholeRefusal,
 } from "./plugins";
 import styles from "./Import.module.css";
@@ -92,14 +91,14 @@ export function PluginChoice({
       })}
       {mode === "parts" && (
         <p className={`${styles.muted} ${styles.wholeOnly}`}>
-          <Info size={12} aria-hidden="true" /> {WHOLE_ONLY}
+          <Info size={12} aria-hidden="true" /> {PARTS_NOTE}
         </p>
       )}
     </fieldset>
   );
 }
 
-/** One part: a checkbox, or a disabled one with its reason written out beside it. */
+/** One part: a checkbox, with its name, path and description. */
 function Part({
   candidate,
   ticked,
@@ -109,19 +108,13 @@ function Part({
   ticked: boolean;
   onToggle: (id: string, on: boolean) => void;
 }) {
-  const reason = needsPlugin(candidate);
-  const reasonId = `part-${candidate.id}-reason`;
   return (
     <li className={styles.part}>
       <label className={styles.partLabel}>
         <span className={styles.slot} aria-hidden="true" />
         <Checkbox
-          checked={reason === null && ticked}
-          aria-disabled={reason !== null}
-          aria-describedby={reason ? reasonId : undefined}
-          onChange={(ev) => {
-            if (reason === null) onToggle(candidate.id, ev.target.checked);
-          }}
+          checked={ticked}
+          onChange={(ev) => onToggle(candidate.id, ev.target.checked)}
         />
         <span className={styles.grow}>
           <span className={styles.title}>
@@ -138,11 +131,6 @@ function Part({
           )}
         </span>
       </label>
-      {reason && (
-        <p id={reasonId} className={styles.reason}>
-          Stays with the plugin: {reason}
-        </p>
-      )}
     </li>
   );
 }
@@ -198,7 +186,7 @@ export function partsSummary(
 
 /**
  * The parts of an unpacked plugin, nested under it and grouped by kind. The list and each kind
- * fold; a plugin with many parts starts folded unless a part needs attention. The boxes on the
+ * fold; a plugin with many parts starts folded. The boxes on the
  * plugin and on each kind tick or untick every part that can be picked.
  */
 export function PluginParts({
@@ -210,11 +198,8 @@ export function PluginParts({
   excluded: ReadonlySet<string>;
   onSet: (ids: string[], on: boolean) => void;
 }) {
-  const pickable = group.parts.filter((c) => needsPlugin(c) === null);
-  const attention = pickable.length < group.parts.length;
-  const [open, setOpen] = useState(
-    group.parts.length <= FOLD_OVER || attention,
-  );
+  const pickable = group.parts;
+  const [open, setOpen] = useState(group.parts.length <= FOLD_OVER);
   const [shut, setShut] = useState<ReadonlySet<string>>(new Set());
   const bodyId = useId();
   const byKind = groupByKind(group.parts).map(
@@ -228,9 +213,8 @@ export function PluginParts({
       return next;
     });
   const tickedOf = (list: Candidate[]) =>
-    list.filter((c) => needsPlugin(c) === null && !excluded.has(c.id)).length;
-  const ids = (list: Candidate[]) =>
-    list.filter((c) => needsPlugin(c) === null).map((c) => c.id);
+    list.filter((c) => !excluded.has(c.id)).length;
+  const ids = (list: Candidate[]) => list.map((c) => c.id);
   const ticked = tickedOf(pickable);
   return (
     <div className={styles.parts}>

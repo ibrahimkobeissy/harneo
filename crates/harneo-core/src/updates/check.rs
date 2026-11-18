@@ -12,7 +12,6 @@ use super::remote::{self, Failure, Session, Upstream};
 use super::*;
 use crate::library::git::GitConfig;
 use crate::library::layout_claude::StoredLayout;
-use crate::plugin::WholeReason;
 
 /// What the check needs, read from the library. Owns everything, so it can leave the lock.
 #[derive(Debug)]
@@ -31,9 +30,6 @@ struct SourceWork {
     stored: Vec<Stored>,
     /// What Claude placed and ignored when the source was imported, replayed on each scan.
     layout: StoredLayout,
-    /// The source holds no parts of a plugin; one that does is never skipped for an unchanged
-    /// commit, since whether its plugin must stay whole is judged again by every check.
-    judged: bool,
 }
 
 /// What looking at the sources found, ready to be written by [`Library::finish_check`].
@@ -62,8 +58,6 @@ enum Found {
         /// The source's seen commit moves only when every artifact of it was judged; after a
         /// one-artifact check the others must still be looked at next time.
         advance: bool,
-        /// Why each unpacked plugin must now stay whole, or `None` when it need not.
-        wholes: Vec<(String, Option<WholeReason>)>,
     },
 }
 
@@ -128,8 +122,7 @@ impl CheckJob {
         let known = work
             .remote_commit
             .as_deref()
-            .or(source.commit_sha.as_deref())
-            .filter(|_| work.judged);
+            .or(source.commit_sha.as_deref());
         let upstream = match remote::fetch(
             &self.git,
             &self.session,
@@ -198,7 +191,6 @@ impl CheckJob {
             unplaced: scanned.unplaced,
             unplaced_overflow: scanned.unplaced_overflow,
             advance: self.only.is_none(),
-            wholes: scanned.wholes,
         }
     }
 }
@@ -235,18 +227,16 @@ impl Library {
             self.backfill_copy_digests(&stored)?;
             let mut layout = records::stored_layout(conn, &source.id)?;
             // Parts the library holds replay as parts, whatever the source's stored choice says.
-            for folder in crate::library::whole::held_folders(conn, &source.id)? {
+            for folder in crate::library::unpack::held_folders(conn, &source.id)? {
                 if !layout.unpack.contains(&folder) {
                     layout.unpack.push(folder);
                 }
             }
-            let judged = crate::library::whole::judged(conn, &source.id)?;
             sources.push(SourceWork {
                 source,
                 remote_commit,
                 stored,
                 layout,
-                judged,
             });
         }
         Ok(CheckJob {
@@ -285,7 +275,7 @@ impl Library {
     fn store_source(&self, source_id: &str, found: Found) -> Result<SourceResult> {
         let conn = &self.store.conn;
         let now = records::now();
-        let (commit, judgements, new_upstream, advance, wholes) = match found {
+        let (commit, judgements, new_upstream, advance) = match found {
             Found::Missing => return Ok(SourceResult::Missing),
             Found::Unreachable(reason) => return Ok(SourceResult::Unreachable { reason }),
             Found::Unchanged => {
@@ -300,12 +290,10 @@ impl Library {
                 judgements,
                 new_upstream,
                 advance,
-                wholes,
                 ..
-            } => (commit, judgements, new_upstream, advance, wholes),
+            } => (commit, judgements, new_upstream, advance),
         };
         let tx = conn.unchecked_transaction()?;
-        crate::library::whole::store(&tx, source_id, &wholes)?;
         for judgement in judgements {
             let current: Option<Option<String>> = tx
                 .query_row(

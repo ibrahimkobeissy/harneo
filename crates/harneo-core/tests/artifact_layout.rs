@@ -400,9 +400,10 @@ fn plugin_without_component_fields_uses_the_default_folders() -> TestResult {
         assert!(files.contains(f), "{f} missing in {files}");
     }
     assert!(!files.contains("docs/") && !files.contains("scripts/"));
-    // With hooks it cannot be unpacked (ADR-006); without them its default folders are the parts.
+    // With an MCP server it cannot be unpacked (ADR-008); without it its default folders are the
+    // parts, hooks or not.
     assert_eq!(parts(r)?, ["p"]);
-    std::fs::remove_file(r.join("hooks/hooks.json"))?;
+    std::fs::remove_file(r.join(".mcp.json"))?;
     assert_eq!(parts(r)?, ["a", "c", "o", "s"]);
     Ok(())
 }

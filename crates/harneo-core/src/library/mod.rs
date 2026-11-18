@@ -39,6 +39,9 @@ pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_parts_tests;
 mod origin;
+pub(crate) mod plugin_record;
+#[cfg(test)]
+pub(crate) mod plugin_record_tests;
 mod query;
 #[cfg(test)]
 mod query_tests;
@@ -52,7 +55,7 @@ mod store;
 mod tags;
 #[cfg(test)]
 mod tags_tests;
-mod unpack;
+pub(crate) mod unpack;
 mod unpack_plugin;
 #[cfg(test)]
 mod unpack_plugin_tests;
@@ -61,9 +64,6 @@ pub(crate) mod unpack_tests;
 mod viewer;
 #[cfg(test)]
 mod viewer_tests;
-pub(crate) mod whole;
-#[cfg(test)]
-mod whole_tests;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -103,7 +103,6 @@ pub use tags::{Tag, TagChoices, TagColor, TagWithCount};
 pub use unpack::PluginHold;
 pub use unpack_plugin::{UnpackOutcome, UnpackedPart};
 pub use viewer::{may_run_when_opened, FileView, MAX_VIEW_BYTES};
-pub use whole::{PreparedReplace, ReplaceJob, ReplaceOutcome, StayWholeWarning};
 
 /// An artifact id: 16 lowercase hex characters (see [`ids`]).
 pub type ArtifactId = String;
@@ -127,15 +126,15 @@ pub struct Candidate {
     /// The security audit of the artifact in its source (for a git source, inside the clone).
     /// `import` stores this one.
     pub audit: Audit,
-    /// For a Plugin: why it can only be taken whole, when it can (`plugin::must_stay_whole`).
+    /// For a Plugin: why it can only be taken whole, when it can (`plugin::kept_whole`).
     #[serde(default)]
     #[ts(optional)]
-    pub must_stay_whole: Option<crate::plugin::WholeReason>,
-    /// The sentence for `must_stay_whole` (`WholeReason::text`), so the UI words it as the core
+    pub kept_whole: Option<crate::plugin::WholeReason>,
+    /// The sentence for `kept_whole` (`WholeReason::text`), so the UI words it as the core
     /// does.
     #[serde(default)]
     #[ts(optional)]
-    pub must_stay_whole_text: Option<String>,
+    pub kept_whole_text: Option<String>,
 }
 
 /// What [`Library::reaudit_all`] did.
@@ -475,7 +474,7 @@ gone or no longer parses",
                 .iter()
                 .chain(&options.whole)
                 .any(|f| same_folder(f, &plugin.path));
-            if chosen || crate::plugin::must_stay_whole(&mut walker, plugin).is_some() {
+            if chosen || crate::plugin::kept_whole(&mut walker, plugin).is_some() {
                 continue;
             }
             // Already imported from this source: its choice was made then, and stays.
@@ -519,17 +518,15 @@ gone or no longer parses",
             .into_iter()
             .zip(ids)
             .map(|(artifact, id)| {
-                let must_stay_whole = crate::plugin::must_stay_whole(&mut walker, &artifact);
+                let kept_whole = crate::plugin::kept_whole(&mut walker, &artifact);
                 Candidate {
                     already_in_library: known.contains(&id),
                     replaced_secret_keys: copy::replaced_secret_keys(&artifact),
                     suggested_tags: tags::suggestions(&artifact),
                     copies: Vec::new(),
                     audit: audit::audit(&artifact, root, &scan_options),
-                    must_stay_whole_text: must_stay_whole
-                        .as_ref()
-                        .map(crate::plugin::WholeReason::text),
-                    must_stay_whole,
+                    kept_whole_text: kept_whole.as_ref().map(crate::plugin::WholeReason::text),
+                    kept_whole,
                     id,
                     artifact,
                 }
@@ -651,16 +648,18 @@ gone or no longer parses",
             (Source::Git { .. }, None) => return Err(Error::PreviewExpired),
         };
         let root = root.as_path();
-        // The stored audit is computed here, from the files about to be copied; the preview's
-        // `audit` came back over IPC and is never trusted.
+        // ADR-008: each plugin part records its plugin and its supporting paths (the preview's
+        // answer, checked again: it came back over IPC), and the plugin's record is built once.
+        let parts = plugin_parts_of(root, preview, &fresh, copy_limit(large_files))?;
+        // The stored audit is computed here, from the files about to be copied (and the
+        // supporting files a plugin part brings); the preview's `audit` came back over IPC and
+        // is never trusted.
         let audit_options = ScanOptions::default();
         let mut audits: HashMap<&str, Audit> = fresh
             .iter()
             .map(|c| {
-                (
-                    c.id.as_str(),
-                    audit::audit(&c.artifact, root, &audit_options),
-                )
+                let view = parts.audited(c);
+                (c.id.as_str(), audit::audit(&view, root, &audit_options))
             })
             .collect();
         let staging = tempfile::Builder::new()
@@ -706,6 +705,9 @@ gone or no longer parses",
             records::update_unpack(&tx, &source_id, &unpacked, &whole)?;
             records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
             records::store_parts(&tx, &source_id, preview)?;
+            for built in &parts.records {
+                plugin_record::save(&tx, &source_id, built)?;
+            }
             let now = records::now();
             for candidate in &fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);
@@ -719,7 +721,7 @@ gone or no longer parses",
                     &tx,
                     &candidate.id,
                     &source_id,
-                    &candidate.artifact,
+                    parts.stored(candidate),
                     now,
                     keys,
                     audit,
@@ -1168,6 +1170,86 @@ fn same_folder(a: &str, b: &str) -> bool {
         }
     };
     normal(a) == normal(b)
+}
+
+/// What the plugin parts of an import bring (ADR-008): each part as it is stored, with its
+/// plugin and supporting paths on it, the supporting files each audits with, and the records of
+/// the plugins.
+struct PluginParts {
+    /// Candidate id, the part as stored and the supporting files (relative to the source root)
+    /// that audit it.
+    stored: Vec<(String, Artifact, Vec<String>)>,
+    records: Vec<plugin_record::Built>,
+}
+
+impl PluginParts {
+    /// The artifact to store for `candidate`: the part stamped with its plugin, else as it is.
+    fn stored<'a>(&'a self, candidate: &'a Candidate) -> &'a Artifact {
+        self.stored
+            .iter()
+            .find(|(id, ..)| *id == candidate.id)
+            .map_or(&candidate.artifact, |(_, artifact, _)| artifact)
+    }
+
+    /// The artifact as the audit reads it: its own files and the supporting files it brings.
+    fn audited(&self, candidate: &Candidate) -> Artifact {
+        let mut view = candidate.artifact.clone();
+        if let Some((_, _, support)) = self.stored.iter().find(|(id, ..)| *id == candidate.id) {
+            view.files.extend(support.iter().cloned());
+            view.files.sort();
+            view.files.dedup();
+        }
+        view
+    }
+}
+
+/// The supporting paths the preview gives the part at `path`, each checked against `root`.
+fn needs_for(root: &Path, preview: &Preview, candidate: &Candidate) -> Vec<String> {
+    let Some(given) = preview
+        .part_needs
+        .iter()
+        .find(|p| p.path == candidate.artifact.path)
+    else {
+        return Vec::new();
+    };
+    layout_parts::check_needs(root, candidate, &given.needs, &mut Vec::new())
+        .into_iter()
+        .map(|n| n.path)
+        .collect()
+}
+
+/// Stamps every plugin part of `fresh` with its plugin and supporting paths, and reads each
+/// plugin's record once (its manifest and the union of its parts' supporting files).
+fn plugin_parts_of(
+    root: &Path,
+    preview: &Preview,
+    fresh: &[&Candidate],
+    max: u64,
+) -> Result<PluginParts> {
+    let mut out = PluginParts {
+        stored: Vec::new(),
+        records: Vec::new(),
+    };
+    let mut union: Vec<(String, String, Vec<String>)> = Vec::new();
+    for candidate in fresh {
+        let Some((name, folder)) = plugin_record::plugin_of(&candidate.artifact) else {
+            continue;
+        };
+        let needs = needs_for(root, preview, candidate);
+        let support = plugin_record::expand(root, &folder, &needs);
+        let mut artifact = candidate.artifact.clone();
+        plugin_record::stamp(&mut artifact, &needs);
+        out.stored.push((candidate.id.clone(), artifact, support));
+        match union.iter_mut().find(|(_, f, _)| *f == folder) {
+            Some((_, _, all)) => all.extend(needs),
+            None => union.push((name, folder, needs)),
+        }
+    }
+    for (name, folder, needs) in union {
+        out.records
+            .push(plugin_record::build(root, &folder, &name, &needs, max)?);
+    }
+    Ok(out)
 }
 
 #[cfg(test)]

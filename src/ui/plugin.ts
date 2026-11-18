@@ -55,23 +55,9 @@ export function wholeText(note: WholeNote): string {
   const why = note.reason;
   switch (why.type) {
     case "wholeOnlyParts":
-      return `Has ${join(why.parts)}: they only work inside the plugin.`;
-    case "pluginOnlyKey": {
-      const { key } = why;
-      return `Its manifest has \`${key}\`, which only means something inside the plugin.`;
-    }
-    case "unknownKey": {
-      const { key } = why;
-      return `Its manifest has \`${key}\`, which Harneo does not know, so it cannot tell a copy would work.`;
-    }
-    case "pluginVariable":
-      return `Its ${join(why.parts)} use \`${why.variable}\`, which only resolves inside the plugin.`;
-    case "namespacedSelfReference":
-      return `Its ${join(why.parts)} call other parts of the plugin by their \`plugin:name\`, which a copy loses.`;
-    case "agentField":
-      return `An agent sets \`${why.field}\`, which Claude Code ignores in a plugin but runs when copied.`;
+      return `Has ${join(why.parts)}, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.`;
     case "noParts":
-      return "It has no skills, agents, commands, output styles or MCP servers to unpack.";
+      return "It has no skills, agents, commands or output styles to unpack.";
     case "remoteOnly":
       return "Its files live in another repo that is never fetched, so it can only be taken whole.";
   }

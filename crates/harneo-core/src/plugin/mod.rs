@@ -1,12 +1,11 @@
-//! Plugins in one place: what a plugin holds, and whether it must stay whole (ADR-004).
+//! Plugins in one place: what a plugin holds, and whether it stays whole (ADR-008).
 //!
-//! A plugin's parts are the pickable ones (skills, agents, commands, output styles and MCP
-//! servers, which work the same as loose files) and the whole-only ones (hooks, monitors, LSP
-//! servers, mods, `bin/`, themes, workflows and the plugin's own `settings.json`), which Claude
-//! Code wires only inside a plugin. A plugin must stay whole when it holds a whole-only part,
-//! when a pickable part refers outside itself through `${CLAUDE_PLUGIN_ROOT}`, or when it is a
-//! remote-only marketplace entry whose files are never fetched. ADR-006 turned this into an
-//! allow-list: any plugin that is not known to work as a copy stays whole.
+//! Any plugin can be split: import offers its parts (skills, agents, commands, output styles),
+//! each kept or dropped, and a profile scaffolds the kept ones as a trimmed plugin under
+//! `.claude/skills/`. Only a plugin with features such a plugin does not load stays whole:
+//! `monitors`, MCP servers (`mcpServers`, `.mcp.json`) and LSP servers (`lspServers`,
+//! `.lsp.json`). A remote-only marketplace entry (its files are never fetched) can only be whole
+//! too. A whole plugin installs from its marketplace.
 //!
 //! The reading of a plugin folder stays with the Claude adapter (`artifact::claude`); this module
 //! answers the questions on top of it and has no dependency on the library.
@@ -16,7 +15,6 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-use crate::artifact::claude::unpack_plugin;
 use crate::artifact::walk::Walker;
 use crate::artifact::{Artifact, ArtifactKind};
 
@@ -59,17 +57,6 @@ impl PluginPart {
             Self::Settings => "settings",
         }
     }
-
-    fn of_kind(kind: ArtifactKind) -> Option<Self> {
-        match kind {
-            ArtifactKind::Skill => Some(Self::Skills),
-            ArtifactKind::Agent => Some(Self::Agents),
-            ArtifactKind::Command => Some(Self::Commands),
-            ArtifactKind::OutputStyle => Some(Self::OutputStyles),
-            ArtifactKind::Mcp => Some(Self::McpServers),
-            _ => None,
-        }
-    }
 }
 
 /// Why a plugin has to be taken whole.
@@ -77,29 +64,11 @@ impl PluginPart {
 #[serde(tag = "type", rename_all = "camelCase")]
 #[ts(export, rename_all = "camelCase")]
 pub enum WholeReason {
-    /// It holds parts that only work inside a plugin.
+    /// It holds features a plugin under `.claude/skills/` does not load (monitors, MCP servers,
+    /// LSP servers), so it installs from its marketplace.
     #[serde(rename_all = "camelCase")]
     #[ts(rename_all = "camelCase")]
     WholeOnlyParts { parts: Vec<PluginPart> },
-    /// Its manifest holds a key that only means something inside a plugin (`userConfig`,
-    /// `dependencies`, `channels`, `types`, `experimental`).
-    PluginOnlyKey { key: String },
-    /// Its manifest holds a key Harneo does not know, so it cannot tell it is safe to copy.
-    UnknownKey { key: String },
-    /// Some parts' files use a plugin variable (`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`,
-    /// `${user_config.…}`), which resolves only inside a plugin, wherever it points.
-    #[serde(rename_all = "camelCase")]
-    #[ts(rename_all = "camelCase")]
-    PluginVariable {
-        variable: String,
-        parts: Vec<PluginPart>,
-    },
-    /// Some parts name another part of the plugin by its namespaced name, which a copy loses.
-    #[serde(rename_all = "camelCase")]
-    #[ts(rename_all = "camelCase")]
-    NamespacedSelfReference { parts: Vec<PluginPart> },
-    /// An agent sets a field Claude Code ignores in a plugin but runs from `.claude/agents/`.
-    AgentField { field: String },
     /// A marketplace entry pointing to another repo, which is never fetched.
     RemoteOnly,
     /// It has no skills, agents, commands, output styles or MCP servers to unpack. Only the
@@ -113,30 +82,12 @@ impl WholeReason {
         match self {
             Self::WholeOnlyParts { parts } => {
                 format!(
-                    "Has {}: they only work inside the plugin.",
+                    "Has {}, which a plugin scaffolded under .claude/skills/ does not load, so it stays whole and installs from its marketplace.",
                     join(parts)
                 )
             }
-            Self::PluginOnlyKey { key } => format!(
-                "Its manifest has `{key}`, which only means something inside the plugin."
-            ),
-            Self::UnknownKey { key } => format!(
-                "Its manifest has `{key}`, which Harneo does not know, so it cannot tell a copy would work."
-            ),
-            Self::PluginVariable { variable, parts } => format!(
-                "Its {} use `{variable}`, which only resolves inside the plugin.",
-                join(parts)
-            ),
-            Self::NamespacedSelfReference { parts } => format!(
-                "Its {} call other parts of the plugin by their `plugin:name`, which a copy loses.",
-                join(parts)
-            ),
-            Self::AgentField { field } => format!(
-                "An agent sets `{field}`, which Claude Code ignores in a plugin but runs when copied."
-            ),
             Self::NoParts => {
-                "It has no skills, agents, commands, output styles or MCP servers to unpack."
-                    .to_owned()
+                "It has no skills, agents, commands or output styles to unpack.".to_owned()
             }
             Self::RemoteOnly => {
                 "Its files live in another repo that is never fetched, so it can only be taken whole."
@@ -238,206 +189,36 @@ fn declared(plugin: &Artifact, field: &str) -> bool {
             .is_some_and(|e| e.get(field).is_some())
 }
 
-/// True when the plugin's scoped files hold `rel` or anything below it.
-fn has_files(plugin: &Artifact, rel: &str) -> bool {
-    let base = Path::new(&plugin.path).join(rel);
-    plugin.files.iter().any(|f| Path::new(f).starts_with(&base))
-}
-
-/// The parts that only work inside a plugin, which `plugin` holds.
-fn whole_only_parts(walker: &mut Walker, plugin: &Artifact) -> Vec<PluginPart> {
+/// The features that keep a plugin whole (ADR-008) which `plugin` holds: monitors, MCP servers
+/// and LSP servers, declared in the manifest or present at the default place.
+fn kept_whole_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
     let present = [
-        (PluginPart::Hooks, "hooks", "hooks/hooks.json"),
+        (PluginPart::McpServers, "mcpServers", ".mcp.json"),
         (PluginPart::Monitors, "monitors", "monitors/monitors.json"),
         (PluginPart::LspServers, "lspServers", ".lsp.json"),
-        (PluginPart::Bin, "bin", "bin"),
-        (PluginPart::Themes, "themes", "themes"),
-        (PluginPart::Workflows, "workflows", "workflows"),
-        (PluginPart::Settings, "settings", "settings.json"),
     ];
     let mut out: Vec<PluginPart> = present
         .into_iter()
-        .filter(|(_, field, default)| declared(plugin, field) || has_files(plugin, default))
+        .filter(|(_, field, default)| {
+            declared(plugin, field) || walker.is_file(&Path::new(&plugin.path).join(default))
+        })
         .map(|(part, _, _)| part)
         .collect();
-    // A mod is a hooks module: Claude Code reads it from `hooks/hooks.json`'s `modules` list
-    // (`{ "modules": ["./register.tsx"] }`), next to or instead of ordinary hooks.
-    let hooks_json = Path::new(&plugin.path).join("hooks/hooks.json");
-    let json = walker
-        .read_text(&hooks_json, &mut Vec::new())
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok());
-    if json.as_ref().is_some_and(|j| j.get("modules").is_some()) {
-        out.push(PluginPart::Mods);
-        // A `hooks.json` that only lists modules holds mods, not ordinary hooks.
-        let ordinary =
-            declared(plugin, "hooks") || json.as_ref().is_some_and(|j| j.get("hooks").is_some());
-        if !ordinary {
-            out.retain(|p| *p != PluginPart::Hooks);
-        }
-    }
     out.sort();
     out
 }
 
-/// Manifest keys Claude Code does not act on, plus the component keys that ADR-006 allows.
-const ALLOWED_KEYS: [&str; 22] = [
-    "name",
-    "displayName",
-    "version",
-    "description",
-    "author",
-    "homepage",
-    "repository",
-    "license",
-    "keywords",
-    "metadata",
-    "icon",
-    "$schema",
-    "documentationUrl",
-    "supportUrl",
-    "privacyPolicyUrl",
-    "termsOfServiceUrl",
-    "defaultEnabled",
-    "skills",
-    "agents",
-    "commands",
-    "outputStyles",
-    "mcpServers",
-];
-
-/// Keys that only mean something inside a plugin.
-const PLUGIN_ONLY_KEYS: [&str; 5] = [
-    "userConfig",
-    "dependencies",
-    "channels",
-    "types",
-    "experimental",
-];
-
-/// Rule 2: the first manifest key that is neither metadata nor a component key. A marketplace
-/// entry's own fields (`source`, `category`...) are not plugin keys: only `plugin.json` and the
-/// plugin-only keys an entry carries are judged.
-fn manifest_key(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
-    let manifest = crate::artifact::claude::plugin_manifest_path(Path::new(&plugin.path));
-    let on_disk = walker
-        .read_text(&manifest, &mut Vec::new())
-        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok());
-    // Without a `plugin.json` on disk (Claude Code allows a plugin without one), the metadata
-    // holds Harneo's own keys (`layoutBy`, `pluginId`, `source`...): only plugin-only keys count.
-    let mut keys: Vec<String> = match on_disk {
-        Some(serde_json::Value::Object(map)) => map.keys().cloned().collect(),
-        _ => Vec::new(),
-    };
-    keys.extend(
-        plugin
-            .metadata
-            .keys()
-            .filter(|k| PLUGIN_ONLY_KEYS.contains(&k.as_str()))
-            .cloned(),
-    );
-    keys.sort();
-    keys.dedup();
-    let key = keys
-        .into_iter()
-        .find(|k| !ALLOWED_KEYS.contains(&k.as_str()))?;
-    Some(if PLUGIN_ONLY_KEYS.contains(&key.as_str()) {
-        WholeReason::PluginOnlyKey { key }
-    } else {
-        WholeReason::UnknownKey { key }
-    })
-}
-
-const VARIABLES: [&str; 3] = [
-    "${CLAUDE_PLUGIN_ROOT}",
-    "${CLAUDE_PLUGIN_DATA}",
-    "${user_config.",
-];
-
-/// True when `text` holds `<plugin>:<name>` (as the whole token) for a part `name`, or
-/// `mcp__plugin_<plugin>_`.
-fn names_a_part(text: &str, plugin: &str, names: &[&str]) -> bool {
-    let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
-    if text.contains(&format!("mcp__plugin_{plugin}_")) {
-        return true;
-    }
-    let prefix = format!("{plugin}:");
-    text.match_indices(&prefix).any(|(at, _)| {
-        if text[..at].chars().next_back().is_some_and(is_name) {
-            return false;
-        }
-        let rest = &text[at + prefix.len()..];
-        names.iter().any(|n| {
-            rest.strip_prefix(n)
-                .is_some_and(|after| !after.chars().next().is_some_and(is_name))
-        })
-    })
-}
-
-/// Rules 4 to 6, over the parts `plugin` unpacks into.
-fn parts_reason(walker: &mut Walker, plugin: &Artifact, parts: &[Artifact]) -> Option<WholeReason> {
-    let names: Vec<&str> = parts.iter().map(|p| p.name.as_str()).collect();
-    let mut variable: Option<(&str, Vec<PluginPart>)> = None;
-    let mut referencing = Vec::new();
-    for part in parts {
-        let Some(kind) = PluginPart::of_kind(part.kind) else {
-            continue;
-        };
-        for file in &part.files {
-            let Some(text) = walker.read_text(Path::new(file), &mut Vec::new()) else {
-                continue;
-            };
-            if let Some(v) = VARIABLES.iter().find(|v| text.contains(**v)) {
-                let (found, kinds) = variable.get_or_insert((v, Vec::new()));
-                if found == v {
-                    kinds.push(kind);
-                }
-            }
-            if names_a_part(&text, &plugin.name, &names) {
-                referencing.push(kind);
-            }
-        }
-    }
-    referencing.sort();
-    referencing.dedup();
-    if let Some((variable, mut kinds)) = variable {
-        kinds.sort();
-        kinds.dedup();
-        return Some(WholeReason::PluginVariable {
-            variable: variable.to_owned(),
-            parts: kinds,
-        });
-    }
-    if !referencing.is_empty() {
-        return Some(WholeReason::NamespacedSelfReference { parts: referencing });
-    }
-    parts
-        .iter()
-        .filter(|p| p.kind == ArtifactKind::Agent)
-        .flat_map(|p| ["hooks", "mcpServers", "permissionMode"].map(|f| (p, f)))
-        .find(|(p, f)| p.metadata.contains_key(*f))
-        .map(|(_, field)| WholeReason::AgentField {
-            field: field.to_owned(),
-        })
-}
-
-/// Why `plugin` can only be taken whole, or `None` when every part is known to work as a copy
-/// (ADR-006). The first rule that fails is reported.
-pub(crate) fn must_stay_whole(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
+/// Why `plugin` stays whole, or `None` when it can be split into parts (ADR-008). Any plugin can
+/// be split except a remote-only entry and one with monitors, MCP servers or LSP servers.
+pub(crate) fn kept_whole(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {
     if plugin.kind != ArtifactKind::Plugin {
         return None;
     }
     if is_remote_only(plugin) {
         return Some(WholeReason::RemoteOnly);
     }
-    let whole_only = whole_only_parts(walker, plugin);
-    if !whole_only.is_empty() {
-        return Some(WholeReason::WholeOnlyParts { parts: whole_only });
-    }
-    if let Some(reason) = manifest_key(walker, plugin) {
-        return Some(reason);
-    }
-    let parts = unpack_plugin(walker, plugin, &mut Vec::new());
-    parts_reason(walker, plugin, &parts)
+    let kept = kept_whole_parts(walker, plugin);
+    (!kept.is_empty()).then_some(WholeReason::WholeOnlyParts { parts: kept })
 }
 
 #[cfg(test)]

@@ -35,6 +35,6 @@ links: Links,
  */
 manualOnly: boolean, 
 /**
- * Set on a part of an unpacked plugin that must now stay whole (ADR-006): why, as a sentence.
+ * A plugin part imported before the plugin was recorded (ADR-008): *Re-import to update*.
  */
-mustStayWhole?: string, };
+reimportToUpdate?: boolean, };

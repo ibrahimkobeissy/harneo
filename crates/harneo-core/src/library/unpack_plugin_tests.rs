@@ -238,8 +238,8 @@ fn updates_replay_parts_not_the_plugin() -> TestResult {
 }
 
 #[test]
-fn a_plugin_with_hooks_is_refused_with_its_reason_and_nothing_changes() -> TestResult {
-    let mut s = setup(&[("hooks/hooks.json", r#"{"hooks":{}}"#)])?;
+fn a_plugin_with_monitors_is_refused_with_its_reason_and_nothing_changes() -> TestResult {
+    let mut s = setup(&[("monitors/monitors.json", "[]")])?;
     let profile = s.profile("Heavy")?;
     let plan = s.library.unpack_plan(&s.plugin)?;
     let outcome = s.library.unpack_in_library(&s.plugin)?;
@@ -248,10 +248,10 @@ fn a_plugin_with_hooks_is_refused_with_its_reason_and_nothing_changes() -> TestR
         outcome.refused,
         Some(WholeReason::WholeOnlyParts { .. })
     ));
-    assert_eq!(
-        outcome.reason.as_deref(),
-        Some("Has hooks: they only work inside the plugin.")
-    );
+    assert!(outcome
+        .reason
+        .as_deref()
+        .is_some_and(|r| r.starts_with("Has monitors, which")));
     assert!(outcome.parts.is_empty() && outcome.profiles.is_empty());
     assert_eq!(s.rows(), 1);
     assert_eq!(s.library.profile(profile, None)?.version, 1);
@@ -299,26 +299,6 @@ fn the_plan_lists_what_would_change_and_changes_nothing() -> TestResult {
     assert_eq!(s.rows(), 1);
     assert_eq!(s.library.profile(heavy, None)?.version, 1);
     assert_eq!(s.library.harnmap(heavy)?.doc.placements.len(), 1);
-    Ok(())
-}
-
-#[test]
-fn mcp_servers_join_profiles_as_servers() -> TestResult {
-    let mut s = setup(&[(
-        ".mcp.json",
-        r#"{"mcpServers":{"db":{"command":"db-server"}}}"#,
-    )])?;
-    let profile = s.profile("Heavy")?;
-    let outcome = s.library.unpack_in_library(&s.plugin)?;
-    let db = outcome
-        .parts
-        .iter()
-        .find(|p| p.kind == ArtifactKind::Mcp)
-        .ok_or("db")?;
-    let spec = s.library.profile(profile, None)?.spec;
-    assert_eq!(spec.items.len(), 2);
-    assert_eq!(spec.mcp.len(), 1);
-    assert_eq!(spec.mcp[0].artifact, db.id);
     Ok(())
 }
 

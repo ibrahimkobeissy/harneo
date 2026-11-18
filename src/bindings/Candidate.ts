@@ -30,11 +30,11 @@ copies: Array<string>,
  */
 audit: Audit, 
 /**
- * For a Plugin: why it can only be taken whole, when it can (`plugin::must_stay_whole`).
+ * For a Plugin: why it can only be taken whole, when it can (`plugin::kept_whole`).
  */
-mustStayWhole?: WholeReason, 
+keptWhole?: WholeReason, 
 /**
- * The sentence for `must_stay_whole` (`WholeReason::text`), so the UI words it as the core
+ * The sentence for `kept_whole` (`WholeReason::text`), so the UI words it as the core
  * does.
  */
-mustStayWholeText?: string, };
+keptWholeText?: string, };

@@ -2,14 +2,12 @@ import type { Candidate } from "../../bindings/Candidate";
 import type { PluginHold } from "../../bindings/PluginHold";
 import { isPlugin, isRemoteOnlyPath } from "../../ui/plugin";
 
-/** The error the scan puts on a part that only works inside its plugin. */
-const NEEDS_PLUGIN = "plugin.part-needs-plugin";
 /** The note the scan puts on a plugin asked to unpack that has nothing to pick. */
 const NO_PARTS = "plugin.no-parts";
 
-/** What comes only with the whole plugin, as the Choose step words it. */
-export const WHOLE_ONLY =
-  "Hooks, monitors, LSP servers, bin/ and the plugin's settings come only with the whole plugin.";
+/** What the scaffold of a plugin's parts carries, as the Choose step words it (ADR-008). */
+export const PARTS_NOTE =
+  "Kept parts install as a trimmed plugin under .claude/skills/ with the files they need.";
 
 /** A plugin of the preview: whole as one row, or unpacked as its parts. */
 export interface PluginGroup {
@@ -31,14 +29,6 @@ export function fromPlugin(
   const { name, folder } = from as { name?: unknown; folder?: unknown };
   if (typeof folder !== "string") return null;
   return { name: typeof name === "string" ? name : folder, folder };
-}
-
-/** The reason a part cannot leave its plugin, or null when it can. */
-export function needsPlugin(c: Candidate): string | null {
-  const found = c.artifact.diagnostics.find(
-    (d) => d.severity === "error" && d.code === NEEDS_PLUGIN,
-  );
-  return found ? found.message : null;
 }
 
 /** The plugins of a preview in the order they appear, each once. */

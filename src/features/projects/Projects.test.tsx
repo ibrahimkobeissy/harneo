@@ -68,7 +68,6 @@ function plan(over: Partial<Plan> = {}): Plan {
     editedInProject: [".claude/agents/old.md"],
     restored: [],
     warnings: [],
-    stayWhole: [],
     writes: [
       {
         path: ".claude/skills/new/SKILL.md",

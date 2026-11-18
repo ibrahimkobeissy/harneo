@@ -183,7 +183,6 @@ impl Library {
         };
         Ok(Plan {
             warnings: self.plugin_warnings(&view.spec)?,
-            stay_whole: self.stay_whole_warnings(&view.spec)?,
             target: project.path,
             profile_id,
             reason,

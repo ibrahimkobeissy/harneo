@@ -296,7 +296,7 @@ fn a_skills_only_pack_imports_as_ordinary_artifacts_with_audit_tags_and_bundles(
     assert!(names_of(&preview, ArtifactKind::Plugin).is_empty());
     for c in &preview.candidates {
         assert_eq!(c.artifact.metadata["fromPlugin"]["name"], "agent-skills");
-        assert!(c.must_stay_whole.is_none() && c.must_stay_whole_text.is_none());
+        assert!(c.kept_whole.is_none() && c.kept_whole_text.is_none());
         assert!(!c.already_in_library);
     }
     let id = |name: &str| -> R<String> {
@@ -368,10 +368,10 @@ fn a_skills_only_pack_imports_as_ordinary_artifacts_with_audit_tags_and_bundles(
     Ok(())
 }
 
-// ---------------------------------------------------------------- 2. hooks / mods / LSP
+// ---------------------------------------------------------------- 2. monitors / MCP / LSP
 
-/// A marketplace of three plugins that only work whole: one with hooks (and a skill), one mod
-/// (a hooks module), one LSP server. The folder has a GitHub `origin`, as a clone would.
+/// A marketplace of three plugins that stay whole (ADR-008): one with monitors (and a skill), one
+/// with an MCP server, one LSP server. The folder has a GitHub `origin`, as a clone would.
 fn mods_marketplace(root: &Path) -> std::io::Result<()> {
     put(
         root,
@@ -393,11 +393,7 @@ fn mods_marketplace(root: &Path) -> std::io::Result<()> {
             &format!(r#"{{"name":"{name}"}}"#),
         )?;
     }
-    put(
-        root,
-        "plugins/radar/hooks/hooks.json",
-        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo radar"}]}]}}"#,
-    )?;
+    put(root, "plugins/radar/monitors/monitors.json", "[]")?;
     put(
         root,
         "plugins/radar/skills/radar/SKILL.md",
@@ -405,13 +401,8 @@ fn mods_marketplace(root: &Path) -> std::io::Result<()> {
     )?;
     put(
         root,
-        "plugins/bell/hooks/hooks.json",
-        r#"{"modules":["./register.tsx"]}"#,
-    )?;
-    put(
-        root,
-        "plugins/bell/hooks/register.tsx",
-        "export default {};\n",
+        "plugins/bell/.mcp.json",
+        r#"{"mcpServers":{"bell":{"command":"bell"}}}"#,
     )?;
     put(
         root,
@@ -421,7 +412,7 @@ fn mods_marketplace(root: &Path) -> std::io::Result<()> {
 }
 
 #[test]
-fn hooks_mods_and_lsp_plugins_are_proposed_whole_and_scaffold_enables_them() -> R {
+fn monitors_mcp_and_lsp_plugins_are_proposed_whole_and_scaffold_enables_them() -> R {
     let src = tempfile::tempdir()?;
     mods_marketplace(src.path())?;
     let mut lab = Lab::new()?;
@@ -435,35 +426,18 @@ fn hooks_mods_and_lsp_plugins_are_proposed_whole_and_scaffold_enables_them() -> 
     assert!(names_of(&preview, ArtifactKind::Skill).is_empty());
     let reason = |name: &str| -> R<(Option<WholeReason>, Option<String>)> {
         let c = plugin_candidate(&preview, name)?;
-        Ok((c.must_stay_whole.clone(), c.must_stay_whole_text.clone()))
+        Ok((c.kept_whole.clone(), c.kept_whole_text.clone()))
     };
-    assert_eq!(
-        reason("radar")?,
-        (
-            Some(WholeReason::WholeOnlyParts {
-                parts: vec![PluginPart::Hooks]
-            }),
-            Some("Has hooks: they only work inside the plugin.".to_owned())
-        )
-    );
-    assert_eq!(
-        reason("bell")?,
-        (
-            Some(WholeReason::WholeOnlyParts {
-                parts: vec![PluginPart::Mods]
-            }),
-            Some("Has mods: they only work inside the plugin.".to_owned())
-        )
-    );
-    assert_eq!(
-        reason("lint-lsp")?,
-        (
-            Some(WholeReason::WholeOnlyParts {
-                parts: vec![PluginPart::LspServers]
-            }),
-            Some("Has LSP servers: they only work inside the plugin.".to_owned())
-        )
-    );
+    for (name, part) in [
+        ("radar", PluginPart::Monitors),
+        ("bell", PluginPart::McpServers),
+        ("lint-lsp", PluginPart::LspServers),
+    ] {
+        let (found, text) = reason(name)?;
+        let expected = WholeReason::WholeOnlyParts { parts: vec![part] };
+        assert_eq!(found, Some(expected.clone()), "{name}");
+        assert_eq!(text, Some(expected.text()), "{name}");
+    }
     lab.import_all(&preview)?;
     assert_eq!(
         lab.held()?,
@@ -556,8 +530,8 @@ fn mixed_plugin(root: &Path) -> std::io::Result<()> {
     }
     put(
         root,
-        "hooks/hooks.json",
-        r#"{"hooks":{"PreToolUse":[{"hooks":[{"type":"command","command":"echo hi"}]}]}}"#,
+        ".mcp.json",
+        r#"{"mcpServers":{"db":{"command":"db"}}}"#,
     )?;
     put(root, "monitors/monitors.json", "[]")
 }
@@ -571,26 +545,26 @@ fn a_mixed_plugin_is_whole_by_default_and_cannot_be_unpacked() -> R {
     let preview = lab.library.preview(&local(src.path()))?;
     let plugin = plugin_candidate(&preview, "mixed")?;
     assert_eq!(
-        plugin.must_stay_whole,
+        plugin.kept_whole,
         Some(WholeReason::WholeOnlyParts {
-            parts: vec![PluginPart::Hooks, PluginPart::Monitors]
+            parts: vec![PluginPart::McpServers, PluginPart::Monitors]
         })
     );
-    assert_eq!(
-        plugin.must_stay_whole_text.as_deref(),
-        Some("Has hooks and monitors: they only work inside the plugin.")
-    );
+    assert!(plugin
+        .kept_whole_text
+        .as_deref()
+        .is_some_and(|t| t.starts_with("Has MCP servers and monitors, which")));
     assert!(names_of(&preview, ArtifactKind::Skill).is_empty());
 
-    // Asking to unpack it changes nothing (ADR-006): the mixed plugin stays whole, with its reason.
+    // Asking to unpack it changes nothing (ADR-008): the mixed plugin stays whole, with its reason.
     let asked = lab
         .library
         .preview_with(&local(src.path()), &unpack_options(""))?;
     assert_eq!(names_of(&asked, ArtifactKind::Plugin), ["mixed"]);
     assert!(names_of(&asked, ArtifactKind::Skill).is_empty());
     assert_eq!(
-        plugin_candidate(&asked, "mixed")?.must_stay_whole,
-        plugin.must_stay_whole
+        plugin_candidate(&asked, "mixed")?.kept_whole,
+        plugin.kept_whole
     );
 
     // The same plugin held whole in another library cannot be unpacked in place either.
@@ -598,7 +572,7 @@ fn a_mixed_plugin_is_whole_by_default_and_cannot_be_unpacked() -> R {
     other.import_all(&preview)?;
     let id = other.id(ArtifactKind::Plugin, "mixed")?;
     let outcome = other.library.unpack_in_library(&id)?;
-    assert_eq!(outcome.refused, plugin.must_stay_whole);
+    assert_eq!(outcome.refused, plugin.kept_whole);
     assert!(other.library.detail(&id).is_ok());
     Ok(())
 }
@@ -606,7 +580,7 @@ fn a_mixed_plugin_is_whole_by_default_and_cannot_be_unpacked() -> R {
 // ---------------------------------------------------------------- 4. root tie, remote only
 
 #[test]
-fn a_part_tied_to_the_plugin_root_and_a_remote_only_entry_stay_whole() -> R {
+fn a_part_tied_to_the_plugin_root_is_offered_and_a_remote_only_entry_stays_whole() -> R {
     let src = tempfile::tempdir()?;
     put(
         src.path(),
@@ -628,33 +602,19 @@ fn a_part_tied_to_the_plugin_root_and_a_remote_only_entry_stay_whole() -> R {
     put(src.path(), "plugins/tied/shared/tool.sh", "echo hi\n")?;
     let mut lab = Lab::new()?;
 
+    // The plugin root is no reason to keep a plugin whole: its skill is a part.
     let preview = lab.library.preview(&local(src.path()))?;
-    assert_eq!(names_of(&preview, ArtifactKind::Plugin), ["far", "tied"]);
-    assert!(names_of(&preview, ArtifactKind::Skill).is_empty());
-    let tied = plugin_candidate(&preview, "tied")?;
-    assert_eq!(
-        tied.must_stay_whole,
-        Some(WholeReason::PluginVariable {
-            variable: "${CLAUDE_PLUGIN_ROOT}".to_owned(),
-            parts: vec![PluginPart::Skills]
-        })
-    );
+    assert_eq!(names_of(&preview, ArtifactKind::Plugin), ["far"]);
+    assert_eq!(names_of(&preview, ArtifactKind::Skill), ["runner"]);
     let far = plugin_candidate(&preview, "far")?;
-    assert_eq!(far.must_stay_whole, Some(WholeReason::RemoteOnly));
+    assert_eq!(far.kept_whole, Some(WholeReason::RemoteOnly));
     assert_eq!(
-        far.must_stay_whole_text.as_deref(),
+        far.kept_whole_text.as_deref(),
         Some(
             "Its files live in another repo that is never fetched, so it can only be taken whole."
         )
     );
 
-    // Even asking to unpack them leaves them whole, each with a warning.
-    let asked = lab
-        .library
-        .preview_with(&local(src.path()), &unpack_options("plugins/tied"))?;
-    assert!(names_of(&asked, ArtifactKind::Plugin).contains(&"far".to_owned()));
-    assert!(names_of(&asked, ArtifactKind::Skill).is_empty());
-    assert!(plugin_candidate(&asked, "tied")?.must_stay_whole.is_some());
     let far_path = far.artifact.path.clone();
     let remote = ScanOptions {
         unpack: vec![far_path],
@@ -668,18 +628,13 @@ fn a_part_tied_to_the_plugin_root_and_a_remote_only_entry_stay_whole() -> R {
         .iter()
         .any(|d| d.code == "plugin.unpack-remote-only"));
 
-    // Held whole, the library refuses to unpack both, with their reasons.
+    // Held whole, the library refuses to unpack the remote-only entry, with its reason.
     lab.import_all(&preview)?;
-    for (name, reason) in [
-        ("tied", tied.must_stay_whole.clone()),
-        ("far", far.must_stay_whole.clone()),
-    ] {
-        let id = lab.id(ArtifactKind::Plugin, name)?;
-        let outcome = lab.library.unpack_in_library(&id)?;
-        assert_eq!(outcome.refused, reason, "{name}");
-        assert!(outcome.parts.is_empty());
-        assert!(lab.library.detail(&id).is_ok());
-    }
+    let id = lab.id(ArtifactKind::Plugin, "far")?;
+    let outcome = lab.library.unpack_in_library(&id)?;
+    assert_eq!(outcome.refused, far.kept_whole);
+    assert!(outcome.parts.is_empty());
+    assert!(lab.library.detail(&id).is_ok());
     Ok(())
 }
 
@@ -1493,7 +1448,9 @@ fn clear_calls(dir: &Path) -> R {
 fn downgrade_to_v10(data: &Path) -> R {
     let conn = rusqlite::Connection::open(data.join("library/library.db"))?;
     conn.execute_batch(
-        "DROP TABLE harnmap_draws;
+        "DROP TABLE plugin_files;
+         DROP TABLE plugin_records;
+         DROP TABLE harnmap_draws;
          DROP TABLE harnfit_fits;
          ALTER TABLE profiles DROP COLUMN category;
          ALTER TABLE profiles DROP COLUMN category_note;

@@ -103,6 +103,11 @@ pub(crate) fn fill(walker: &mut Walker<'_>, options: &ScanOptions, report: &mut 
         let Some(prefix) = code_prefix(artifact.kind) else {
             continue;
         };
+        // A plugin's part gets what it needs from Claude's answer, stored with the plugin
+        // (ADR-008), not from links in its text.
+        if artifact.metadata.contains_key("fromPlugin") {
+            continue;
+        }
         let own = artifact
             .path
             .split('#')

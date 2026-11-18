@@ -3,14 +3,7 @@ import { useState } from "react";
 import type { Plan } from "../../bindings/Plan";
 import type { RefitAction } from "../../bindings/RefitAction";
 import type { Row } from "../../bindings/Row";
-import {
-  Callout,
-  CodeView,
-  FileTree,
-  markOf,
-  PluginNotice,
-  StayWholeNotice,
-} from "../../ui";
+import { Callout, CodeView, FileTree, markOf, PluginNotice } from "../../ui";
 import styles from "./Refit.module.css";
 import { baseName, criticalLosses, lossText, lossUnit } from "./summary";
 
@@ -92,7 +85,6 @@ export function PreviewStep({
         </Callout>
       )}
       <PluginNotice plan={plan} />
-      <StayWholeNotice warnings={plan.stayWhole} />
       <div className={styles.split}>
         <FileTree
           label="Files to change"

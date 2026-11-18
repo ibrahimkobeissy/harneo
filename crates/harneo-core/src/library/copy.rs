@@ -337,7 +337,7 @@ fn io_error(path: &Path, source: io::Error) -> Error {
 }
 
 /// Why `rel` (under `root`) must not be copied, or `None` for a regular file that may be.
-fn refusal(root: &Path, rel: &str, max_file_bytes: u64) -> Result<Option<SkipReason>> {
+pub(crate) fn refusal(root: &Path, rel: &str, max_file_bytes: u64) -> Result<Option<SkipReason>> {
     let parts = plain_components(rel)?;
     // No folder on the way may be a symlink: the scan never followed one.
     let mut current = root.to_path_buf();

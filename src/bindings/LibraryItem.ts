@@ -60,6 +60,7 @@ manualOnly: boolean,
  */
 fromPlugin?: string, 
 /**
- * Why the plugin an unpacked part came from must now stay whole (ADR-006), as a sentence.
+ * A part imported before the plugin was recorded (ADR-008): it has no supporting paths or
+ * manifest to update from, so it installs as a loose copy until it is imported again.
  */
-mustStayWhole?: string, };
+reimportToUpdate?: boolean, };

@@ -382,9 +382,31 @@ const V15: &str = "
 ALTER TABLE sources ADD COLUMN layout_parts TEXT;
 ";
 
+/// ADR-008: the record of a plugin whose parts the library holds (its name and manifest, per
+/// source and plugin folder) and the supporting files its parts need, stored once per plugin.
+/// Deleting a source removes both.
+const V16: &str = "
+CREATE TABLE plugin_records (
+    source_id TEXT NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+    folder    TEXT NOT NULL,
+    name      TEXT NOT NULL,
+    manifest  TEXT NOT NULL,
+    PRIMARY KEY (source_id, folder)
+) STRICT;
+CREATE TABLE plugin_files (
+    source_id  TEXT NOT NULL,
+    folder     TEXT NOT NULL,
+    path       TEXT NOT NULL,
+    bytes      BLOB NOT NULL,
+    executable INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (source_id, folder, path),
+    FOREIGN KEY (source_id, folder) REFERENCES plugin_records(source_id, folder) ON DELETE CASCADE
+) STRICT;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
 const MIGRATIONS: &[&str] = &[
-    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15,
+    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16,
 ];
 
 /// The schema version this build writes.

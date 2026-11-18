@@ -24,6 +24,7 @@ use crate::audit::{self, Audit};
 use crate::error::{Error, Result};
 use crate::library::git::GitConfig;
 use crate::library::layout_claude::{StoredClaude, StoredLayout};
+use crate::library::plugin_record;
 use crate::library::records::{self, SourceRecord};
 use crate::library::{copy_artifact, copy_limit, ImportHooks, Library, NoHooks};
 
@@ -100,6 +101,8 @@ pub struct UpdateJob {
     protect_edits: bool,
     /// What the user was shown, to be unchanged when the update is applied.
     seen: Seen,
+    /// The supporting paths a plugin part records (ADR-008), read again from the source.
+    plugin_needs: Option<Vec<String>>,
 }
 
 /// The state the update was prepared against: the `upstream` row and the library copy.
@@ -123,6 +126,8 @@ pub struct PreparedUpdate {
     versions: (Option<String>, Option<String>),
     protect_edits: bool,
     seen: Seen,
+    /// A plugin part's record, read again from the source: saved with the part.
+    plugin: Option<(String, plugin_record::Built)>,
 }
 
 fn io_error(path: &Path, source: io::Error) -> Error {
@@ -187,6 +192,24 @@ impl UpdateJob {
             hooks,
             copy_limit(self.large_files),
         )?;
+        // ADR-008: the part keeps its plugin and supporting paths, and the plugin's record takes
+        // the supporting files of the new version.
+        let mut plugin = None;
+        if let (Some(needs), Some((name, folder))) =
+            (&self.plugin_needs, plugin_record::plugin_of(&artifact))
+        {
+            plugin_record::stamp(&mut artifact, needs);
+            plugin = Some((
+                self.source.id.clone(),
+                plugin_record::build(
+                    &located.root,
+                    &folder,
+                    &name,
+                    needs,
+                    copy_limit(self.large_files),
+                )?,
+            ));
+        }
         let mut audit = audit::audit(&artifact, &located.root, &ScanOptions::default());
         audit
             .unaudited
@@ -208,6 +231,7 @@ impl UpdateJob {
             versions: self.versions.clone(),
             protect_edits: self.protect_edits,
             seen: self.seen.clone(),
+            plugin,
         })
     }
 }
@@ -284,7 +308,7 @@ impl Library {
                 .into_iter()
                 .collect(),
             ignore: Vec::new(),
-            unpack: crate::library::whole::held_folders(
+            unpack: crate::library::unpack::held_folders(
                 &self.store.conn,
                 &detail.provenance.source.id,
             )?,
@@ -307,6 +331,7 @@ impl Library {
             versions: (from, to),
             protect_edits,
             seen,
+            plugin_needs: plugin_record::needs_of(&detail.artifact),
         })
     }
 
@@ -464,6 +489,9 @@ impl Library {
                 return Err(Error::NotInLibrary { id: id.to_owned() });
             }
             records::update_audit(&tx, id, &prepared.audit, now)?;
+            if let Some((source_id, built)) = &prepared.plugin {
+                plugin_record::save(&tx, source_id, built)?;
+            }
             record_copy_digest(&tx, id, &prepared.copy_digest)?;
             tx.execute("DELETE FROM upstream WHERE artifact_id = ?1", params![id])?;
             // What the new version references replaces what the old one did; links the user
