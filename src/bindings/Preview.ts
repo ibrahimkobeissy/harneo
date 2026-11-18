@@ -4,6 +4,7 @@ import type { Diagnostic } from "./Diagnostic";
 import type { IgnoredPath } from "./IgnoredPath";
 import type { NeedsBy } from "./NeedsBy";
 import type { PartNeeds } from "./PartNeeds";
+import type { PartRef } from "./PartRef";
 import type { Source } from "./Source";
 
 /**
@@ -34,4 +35,9 @@ partNeeds: Array<PartNeeds>,
 /**
  * Paths Claude said no part needs (docs, tests, CI...).
  */
-notNeeded: Array<IgnoredPath>, needsBy?: NeedsBy, };
+notNeeded: Array<IgnoredPath>, needsBy?: NeedsBy, 
+/**
+ * Which parts of a plugin name which (ADR-008): the window shows a kept part that names a
+ * dropped one.
+ */
+partRefs: Array<PartRef>, };

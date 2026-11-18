@@ -40,6 +40,7 @@ export {
   type ProposalGroup,
   type ProposalState,
 } from "./Proposals";
+export { PartNeedsNotice, type PartNeedRow } from "./PartNeedsNotice";
 export { Callout } from "./Callout";
 export { CodeView, decodeText } from "./CodeView";
 export {

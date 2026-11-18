@@ -74,6 +74,7 @@ const preview = (extra: Candidate[] = []): Preview => ({
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
   candidates: [
     cand("calm", "trusted", 100),
     cand(

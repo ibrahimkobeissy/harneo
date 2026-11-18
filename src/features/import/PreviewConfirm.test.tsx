@@ -66,6 +66,7 @@ const ticket = {
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
   candidates: [
     cand("session-radar", audit(10, "dangerous", [flagged, flagged])),
     cand("wild", audit(70, "review", [{ ...flagged, severity: "medium" }])),

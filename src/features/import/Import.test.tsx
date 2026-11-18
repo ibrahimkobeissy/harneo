@@ -55,6 +55,7 @@ const preview: Preview = {
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
   candidates: [
     candidate("alpha", { suggestedTags: ["review", "docs"] }),
     candidate("beta", { alreadyInLibrary: true }),

@@ -218,6 +218,27 @@ fn kept_whole_parts(walker: &Walker, plugin: &Artifact) -> Vec<PluginPart> {
     out
 }
 
+/// The names that follow `<plugin>:` in `text`, as the whole token: `agent-skills:build` and
+/// `/agent-skills:build` both name `build`, while `my-agent-skills:build` names nothing.
+pub(crate) fn namespaced_uses(text: &str, plugin: &str) -> std::collections::BTreeSet<String> {
+    let is_name = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
+    let prefix = format!("{plugin}:");
+    let mut found = std::collections::BTreeSet::new();
+    for (at, _) in text.match_indices(&prefix) {
+        if text[..at].chars().next_back().is_some_and(is_name) {
+            continue;
+        }
+        let rest = &text[at + prefix.len()..];
+        let end = rest.find(|c: char| !is_name(c)).unwrap_or(rest.len());
+        // A trailing `-` or `_` is prose punctuation, not part of a name.
+        let name = rest[..end].trim_end_matches(['-', '_']);
+        if !name.is_empty() {
+            found.insert(name.to_owned());
+        }
+    }
+    found
+}
+
 /// Why `plugin` stays whole, or `None` when it can be split into parts (ADR-008). Any plugin can
 /// be split except a remote-only entry and one with monitors, MCP servers or LSP servers.
 pub(crate) fn kept_whole(walker: &mut Walker, plugin: &Artifact) -> Option<WholeReason> {

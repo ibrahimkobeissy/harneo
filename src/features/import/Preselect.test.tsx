@@ -50,6 +50,7 @@ function setup(search: string) {
         layoutIgnored: [],
         partNeeds: [],
         notNeeded: [],
+        partRefs: [],
         candidates: [candidate("alpha"), candidate("beta")],
       };
     }

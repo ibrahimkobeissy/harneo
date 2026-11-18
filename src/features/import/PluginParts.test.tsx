@@ -57,6 +57,7 @@ const base: Omit<Preview, "candidates"> = {
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
 };
 
 const whole: Preview = {
@@ -65,6 +66,8 @@ const whole: Preview = {
 };
 const parts: Preview = {
   ...base,
+  // needy names alpha as `toolbox:alpha`.
+  partRefs: [{ from: "id-needy", to: "id-alpha" }],
   candidates: [
     loose,
     candidate("alpha", "skill", "skills/alpha", from),
@@ -346,5 +349,50 @@ describe("the folded summary", () => {
         5,
       ),
     ).toBe("3 of 5 ticked · 2 skills, 1 MCP server, 1 CLAUDE.md, 1 command");
+  });
+});
+
+describe("a kept part that names a dropped one (ADR-008)", () => {
+  const notice = () =>
+    screen.queryByRole("list", { name: "Parts that need a dropped part" });
+
+  it("shows no notice while nothing it names is dropped", async () => {
+    const user = userEvent.setup();
+    setup();
+    await toChoose(user);
+    await user.click(pick());
+    await screen.findByRole("checkbox", { name: /alpha/ });
+    expect(notice()).toBeNull();
+    // Dropping a part nothing names, or the part that names, shows nothing either.
+    await user.click(screen.getByRole("checkbox", { name: /gamma/ }));
+    await user.click(screen.getByRole("checkbox", { name: /needy/ }));
+    await user.click(screen.getByRole("checkbox", { name: /alpha/ }));
+    expect(notice()).toBeNull();
+  });
+
+  it("names the needed part and keeps it in one click", async () => {
+    const user = userEvent.setup();
+    setup();
+    await toChoose(user);
+    await user.click(pick());
+    await user.click(await screen.findByRole("checkbox", { name: /alpha/ }));
+    expect(notice()).toHaveTextContent("needy needs alpha");
+    await user.click(screen.getByRole("button", { name: "Keep alpha" }));
+    expect(screen.getByRole("checkbox", { name: /alpha/ })).toBeChecked();
+    expect(notice()).toBeNull();
+  });
+
+  it("drops both in one click, deciding nothing before", async () => {
+    const user = userEvent.setup();
+    setup();
+    await toChoose(user);
+    await user.click(pick());
+    await user.click(await screen.findByRole("checkbox", { name: /alpha/ }));
+    // Nothing was decided for the user: the part that needs it is still kept.
+    expect(screen.getByRole("checkbox", { name: /needy/ })).toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Drop both" }));
+    expect(screen.getByRole("checkbox", { name: /needy/ })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /alpha/ })).not.toBeChecked();
+    expect(notice()).toBeNull();
   });
 });

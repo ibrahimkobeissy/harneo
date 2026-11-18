@@ -26,6 +26,7 @@ import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { RemovalPlan } from "../bindings/RemovalPlan";
 import type { UnpackOutcome } from "../bindings/UnpackOutcome";
+import type { PartNeed } from "../bindings/PartNeed";
 import type { Page } from "../bindings/Page";
 import type { Query } from "../bindings/Query";
 import type { ReauditReport } from "../bindings/ReauditReport";
@@ -801,6 +802,11 @@ export function profileFromCollection(
 /** What a spec installs: bundles pulled in, Settings, MCP servers, missing ids. */
 export function profileResolve(spec: ProfileSpec): Promise<Resolved> {
   return invoke<Resolved>("profile_resolve", { spec });
+}
+
+/** The plugin parts a spec holds that name a part of their plugin it lacks (ADR-008). */
+export function profilePartNeeds(spec: ProfileSpec): Promise<PartNeed[]> {
+  return invoke<PartNeed[]>("profile_part_needs", { spec });
 }
 
 /** The file tree a spec installs, with conflicts. */

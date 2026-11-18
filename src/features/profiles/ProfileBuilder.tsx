@@ -2,6 +2,7 @@ import { ArrowLeft, TriangleAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router";
 import type { CategoryId } from "../../bindings/CategoryId";
+import type { PartNeed } from "../../bindings/PartNeed";
 import type { Layout } from "../../bindings/Layout";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { ProfileSpec } from "../../bindings/ProfileSpec";
@@ -13,12 +14,19 @@ import {
   profileGet,
   profileLayout,
   profileRename,
+  profilePartNeeds,
   profileResolve,
   profileSetCategory,
   profileSave,
   profilesList,
 } from "../../lib/ipc";
-import { Button, EmptyState, Screen } from "../../ui";
+import {
+  Button,
+  EmptyState,
+  type PartNeedRow,
+  PartNeedsNotice,
+  Screen,
+} from "../../ui";
 import styles from "./Builder.module.css";
 import { Cart } from "./Cart";
 import { CategoryConfirm, CategoryMenu, NewProfileDialog } from "./Category";
@@ -220,6 +228,7 @@ function Builder({
   const templates = useTemplates();
   const [liveResolved, setResolved] = useState<Resolved | null>(null);
   const [liveLayout, setLayout] = useState<Layout | null>(null);
+  const [partNeeds, setPartNeeds] = useState<PartNeed[]>([]);
   const location = useLocation();
   const [notice, setNotice] = useState<Notice | null>(
     (location.state as BuilderState | null)?.notice ?? null,
@@ -258,11 +267,16 @@ function Builder({
     if (isEmpty(spec)) return;
     let stale = false;
     const timer = setTimeout(() => {
-      Promise.all([profileResolve(spec), profileLayout(spec)]).then(
-        ([r, l]) => {
+      Promise.all([
+        profileResolve(spec),
+        profileLayout(spec),
+        profilePartNeeds(spec),
+      ]).then(
+        ([r, l, n]) => {
           if (stale) return;
           setResolved(r);
           setLayout(l);
+          setPartNeeds(Array.isArray(n) ? n : []);
         },
         (err: unknown) => {
           if (!stale) setNotice({ text: String(err), tone: "bad" });
@@ -405,6 +419,24 @@ function Builder({
     }
   }
 
+  /** The kept parts that name a part this profile lacks, each with its two ways out. */
+  const needRows: PartNeedRow[] = isEmpty(spec)
+    ? []
+    : partNeeds.map((n) => ({
+        id: `${n.part}:${n.needs}`,
+        part: n.partName,
+        kind: n.partKind,
+        needs: n.needs,
+        canKeep: n.available !== null,
+        onKeep: () => {
+          const needed = n.available;
+          if (needed === null) return;
+          change((s) => addItem(s, needed));
+          setNotice({ text: `Added ${n.needs}`, tone: "ok" });
+        },
+        onDropBoth: () => removeAll([n.part]),
+      }));
+
   async function save() {
     if (spec.items.length === 0) {
       setNotice({
@@ -522,6 +554,7 @@ function Builder({
           </Button>
         </div>
       )}
+      <PartNeedsNotice rows={needRows} />
       <CategoryMenu
         templates={templates}
         current={isNew ? category : saved.category}

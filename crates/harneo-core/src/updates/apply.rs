@@ -103,6 +103,8 @@ pub struct UpdateJob {
     seen: Seen,
     /// The supporting paths a plugin part records (ADR-008), read again from the source.
     plugin_needs: Option<Vec<String>>,
+    /// The other parts of its plugin the part names, as recorded at import.
+    plugin_uses: Vec<String>,
 }
 
 /// The state the update was prepared against: the `upstream` row and the library copy.
@@ -198,7 +200,7 @@ impl UpdateJob {
         if let (Some(needs), Some((name, folder))) =
             (&self.plugin_needs, plugin_record::plugin_of(&artifact))
         {
-            plugin_record::stamp(&mut artifact, needs);
+            plugin_record::stamp(&mut artifact, needs, &self.plugin_uses);
             plugin = Some((
                 self.source.id.clone(),
                 plugin_record::build(
@@ -332,6 +334,7 @@ impl Library {
             protect_edits,
             seen,
             plugin_needs: plugin_record::needs_of(&detail.artifact),
+            plugin_uses: plugin_record::uses_of(&detail.artifact),
         })
     }
 

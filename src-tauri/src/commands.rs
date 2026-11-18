@@ -21,8 +21,8 @@ use harneo_core::install::{
 };
 use harneo_core::library::{
     ArtifactAudit, ArtifactConfirmation, ArtifactDetail, Collection, ConfirmProgress, ConfirmScope,
-    Filter, ImportReport, LayoutStage, Library, Page, PluginHold, Preview, Query, ReauditReport,
-    RemovalPlan, Source, Tag, TagColor, TagWithCount,
+    Filter, ImportReport, LayoutStage, Library, Page, PartNeed, PluginHold, Preview, Query,
+    ReauditReport, RemovalPlan, Source, Tag, TagColor, TagWithCount,
 };
 use harneo_core::profiles::{
     ExportOptions, Layout, ProfileId, ProfileImportPreview, ProfileImportReport, ProfileSpec,
@@ -1593,6 +1593,15 @@ pub fn profile_resolve(
     spec: ProfileSpec,
 ) -> Result<Resolved, String> {
     state.with(|library| library.resolve(&spec))
+}
+
+/// The plugin parts a spec holds that name a part of their plugin the spec lacks (ADR-008).
+#[tauri::command]
+pub fn profile_part_needs(
+    state: State<'_, LibraryState>,
+    spec: ProfileSpec,
+) -> Result<Vec<PartNeed>, String> {
+    state.with(|library| library.part_needs(&spec))
 }
 
 /// The file tree a spec installs, with conflicts.

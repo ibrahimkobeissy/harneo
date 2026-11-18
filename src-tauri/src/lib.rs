@@ -133,6 +133,7 @@ pub fn run() {
             commands::profile_clone,
             commands::profile_from_collection,
             commands::profile_resolve,
+            commands::profile_part_needs,
             commands::profile_layout,
             commands::profile_export,
             commands::profile_import_preview,

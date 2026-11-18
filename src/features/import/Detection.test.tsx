@@ -48,6 +48,7 @@ const preview: Preview = {
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
   candidates: ["lead", "helper", "other"].map(candidate),
 };
 

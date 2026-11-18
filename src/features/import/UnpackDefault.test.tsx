@@ -60,6 +60,7 @@ const base: Omit<Preview, "candidates"> = {
   layoutIgnored: [],
   partNeeds: [],
   notNeeded: [],
+  partRefs: [],
 };
 const parts: Preview = {
   ...base,

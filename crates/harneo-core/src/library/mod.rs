@@ -39,6 +39,9 @@ pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_parts_tests;
 mod origin;
+mod part_needs;
+#[cfg(test)]
+mod part_needs_tests;
 pub(crate) mod plugin_record;
 #[cfg(test)]
 pub(crate) mod plugin_record_tests;
@@ -90,6 +93,7 @@ pub use copy::{SkipReason, SkippedFile};
 use git::{Checkout, GitConfig};
 pub use layout_claude::{IgnoredPath, LayoutJob, LayoutStage, Proposal};
 pub(crate) use origin::derive_plugin_origin;
+pub use part_needs::PartNeed;
 pub(crate) use query::{manual_only_sql, source_label};
 pub use query::{
     Facets, Filter, KindCount, LibraryItem, Page, Query, SortKey, SourceCount, SourceSummary,
@@ -186,6 +190,11 @@ pub struct Preview {
     #[serde(default)]
     #[ts(skip)]
     pub layout_tree: Vec<String>,
+    /// Which parts of a plugin name which (ADR-008): the window shows a kept part that names a
+    /// dropped one.
+    #[serde(default)]
+    #[ts(optional = false)]
+    pub part_refs: Vec<layout_parts::PartRef>,
 }
 
 /// What an import did.
@@ -435,7 +444,9 @@ gone or no longer parses",
             (needs, Some(layout_parts::NeedsBy::Stored), now)
         };
         diagnostics.extend(preview_notes);
+        let part_refs = layout_parts::refs(root, &candidates);
         Ok(Preview {
+            part_refs,
             part_needs,
             needs_by,
             layout_tree,
@@ -1231,6 +1242,8 @@ fn plugin_parts_of(
         records: Vec::new(),
     };
     let mut union: Vec<(String, String, Vec<String>)> = Vec::new();
+    // Recomputed from the files: the preview came back over IPC.
+    let refs = layout_parts::refs(root, &preview.candidates);
     for candidate in fresh {
         let Some((name, folder)) = plugin_record::plugin_of(&candidate.artifact) else {
             continue;
@@ -1238,7 +1251,13 @@ fn plugin_parts_of(
         let needs = needs_for(root, preview, candidate);
         let support = plugin_record::expand(root, &folder, &needs);
         let mut artifact = candidate.artifact.clone();
-        plugin_record::stamp(&mut artifact, &needs);
+        let uses: Vec<String> = refs
+            .iter()
+            .filter(|r| r.from == candidate.id)
+            .filter_map(|r| preview.candidates.iter().find(|c| c.id == r.to))
+            .map(|c| c.artifact.name.clone())
+            .collect();
+        plugin_record::stamp(&mut artifact, &needs, &uses);
         out.stored.push((candidate.id.clone(), artifact, support));
         match union.iter_mut().find(|(_, f, _)| *f == folder) {
             Some((_, _, all)) => all.extend(needs),

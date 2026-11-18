@@ -174,6 +174,8 @@ interface Opts {
   /** Opens /profiles/new as the app does, so the New profile dialog shows. */
   fresh?: boolean;
   failSetCategory?: boolean;
+  /** `review` names `tdd` (kept in the library) and `ghost` (not in it): ADR-008. */
+  partNeeds?: boolean;
 }
 
 const base: ProfileSpec = {
@@ -288,6 +290,23 @@ async function setup(path: string, opts: Opts = {}) {
         return resolve(args["spec"] as ProfileSpec);
       case "profile_layout":
         return layout(args["spec"] as ProfileSpec);
+      case "profile_part_needs": {
+        const items = (args["spec"] as ProfileSpec).items;
+        if (!opts.partNeeds || !items.includes("L")) return [];
+        const need = (needs: string, available: string | null) => ({
+          part: "L",
+          partName: "review",
+          partKind: "skill",
+          plugin: "toolbox",
+          needs,
+          needsKind: available ? "skill" : null,
+          available,
+        });
+        return [
+          ...(items.includes("T") ? [] : [need("tdd", "T")]),
+          need("ghost", null),
+        ];
+      }
       case "profile_save":
         if (opts.failSave) throw new Error("disk full");
         return 3;
@@ -1127,5 +1146,56 @@ describe("Builder: category", () => {
     await user.click(await screen.findByRole("menuitem", { name: /Research/ }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(screen.getByRole("button", { name: /Research/ })).toBeVisible();
+  });
+
+  it("shows no notice when no part names a dropped one (ADR-008)", async () => {
+    await setup("/profiles/4");
+    await within(cart()).findByText("review");
+    expect(
+      screen.queryByRole("list", { name: "Parts that need a dropped part" }),
+    ).toBeNull();
+  });
+
+  it("names a dropped part a kept part needs and keeps it in one click", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/4", { partNeeds: true });
+    const list = await screen.findByRole("list", {
+      name: "Parts that need a dropped part",
+    });
+    expect(list).toHaveTextContent("review needs tdd");
+    // A needed part the library does not hold can only be named.
+    expect(list).toHaveTextContent(
+      "review needs ghost (it is not in your library)",
+    );
+    expect(within(list).getAllByRole("button", { name: /^Keep/ })).toHaveLength(
+      1,
+    );
+    await user.click(within(list).getByRole("button", { name: "Keep tdd" }));
+    await within(cart()).findByText("tdd");
+    await waitFor(() =>
+      expect(
+        screen.getByRole("list", { name: "Parts that need a dropped part" }),
+      ).not.toHaveTextContent("review needs tdd"),
+    );
+  });
+
+  it("drops both in one click, and decides nothing before", async () => {
+    const user = userEvent.setup();
+    await setup("/profiles/4", { partNeeds: true });
+    const list = await screen.findByRole("list", {
+      name: "Parts that need a dropped part",
+    });
+    // Nothing was dropped or added on its own.
+    expect(within(cart()).getByText("review")).toBeVisible();
+    expect(within(cart()).queryByText("tdd")).toBeNull();
+    await user.click(
+      within(list).getAllByRole("button", { name: "Drop both" })[0]!,
+    );
+    await waitFor(() =>
+      expect(within(cart()).queryByText("review")).toBeNull(),
+    );
+    expect(
+      screen.queryByRole("list", { name: "Parts that need a dropped part" }),
+    ).toBeNull();
   });
 });

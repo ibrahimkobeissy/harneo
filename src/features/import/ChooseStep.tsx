@@ -15,6 +15,7 @@ import type { WholeNote } from "../../ui/plugin";
 import type { Preview } from "../../bindings/Preview";
 import {
   Badge,
+  PartNeedsNotice,
   Button,
   FindingTitle,
   Phase1Warning,
@@ -31,6 +32,7 @@ import { kindPlurals } from "./kindLabels";
 import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
 import { LayoutNotes, PlacementLabel } from "./Layout";
+import { partNeedRows } from "./partNeeds";
 import { PluginChoice, type PluginMode, PluginParts } from "./PluginRows";
 import { fromPlugin, pluginGroups, wholeRefusal } from "./plugins";
 import type { LayoutRun } from "./useLayoutRun";
@@ -741,6 +743,12 @@ export function ChooseStep({
                       onSet={(ids, on) =>
                         on ? onRestore(ids) : onExclude(ids)
                       }
+                    />
+                    <PartNeedsNotice
+                      rows={partNeedRows(preview, g, excluded, {
+                        keep: (id) => onRestore([id]),
+                        drop: (id) => onExclude([id]),
+                      })}
                     />
                   </div>
                 ))}

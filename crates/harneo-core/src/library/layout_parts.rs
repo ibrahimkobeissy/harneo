@@ -41,6 +41,18 @@ pub struct PartNeeds {
     pub needs: Vec<NeededPath>,
 }
 
+/// A part naming another part of its plugin by `<plugin>:<name>` or `/<plugin>:<name>` in its
+/// text (ADR-008): keeping `from` without `to` leaves a dangling name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, rename_all = "camelCase")]
+pub struct PartRef {
+    /// The candidate that names the other.
+    pub from: String,
+    /// The candidate it names.
+    pub to: String,
+}
+
 /// Who decided the parts' supporting paths.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "camelCase")]
@@ -304,4 +316,35 @@ pub(super) fn tree_changed_notice(added: &[String]) -> Diagnostic {
             shown.join(", ")
         ),
     )
+}
+
+/// Which parts of each plugin name which, by reading each part's files in `root`.
+pub(super) fn refs(root: &Path, candidates: &[Candidate]) -> Vec<PartRef> {
+    let options = ScanOptions::default();
+    let mut walker = Walker::new(root, &options);
+    let mut out = Vec::new();
+    for from in candidates {
+        let Some((plugin, folder)) = super::plugin_record::plugin_of(&from.artifact) else {
+            continue;
+        };
+        let mut text = String::new();
+        for file in &from.artifact.files {
+            if let Some(read) = walker.read_text(Path::new(file), &mut Vec::new()) {
+                text.push_str(&read);
+                text.push('\n');
+            }
+        }
+        let names = crate::plugin::namespaced_uses(&text, &plugin);
+        for to in candidates {
+            let same =
+                super::plugin_record::plugin_of(&to.artifact).is_some_and(|(_, f)| f == folder);
+            if same && to.id != from.id && names.contains(&to.artifact.name) {
+                out.push(PartRef {
+                    from: from.id.clone(),
+                    to: to.id.clone(),
+                });
+            }
+        }
+    }
+    out
 }

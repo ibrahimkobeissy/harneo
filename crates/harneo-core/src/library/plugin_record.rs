@@ -77,11 +77,27 @@ pub(crate) fn needs_of(artifact: &Artifact) -> Option<Vec<String>> {
     )
 }
 
-/// Records the plugin's manifest file and the part's supporting paths on the part.
-pub(crate) fn stamp(artifact: &mut Artifact, needs: &[String]) {
+/// The names of the other parts of its plugin that a part names, recorded at import.
+pub(crate) fn uses_of(artifact: &Artifact) -> Vec<String> {
+    plugin_object(artifact)
+        .and_then(|from| from.get("uses"))
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Records the plugin's manifest file, the part's supporting paths and the other parts of the
+/// plugin it names (`uses`) on the part.
+pub(crate) fn stamp(artifact: &mut Artifact, needs: &[String], uses: &[String]) {
     if let Some(Value::Object(from)) = artifact.metadata.get_mut("fromPlugin") {
         from.insert("manifest".into(), json!(MANIFEST_FILE));
         from.insert("needs".into(), json!(needs));
+        from.insert("uses".into(), json!(uses));
     }
 }
 
