@@ -311,3 +311,69 @@ fn a_stored_answer_that_misses_a_part_asks_again() -> TestResult {
     assert_eq!(s.calls(), 2);
     Ok(())
 }
+
+fn log_text(dir: &Path) -> io::Result<String> {
+    let mut text = String::new();
+    for entry in fs::read_dir(dir)? {
+        text.push_str(&fs::read_to_string(entry?.path())?);
+    }
+    Ok(text)
+}
+
+#[test]
+fn the_parts_answer_logs_what_it_covers_and_what_it_misses_and_a_refused_import_is_logged(
+) -> TestResult {
+    let mut s = setup()?;
+    let logs = tempfile::tempdir()?;
+    s.library.claude.log_dir = Some(logs.path().to_path_buf());
+    let preview = s.preview()?;
+    let skills = skill_paths(&preview);
+    s.claude(&json!({
+        "items": [], "ignore": [],
+        "parts": [part(&skills[0], &["references"])],
+        "notNeeded": [],
+    }))?;
+    s.library.claude.log_dir = Some(logs.path().to_path_buf());
+    let next = s.library.preview_layout(&preview, &|_| {})?;
+    let text = log_text(logs.path())?;
+    let line = text
+        .lines()
+        .find(|l| l.contains("layout parts covered"))
+        .ok_or("no parts line")?;
+    let (covered, missing) = line.split_once(" missing: ").ok_or("no missing")?;
+    assert!(covered.contains(&skills[0]), "{line}");
+    assert!(!covered.contains(&skills[1]), "{line}");
+    assert!(missing.contains(&skills[1]), "{line}");
+    assert!(text.contains("claude feature=layout"), "{text}");
+    // The file tree went in as paths; no file text reached the log.
+    assert!(text.contains("references/checklist.md"), "{text}");
+    assert!(!text.contains("- item"), "{text}");
+
+    assert!(s.import_all(&next).is_err());
+    assert!(log_text(logs.path())?.contains("import refused: no answer from Claude for part"));
+
+    s.library
+        .log_import_blocked("agent-skills", "incomplete", &["/build".to_owned()]);
+    let text = log_text(logs.path())?;
+    assert!(
+        text.contains(
+            "import blocked: plugin=\"agent-skills\" case=incomplete missing: paths=\"/build\""
+        ),
+        "{text}"
+    );
+    Ok(())
+}
+
+#[test]
+fn an_answer_with_no_item_list_is_logged_as_unusable() -> TestResult {
+    let mut s = setup()?;
+    let logs = tempfile::tempdir()?;
+    let preview = s.preview()?;
+    s.claude(&json!({"nothing": true}))?;
+    s.library.claude.log_dir = Some(logs.path().to_path_buf());
+    assert!(s.library.preview_layout(&preview, &|_| {}).is_err());
+    let text = log_text(logs.path())?;
+    assert!(text.contains("layout answer unusable"), "{text}");
+    assert!(text.contains("parsed=true"), "{text}");
+    Ok(())
+}

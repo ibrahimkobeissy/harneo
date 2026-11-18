@@ -1108,6 +1108,27 @@ export function openBackupsFolder(folder?: string): Promise<void> {
   });
 }
 
+/** Opens Harneo's local log folder in the system file manager (the backend resolves the path). */
+export function openLogsFolder(): Promise<void> {
+  return invoke<void>("open_project_folder", { target: { kind: "logs" } });
+}
+
+/** Why the import of a plugin set to Pick parts is blocked (ADR-008 amendment, 2026-11-18). */
+export type SplitBlockCase = "not-asked" | "failed" | "incomplete";
+
+/** Notes in the local log that a plugin's import was blocked, and which kept parts the answer misses. */
+export function logImportBlocked(
+  plugin: string,
+  blockCase: SplitBlockCase,
+  missing: string[],
+): Promise<void> {
+  return invoke<void>("log_import_blocked", {
+    plugin,
+    case: blockCase,
+    missing,
+  });
+}
+
 /** The web pages the window links to; the backend holds their URLs. */
 export type ExternalLink = "claudeInstall" | "errorReporting";
 

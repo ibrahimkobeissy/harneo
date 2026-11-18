@@ -167,6 +167,8 @@ pub fn run() {
             commands::drift_promote_added,
             commands::open_project_folder,
             commands::open_link,
+            commands::log_import_blocked,
+            commands::log_import_blocked,
         ])
         .run(tauri::generate_context!());
     if let Err(err) = result {

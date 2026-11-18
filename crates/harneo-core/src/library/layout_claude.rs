@@ -32,7 +32,7 @@ use crate::artifact::{
 };
 use crate::audit::confirm::{addresses_reviewer, sha_hex};
 use crate::audit::redact;
-use crate::bundles::{model_of, run_claude, ClaudeConfig};
+use crate::bundles::{model_of, run_claude, Call, ClaudeConfig};
 use crate::error::{Error, Result};
 
 /// The settings key that makes tier 3 run on its own (default: off).
@@ -111,6 +111,8 @@ pub struct LayoutJob {
     /// `None` when nothing is unplaced: there is nothing to ask.
     prompt: Option<String>,
     withheld: Vec<String>,
+    /// The paths of the file tree that goes into the prompt, for the log (never their content).
+    sent: Vec<String>,
 }
 
 pub(super) fn tidy(text: &str, max: usize) -> String {
@@ -139,6 +141,8 @@ fn base_name(path: &str) -> &str {
 /// The text that follows the untrusted marker, and the paths withheld from it.
 struct Sections {
     tree: String,
+    /// The paths in `tree`, as sent.
+    sent: Vec<String>,
     manifests: String,
     excerpts: String,
     /// The artifacts already found, one per line (kind, name, path).
@@ -156,8 +160,10 @@ fn read_sections(root: &Path, unplaced: &[String], candidates: &[Candidate]) -> 
         .filter(|p| all.contains(p))
         .chain(all.iter().filter(|p| !first.contains(p.as_str())));
     let mut tree = String::new();
+    let mut sent = Vec::new();
     for path in ordered.take(TREE_CAP) {
         let _ = writeln!(tree, "{}", tidy(path, SHOWN_CHARS));
+        sent.push(path.clone());
     }
 
     let mut withheld = Vec::new();
@@ -216,6 +222,7 @@ fn read_sections(root: &Path, unplaced: &[String], candidates: &[Candidate]) -> 
     }
     Sections {
         tree,
+        sent,
         manifests,
         excerpts,
         parts,
@@ -316,8 +323,20 @@ impl LayoutJob {
             return Ok(Proposal::default());
         };
         progress(LayoutStage::Asking);
-        let answer = run_claude(&self.config, prompt, SCHEMA)?;
-        let mut proposal = parse_answer(&answer)?;
+        let call = Call {
+            feature: "layout",
+            paths: &self.sent,
+        };
+        let answer = run_claude(&self.config, &call, prompt, SCHEMA)?;
+        let mut proposal = parse_answer(&answer).inspect_err(|error| {
+            crate::log::record(
+                self.config.log_dir.as_deref(),
+                &format!(
+                    "layout answer unusable error={}",
+                    crate::log::quoted(&error.to_string())
+                ),
+            );
+        })?;
         proposal.withheld.clone_from(&self.withheld);
         proposal.asked = true;
         Ok(proposal)
@@ -396,7 +415,7 @@ impl Claimed {
 /// Attaches Claude's per-part needs to the preview, checking each path. Manifest components are
 /// parts whatever Claude says; a part Claude names that the preview lacks is only a proposal,
 /// shown as a `layout.proposed-part` note.
-fn apply_parts(root: &Path, next: &mut Preview, proposal: &Proposal) {
+fn apply_parts(root: &Path, next: &mut Preview, proposal: &Proposal, log_dir: Option<&Path>) {
     let mut diagnostics = Vec::new();
     let mut by_part: Vec<layout_parts::PartNeeds> = Vec::new();
     for part in &proposal.parts {
@@ -429,6 +448,22 @@ fn apply_parts(root: &Path, next: &mut Preview, proposal: &Proposal) {
             });
         }
     }
+    let named = |covered: bool| -> Vec<String> {
+        next.candidates
+            .iter()
+            .filter(|c| c.artifact.metadata.contains_key("fromPlugin"))
+            .filter(|c| by_part.iter().any(|p| p.path == c.artifact.path) == covered)
+            .map(|c| c.artifact.path.clone())
+            .collect()
+    };
+    crate::log::record(
+        log_dir,
+        &format!(
+            "layout parts covered: {} missing: {}",
+            crate::log::paths_field(&named(true)),
+            crate::log::paths_field(&named(false)),
+        ),
+    );
     next.not_needed = layout_parts::check_not_needed(root, &proposal.not_needed, &mut diagnostics);
     next.part_needs = by_part;
     next.needs_by = Some(NeedsBy::Claude);
@@ -622,6 +657,20 @@ impl Library {
         Ok(self.settings_get(SETTING_KEY)? != Some(Value::Bool(false)))
     }
 
+    /// Records in the local log that the import of a plugin set to Pick parts was blocked
+    /// (ADR-008 amendment 2026-11-18): the plugin, the case (`not-asked`, `failed` or
+    /// `incomplete`) and the kept parts the answer does not cover. Never fails.
+    pub fn log_import_blocked(&self, plugin: &str, case: &str, missing: &[String]) {
+        crate::log::record(
+            self.claude.log_dir.as_deref(),
+            &format!(
+                "import blocked: plugin={} case={case} missing: {}",
+                crate::log::quoted(plugin),
+                crate::log::paths_field(missing),
+            ),
+        );
+    }
+
     /// Turns tier 3's automatic run on or off.
     pub fn set_layout_enabled(&self, enabled: bool) -> Result<()> {
         self.settings_set(SETTING_KEY, &Value::Bool(enabled))
@@ -637,6 +686,7 @@ impl Library {
                 config,
                 prompt: None,
                 withheld: Vec::new(),
+                sent: Vec::new(),
             });
         }
         let sections = self.with_preview_root(preview, |root| {
@@ -646,6 +696,7 @@ impl Library {
             config,
             prompt: Some(prompt_of(&sections)),
             withheld: sections.withheld,
+            sent: sections.sent,
         })
     }
 
@@ -721,7 +772,7 @@ impl Library {
             next.candidates
                 .sort_by(|a, b| a.artifact.path.cmp(&b.artifact.path));
             if proposal.asked {
-                apply_parts(root, &mut next, proposal);
+                apply_parts(root, &mut next, proposal, self.claude.log_dir.as_deref());
             }
             Ok(next)
         })

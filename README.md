@@ -328,6 +328,8 @@ If the `claude` CLI is not installed, none of these run. Each Settings row says 
 - **Error reports (off unless you set it up).** Harneo can report errors to a Sentry project *of your own*. Nothing is sent unless you set `HARNEO_SENTRY_DSN`; no DSN is built in. [BUILDING.md](BUILDING.md#error-reporting-optional) explains what is and isn't sent.
 - **Secrets.** MCP secrets are stored only as `${VAR}` placeholders, never as values.
 
+**Local log files, never sent.** Harneo writes plain-text logs to `~/.local/state/harneo/logs/` (`$XDG_STATE_HOME/harneo/logs/`; the local app-data folder on macOS and Windows; `HARNEO_LOG_DIR` replaces it), one `harneo-YYYY-MM-DD.log` file per day (UTC), one timestamped line per event. Files older than 14 days are deleted. Today they record every call to the `claude` CLI: which feature asked, the paths (or artifact names) that went into it, how long it took, the exit code, the error text, and whether the answer parsed; for a plugin's parts, which parts Claude's answer covered and which it missed; and when an import was blocked for lack of that answer. They never hold prompt text, file contents, secrets or environment values, and nothing in them is uploaded. **Settings → Diagnostics → Open logs folder** opens the folder; delete the files whenever you like.
+
 ## Develop
 
 | Goal                         | Command                                 |

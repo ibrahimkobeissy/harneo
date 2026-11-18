@@ -1,7 +1,12 @@
 import { Bug } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { diagnosticsStatus, openExternal, settingsSet } from "../../lib/ipc";
-import { announce } from "../../ui";
+import {
+  diagnosticsStatus,
+  openExternal,
+  openLogsFolder,
+  settingsSet,
+} from "../../lib/ipc";
+import { Button, announce } from "../../ui";
 import { Group } from "./Group";
 import styles from "./Settings.module.css";
 import { Switch } from "./Switch";
@@ -106,6 +111,28 @@ export function DiagnosticsSettings() {
           describedBy={helpId}
           onChange={(next) => void save(next)}
         />
+      </div>
+      <div className={styles.row}>
+        <div className={styles.grow}>
+          <b>Local logs</b>
+          <div className={styles.sec}>
+            One file per day, kept 14 days, never sent. They list each call to
+            Claude: which feature asked, the paths sent, how long it took, the
+            exit code, the error text and whether the answer parsed. Never
+            prompt text, file contents, secrets or environment values.
+          </div>
+        </div>
+        <Button
+          small
+          onClick={() => {
+            setError(null);
+            openLogsFolder().catch((err: unknown) =>
+              setError(`Could not open the logs folder: ${String(err)}`),
+            );
+          }}
+        >
+          Open logs folder
+        </Button>
       </div>
       {error && (
         <p role="alert" className={styles.error}>

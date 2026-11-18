@@ -33,7 +33,8 @@ import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
 import { LayoutNotes, PlacementLabel } from "./Layout";
 import { partNeedRows } from "./partNeeds";
-import { splitBlocks } from "./splitBlock";
+import { logImportBlocked } from "../../lib/ipc";
+import { splitBlocks, type SplitBlock } from "./splitBlock";
 import { PluginChoice, type PluginMode, PluginParts } from "./PluginRows";
 import { fromPlugin, pluginGroups, wholeRefusal } from "./plugins";
 import type { LayoutRun } from "./useLayoutRun";
@@ -292,6 +293,21 @@ function CopyList({ candidate }: { candidate: Candidate }) {
 }
 
 /** Step 2: every candidate starts included; the user excludes what they do not want. */
+/** Notes in the local log, once each, that a plugin's import is blocked and why. */
+function useBlockLog(blocks: SplitBlock[]) {
+  const seen = useRef(new Set<string>());
+  useEffect(() => {
+    for (const { name, why } of blocks) {
+      const missing = why.kind === "incomplete" ? why.missing : [];
+      const key = `${name}|${why.kind}|${missing.join(",")}`;
+      if (seen.current.has(key)) continue;
+      seen.current.add(key);
+      const blockCase = why.kind === "notAsked" ? "not-asked" : why.kind;
+      logImportBlocked(name, blockCase, missing).catch(() => undefined);
+    }
+  }, [blocks]);
+}
+
 export function ChooseStep({
   preview,
   sourceName,
@@ -342,6 +358,8 @@ export function ChooseStep({
   /** Switches a plugin between the whole plugin and its parts: the preview is taken again. */
   onPluginMode: (folder: string, mode: PluginMode) => void;
 }) {
+  const blocks = splitBlocks(preview, excluded, layout.failure);
+  useBlockLog(blocks);
   const [opened, setOpened] = useState<ReadonlySet<string>>(new Set());
   const [copiesOpen, setCopiesOpen] = useState<ReadonlySet<string>>(new Set());
   // Per group: what the user chose. Without a choice, only large groups start collapsed.
@@ -489,7 +507,7 @@ export function ChooseStep({
         preview={preview}
         run={layout}
         onCancel={onCancelImport}
-        blocks={splitBlocks(preview, excluded, layout.failure)}
+        blocks={blocks}
         onWhole={(folder) => onPluginMode(folder, "whole")}
       />
       {checking && (

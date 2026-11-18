@@ -19,7 +19,7 @@ use super::map::{MapDoc, Zone, MAX_WHY};
 use super::{Basis, BasisArtifact, MapEdit};
 use crate::artifact::{Artifact, ArtifactKind, ScanOptions};
 use crate::audit;
-use crate::bundles::{is_flagged, run_claude, ClaudeConfig};
+use crate::bundles::{is_flagged, run_claude, Call, ClaudeConfig};
 use crate::error::{Error, Result};
 use crate::library::{ids, readout, records, ArtifactId, Library, Preview};
 use crate::plugin;
@@ -593,9 +593,14 @@ impl FitJob {
         let mut config = self.config.clone();
         config.cancel = Some(self.cancel.clone());
         let mut reasons: Option<Vec<String>> = None;
+        let sent: Vec<String> = self.inputs.iter().map(|i| i.name.clone()).collect();
         for _ in 0..2 {
             let prompt = self.prompt(reasons.as_deref())?;
-            let failed = match run_claude(&config, &prompt, SCHEMA) {
+            let call = Call {
+                feature: "harnfit",
+                paths: &sent,
+            };
+            let failed = match run_claude(&config, &call, &prompt, SCHEMA) {
                 Ok(answer) => match self.check(&answer) {
                     Ok(mut result) => {
                         result.duration_ms =

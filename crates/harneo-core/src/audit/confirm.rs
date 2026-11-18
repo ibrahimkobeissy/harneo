@@ -26,7 +26,7 @@ use super::{
     Finding, Tier,
 };
 use crate::artifact::ArtifactKind;
-use crate::bundles::{run_claude, ClaudeConfig, FailureKind};
+use crate::bundles::{run_claude, Call, ClaudeConfig, FailureKind};
 use crate::error::Error;
 
 /// The settings key that turns phase 2 off (default: on).
@@ -397,7 +397,11 @@ pub fn confirm_unless_blocked(
             break;
         }
         let text = prompt(subject, &phase1.findings, cands, batch);
-        match run_claude(config, &text, SCHEMA) {
+        let call = Call {
+            feature: "audit-confirm",
+            paths: std::slice::from_ref(&subject.name),
+        };
+        match run_claude(config, &call, &text, SCHEMA) {
             Ok(answer) => match parse(&answer, batch) {
                 Some(found) => {
                     for (id, verdict) in found {

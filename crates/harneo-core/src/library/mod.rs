@@ -658,7 +658,19 @@ gone or no longer parses",
         let root = root.as_path();
         // ADR-008: each plugin part records its plugin and its supporting paths (the preview's
         // answer, checked again: it came back over IPC), and the plugin's record is built once.
-        let parts = plugin_parts_of(root, preview, &fresh, copy_limit(large_files))?;
+        let parts = plugin_parts_of(root, preview, &fresh, copy_limit(large_files)).inspect_err(
+            |error| {
+                if let Error::PartWithoutAnswer { name } = error {
+                    crate::log::record(
+                        self.claude.log_dir.as_deref(),
+                        &format!(
+                            "import refused: no answer from Claude for part {}",
+                            crate::log::quoted(name)
+                        ),
+                    );
+                }
+            },
+        )?;
         // The stored audit is computed here, from the files about to be copied (and the
         // supporting files a plugin part brings); the preview's `audit` came back over IPC and
         // is never trusted.

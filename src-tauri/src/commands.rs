@@ -2030,8 +2030,14 @@ pub async fn drift_promote_added(
 #[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum FolderTarget {
-    Project { id: i64 },
-    Backups { set: Option<String> },
+    Project {
+        id: i64,
+    },
+    Backups {
+        set: Option<String>,
+    },
+    /// Harneo's local log files.
+    Logs,
 }
 
 /// The folder a target names, resolved from the registry and the data dir. A backup set is one
@@ -2039,9 +2045,16 @@ pub enum FolderTarget {
 fn resolve_folder(
     state: &LibraryState,
     data_dir: &std::path::Path,
+    logs_dir: &std::path::Path,
     target: &FolderTarget,
 ) -> Result<std::path::PathBuf, String> {
     let folder = match target {
+        FolderTarget::Logs => {
+            // Nothing is logged until the first Claude call: the folder may not exist yet.
+            std::fs::create_dir_all(logs_dir)
+                .map_err(|e| format!("cannot create {}: {e}", logs_dir.display()))?;
+            logs_dir.to_path_buf()
+        }
         FolderTarget::Project { id } => {
             std::path::PathBuf::from(state.with(|library| library.project(*id))?.path)
         }
@@ -2076,8 +2089,27 @@ pub fn open_project_folder(
     target: FolderTarget,
 ) -> Result<(), String> {
     let data_dir = harneo_core::paths::data_dir().map_err(|e| e.to_string())?;
-    let folder = resolve_folder(&state, &data_dir, &target)?;
+    let logs_dir = harneo_core::paths::log_dir().map_err(|e| e.to_string())?;
+    let folder = resolve_folder(&state, &data_dir, &logs_dir, &target)?;
     crate::host_open::open(&folder).map_err(|e| e.to_string())
+}
+
+/// Notes in the local log that the import of a plugin set to Pick parts was blocked: the case
+/// (`not-asked`, `failed` or `incomplete`) and the kept parts Claude's answer does not cover.
+#[tauri::command]
+pub fn log_import_blocked(
+    state: State<'_, LibraryState>,
+    plugin: String,
+    case: String,
+    missing: Vec<String>,
+) -> Result<(), String> {
+    if !["not-asked", "failed", "incomplete"].contains(&case.as_str()) {
+        return Err(format!("unknown case: {case}"));
+    }
+    state.with(|library| {
+        library.log_import_blocked(&plugin, &case, &missing);
+        Ok(())
+    })
 }
 
 /// Opens one of the web pages the window links to, by name (`host_open::link_url`).
@@ -2329,6 +2361,7 @@ mod tests {
         };
         library.use_claude(ClaudeConfig {
             program: program.clone().into(),
+            log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
             ..ClaudeConfig::default()
         });
         let app = tauri::test::mock_app();
@@ -2418,6 +2451,7 @@ mod tests {
         };
         library.use_claude(ClaudeConfig {
             program: program.clone().into(),
+            log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
             ..ClaudeConfig::default()
         });
         let app = tauri::test::mock_app();
@@ -2721,6 +2755,7 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755))?;
         Ok(ClaudeConfig {
             program: program.into(),
+            log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
             ..ClaudeConfig::default()
         })
     }
@@ -2833,6 +2868,7 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         write_claude("exit 1")?;
         library.use_claude(ClaudeConfig {
             program: program.clone().into(),
+            log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
             ..ClaudeConfig::default()
         });
         let app = tauri::test::mock_app();
@@ -3069,6 +3105,41 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
     }
 
     #[test]
+    fn a_blocked_import_is_logged_only_for_a_known_case() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let data = tempfile::tempdir()?;
+        let logs = tempfile::tempdir()?;
+        let mut library = Library::open(data.path())?;
+        library.use_claude(ClaudeConfig {
+            log_dir: Some(logs.path().to_path_buf()),
+            ..ClaudeConfig::default()
+        });
+        let app = tauri::test::mock_app();
+        app.manage(LibraryState::from_result(Ok(library)));
+        let state = app.state::<LibraryState>();
+        let note = |case: &str| {
+            log_import_blocked(
+                state.clone(),
+                "toolbox".into(),
+                case.into(),
+                vec!["/build".into()],
+            )
+        };
+        assert_eq!(note("other").err().as_deref(), Some("unknown case: other"));
+        assert!(std::fs::read_dir(logs.path())?.next().is_none());
+        note("incomplete")?;
+        let mut text = String::new();
+        for entry in std::fs::read_dir(logs.path())? {
+            text.push_str(&std::fs::read_to_string(entry?.path())?);
+        }
+        assert!(
+            text.contains("import blocked: plugin=\"toolbox\" case=incomplete"),
+            "{text}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn links_open_only_by_a_known_name() {
         let err = open_link("https://example.com".into()).err();
         assert_eq!(err.as_deref(), Some("unknown link: https://example.com"));
@@ -3080,7 +3151,8 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
         let data = tempfile::tempdir()?;
         std::fs::create_dir_all(data.path().join("backups/3/set-1"))?;
         let state = LibraryState::from_result(Ok(Library::open(data.path())?));
-        let at = |target| resolve_folder(&state, data.path(), &target);
+        let logs = data.path().join("state/logs");
+        let at = |target| resolve_folder(&state, data.path(), &logs, &target);
         assert_eq!(
             at(FolderTarget::Backups { set: None })?,
             data.path().join("backups")
@@ -3103,6 +3175,10 @@ printf '{\"id\":%s,\"verdict\":\"not_a_threat\",\"reason\":\"it only warns\"}' $
             );
         }
         assert!(at(FolderTarget::Project { id: 9 }).is_err());
+        // The logs folder is made when it does not exist yet.
+        assert!(!logs.exists());
+        assert_eq!(at(FolderTarget::Logs)?, logs);
+        assert!(logs.is_dir());
         assert_eq!(
             suggested_name("../../etc/evil.json"),
             "evil.json".to_owned()

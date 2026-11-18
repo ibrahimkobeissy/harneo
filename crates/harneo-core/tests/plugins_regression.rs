@@ -246,6 +246,7 @@ fn fake_claude(dir: &Path) -> R<ClaudeConfig> {
     Ok(ClaudeConfig {
         program: path.into(),
         timeout: std::time::Duration::from_secs(20),
+        log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
         ..ClaudeConfig::default()
     })
 }
@@ -1271,6 +1272,7 @@ fn scripted_claude(dir: &Path, answers: &[Value]) -> R<ClaudeConfig> {
     Ok(ClaudeConfig {
         program: path.into(),
         timeout: std::time::Duration::from_secs(20),
+        log_dir: Some(std::env::temp_dir().join("harneo-test-logs")),
         ..ClaudeConfig::default()
     })
 }

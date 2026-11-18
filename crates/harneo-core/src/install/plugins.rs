@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use ts_rs::TS;
 
-use crate::bundles::{run_subcommand, ClaudeConfig};
+use crate::bundles::{run_subcommand, Call, ClaudeConfig};
 use crate::error::{Error, Result};
 
 /// The marketplace Claude Code knows without being told.
@@ -226,7 +226,12 @@ fn run_json(
     cwd: Option<&Path>,
     timeout: Duration,
 ) -> std::result::Result<(), String> {
-    let run = run_subcommand(config, args, cwd, timeout).map_err(|e| why(&e))?;
+    let folder = at(cwd);
+    let call = Call {
+        feature: "plugins",
+        paths: &folder,
+    };
+    let run = run_subcommand(config, &call, args, cwd, timeout).map_err(|e| why(&e))?;
     let ok = run
         .stdout
         .lines()
@@ -238,6 +243,11 @@ fn run_json(
     } else {
         Err(failure_text(&run.stdout, &run.stderr))
     }
+}
+
+/// What the log records of a `claude plugin …` call: the folder it runs in is the only path.
+fn at(cwd: Option<&Path>) -> Vec<String> {
+    cwd.map(|c| c.display().to_string()).into_iter().collect()
 }
 
 fn why(error: &Error) -> String {
@@ -254,7 +264,12 @@ fn list<T: for<'de> Deserialize<'de>>(
     args: &[&str],
     cwd: Option<&Path>,
 ) -> std::result::Result<Vec<T>, String> {
-    let run = run_subcommand(config, args, cwd, LIST_TIMEOUT).map_err(|e| why(&e))?;
+    let folder = at(cwd);
+    let call = Call {
+        feature: "plugins",
+        paths: &folder,
+    };
+    let run = run_subcommand(config, &call, args, cwd, LIST_TIMEOUT).map_err(|e| why(&e))?;
     if !run.success {
         return Err(failure_text(&run.stdout, &run.stderr));
     }

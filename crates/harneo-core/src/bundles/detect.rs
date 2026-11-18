@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use ts_rs::TS;
 
-use super::claude_cli::{self, ClaudeConfig, DEFAULT_MODEL};
+use super::claude_cli::{self, Call, ClaudeConfig, DEFAULT_MODEL};
 use super::{add_link, kind_name, LinkOrigin};
 use crate::artifact::{ArtifactKind, ScanOptions};
 use crate::audit::{self, Audit};
@@ -177,7 +177,12 @@ impl DetectionJob {
         progress(0, total);
         for (done, batch) in self.inputs.chunks(BATCH).enumerate() {
             let (prompt, targets) = self.prompt(batch)?;
-            let answer = claude_cli::run(&self.config, &prompt, SCHEMA)?;
+            let sent: Vec<String> = batch.iter().map(|i| i.name.clone()).collect();
+            let call = Call {
+                feature: "bundles",
+                paths: &sent,
+            };
+            let answer = claude_cli::run(&self.config, &call, &prompt, SCHEMA)?;
             let members: HashSet<&str> = batch.iter().map(|i| i.id.as_str()).collect();
             let found = validate(&answer, &members, &targets, &self.known, &self.tag_names)?;
             for link in found.links {

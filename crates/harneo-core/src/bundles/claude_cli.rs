@@ -53,6 +53,9 @@ pub struct ClaudeConfig {
     pub scratch: Option<PathBuf>,
     /// When set to `true`, a running call is killed and fails with [`Error::Cancelled`].
     pub cancel: Option<Arc<AtomicBool>>,
+    /// Where each call's log line goes; the log folder of [`crate::paths::log_dir`] when `None`.
+    /// Tests point it at a temporary folder.
+    pub log_dir: Option<PathBuf>,
 }
 
 impl Default for ClaudeConfig {
@@ -64,6 +67,7 @@ impl Default for ClaudeConfig {
             timeout: DEFAULT_TIMEOUT,
             scratch: None,
             cancel: None,
+            log_dir: None,
         }
     }
 }
@@ -127,8 +131,17 @@ pub fn cli_status(config: &ClaudeConfig) -> CliStatus {
     }
 }
 
+/// Who is calling Claude and what the call is about, for the log: the feature's label and the
+/// paths (or artifact names) that go into it. Never the prompt, never file contents.
+pub(crate) struct Call<'a> {
+    pub(crate) feature: &'a str,
+    pub(crate) paths: &'a [String],
+}
+
 pub(crate) struct Run {
     pub(crate) success: bool,
+    /// The exit code, when the process ended with one.
+    pub(crate) code: Option<i32>,
     pub(crate) stdout: String,
     pub(crate) stderr: String,
 }
@@ -137,11 +150,66 @@ pub(crate) struct Run {
 /// when `None`. No model is called and nothing is sent to Claude.
 pub(crate) fn run_subcommand(
     config: &ClaudeConfig,
+    call: &Call,
     args: &[&str],
     cwd: Option<&Path>,
     timeout: Duration,
 ) -> Result<Run> {
-    run_in(config, args, None, timeout, cwd)
+    let started = Instant::now();
+    let result = run_in(config, args, None, timeout, cwd);
+    // Only the subcommand's own words (`plugin install`) are logged: what follows may be a
+    // plugin, a marketplace or a path.
+    let words = args.iter().take(2).copied().collect::<Vec<_>>().join(" ");
+    let (exit, outcome) = match &result {
+        Ok(run) => (
+            run.code,
+            if run.success {
+                "ok".to_owned()
+            } else {
+                format!(
+                    "error={}",
+                    crate::log::quoted(&failure(&run.stderr, &run.stdout).to_string())
+                )
+            },
+        ),
+        Err(error) => (
+            None,
+            format!("error={}", crate::log::quoted(&error.to_string())),
+        ),
+    };
+    log_call(
+        config,
+        &format!(
+            "claude-subcommand feature={} command={}",
+            call.feature,
+            crate::log::quoted(&words)
+        ),
+        call,
+        started,
+        exit,
+        &outcome,
+    );
+    result
+}
+
+/// One log line for a finished call.
+fn log_call(
+    config: &ClaudeConfig,
+    head: &str,
+    call: &Call,
+    started: Instant,
+    exit: Option<i32>,
+    outcome: &str,
+) {
+    let exit = exit.map_or_else(|| "none".to_owned(), |c| c.to_string());
+    crate::log::record(
+        config.log_dir.as_deref(),
+        &format!(
+            "{head} {} duration_ms={} exit={exit} {outcome}",
+            crate::log::paths_field(call.paths),
+            started.elapsed().as_millis(),
+        ),
+    );
 }
 
 fn is_cancelled(config: &ClaudeConfig) -> bool {
@@ -273,6 +341,7 @@ fn run_in(
     }
     Ok(Run {
         success: status.success(),
+        code: status.code(),
         stdout: read_all(&mut stdout, OUTPUT_LIMIT).map_err(io_error)?,
         stderr: read_all(&mut stderr, STDERR_LIMIT).map_err(io_error)?,
     })
@@ -445,8 +514,9 @@ fn payload(stdout: &str) -> Result<Value> {
 }
 
 /// Runs one prompt and returns the JSON claude answered with. `schema` is the JSON Schema the
-/// answer must follow.
-pub(crate) fn run(config: &ClaudeConfig, prompt: &str, schema: &str) -> Result<Value> {
+/// answer must follow. The call is logged: who asked, what was sent (paths only), how long it
+/// took, the exit code, the error text and whether the answer parsed.
+pub(crate) fn run(config: &ClaudeConfig, call: &Call, prompt: &str, schema: &str) -> Result<Value> {
     let args = [
         "-p",
         "--output-format",
@@ -465,9 +535,34 @@ pub(crate) fn run(config: &ClaudeConfig, prompt: &str, schema: &str) -> Result<V
         "--setting-sources",
         "",
     ];
-    let out = run_with(config, &args, Some(prompt), config.timeout)?;
-    if !out.success {
-        return Err(failure(&out.stderr, &out.stdout));
-    }
-    payload(&out.stdout)
+    let started = Instant::now();
+    let mut exit = None;
+    let result = run_with(config, &args, Some(prompt), config.timeout).and_then(|out| {
+        exit = out.code;
+        if out.success {
+            payload(&out.stdout)
+        } else {
+            Err(failure(&out.stderr, &out.stdout))
+        }
+    });
+    let outcome = match &result {
+        Ok(_) => "parsed=true".to_owned(),
+        Err(error) => format!(
+            "parsed=false error={}",
+            crate::log::quoted(&error.to_string())
+        ),
+    };
+    log_call(
+        config,
+        &format!(
+            "claude feature={} model={}",
+            call.feature,
+            crate::log::quoted(&config.model)
+        ),
+        call,
+        started,
+        exit,
+        &outcome,
+    );
+    result
 }

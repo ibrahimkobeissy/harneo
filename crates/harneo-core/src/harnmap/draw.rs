@@ -21,7 +21,7 @@ use super::map::{
 use super::{CategoryId, Fact, Shape};
 use crate::artifact::{ArtifactKind, ScanOptions};
 use crate::audit;
-use crate::bundles::{is_flagged, run_claude, ClaudeConfig, FailureKind};
+use crate::bundles::{is_flagged, run_claude, Call, ClaudeConfig, FailureKind};
 use crate::error::{Error, Result};
 use crate::library::{readout, records, ArtifactId, Library};
 use crate::profiles::{ProfileId, ResolvedItem};
@@ -682,9 +682,14 @@ impl DrawJob {
         let mut config = self.config.clone();
         config.cancel = Some(self.cancel.clone());
         let mut reasons: Option<Vec<String>> = None;
+        let sent: Vec<String> = self.inputs.iter().map(|i| i.name.clone()).collect();
         for _ in 0..2 {
             let prompt = self.prompt(reasons.as_deref())?;
-            let failed = match run_claude(&config, &prompt, SCHEMA) {
+            let call = Call {
+                feature: "harnmap",
+                paths: &sent,
+            };
+            let failed = match run_claude(&config, &call, &prompt, SCHEMA) {
                 Ok(answer) => match self.map_answer(&answer) {
                     Ok(mut doc) => {
                         self.keep_user_edits(&mut doc);

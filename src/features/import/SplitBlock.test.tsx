@@ -200,6 +200,23 @@ describe("Import: a split plugin needs Claude's answer", () => {
     expect(cont()).toBeDisabled();
   });
 
+  it("notes each block in the local log once", async () => {
+    const u = userEvent.setup();
+    const calls = setup(incomplete, () => incomplete);
+    await toChoose(u);
+    await screen.findByText(/doesn't cover/);
+    await waitFor(() =>
+      expect(calls.filter((c) => c.cmd === "log_import_blocked")).toHaveLength(
+        1,
+      ),
+    );
+    expect(calls.find((c) => c.cmd === "log_import_blocked")?.args).toEqual({
+      plugin: "toolbox",
+      case: "incomplete",
+      missing: ["/build"],
+    });
+  });
+
   it("takes the whole plugin instead and unblocks", async () => {
     const u = userEvent.setup();
     const calls = setup(incomplete, () => incomplete);

@@ -23,6 +23,37 @@ function setup(
   return sets;
 }
 
+describe("Settings: local logs", () => {
+  it("opens the logs folder through the backend and says what it could not open", async () => {
+    const calls: { cmd: string; args: unknown }[] = [];
+    let fail = false;
+    mockIPC((cmd, args) => {
+      calls.push({ cmd, args });
+      if (cmd === "open_project_folder" && fail)
+        throw new Error("no file manager");
+      return undefined;
+    });
+    render(<DiagnosticsSettings />);
+    expect(screen.getByText(/never sent/)).toBeVisible();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Open logs folder" }),
+    );
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        cmd: "open_project_folder",
+        args: { target: { kind: "logs" } },
+      }),
+    );
+    fail = true;
+    await userEvent.click(
+      screen.getByRole("button", { name: "Open logs folder" }),
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Could not open the logs folder: .*no file manager/,
+    );
+  });
+});
+
 describe("Settings: Diagnostics", () => {
   it("is off and disabled, with instructions, when HARNEO_SENTRY_DSN is not set", async () => {
     setup({ dsnMissing: true, switchOn: false });
