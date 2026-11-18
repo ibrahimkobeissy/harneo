@@ -46,6 +46,8 @@ const preview: Preview = {
   unplaced: [],
   unplacedOverflow: 0,
   layoutIgnored: [],
+  partNeeds: [],
+  notNeeded: [],
   candidates: ["lead", "helper", "other"].map(candidate),
 };
 

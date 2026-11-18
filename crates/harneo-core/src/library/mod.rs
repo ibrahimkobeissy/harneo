@@ -36,6 +36,8 @@ pub(crate) mod layout_claude;
 pub(crate) mod layout_parts;
 #[cfg(test)]
 mod layout_claude_tests;
+#[cfg(test)]
+mod layout_parts_tests;
 mod origin;
 mod query;
 #[cfg(test)]

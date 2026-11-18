@@ -53,6 +53,8 @@ const preview: Preview = {
   unplaced: [],
   unplacedOverflow: 0,
   layoutIgnored: [],
+  partNeeds: [],
+  notNeeded: [],
   candidates: [
     candidate("alpha", { suggestedTags: ["review", "docs"] }),
     candidate("beta", { alreadyInLibrary: true }),

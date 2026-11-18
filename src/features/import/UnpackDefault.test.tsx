@@ -59,6 +59,8 @@ const base: Omit<Preview, "candidates"> = {
   unplaced: [],
   unplacedOverflow: 0,
   layoutIgnored: [],
+  partNeeds: [],
+  notNeeded: [],
 };
 const parts: Preview = {
   ...base,

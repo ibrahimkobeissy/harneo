@@ -27,8 +27,22 @@ function messageOf(error: unknown): string {
 }
 
 /**
+ * Whether Claude has something to answer (ADR-008): files are unplaced, or the parts' needs are
+ * not Claude's stored answer (none yet, or the file tree changed outside it).
+ */
+function claudeIsDue(ticket: PreviewTicket | null): boolean {
+  if (!ticket) return false;
+  if (ticket.unplaced.length > 0) return true;
+  if (ticket.candidates.length === 0) return false;
+  return (
+    ticket.needsBy !== "stored" ||
+    ticket.diagnostics.some((d) => d.code === "layout.tree-changed")
+  );
+}
+
+/**
  * Tier 3 of the layout resolver over the held preview. The user starts it with `ask`; with
- * `import.layoutWithClaude` on it also starts by itself once a preview with unplaced files
+ * `import.layoutWithClaude` on it also starts by itself once a preview with something to ask
  * exists, and `force` starts it whatever the setting says (Ask Claude again). `onTicket`
  * receives the updated preview.
  */
@@ -43,12 +57,12 @@ export function useLayoutRun(
   const token = ticket?.token ?? null;
   const tokenRef = useRef<string | null>(token);
   const handler = useRef(onTicket);
-  const unplaced = useRef(0);
+  const due = useRef(false);
   const autoFor = useRef<string | null>(null);
   useEffect(() => {
     handler.current = onTicket;
     tokenRef.current = token;
-    unplaced.current = ticket?.unplaced.length ?? 0;
+    due.current = claudeIsDue(ticket);
   });
 
   useEffect(() => {
@@ -102,7 +116,7 @@ export function useLayoutRun(
     let live = true;
     void importLayoutSettingGet().then(
       (on) => {
-        if (live && on === true && unplaced.current > 0) ask();
+        if (live && on === true && due.current) ask();
       },
       () => undefined,
     );

@@ -72,6 +72,8 @@ const preview = (extra: Candidate[] = []): Preview => ({
   unplaced: [],
   unplacedOverflow: 0,
   layoutIgnored: [],
+  partNeeds: [],
+  notNeeded: [],
   candidates: [
     cand("calm", "trusted", 100),
     cand(

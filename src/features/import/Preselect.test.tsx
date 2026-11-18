@@ -48,6 +48,8 @@ function setup(search: string) {
         unplaced: [],
         unplacedOverflow: 0,
         layoutIgnored: [],
+        partNeeds: [],
+        notNeeded: [],
         candidates: [candidate("alpha"), candidate("beta")],
       };
     }

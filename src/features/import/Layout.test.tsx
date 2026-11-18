@@ -72,6 +72,8 @@ function ticket(over: Partial<PreviewTicket> = {}): PreviewTicket {
     unplaced: [],
     unplacedOverflow: 0,
     layoutIgnored: [],
+    partNeeds: [],
+    notNeeded: [],
     candidates: found,
     ...over,
   } as PreviewTicket;
