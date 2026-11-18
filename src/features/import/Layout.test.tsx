@@ -277,7 +277,10 @@ describe("Import: the unplaced notice", () => {
 
   it("does not run by itself with the setting on but nothing unplaced", async () => {
     const u = userEvent.setup();
-    const { calls } = setup({ auto: true });
+    const { calls } = setup({
+      first: ticket({ needsBy: "stored" }),
+      auto: true,
+    });
     await toChoose(u);
     await waitFor(() => expect(calls).toContain("import_layout_setting_get"));
     expect(calls).not.toContain("library_preview_layout");
@@ -436,5 +439,12 @@ describe("Import: Ask Claude again", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("runs by itself with the setting on when parts have no stored answer", async () => {
+    const u = userEvent.setup();
+    const { calls } = setup({ auto: true });
+    await toChoose(u);
+    await waitFor(() => expect(calls).toContain("library_preview_layout"));
   });
 });
