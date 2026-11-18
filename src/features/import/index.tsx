@@ -37,6 +37,7 @@ import { ReviewStep } from "./ReviewStep";
 import { type SourceForm, SourceStep } from "./SourceStep";
 import { Stepper } from "./Stepper";
 import { useDetection } from "./useDetection";
+import { splitBlocks } from "./splitBlock";
 import { useLayoutRun } from "./useLayoutRun";
 import { usePreviewConfirmation } from "./usePreviewConfirmation";
 
@@ -314,6 +315,9 @@ function ImportFlow({
     (c) => !c.alreadyInLibrary && !excluded.has(c.id),
   );
 
+  const splitBlocked =
+    view !== null && splitBlocks(view, excluded, layout.failure).length > 0;
+
   const chosenIds = useMemo(() => chosen.map((c) => c.id), [chosen]);
   const detection = useDetection(step === 2, preview, chosenIds, (found) => {
     // Claude's tags join the keyword suggestions; a tag already there (any case) is kept once.
@@ -577,6 +581,7 @@ function ImportFlow({
             phase2.checking ||
             phase2.blocked ||
             layout.blocked ||
+            splitBlocked ||
             layout.stage !== null
           }
           onClick={() => setStep(2)}
@@ -599,6 +604,7 @@ function ImportFlow({
             chosen.length === 0 ||
             phase2.blocked ||
             layout.blocked ||
+            splitBlocked ||
             detection.phase.kind === "running"
           }
           onClick={() => void runImport()}

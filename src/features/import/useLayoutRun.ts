@@ -28,8 +28,8 @@ function messageOf(error: unknown): string {
 
 /**
  * Whether Claude is asked on its own (ADR-008, 2026-11-18):
- * - a plugin the user split into parts whose needs are not Claude's stored answer (none yet, or
- *   the file tree changed outside it);
+ * - a plugin the user split into parts whose needs are not Claude's stored answer (none yet,
+ *   it misses a part, or the file tree changed outside it);
  * - files Harneo could not place, only in a source with no plugin (loose prompts, where Claude
  *   is the only way to find anything). Next to a plugin they are mostly the author's working
  *   copies and tooling: the "couldn't place" note offers the call instead.
@@ -44,9 +44,15 @@ function claudeIsDue(ticket: PreviewTicket | null): boolean {
     split || ticket.candidates.some((c) => c.artifact.kind === "plugin");
   if (!plugin) return ticket.unplaced.length > 0;
   if (!split) return false;
+  const answered = new Set(ticket.partNeeds.map((p) => p.path));
   return (
     ticket.needsBy !== "stored" ||
-    ticket.diagnostics.some((d) => d.code === "layout.tree-changed")
+    ticket.diagnostics.some((d) => d.code === "layout.tree-changed") ||
+    ticket.candidates.some(
+      (c) =>
+        c.artifact.metadata.fromPlugin !== undefined &&
+        !answered.has(c.artifact.path),
+    )
   );
 }
 

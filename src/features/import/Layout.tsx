@@ -6,6 +6,7 @@ import type { Preview } from "../../bindings/Preview";
 import { Modal } from "../../app/Modal";
 import { Button, Callout } from "../../ui";
 import { placementOf } from "./placement";
+import type { SplitBlock } from "./splitBlock";
 import type { LayoutRun } from "./useLayoutRun";
 import styles from "./Import.module.css";
 
@@ -57,6 +58,18 @@ function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** What blocks a plugin's parts, in plain words (ADR-008, amended 2026-11-18). */
+function blockText({ name, why }: SplitBlock): string {
+  switch (why.kind) {
+    case "notAsked":
+      return `Claude was not asked what the parts of ${name} need, so they cannot be imported yet. Ask Claude, or take the whole plugin.`;
+    case "failed":
+      return `Claude's call failed, so what the parts of ${name} need is unknown: ${why.message}. Ask Claude again, or take the whole plugin.`;
+    case "incomplete":
+      return `Claude's answer doesn't cover ${why.missing.map((m) => `\`${m}\``).join(", ")}. Ask Claude again, or take the whole plugin.`;
+  }
+}
+
 /**
  * The layout step's notes: progress while Claude works, the failure pause with its three
  * choices, and the files Harneo could not place with the button that asks Claude about them.
@@ -65,10 +78,16 @@ export function LayoutNotes({
   preview,
   run,
   onCancel,
+  blocks = [],
+  onWhole,
 }: {
   preview: Preview;
   run: LayoutRun;
   onCancel: () => void;
+  /** The plugins set to Pick parts that Claude's answer does not allow importing. */
+  blocks?: SplitBlock[];
+  /** Switches a blocked plugin (by folder) to Whole plugin. */
+  onWhole?: (folder: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
@@ -83,7 +102,24 @@ export function LayoutNotes({
   const count = preview.unplaced.length + preview.unplacedOverflow;
   return (
     <>
-      {run.failure !== null && !run.skipped && (
+      {blocks.map((block) => (
+        <Callout key={block.folder} tone="bad" icon={Sparkles}>
+          <p className={styles.noMargin}>{blockText(block)}</p>
+          <div className={styles.failureActions}>
+            <Button small disabled={working} onClick={run.ask}>
+              {working ? "Asking Claude…" : "Ask Claude again"}
+            </Button>
+            <Button
+              small
+              disabled={working}
+              onClick={() => onWhole?.(block.folder)}
+            >
+              Take the whole plugin instead
+            </Button>
+          </div>
+        </Callout>
+      ))}
+      {blocks.length === 0 && run.failure !== null && !run.skipped && (
         <Callout tone="bad" icon={Sparkles}>
           <p className={styles.noMargin}>
             {`Claude could not read the repo's layout: ${run.failure}. Nothing is imported until you choose.`}
@@ -101,7 +137,7 @@ export function LayoutNotes({
           </div>
         </Callout>
       )}
-      {run.failure !== null && run.skipped && (
+      {blocks.length === 0 && run.failure !== null && run.skipped && (
         <Callout tone="warn" icon={Sparkles}>
           <p className={styles.noMargin}>
             {`Claude could not read the repo's layout: ${run.failure}. Only what the manifests and known folders show is listed.`}

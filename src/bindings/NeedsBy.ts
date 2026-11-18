@@ -3,4 +3,4 @@
 /**
  * Who decided the parts' supporting paths.
  */
-export type NeedsBy = "claude" | "stored" | "fallback";
+export type NeedsBy = "claude" | "stored";

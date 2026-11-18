@@ -35,6 +35,22 @@ pub(crate) fn plugin_repo(root: &Path) -> std::io::Result<()> {
     Ok(())
 }
 
+/// The preview as if Claude had answered for every part (no supporting paths): a split part
+/// imports only with an answer (ADR-008, 2026-11-18), and these tests are not about Claude.
+pub(crate) fn answered(mut preview: Preview) -> Preview {
+    preview.part_needs = preview
+        .candidates
+        .iter()
+        .filter(|c| c.artifact.metadata.contains_key("fromPlugin"))
+        .map(|c| super::layout_parts::PartNeeds {
+            path: c.artifact.path.clone(),
+            needs: Vec::new(),
+        })
+        .collect();
+    preview.needs_by = Some(super::layout_parts::NeedsBy::Claude);
+    preview
+}
+
 pub(crate) fn unpacking(folders: &[&str]) -> ScanOptions {
     ScanOptions {
         unpack: folders.iter().map(|f| (*f).to_owned()).collect(),
@@ -76,7 +92,9 @@ fn id(preview: &Preview, kind: ArtifactKind, name: &str) -> std::result::Result<
 
 impl Setup {
     fn parts(&self) -> Result<Preview> {
-        self.library.preview_with(&self.source, &unpacking(&[""]))
+        self.library
+            .preview_with(&self.source, &unpacking(&[""]))
+            .map(answered)
     }
 
     /// The preview with the plugin taken whole (the default unpacks it).
@@ -287,7 +305,7 @@ fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
     let elsewhere = Source::Local {
         path: other.path().to_path_buf(),
     };
-    let parts = s.library.preview_with(&elsewhere, &unpacking(&[""]))?;
+    let parts = answered(s.library.preview_with(&elsewhere, &unpacking(&[""]))?);
     let alpha = id(&parts, ArtifactKind::Skill, "alpha")?;
     let refused = s
         .library
@@ -310,7 +328,7 @@ fn the_same_plugin_from_another_source_is_caught_too() -> TestResult {
     let theirs = Source::Local {
         path: unrelated.path().to_path_buf(),
     };
-    let parts = s.library.preview_with(&theirs, &unpacking(&[""]))?;
+    let parts = answered(s.library.preview_with(&theirs, &unpacking(&[""]))?);
     let delta = id(&parts, ArtifactKind::Skill, "delta")?;
     s.library.import(&parts, &[delta], &TagChoices::new())?;
     assert_eq!(s.rows(), 2);
@@ -431,7 +449,7 @@ fn a_skills_pack_previews_whole_by_default_and_picking_parts_stores_the_choice()
     // ADR-008 (2026-11-18): a plugin starts whole; parts only when the user picks them.
     let first = library.preview(&local(&repo))?;
     assert_eq!(plugins_of(&first), 1);
-    let preview = library.preview_with(&local(&repo), &unpacking(&[""]))?;
+    let preview = answered(library.preview_with(&local(&repo), &unpacking(&[""]))?);
     assert_eq!(plugins_of(&preview), 0);
     assert_eq!(names(&preview, ArtifactKind::Skill), ["one", "two"]);
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
@@ -489,7 +507,7 @@ fn a_plugin_with_monitors_is_proposed_whole_with_its_reason() -> TestResult {
         reason.text()
     );
     // Such a plugin cannot be unpacked either (ADR-008): asking leaves it whole.
-    let parts = library.preview_with(&local(&repo), &unpacking(&[""]))?;
+    let parts = answered(library.preview_with(&local(&repo), &unpacking(&[""]))?);
     assert_eq!(plugins_of(&parts), 1);
     assert!(names(&parts, ArtifactKind::Skill).is_empty());
     Ok(())
@@ -528,7 +546,7 @@ fn a_parts_import_of_a_plugin_held_whole_elsewhere_is_refused_not_converted() ->
     let held = library.preview_with(&local(&first), &off)?;
     let ids: Vec<String> = held.candidates.iter().map(|c| c.id.clone()).collect();
     library.import(&held, &ids, &TagChoices::new())?;
-    let preview = library.preview_with(&local(&second), &unpacking(&[""]))?;
+    let preview = answered(library.preview_with(&local(&second), &unpacking(&[""]))?);
     let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
     let refused = library.import(&preview, &ids, &TagChoices::new());
     assert!(matches!(refused, Err(Error::PluginExclusive { .. })));

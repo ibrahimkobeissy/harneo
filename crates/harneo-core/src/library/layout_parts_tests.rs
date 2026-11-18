@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::json;
 
-use super::layout_parts::{NeedsBy, WITHOUT_CLAUDE};
+use super::layout_parts::NeedsBy;
 use super::*;
 use crate::bundles::claude_cli_tests::{config, script};
 
@@ -135,6 +135,16 @@ fn needs_of<'a>(preview: &'a Preview, path: &str) -> Vec<&'a str> {
         .unwrap_or_default()
 }
 
+/// An answer entry for every plugin part of the preview.
+fn every_part(preview: &Preview, needs: &[&str]) -> Vec<serde_json::Value> {
+    preview
+        .candidates
+        .iter()
+        .filter(|c| c.artifact.metadata.contains_key("fromPlugin"))
+        .map(|c| part(&c.artifact.path, needs))
+        .collect()
+}
+
 fn skill_paths(preview: &Preview) -> Vec<String> {
     preview
         .candidates
@@ -162,7 +172,6 @@ fn claude_gives_each_skill_its_references_and_drops_docs_and_the_answer_is_store
         assert_eq!(needs_of(&next, skill), ["references"]);
     }
     assert_eq!(next.not_needed[0].path, "docs");
-    assert!(!next.diagnostics.iter().any(|d| d.code == WITHOUT_CLAUDE));
 
     s.import_all(&next)?;
     let stored = records::stored_parts(
@@ -182,7 +191,7 @@ fn an_unchanged_tree_makes_no_call_and_a_new_folder_asks_again_and_shows_the_cha
     let skills = skill_paths(&preview);
     s.claude(&json!({
         "items": [], "ignore": [],
-        "parts": [part(&skills[0], &["references"])],
+        "parts": every_part(&preview, &["references"]),
         "notNeeded": [],
     }))?;
     let next = s.library.preview_layout(&preview, &|_| {})?;
@@ -206,7 +215,7 @@ fn an_unchanged_tree_makes_no_call_and_a_new_folder_asks_again_and_shows_the_cha
         .any(|d| d.code == layout_parts::TREE_CHANGED && d.message.contains("templates/")));
     s.claude(&json!({
         "items": [], "ignore": [],
-        "parts": [part(&skills[0], &["references", "templates"])],
+        "parts": every_part(&changed, &["references", "templates"]),
         "notNeeded": [],
     }))?;
     let asked = s.library.preview_layout(&changed, &|_| {})?;
@@ -216,22 +225,36 @@ fn an_unchanged_tree_makes_no_call_and_a_new_folder_asks_again_and_shows_the_cha
 }
 
 #[test]
-fn without_claude_a_part_needs_the_plugin_folder_minus_other_parts_and_the_import_says_so(
-) -> TestResult {
-    let s = setup()?;
+fn without_claude_no_part_has_supporting_paths_and_importing_a_split_part_is_refused() -> TestResult
+{
+    let mut s = setup()?;
     let preview = s.preview()?;
-    assert_eq!(preview.needs_by, Some(NeedsBy::Fallback));
-    assert!(preview.diagnostics.iter().any(|d| d.code == WITHOUT_CLAUDE));
-    let skills = skill_paths(&preview);
-    let needs = needs_of(&preview, &skills[0]);
-    assert!(needs.contains(&"references/checklist.md"), "{needs:?}");
-    assert!(needs.contains(&"docs/guide.md"), "{needs:?}");
-    assert!(
-        !needs.iter().any(|p| p.starts_with("skills/")),
-        "other parts' folders are not taken: {needs:?}"
-    );
-    assert!(!needs.iter().any(|p| p.contains(".claude-plugin")));
+    assert_eq!(preview.needs_by, None);
+    assert!(preview.part_needs.is_empty());
     assert_eq!(s.calls(), 0);
+    let err = s.import_all(&preview).expect_err("no answer, no import");
+    assert!(matches!(err, Error::PartWithoutAnswer { .. }), "{err}");
+    assert!(err.to_string().contains("does not cover"), "{err}");
+    Ok(())
+}
+
+#[test]
+fn a_part_the_answer_omits_has_no_needs_and_is_refused_on_import() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.preview()?;
+    let skills = skill_paths(&preview);
+    s.claude(&json!({
+        "items": [], "ignore": [],
+        "parts": [part(&skills[0], &["references"])],
+        "notNeeded": [],
+    }))?;
+    let next = s.library.preview_layout(&preview, &|_| {})?;
+    assert_eq!(next.needs_by, Some(NeedsBy::Claude));
+    assert!(next.part_needs.iter().all(|p| p.path != skills[1]));
+    assert!(matches!(
+        s.import_all(&next),
+        Err(Error::PartWithoutAnswer { .. })
+    ));
     Ok(())
 }
 
@@ -262,5 +285,29 @@ fn a_bad_path_is_rejected_per_item_and_a_part_the_manifest_lacks_is_a_proposal()
         .iter()
         .any(|d| d.code == "layout.proposed-part" && d.file == "tools/extra"));
     assert!(next.not_needed.is_empty());
+    Ok(())
+}
+
+#[test]
+fn a_stored_answer_that_misses_a_part_asks_again() -> TestResult {
+    let mut s = setup()?;
+    let preview = s.preview()?;
+    let skills = skill_paths(&preview);
+    s.claude(&json!({
+        "items": [], "ignore": [],
+        "parts": every_part(&preview, &["references"]),
+        "notNeeded": [],
+    }))?;
+    let next = s.library.preview_layout(&preview, &|_| {})?;
+    s.import_all(&next)?;
+    assert_eq!(s.calls(), 1);
+
+    // The stored answer is replayed; a part the answer does not name is due for a new call even
+    // though the tree did not change.
+    let mut again = s.preview()?;
+    again.part_needs.retain(|p| p.path != skills[1]);
+    assert_eq!(again.needs_by, Some(NeedsBy::Stored));
+    s.library.preview_layout(&again, &|_| {})?;
+    assert_eq!(s.calls(), 2);
     Ok(())
 }

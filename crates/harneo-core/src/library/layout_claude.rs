@@ -429,18 +429,12 @@ fn apply_parts(root: &Path, next: &mut Preview, proposal: &Proposal) {
             });
         }
     }
-    // A part Claude left out still has the files of its plugin that nothing else claims.
-    for fallback in layout_parts::fallback(root, &next.candidates) {
-        if !by_part.iter().any(|p| p.path == fallback.path) {
-            by_part.push(fallback);
-        }
-    }
     next.not_needed = layout_parts::check_not_needed(root, &proposal.not_needed, &mut diagnostics);
     next.part_needs = by_part;
     next.needs_by = Some(NeedsBy::Claude);
     next.layout_tree = layout_parts::tree_of(root);
     next.diagnostics
-        .retain(|d| d.code != layout_parts::WITHOUT_CLAUDE && d.code != layout_parts::TREE_CHANGED);
+        .retain(|d| d.code != layout_parts::TREE_CHANGED);
     next.diagnostics.extend(diagnostics);
 }
 
@@ -600,7 +594,7 @@ fn within(path: &str, folder: &str) -> bool {
 }
 
 /// Whether a tier 3 call is due: files are unplaced, or the parts' needs are not Claude's stored
-/// answer (none yet, or the file tree changed outside it). A source whose stored answer still
+/// answer (none yet, a part it does not cover, or the file tree changed outside it). A source whose stored answer still
 /// matches costs no call.
 fn needs_claude(preview: &Preview) -> bool {
     if !preview.unplaced.is_empty() {
@@ -610,6 +604,10 @@ fn needs_claude(preview: &Preview) -> bool {
         return false;
     }
     preview.needs_by != Some(NeedsBy::Stored)
+        || preview.candidates.iter().any(|c| {
+            c.artifact.metadata.contains_key("fromPlugin")
+                && !preview.part_needs.iter().any(|p| p.path == c.artifact.path)
+        })
         || preview
             .diagnostics
             .iter()

@@ -2,8 +2,9 @@
 //! and folders outside its own folder that it needs, plus what is not needed. Harneo checks each
 //! path like tier 3 does (exists, inside the root, no symlink); manifest components are always
 //! parts. The answer is stored with the source and replayed by updates without Claude; Claude is
-//! asked again only when the file tree changes outside the stored answer. Without Claude, a part
-//! needs every file of its plugin's folder that no other part claims.
+//! asked again only when the file tree changes outside the stored answer. A part's supporting
+//! paths come only from Claude's answer (ADR-008, amended 2026-11-18): without it a split part
+//! has none, and the import refuses it.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -15,10 +16,8 @@ use ts_rs::TS;
 use super::layout_claude::{tidy, Claimed, IgnoredPath, SHOWN_CHARS};
 use super::Candidate;
 use crate::artifact::walk::Walker;
-use crate::artifact::{check_path, rel_string, Artifact, Diagnostic, ScanOptions};
+use crate::artifact::{check_path, rel_string, Diagnostic, ScanOptions};
 
-/// Diagnostic shown when Claude was not asked.
-pub const WITHOUT_CLAUDE: &str = "layout.without-claude";
 /// Diagnostic shown when the source's file tree changed outside its stored answer.
 pub const TREE_CHANGED: &str = "layout.tree-changed";
 
@@ -62,8 +61,6 @@ pub enum NeedsBy {
     Claude,
     /// Claude's answer stored with the source, replayed.
     Stored,
-    /// No Claude: every file of the plugin's folder that no other part claims.
-    Fallback,
 }
 
 /// One part as Claude wrote it, before any check.
@@ -169,54 +166,6 @@ pub(super) fn tree_added(stored: &[String], now: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn plugin_folder(artifact: &Artifact) -> Option<String> {
-    let from = artifact.metadata.get("fromPlugin")?;
-    from.get("folder")
-        .and_then(Value::as_str)
-        .map(str::to_owned)
-}
-
-fn in_folder(path: &str, folder: &str) -> bool {
-    folder.is_empty() || folder == "." || Path::new(path).starts_with(folder)
-}
-
-/// Without Claude: each plugin part needs every file of its plugin's folder that no other part
-/// claims. The plugin's manifest folder is written by the scaffold, so it is not listed.
-pub(super) fn fallback(root: &Path, candidates: &[Candidate]) -> Vec<PartNeeds> {
-    let options = ScanOptions::default();
-    let walker = Walker::new(root, &options);
-    let files = walker.list_files(Path::new(""), &mut Vec::new());
-    let mut out = Vec::new();
-    for candidate in candidates {
-        let Some(folder) = plugin_folder(&candidate.artifact) else {
-            continue;
-        };
-        let mut others = Claimed::of(&[]);
-        for other in candidates.iter().filter(|o| o.id != candidate.id) {
-            if plugin_folder(&other.artifact).as_deref() == Some(folder.as_str()) {
-                others.add(&other.artifact, &other.copies);
-            }
-        }
-        let mut own = Claimed::of(&[]);
-        own.add(&candidate.artifact, &candidate.copies);
-        let needs = files
-            .iter()
-            .filter(|f| in_folder(f, &folder))
-            .filter(|f| !f.contains(".claude-plugin/"))
-            .filter(|f| !own.holds(f) && !others.holds(f))
-            .map(|f| NeededPath {
-                path: f.clone(),
-                reason: "the plugin's folder holds it and no other part claims it".to_owned(),
-            })
-            .collect();
-        out.push(PartNeeds {
-            path: candidate.artifact.path.clone(),
-            needs,
-        });
-    }
-    out
-}
-
 fn rejected(path: &str, why: &str) -> Diagnostic {
     Diagnostic::warning(
         "layout.rejected",
@@ -293,16 +242,6 @@ pub(super) fn replay(
         });
     }
     out
-}
-
-/// The notice of a preview whose parts were decided without Claude.
-pub(super) fn without_claude_notice() -> Diagnostic {
-    Diagnostic::info(
-        WITHOUT_CLAUDE,
-        Path::new(""),
-        "Claude was not asked what each part needs, so each part takes every file of its \
-plugin's folder that no other part claims",
-    )
 }
 
 /// The notice listing what changed in the tree since Claude was asked.

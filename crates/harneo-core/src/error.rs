@@ -210,6 +210,13 @@ pub enum Error {
         /// What is wrong with it.
         message: String,
     },
+    /// A plugin part was to be imported with no answer from Claude about what it needs (ADR-008,
+    /// 2026-11-18): the supporting paths of a part come only from Claude's answer.
+    #[error("Claude's answer does not cover the plugin part {name}, so its supporting files are unknown: ask Claude again or take the whole plugin")]
+    PartWithoutAnswer {
+        /// The part's name.
+        name: String,
+    },
     /// The user cancelled a draw; nothing was saved.
     #[error("cancelled")]
     Cancelled,

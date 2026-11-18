@@ -2,8 +2,8 @@
 //! profile can scaffold the kept parts as a trimmed plugin.
 //!
 //! The record holds the plugin's name, its manifest, and the supporting files its parts need
-//! (the files and folders outside each part's own that Claude listed, or every unclaimed file of
-//! the plugin's folder when Claude was not asked). The files are stored once per plugin and
+//! (the files and folders outside each part's own that Claude listed; a part Claude's answer does
+//! not cover is refused, ADR-008 amended 2026-11-18). The files are stored once per plugin and
 //! source, not once per part: two parts that need `references/` share its files. Each part
 //! records its plugin in `metadata.fromPlugin` (`name`, `folder`, `marketplace`, `manifest`) and
 //! its own supporting paths in `fromPlugin.needs`. A part with no `needs` list predates this

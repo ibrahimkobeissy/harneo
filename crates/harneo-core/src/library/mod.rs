@@ -429,11 +429,8 @@ gone or no longer parses",
         let mut preview_notes = Vec::new();
         let stored = records::stored_parts(&self.store.conn, &ids::source_id(identity))?;
         let (part_needs, needs_by, layout_tree) = if stored.tree.is_empty() {
-            let fallback = layout_parts::fallback(root, &candidates);
-            if fallback.iter().any(|p| !p.needs.is_empty()) {
-                preview_notes.push(layout_parts::without_claude_notice());
-            }
-            (fallback, Some(layout_parts::NeedsBy::Fallback), Vec::new())
+            // No stored answer: nothing is derived without Claude (ADR-008, 2026-11-18).
+            (Vec::new(), None, Vec::new())
         } else {
             let now = layout_parts::tree_of(root);
             let added = layout_parts::tree_added(&stored.tree, &now);
@@ -1215,18 +1212,23 @@ impl PluginParts {
 }
 
 /// The supporting paths the preview gives the part at `path`, each checked against `root`.
-fn needs_for(root: &Path, preview: &Preview, candidate: &Candidate) -> Vec<String> {
+/// A part with no answer is refused: its supporting paths come only from Claude's answer.
+fn needs_for(root: &Path, preview: &Preview, candidate: &Candidate) -> Result<Vec<String>> {
     let Some(given) = preview
         .part_needs
         .iter()
         .find(|p| p.path == candidate.artifact.path)
     else {
-        return Vec::new();
+        return Err(Error::PartWithoutAnswer {
+            name: candidate.artifact.name.clone(),
+        });
     };
-    layout_parts::check_needs(root, candidate, &given.needs, &mut Vec::new())
-        .into_iter()
-        .map(|n| n.path)
-        .collect()
+    Ok(
+        layout_parts::check_needs(root, candidate, &given.needs, &mut Vec::new())
+            .into_iter()
+            .map(|n| n.path)
+            .collect(),
+    )
 }
 
 /// Stamps every plugin part of `fresh` with its plugin and supporting paths, and reads each
@@ -1248,7 +1250,7 @@ fn plugin_parts_of(
         let Some((name, folder)) = plugin_record::plugin_of(&candidate.artifact) else {
             continue;
         };
-        let needs = needs_for(root, preview, candidate);
+        let needs = needs_for(root, preview, candidate)?;
         let support = plugin_record::expand(root, &folder, &needs);
         let mut artifact = candidate.artifact.clone();
         let uses: Vec<String> = refs

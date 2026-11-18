@@ -80,3 +80,11 @@ User decision after testing `pbakaus/impeccable` and `addyosmani/agent-skills`: 
 - **Files Harneo cannot place are sent to Claude on their own only in a source with no plugin** (loose prompts). Next to a plugin they are mostly the author's working copies and tooling; the "couldn't place" note keeps its button for when the user wants them.
 - **A proposal with the type and name of a plugin part in the same source is a duplicate**: set aside, with the reason, and skipped on updates. **Everything else Claude proposes starts excluded**; the user restores what they want.
 - While Claude works, the import shows a blocking dialog with a spinner and **Cancel import** (the calls have no timeout).
+
+## Amendment 2026-11-18 (#303): no fallback; a split plugin imports only with Claude's answer (temporary)
+User decision, temporary, to see what goes wrong before the definitive fix. A scaffold of `addyosmani/agent-skills` parts wrote almost the whole repo into `.claude/skills/agent-skills/`: without Claude's answer a part took every file of the plugin's folder that no other part claimed, which for a plugin at the repo root is the whole repo, and a part Claude's answer omitted got the same.
+- **The fallback is removed**, in both forms ("without Claude" and "parts Claude omits get the fallback needs"). A part's supporting paths come only from Claude's answer, stored or fresh.
+- **The import blocks.** With a plugin set to **Pick parts**, Continue on the Choose step is disabled unless Claude's answer covers every kept part. A red message says which case it is: Claude was not asked (setting off, or no answer stored); the call failed (an error, or an answer that does not parse); or the answer is incomplete (it names the kept parts the answer does not cover). It offers **Ask Claude again** (the call, with the blocking dialog) and **Take the whole plugin instead**. *Continue with what was found* is not offered for a split plugin.
+- **Defence in depth:** core refuses to import a split part that has no answer, with a clear error.
+- A plugin taken whole and loose artifacts are unaffected.
+- This supersedes the "Without Claude" bullet of the Decision above. The definitive rule is still to be decided.

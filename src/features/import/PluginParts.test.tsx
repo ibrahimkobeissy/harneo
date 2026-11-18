@@ -66,6 +66,15 @@ const whole: Preview = {
 };
 const parts: Preview = {
   ...base,
+  // Claude's answer covers every part (a split plugin imports only with one, ADR-008).
+  needsBy: "claude",
+  partNeeds: [
+    "skills/alpha",
+    "skills/beta",
+    "skills/gamma",
+    "skills/needy",
+    ".mcp.json#db",
+  ].map((path) => ({ path, needs: [] })),
   // needy names alpha as `toolbox:alpha`.
   partRefs: [{ from: "id-needy", to: "id-alpha" }],
   candidates: [

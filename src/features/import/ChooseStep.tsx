@@ -33,6 +33,7 @@ import { claudeProvidedIds, managedNote, originLabel } from "./origin";
 import { criticalRule, TierLabel } from "./trust";
 import { LayoutNotes, PlacementLabel } from "./Layout";
 import { partNeedRows } from "./partNeeds";
+import { splitBlocks } from "./splitBlock";
 import { PluginChoice, type PluginMode, PluginParts } from "./PluginRows";
 import { fromPlugin, pluginGroups, wholeRefusal } from "./plugins";
 import type { LayoutRun } from "./useLayoutRun";
@@ -484,7 +485,13 @@ export function ChooseStep({
       </p>
       {phase1Only && <Phase1Warning cliMissing={phase1Only.cliMissing} />}
       <ConfirmFailureCallout phase2={phase2} onCancel={onCancelImport} />
-      <LayoutNotes preview={preview} run={layout} onCancel={onCancelImport} />
+      <LayoutNotes
+        preview={preview}
+        run={layout}
+        onCancel={onCancelImport}
+        blocks={splitBlocks(preview, excluded, layout.failure)}
+        onWhole={(folder) => onPluginMode(folder, "whole")}
+      />
       {checking && (
         <ConfirmingNote
           progress={progress}

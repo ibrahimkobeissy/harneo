@@ -4,7 +4,7 @@ use std::fs;
 
 use super::*;
 use crate::artifact::ScanOptions;
-use crate::library::unpack_tests::{plugin_repo, unpacking};
+use crate::library::unpack_tests::{answered, plugin_repo, unpacking};
 use crate::library::{Library, Source, TagChoices};
 
 type TestResult = std::result::Result<(), Box<dyn std::error::Error>>;
@@ -19,7 +19,7 @@ fn a_reopened_library_checks_an_unpacked_plugin_with_the_same_choice() -> TestRe
     };
     let alpha = {
         let mut library = Library::open(data.path())?;
-        let preview = library.preview_with(&source, &unpacking(&[""]))?;
+        let preview = answered(library.preview_with(&source, &unpacking(&[""]))?);
         let ids: Vec<String> = preview
             .candidates
             .iter()
@@ -122,7 +122,7 @@ fn an_update_replays_the_picked_parts_choice() -> TestResult {
     };
     let one = {
         let mut library = Library::open(data.path())?;
-        let preview = library.preview_with(&source, &unpacking(&[""]))?;
+        let preview = answered(library.preview_with(&source, &unpacking(&[""]))?);
         let ids: Vec<String> = preview.candidates.iter().map(|c| c.id.clone()).collect();
         library.import(&preview, &ids, &TagChoices::new())?;
         preview
