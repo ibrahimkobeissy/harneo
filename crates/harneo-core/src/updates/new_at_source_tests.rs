@@ -186,10 +186,10 @@ fn update_all_deletes_what_is_removed_at_source_only_with_the_flag() -> TestResu
         .update_all_with(&["0000000000000000".to_owned()])?
         .is_empty());
     assert!(f.library.detail(&b).is_ok());
-    assert!(f.library.update_all_with(&[a.clone()])?.is_empty());
+    assert!(f.library.update_all_with(std::slice::from_ref(&a))?.is_empty());
     assert!(f.library.detail(&a).is_ok());
 
-    let reports = f.library.update_all_with(&[b.clone()])?;
+    let reports = f.library.update_all_with(std::slice::from_ref(&b))?;
     assert_eq!(reports.len(), 1, "{reports:?}");
     assert_eq!(reports[0].outcome, UpdateOutcome::Removed);
     assert_eq!(reports[0].id, b);
@@ -214,7 +214,7 @@ fn layout_changed_is_never_deleted_by_update_all() -> TestResult {
         [&b],
     )?;
     assert!(f.library.removed_at_source_plan()?.artifacts.is_empty());
-    assert!(f.library.update_all_with(&[b.clone()])?.is_empty());
+    assert!(f.library.update_all_with(std::slice::from_ref(&b))?.is_empty());
     assert!(f.library.detail(&b).is_ok());
     Ok(())
 }
