@@ -21,6 +21,12 @@ Tell the user when an artifact changed **at its source** since they imported it,
 
 7. **Layout replay (2026-10-25):** an update reads the source with the layout stored at import ([`library.md`](library.md#layout-resolver)) and never calls Claude. A stored `claude` entry whose path is gone or no longer parses is flagged *layout changed*, with an **Ask Claude again** action.
 
+### Sync with the source (decided by the user, 2026-11-19)
+
+8. **New at source is imported:** *Update all* imports every artifact found in a source at a path the library doesn't hold, with the layout stored for that source (decision 7, never Claude). Deleting an artifact from the library leaves a **tombstone** `(source, path)`, so it is never counted or imported as new again. Importing that path on purpose from the Import flow clears the tombstone. ([#306](https://github.com/ibrahimkobeissy/harneo/issues/306))
+9. **Removed at source is deleted after one confirmation:** *Update all* lists those artifacts, with the profiles that use them, in its confirm, and deletes them through the library's normal delete. Nothing is deleted without that confirmation. *Layout changed* is never treated as removed. ([#307](https://github.com/ibrahimkobeissy/harneo/issues/307))
+10. **Renames carry everything over:** a removed artifact and a new one in the same source, of the same kind, whose contents match once the name is ignored (folder or file name, `name:` frontmatter) is a rename, but only when the match is one-to-one. Applying it moves tags, collections, links, profile versions, installed files and fits to the new id, keeps the old name as a usage alias, then removes the old copy. Anything ambiguous stays removed + new. ([#308](https://github.com/ibrahimkobeissy/harneo/issues/308))
+
 ### Scope
 
 **Core (`harneo-core/src/updates/`)**
@@ -29,8 +35,8 @@ Tell the user when an artifact changed **at its source** since they imported it,
 - **Status per artifact:** `update_status(id) -> Option<UpdateStatus{ state, from_version, to_version, local_edits: bool }>`; `LibraryItem` gains `update: Option<UpdateBadge{ to_version, local_edits }>`; `Filter` gains `outdated: bool`; facets count outdated.
 - **Diff:** `update_diff(id) -> Vec<FileDiff{ path, status: Added|Removed|Changed, hunks }>` between the library copy and upstream (`similar`, pre-approved in `install-engine.md`).
 - **Update:** `update(id, choice: TakeUpstream | KeepMine) -> UpdateReport`. Take upstream: backup when edited, then the same per-type copy as import (secret replacement, server.json for MCP, plugins whole) into a temp folder and an atomic swap; provenance digest, commit, `updated_at`, `copy_digest` updated; re-audit; reference links (`bundles`) refreshed; the upstream row cleared. Keep mine: state → skipped.
-- **Update all:** `update_all() -> Vec<UpdateReport>` updates every outdated artifact **without** local edits and returns the skipped ones.
-- **Removed upstream:** shown as "Removed at source", never deleted automatically; the user can remove it from the library.
+- **Update all:** `update_all()` updates every outdated artifact **without** local edits and returns the skipped ones; it also imports new-at-source artifacts (decision 8), applies renames (decision 10) and, once confirmed, deletes the ones removed at source (decision 9).
+- **Removed upstream:** shown as "Removed at source"; deleted by *Update all* after its confirmation (decision 9), or one at a time from the drawer. Never deleted without a confirmation.
 - Local-edit detection reads the store only; it never writes to a project.
 
 **App**
@@ -96,7 +102,7 @@ fn classify(stored: &StoredArtifact, upstream: Option<&Artifact>) -> Option<Upst
 1. Only artifacts whose own files changed upstream are flagged, with versions.
 2. Updating replaces the library copy atomically, keeps secrets out, re-audits.
 3. A locally edited artifact always asks Yours vs Upstream, and the other version is backed up.
-4. *Update all* skips edited artifacts and says so.
+4. *Update all* skips edited artifacts and says so; it imports new artifacts (never ones the user deleted), applies renames with everything carried over, and deletes removed ones only after one confirmation.
 5. Offline or broken sources are reported per source and never block the rest.
 6. `npm run check:full` passes and the coverage ratchet holds.
 
