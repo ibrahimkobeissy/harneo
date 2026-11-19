@@ -181,7 +181,7 @@ impl Library {
         }
         new.iter()
             .map(
-                |c| match self.import_located(preview, &[c.id.clone()], placed) {
+                |c| match self.import_located(preview, std::slice::from_ref(&c.id), placed) {
                     Ok(_) => reported(c, UpdateOutcome::Imported, None),
                     Err(error @ Error::PartWithoutAnswer { .. }) => {
                         reported(c, UpdateOutcome::NotPlaced, Some(error.to_string()))
