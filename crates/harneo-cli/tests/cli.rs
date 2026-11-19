@@ -645,6 +645,37 @@ mod update_cli {
     }
 
     #[test]
+    fn update_imports_what_is_new_at_the_source_but_not_what_was_deleted() -> TestResult {
+        let (repo, data) = seeded()?;
+        let mut library = Library::open(data.path())?;
+        let b = library
+            .find(harneo_core::artifact::ArtifactKind::Agent, "b")?
+            .ok_or("not imported")?;
+        library.remove(&b)?;
+        drop(library);
+        commit_agent(repo.path(), "fresh", "x")?;
+        with_data(data.path())
+            .args(["update", "--check"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("1 new at source"));
+        with_data(data.path())
+            .arg("update")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("imported fresh (agent)"))
+            .stdout(predicate::str::contains(
+                "Imported 1 new at source, 0 not placed",
+            ));
+        assert!(stored_text(data.path(), "fresh")?.contains('x'));
+        assert!(
+            stored(data.path(), "b").is_err(),
+            "the deleted one stays out"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn a_named_artifact_is_updated_alone_and_json_has_a_summary() -> TestResult {
         let (repo, data) = seeded()?;
         commit_agent(repo.path(), "a", "two")?;

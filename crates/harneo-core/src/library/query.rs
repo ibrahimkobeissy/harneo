@@ -241,6 +241,9 @@ pub struct Facets {
     /// Outdated artifacts among those the other filters keep (the count behind "Outdated",
     /// whether or not that filter is on).
     pub outdated: u32,
+    /// Artifacts the last checks found new at their sources (not in the library, not deleted
+    /// by the user): *Update all* imports them. Over every source, whatever the filters.
+    pub new_at_source: u32,
     /// In `Status` order; only statuses present among the artifacts the other filters keep, plus
     /// selected ones at 0.
     pub statuses: Vec<StatusCount>,
@@ -840,7 +843,13 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
         params_from_iter(params.iter()),
         |r| r.get(0),
     )?;
+    let new_at_source: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(new_upstream), 0) FROM sources",
+        [],
+        |r| r.get(0),
+    )?;
     Ok(Facets {
+        new_at_source: count(new_at_source),
         auto: count(kept - manual),
         manual_only: count(manual),
         statuses,

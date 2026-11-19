@@ -448,9 +448,12 @@ function editedNames(names: string[]): string {
 
 /** Update all: the artifacts that will update, the edited ones that are skipped, the result. */
 export function UpdateAllDialog({
+  newAtSource,
   onClose,
   onUpdated,
 }: {
+  /** Artifacts new at their sources, which Update all imports. */
+  newAtSource: number;
   onClose: () => void;
   onUpdated: () => void;
 }) {
@@ -509,6 +512,8 @@ export function UpdateAllDialog({
     }
   }
   const updated = reports?.filter((r) => r.outcome === "updated") ?? [];
+  const imported = reports?.filter((r) => r.outcome === "imported") ?? [];
+  const notPlaced = reports?.filter((r) => r.outcome === "notPlaced") ?? [];
   const skipped =
     reports?.filter((r) => r.outcome === "skippedLocalEdits") ?? [];
   const failed = reports?.filter((r) => r.outcome === "failed") ?? [];
@@ -518,7 +523,7 @@ export function UpdateAllDialog({
         <h2>
           {reports
             ? "Update finished"
-            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}?`}
+            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}${newAtSource > 0 ? ` and import ${newAtSource} new` : ""}?`}
         </h2>
         {!reports && (
           <>
@@ -551,6 +556,16 @@ export function UpdateAllDialog({
                   ))}
                 </ul>
               )}
+              {newAtSource > 0 && (
+                <div className={styles.callout} data-tone="neutral" role="note">
+                  <p>
+                    {newAtSource} new at source. Update all imports{" "}
+                    {newAtSource === 1 ? "it" : "them"} with the layout stored
+                    for the source, without asking Claude. Artifacts you deleted
+                    are not brought back.
+                  </p>
+                </div>
+              )}
               {edited.length > 0 && (
                 <div className={styles.callout} data-tone="warn" role="note">
                   <p>
@@ -570,6 +585,18 @@ export function UpdateAllDialog({
               Updated {updated.length}{" "}
               {updated.length === 1 ? "artifact" : "artifacts"}.
             </p>
+            {imported.length > 0 && (
+              <p>
+                Imported {imported.length} new at source:{" "}
+                {imported.map((r) => r.name ?? r.id).join(", ")}.
+              </p>
+            )}
+            {notPlaced.map((r) => (
+              <p key={r.id}>
+                Not placed {r.name ?? r.sourcePath ?? r.id}:{" "}
+                {r.message ?? "the stored layout cannot place it"}
+              </p>
+            ))}
             {skipped.length > 0 && (
               <p>
                 Skipped for local edits:{" "}
@@ -601,9 +628,9 @@ export function UpdateAllDialog({
               <Button
                 variant="primary"
                 onClick={() => void run()}
-                disabled={busy || clean.length === 0}
+                disabled={busy || clean.length + newAtSource === 0}
               >
-                Update {clean.length}
+                Update {clean.length + newAtSource}
               </Button>
             </>
           )}

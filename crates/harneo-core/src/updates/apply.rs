@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use super::diff::{diff_dirs, FileDiff};
+use super::new_at_source::{ImportJob, SourceFiles};
 use super::remote::{self, Failure, Session};
 use super::{copy_digest, record_copy_digest, IMPORTED_COMMIT};
 use crate::artifact::{Artifact, ScanOptions};
@@ -52,6 +53,11 @@ pub enum UpdateOutcome {
     SkippedLocalEdits,
     /// The update failed; the old copy is untouched (`message` says why).
     Failed,
+    /// *Update all*: an artifact new at its source, now in the library.
+    Imported,
+    /// *Update all*: an artifact new at its source that the layout stored for the source cannot
+    /// place; it is left out, never guessed (`message` says why).
+    NotPlaced,
 }
 
 /// The result of one update.
@@ -65,12 +71,20 @@ pub struct UpdateReport {
     pub backup: Option<String>,
     pub from_version: Option<String>,
     pub to_version: Option<String>,
-    /// Why it failed.
+    /// Why it failed, or was not placed.
     pub message: Option<String>,
+    /// The artifact's name, for ones *Update all* imported or could not place.
+    pub name: Option<String>,
+    /// Where it is in its source, for the same.
+    pub source_path: Option<String>,
 }
 
 impl UpdateReport {
-    fn new(id: &str, outcome: UpdateOutcome, versions: (Option<String>, Option<String>)) -> Self {
+    pub(super) fn new(
+        id: &str,
+        outcome: UpdateOutcome,
+        versions: (Option<String>, Option<String>),
+    ) -> Self {
         Self {
             id: id.to_owned(),
             outcome,
@@ -78,6 +92,8 @@ impl UpdateReport {
             from_version: versions.0,
             to_version: versions.1,
             message: None,
+            name: None,
+            source_path: None,
         }
     }
 }
@@ -151,7 +167,7 @@ fn refuse_gone(state: &str) -> Result<()> {
     })
 }
 
-fn unavailable(failure: Failure) -> Error {
+pub(super) fn unavailable(failure: Failure) -> Error {
     Error::Update {
         message: match failure {
             Failure::Missing => "the source folder is gone".to_owned(),
@@ -250,15 +266,20 @@ impl PreparedUpdate {
 pub struct UpdateAllPlan {
     jobs: Vec<UpdateJob>,
     skipped: Vec<UpdateReport>,
+    /// The sources the last check found new artifacts in (decision 8).
+    imports: Vec<ImportJob>,
 }
 
 impl UpdateAllPlan {
     /// Runs every job (no lock) and hands each prepared copy to `finish`, which takes the lock
-    /// and applies it. One failing never stops the others. Returns the updated ones, the
-    /// failed ones, then the ones skipped for local edits.
+    /// and applies it. One failing never stops the others. Then each source with new
+    /// artifacts is located (no lock) and handed to `import`, which takes the lock and imports
+    /// them. Returns the updated ones, the failed ones, the ones skipped for local edits, then
+    /// what was imported or not placed.
     pub fn run(
         self,
         mut finish: impl FnMut(PreparedUpdate) -> Result<UpdateReport>,
+        mut import: impl FnMut(SourceFiles) -> Result<Vec<UpdateReport>>,
     ) -> Vec<UpdateReport> {
         let mut out = Vec::new();
         let mut skipped = self.skipped;
@@ -279,6 +300,12 @@ impl UpdateAllPlan {
             }
         }
         out.extend(skipped);
+        for job in self.imports {
+            match job.run().and_then(&mut import) {
+                Ok(reports) => out.extend(reports),
+                Err(error) => out.push(job.failed(&error)),
+            }
+        }
         out
     }
 }
@@ -554,7 +581,12 @@ impl Library {
                 jobs.push(self.job_for(&id, true)?);
             }
         }
-        Ok(UpdateAllPlan { jobs, skipped })
+        let imports = self.import_jobs()?;
+        Ok(UpdateAllPlan {
+            jobs,
+            skipped,
+            imports,
+        })
     }
 
     /// Updates every outdated artifact without local edits and returns what happened to each,
@@ -562,7 +594,12 @@ impl Library {
     /// [`Library::plan_update_all`] and applies each copy separately.
     pub fn update_all(&mut self) -> Result<Vec<UpdateReport>> {
         let plan = self.plan_update_all()?;
-        Ok(plan.run(|prepared| self.finish_update(prepared)))
+        // Both closures need the library, one at a time: the plan runs them in turn.
+        let library = std::cell::RefCell::new(self);
+        Ok(plan.run(
+            |prepared| library.borrow_mut().finish_update(prepared),
+            |files| library.borrow_mut().finish_import(files),
+        ))
     }
 }
 

@@ -212,6 +212,16 @@ pub struct ImportReport {
     pub skipped_files: Vec<SkippedFile>,
 }
 
+/// Where an import reads its files from, and how: the source's folder, a git source's cloned
+/// commit, whether large files are copied, and the test hooks.
+#[derive(Clone, Copy)]
+pub(crate) struct Placed<'a> {
+    pub(crate) root: &'a Path,
+    pub(crate) commit: Option<&'a str>,
+    pub(crate) large_files: bool,
+    pub(crate) hooks: &'a dyn ImportHooks,
+}
+
 /// An open library. Opening creates the folders and the schema when they are missing.
 #[derive(Debug)]
 pub struct Library {
@@ -378,7 +388,7 @@ impl Library {
         }
     }
 
-    fn scan_candidates(
+    pub(crate) fn scan_candidates(
         &self,
         source: &Source,
         identity: &str,
@@ -635,7 +645,7 @@ gone or no longer parses",
         };
         let (existing, fresh): (Vec<&Candidate>, Vec<&Candidate>) =
             chosen.into_iter().partition(|c| known.contains(&c.id));
-        let mut report = ImportReport {
+        let report = ImportReport {
             source_id: source_id.clone(),
             already_in_library: existing.iter().map(|c| c.id.clone()).collect(),
             ..ImportReport::default()
@@ -655,10 +665,37 @@ gone or no longer parses",
             (Source::Local { path }, _) => (path.clone(), None),
             (Source::Git { .. }, None) => return Err(Error::PreviewExpired),
         };
-        let root = root.as_path();
+        let placed = Placed {
+            root: root.as_path(),
+            commit,
+            large_files,
+            hooks,
+        };
+        self.import_rooted(preview, &fresh, tag_choices, links, &placed, report)
+    }
+
+    /// The copy and the transaction of an import, from the files under `root` (the source's
+    /// folder; `commit` is a git source's cloned commit). The candidates in `fresh` are not in
+    /// the library yet. Importing a path clears its tombstone (see `removed_paths`).
+    fn import_rooted(
+        &mut self,
+        preview: &Preview,
+        fresh: &[&Candidate],
+        tag_choices: &TagChoices,
+        links: &[crate::bundles::AcceptedLink],
+        placed_at: &Placed<'_>,
+        mut report: ImportReport,
+    ) -> Result<ImportReport> {
+        let Placed {
+            root,
+            commit,
+            large_files,
+            hooks,
+        } = *placed_at;
+        let source_id = ids::source_id(&preview.source.identity()?);
         // ADR-008: each plugin part records its plugin and its supporting paths (the preview's
         // answer, checked again: it came back over IPC), and the plugin's record is built once.
-        let parts = plugin_parts_of(root, preview, &fresh, copy_limit(large_files)).inspect_err(
+        let parts = plugin_parts_of(root, preview, fresh, copy_limit(large_files)).inspect_err(
             |error| {
                 if let Error::PartWithoutAnswer { name } = error {
                     crate::log::record(
@@ -687,7 +724,7 @@ gone or no longer parses",
             .tempdir_in(self.store.root())
             .map_err(|e| io_error(self.store.root(), e))?;
         let mut replaced: HashMap<String, Vec<String>> = HashMap::new();
-        for candidate in &fresh {
+        for candidate in fresh {
             let dir = staging.path().join(&candidate.id);
             fs::create_dir(&dir).map_err(|e| io_error(&dir, e))?;
             let copied = copy_artifact(
@@ -721,7 +758,7 @@ gone or no longer parses",
                     rusqlite::params![source_id],
                 )?;
             }
-            let (unpacked, whole) = unpack::folders(&fresh);
+            let (unpacked, whole) = unpack::folders(fresh);
             records::update_unpack(&tx, &source_id, &unpacked, &whole)?;
             records::store_layout(&tx, &source_id, &preview.layout_ignored)?;
             records::store_parts(&tx, &source_id, preview)?;
@@ -729,7 +766,7 @@ gone or no longer parses",
                 plugin_record::save(&tx, &source_id, built)?;
             }
             let now = records::now();
-            for candidate in &fresh {
+            for candidate in fresh {
                 let keys = replaced.get(&candidate.id).map_or(&[][..], Vec::as_slice);
                 let audit =
                     audits
@@ -755,11 +792,16 @@ gone or no longer parses",
                 if let Some(names) = tag_choices.get(&candidate.id) {
                     tags::apply_names(&tx, &candidate.id, names)?;
                 }
+                // Importing a path on purpose undoes an earlier delete of it.
+                tx.execute(
+                    "DELETE FROM removed_paths WHERE source_id = ?1 AND source_path = ?2",
+                    rusqlite::params![source_id, candidate.artifact.path],
+                )?;
             }
             let fresh_ids: Vec<&str> = fresh.iter().map(|c| c.id.as_str()).collect();
             crate::bundles::add_reference_links(&tx, &fresh_ids, now)?;
             crate::bundles::store_accepted(&tx, links)?;
-            for candidate in &fresh {
+            for candidate in fresh {
                 let target = artifacts_dir.join(&candidate.id);
                 // A folder with no row is left over from a crash; it is not a library entry.
                 if target.exists() {
@@ -784,6 +826,42 @@ gone or no longer parses",
         }
         report.imported = fresh.iter().map(|c| c.id.clone()).collect();
         Ok(report)
+    }
+
+    /// Imports `selection` (ids of `preview`'s candidates) from the files at `placed`, the way
+    /// the Import flow does, for *Update all*: ones already in the library are left alone.
+    pub(crate) fn import_located(
+        &mut self,
+        preview: &Preview,
+        selection: &[ArtifactId],
+        placed: &Placed<'_>,
+    ) -> Result<ImportReport> {
+        let identity = preview.source.identity()?;
+        let mut chosen: Vec<&Candidate> = Vec::new();
+        for id in selection {
+            let candidate = preview
+                .candidates
+                .iter()
+                .find(|c| &c.id == id && c.id == ids::artifact_id(&identity, &c.artifact.path))
+                .ok_or_else(|| Error::NotInPreview { id: id.clone() })?;
+            chosen.push(candidate);
+        }
+        let chosen_ids: Vec<&str> = chosen.iter().map(|c| c.id.as_str()).collect();
+        let known = records::existing(&self.store.conn, &chosen_ids)?;
+        let fresh: Vec<&Candidate> = chosen
+            .iter()
+            .copied()
+            .filter(|c| !known.contains(&c.id))
+            .collect();
+        unpack::check(&self.store.conn, &chosen, &fresh)?;
+        let report = ImportReport {
+            source_id: ids::source_id(&identity),
+            ..ImportReport::default()
+        };
+        if fresh.is_empty() {
+            return Ok(report);
+        }
+        self.import_rooted(preview, &fresh, &TagChoices::default(), &[], placed, report)
     }
 
     /// One library artifact with its provenance and the files of its stored copy.
@@ -896,6 +974,16 @@ gone or no longer parses",
         let outcome = (|| -> Result<()> {
             let tx = self.store.conn.transaction()?;
             crate::profiles::remove_artifacts(&tx, &unique)?;
+            let now = records::now();
+            for id in &unique {
+                // The tombstone: this path was removed on purpose, so it is not new at its
+                // source any more.
+                tx.execute(
+                    "INSERT OR REPLACE INTO removed_paths (source_id, source_path, removed_at)
+                     SELECT source_id, source_path, ?2 FROM artifacts WHERE id = ?1",
+                    rusqlite::params![id, now],
+                )?;
+            }
             for id in &unique {
                 if !records::delete(&tx, id)? {
                     return Err(Error::NotInLibrary {

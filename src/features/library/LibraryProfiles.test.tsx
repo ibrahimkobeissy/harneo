@@ -101,6 +101,7 @@ function setup(path: string, backend: Backend = {}) {
               tiers: [],
               withFindings: 0,
               outdated: 0,
+              newAtSource: 0,
               statuses: [],
               auto: 3,
               manualOnly: 1,

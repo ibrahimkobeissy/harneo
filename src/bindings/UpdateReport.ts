@@ -10,6 +10,14 @@ export type UpdateReport = { id: string, outcome: UpdateOutcome,
  */
 backup: string | null, fromVersion: string | null, toVersion: string | null, 
 /**
- * Why it failed.
+ * Why it failed, or was not placed.
  */
-message: string | null, };
+message: string | null, 
+/**
+ * The artifact's name, for ones *Update all* imported or could not place.
+ */
+name: string | null, 
+/**
+ * Where it is in its source, for the same.
+ */
+sourcePath: string | null, };

@@ -605,7 +605,8 @@ pub async fn update_apply(
     Ok(report)
 }
 
-/// Updates every outdated artifact without local edits; the edited ones come back as skipped.
+/// Updates every outdated artifact without local edits (the edited ones come back as skipped)
+/// and imports the artifacts new at their sources.
 #[tauri::command]
 pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
     let reports = tauri::async_runtime::spawn_blocking({
@@ -613,12 +614,20 @@ pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
         move || {
             let state = app.state::<LibraryState>();
             let plan = state.with(|library| library.plan_update_all())?;
-            Ok::<_, String>(plan.run(|prepared| {
-                // A failed copy is reported for that artifact only; the lock error text stays.
-                state
-                    .with_mut(|library| library.finish_update(prepared))
-                    .map_err(|message| harneo_core::Error::Update { message })
-            }))
+            // A failed copy is reported for that artifact only; the lock error text stays.
+            let locked = |message| harneo_core::Error::Update { message };
+            Ok::<_, String>(plan.run(
+                |prepared| {
+                    state
+                        .with_mut(|library| library.finish_update(prepared))
+                        .map_err(locked)
+                },
+                |files| {
+                    state
+                        .with_mut(|library| library.finish_import(files))
+                        .map_err(locked)
+                },
+            ))
         }
     })
     .await

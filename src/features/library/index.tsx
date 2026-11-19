@@ -439,6 +439,7 @@ export function LibraryScreen({
             <UpdatesControls
               check={check}
               outdated={page.facets.outdated}
+              newAtSource={page.facets.newAtSource}
               onUpdateAll={() => setUpdatingAll(true)}
             />
           )}
@@ -708,6 +709,7 @@ export function LibraryScreen({
       )}
       {updatingAll && (
         <UpdateAllDialog
+          newAtSource={page?.facets.newAtSource ?? 0}
           onClose={() => setUpdatingAll(false)}
           onUpdated={reload}
         />

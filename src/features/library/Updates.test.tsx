@@ -90,6 +90,8 @@ function report(
     fromVersion: null,
     toVersion: null,
     message: null,
+    name: null,
+    sourcePath: null,
     ...over,
   };
 }
@@ -106,6 +108,7 @@ function setup(
       unplacedOverflow: 0,
     },
   ],
+  newAtSource = 0,
 ) {
   const calls: string[] = [];
   const queries: Query[] = [];
@@ -156,6 +159,7 @@ function setup(
               },
             ],
             outdated: rows.filter((r) => r.update).length,
+            newAtSource,
             statuses: [
               {
                 status: "outdated",
@@ -403,6 +407,17 @@ describe("updates in the library", () => {
       name: /Update all \(2\)/,
     });
     expect(button.className).not.toMatch(/primary/);
+  });
+
+  it("says how many artifacts are new at the source and counts them in Update all", async () => {
+    const user = userEvent.setup();
+    setup("/library", false, "outdated", [], 3);
+    expect(await screen.findByText("3 new at source")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Update all \(5\)/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    expect(await within(dialog).findByRole("note")).toHaveTextContent(
+      "3 new at source",
+    );
   });
 
   it("confirms Update all and lists the artifacts skipped for local edits", async () => {

@@ -24,6 +24,8 @@ function report(
     fromVersion: null,
     toVersion: null,
     message: null,
+    name: null,
+    sourcePath: null,
     ...over,
   };
 }
@@ -157,7 +159,13 @@ describe("UpdateAllDialog", () => {
       if (cmd === "library_list") throw "list broke";
       return undefined;
     });
-    render(<UpdateAllDialog onClose={() => {}} onUpdated={() => {}} />);
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
     expect(await screen.findByRole("alert")).toHaveTextContent("list broke");
   });
 
@@ -169,7 +177,13 @@ describe("UpdateAllDialog", () => {
         return [report("id-a", "failed", { message: "bad ref" })];
       return undefined;
     });
-    render(<UpdateAllDialog onClose={() => {}} onUpdated={() => {}} />);
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
     const dialog = await screen.findByRole("dialog", { name: "Update all" });
     await user.click(
       await within(dialog).findByRole("button", { name: "Update 1" }),
@@ -180,6 +194,64 @@ describe("UpdateAllDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("says how many are new at the source before updating, and lists what was imported", async () => {
+    const user = userEvent.setup();
+    mockIPC((cmd) => {
+      if (cmd === "library_list") return page(rows);
+      if (cmd === "update_all")
+        return [
+          report("id-a", "updated"),
+          report("id-n", "imported", {
+            name: "fresh",
+            sourcePath: "x/fresh.md",
+          }),
+          report("id-m", "notPlaced", {
+            name: "odd",
+            message: "no answer from Claude",
+          }),
+        ];
+      return undefined;
+    });
+    render(
+      <UpdateAllDialog
+        newAtSource={2}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    expect(
+      await within(dialog).findByRole("heading", {
+        name: "Update 1 artifact and import 2 new?",
+      }),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole("note")).toHaveTextContent(
+      "2 new at source",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Update 3" }));
+    expect(
+      await within(dialog).findByText("Imported 1 new at source: fresh."),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText("Not placed odd: no answer from Claude"),
+    ).toBeInTheDocument();
+  });
+
+  it("can import new artifacts when nothing is outdated", async () => {
+    mockIPC((cmd) => (cmd === "library_list" ? page([]) : undefined));
+    render(
+      <UpdateAllDialog
+        newAtSource={1}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    expect(
+      await within(dialog).findByRole("button", { name: "Update 1" }),
+    ).toBeEnabled();
+  });
+
   it("shows the error when the call throws", async () => {
     const user = userEvent.setup();
     mockIPC((cmd) => {
@@ -187,7 +259,13 @@ describe("UpdateAllDialog", () => {
       if (cmd === "update_all") throw "all broke";
       return undefined;
     });
-    render(<UpdateAllDialog onClose={() => {}} onUpdated={() => {}} />);
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
     const dialog = await screen.findByRole("dialog", { name: "Update all" });
     await user.click(
       await within(dialog).findByRole("button", { name: "Update 1" }),
@@ -207,7 +285,13 @@ describe("UpdateAllDialog", () => {
     mockIPC((cmd) =>
       cmd === "library_list" ? page([...many, ...edited]) : undefined,
     );
-    render(<UpdateAllDialog onClose={() => {}} onUpdated={() => {}} />);
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
     const dialog = await screen.findByRole("dialog", { name: "Update all" });
     const update = await within(dialog).findByRole("button", {
       name: "Update 30",

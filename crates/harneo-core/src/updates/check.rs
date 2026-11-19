@@ -30,6 +30,8 @@ struct SourceWork {
     stored: Vec<Stored>,
     /// What Claude placed and ignored when the source was imported, replayed on each scan.
     layout: StoredLayout,
+    /// Paths the user removed from the library: never counted as new at the source.
+    removed: std::collections::HashSet<String>,
 }
 
 /// What looking at the sources found, ready to be written by [`Library::finish_check`].
@@ -182,7 +184,7 @@ impl CheckJob {
         let new_upstream = scanned
             .artifacts
             .iter()
-            .filter(|a| !known_paths.contains(&a.path.as_str()))
+            .filter(|a| !known_paths.contains(&a.path.as_str()) && !work.removed.contains(&a.path))
             .count();
         Found::Scanned {
             commit,
@@ -232,7 +234,9 @@ impl Library {
                     layout.unpack.push(folder);
                 }
             }
+            let removed = records::removed_paths(conn, &source.id)?;
             sources.push(SourceWork {
+                removed,
                 source,
                 remote_commit,
                 stored,
@@ -283,7 +287,12 @@ impl Library {
                     "UPDATE sources SET checked_at = ?2 WHERE id = ?1",
                     params![source_id, now],
                 )?;
-                return result_from_table(conn, source_id, 0);
+                let stored: i64 = conn.query_row(
+                    "SELECT new_upstream FROM sources WHERE id = ?1",
+                    params![source_id],
+                    |r| r.get(0),
+                )?;
+                return result_from_table(conn, source_id, u32::try_from(stored).unwrap_or(0));
             }
             Found::Scanned {
                 commit,
@@ -363,9 +372,10 @@ impl Library {
         }
         let seen = if advance { commit } else { None };
         tx.execute(
-            "UPDATE sources SET checked_at = ?2, remote_commit = COALESCE(?3, remote_commit)
+            "UPDATE sources SET checked_at = ?2, remote_commit = COALESCE(?3, remote_commit),
+                    new_upstream = ?4
              WHERE id = ?1",
-            params![source_id, now, seen],
+            params![source_id, now, seen, new_upstream],
         )?;
         tx.commit()?;
         result_from_table(conn, source_id, new_upstream)

@@ -404,9 +404,24 @@ CREATE TABLE plugin_files (
 ) STRICT;
 ";
 
+/// Tombstones: the paths the user removed from the library, per source, so a check never counts
+/// them as new at the source and *Update all* never imports them again (an explicit import
+/// clears one). No foreign key: removing a source's last artifact deletes the source row, and
+/// the tombstones must outlive it. `sources.new_upstream` keeps how many artifacts the last
+/// check found new at the source, for a check that skips an unchanged git remote.
+const V17: &str = "
+CREATE TABLE removed_paths (
+    source_id   TEXT NOT NULL,
+    source_path TEXT NOT NULL,
+    removed_at  INTEGER NOT NULL,
+    PRIMARY KEY (source_id, source_path)
+) STRICT;
+ALTER TABLE sources ADD COLUMN new_upstream INTEGER NOT NULL DEFAULT 0;
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
 const MIGRATIONS: &[&str] = &[
-    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16,
+    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17,
 ];
 
 /// The schema version this build writes.

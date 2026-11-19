@@ -3,4 +3,4 @@
 /**
  * What happened to one artifact.
  */
-export type UpdateOutcome = "updated" | "kept" | "skippedLocalEdits" | "failed";
+export type UpdateOutcome = "updated" | "kept" | "skippedLocalEdits" | "failed" | "imported" | "notPlaced";

@@ -1482,7 +1482,9 @@ fn clear_calls(dir: &Path) -> R {
 fn downgrade_to_v10(data: &Path) -> R {
     let conn = rusqlite::Connection::open(data.join("library/library.db"))?;
     conn.execute_batch(
-        "DROP TABLE plugin_files;
+        "DROP TABLE removed_paths;
+         ALTER TABLE sources DROP COLUMN new_upstream;
+         DROP TABLE plugin_files;
          DROP TABLE plugin_records;
          DROP TABLE harnmap_draws;
          DROP TABLE harnfit_fits;

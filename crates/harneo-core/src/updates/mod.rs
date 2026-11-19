@@ -20,6 +20,9 @@ pub(crate) mod diff;
 mod diff_tests;
 #[cfg(test)]
 mod layout_tests;
+mod new_at_source;
+#[cfg(test)]
+mod new_at_source_tests;
 pub(crate) mod remote;
 #[cfg(test)]
 mod remote_tests;
@@ -51,6 +54,7 @@ pub use apply::{UpdateAllPlan, UpdateChoice, UpdateJob, UpdateOutcome, UpdateRep
 pub use check::{CheckJob, CheckOutcome};
 pub(crate) use diff::hunks;
 pub use diff::{DiffLine, DiffStatus, FileDiff, Hunk, LineKind};
+pub use new_at_source::{ImportJob, SourceFiles};
 
 /// The metadata key that records the commit an artifact was last updated from (git sources).
 /// Without it the commit is the source's, from import.

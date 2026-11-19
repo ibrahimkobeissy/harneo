@@ -55,6 +55,9 @@ struct SourceError {
 struct CheckOutput {
     outdated: Vec<Entry>,
     removed: Vec<Entry>,
+    /// How many artifacts the sources hold that the library does not (and did not delete);
+    /// `harneo update` imports them.
+    new_at_source: u32,
     errors: Vec<SourceError>,
 }
 
@@ -65,7 +68,7 @@ struct ItemResult {
     id: String,
     name: String,
     kind: String,
-    /// `updated`, `skippedLocalEdits`, `failed` or `notOutdated`.
+    /// `updated`, `skippedLocalEdits`, `failed`, `notOutdated`, `imported` or `notPlaced`.
     outcome: String,
     from_version: Option<String>,
     to_version: Option<String>,
@@ -78,6 +81,10 @@ struct Summary {
     updated: u32,
     skipped: u32,
     failed: u32,
+    /// Artifacts new at their source, now in the library.
+    imported: u32,
+    /// New at their source, but the stored layout cannot place them.
+    not_placed: u32,
 }
 
 #[derive(Serialize)]
@@ -156,6 +163,18 @@ fn source_errors(report: &CheckReport, items: &[LibraryItem]) -> Vec<SourceError
         .collect()
 }
 
+/// New artifacts the check found, in every source it could read.
+fn new_at_source(report: &CheckReport) -> u32 {
+    report
+        .sources
+        .iter()
+        .map(|s| match s.result {
+            SourceResult::Changed { new_upstream, .. } => new_upstream,
+            _ => 0,
+        })
+        .sum()
+}
+
 fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<(Vec<Entry>, Vec<Entry>)> {
     let (mut outdated, mut removed) = (Vec::new(), Vec::new());
     for item in items {
@@ -224,6 +243,9 @@ fn render_check(check: &CheckOutput) -> String {
         let _ = writeln!(out, "{} ({})  {what}", e.name, e.kind);
     }
     render_errors(&mut out, &check.errors);
+    if check.new_at_source > 0 {
+        let _ = writeln!(out, "{} new at source", check.new_at_source);
+    }
     let _ = writeln!(
         out,
         "{} outdated, {} removed upstream, {}",
@@ -258,6 +280,19 @@ fn render_update(output: &UpdateOutput) -> String {
                     r.message.as_deref().unwrap_or("unknown error")
                 );
             }
+            "imported" => {
+                let _ = writeln!(out, "imported {} ({})  new at source", r.name, r.kind);
+            }
+            "notPlaced" => {
+                let _ = writeln!(
+                    out,
+                    "not placed {}: {}",
+                    r.name,
+                    r.message
+                        .as_deref()
+                        .unwrap_or("the stored layout cannot place it")
+                );
+            }
             _ => {
                 let _ = writeln!(out, "{} ({}): nothing to update", r.name, r.kind);
             }
@@ -265,6 +300,13 @@ fn render_update(output: &UpdateOutput) -> String {
     }
     render_errors(&mut out, &output.errors);
     let s = &output.summary;
+    if s.imported + s.not_placed > 0 {
+        let _ = writeln!(
+            out,
+            "Imported {} new at source, {} not placed",
+            s.imported, s.not_placed
+        );
+    }
     let _ = writeln!(
         out,
         "Updated {}, skipped {} (local edits), failed {}",
@@ -275,6 +317,8 @@ fn render_update(output: &UpdateOutput) -> String {
 
 fn result_of(item: &LibraryItem, report: UpdateReport) -> ItemResult {
     let outcome = match report.outcome {
+        UpdateOutcome::Imported => "imported",
+        UpdateOutcome::NotPlaced => "notPlaced",
         UpdateOutcome::Updated => "updated",
         UpdateOutcome::SkippedLocalEdits => "skippedLocalEdits",
         UpdateOutcome::Failed => "failed",
@@ -287,6 +331,19 @@ fn result_of(item: &LibraryItem, report: UpdateReport) -> ItemResult {
         outcome: outcome.to_owned(),
         from_version: report.from_version,
         to_version: report.to_version,
+        message: report.message,
+    }
+}
+
+/// A result for an artifact the library does not hold (a new one that could not be placed).
+fn not_in_library(report: UpdateReport) -> ItemResult {
+    ItemResult {
+        id: report.id,
+        name: report.name.or(report.source_path).unwrap_or_default(),
+        kind: String::new(),
+        outcome: "notPlaced".to_owned(),
+        from_version: None,
+        to_version: None,
         message: report.message,
     }
 }
@@ -305,10 +362,17 @@ fn apply(
 ) -> anyhow::Result<Vec<ItemResult>> {
     let by_id: HashMap<&str, &LibraryItem> = items.iter().map(|i| (i.id.as_str(), i)).collect();
     if named.is_empty() {
-        return Ok(library
-            .update_all()?
+        let reports = library.update_all()?;
+        // Imported artifacts were not in the library when `items` was read.
+        let after = all_items(library)?;
+        let found: HashMap<&str, &LibraryItem> = after.iter().map(|i| (i.id.as_str(), i)).collect();
+        return Ok(reports
             .into_iter()
-            .filter_map(|r| by_id.get(r.id.as_str()).map(|i| result_of(i, r)))
+            .filter_map(|r| match r.outcome {
+                UpdateOutcome::NotPlaced => Some(not_in_library(r)),
+                UpdateOutcome::Imported => found.get(r.id.as_str()).map(|i| result_of(i, r)),
+                _ => by_id.get(r.id.as_str()).map(|i| result_of(i, r)),
+            })
             .collect());
     }
     let mut results = Vec::new();
@@ -322,6 +386,8 @@ fn apply(
                 from_version: s.from_version,
                 to_version: s.to_version,
                 message: None,
+                name: None,
+                source_path: None,
             },
             Some(s) if s.state == UpstreamState::Outdated => {
                 match library.update(&item.id, UpdateChoice::TakeUpstream) {
@@ -333,6 +399,8 @@ fn apply(
                         from_version: s.from_version,
                         to_version: s.to_version,
                         message: Some(error.to_string()),
+                        name: None,
+                        source_path: None,
                     },
                 }
             }
@@ -343,6 +411,8 @@ fn apply(
                 from_version: None,
                 to_version: None,
                 message: None,
+                name: None,
+                source_path: None,
             },
         };
         results.push(result_of(item, report));
@@ -367,6 +437,7 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
         let check = CheckOutput {
             outdated,
             removed,
+            new_at_source: new_at_source(&report),
             errors,
         };
         if args.json {
@@ -384,6 +455,8 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
         updated: count("updated"),
         skipped: count("skippedLocalEdits"),
         failed: count("failed"),
+        imported: count("imported"),
+        not_placed: count("notPlaced"),
     };
     let failed = summary.failed > 0;
     let output = UpdateOutput {
@@ -432,6 +505,7 @@ mod tests {
                 moved.state = "layout_changed".into();
                 moved
             }],
+            new_at_source: 0,
             errors: vec![SourceError {
                 id: "s1".into(),
                 label: "me/repo".into(),
@@ -473,6 +547,8 @@ mod tests {
                 updated: 1,
                 skipped: 1,
                 failed: 1,
+                imported: 0,
+                not_placed: 0,
             },
         };
         let text = render_update(&output);

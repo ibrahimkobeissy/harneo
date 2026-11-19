@@ -36,6 +36,11 @@ withFindings: number,
  */
 outdated: number, 
 /**
+ * Artifacts the last checks found new at their sources (not in the library, not deleted
+ * by the user): *Update all* imports them. Over every source, whatever the filters.
+ */
+newAtSource: number, 
+/**
  * In `Status` order; only statuses present among the artifacts the other filters keep, plus
  * selected ones at 0.
  */

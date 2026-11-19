@@ -24,10 +24,12 @@ const stamp = new Intl.DateTimeFormat(undefined, {
 export function UpdatesControls({
   check,
   outdated,
+  newAtSource,
   onUpdateAll,
 }: {
   check: Check;
   outdated: number;
+  newAtSource: number;
   onUpdateAll: () => void;
 }) {
   return (
@@ -52,10 +54,15 @@ export function UpdatesControls({
         />
         Check for updates
       </Button>
-      {outdated > 0 && (
+      {newAtSource > 0 && (
+        <span title="Artifacts in a source that the library does not hold. Update all imports them, except the ones you deleted.">
+          {newAtSource} new at source
+        </span>
+      )}
+      {outdated + newAtSource > 0 && (
         <Button small onClick={onUpdateAll}>
           <CircleArrowUp size={14} aria-hidden="true" />
-          Update all ({outdated})
+          Update all ({outdated + newAtSource})
         </Button>
       )}
     </span>

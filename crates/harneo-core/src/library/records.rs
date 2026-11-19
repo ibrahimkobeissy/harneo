@@ -100,6 +100,16 @@ pub(crate) fn existing(conn: &Connection, ids: &[&str]) -> Result<HashSet<String
     Ok(found)
 }
 
+/// The paths of `source_id` the user removed from the library (see `removed_paths`).
+pub(crate) fn removed_paths(
+    conn: &Connection,
+    source_id: &str,
+) -> Result<std::collections::HashSet<String>> {
+    let mut stmt = conn.prepare("SELECT source_path FROM removed_paths WHERE source_id = ?1")?;
+    let rows = stmt.query_map(params![source_id], |r| r.get::<_, String>(0))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
 /// Records the source row; `commit` is the cloned commit of a git source.
 pub(crate) fn insert_source(
     conn: &Connection,
