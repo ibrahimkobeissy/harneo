@@ -606,19 +606,19 @@ pub async fn update_apply(
 }
 
 /// Updates every outdated artifact without local edits (the edited ones come back as skipped)
-/// and imports the artifacts new at their sources. With `remove_removed` (the user confirmed
-/// the list from `update_removed_plan`), it also deletes the ones removed at their source.
+/// and imports the artifacts new at their sources. It also deletes `remove_ids`, the artifacts
+/// removed at their source that the user confirmed from `update_removed_plan` (only those).
 #[tauri::command]
 pub async fn update_all(
     app: AppHandle,
-    remove_removed: Option<bool>,
+    remove_ids: Option<Vec<String>>,
 ) -> Result<Vec<UpdateReport>, String> {
     let reports = tauri::async_runtime::spawn_blocking({
         let app = app.clone();
         move || {
             let state = app.state::<LibraryState>();
-            let plan =
-                state.with(|library| library.plan_update_all(remove_removed.unwrap_or(false)))?;
+            let plan = state
+                .with(|library| library.plan_update_all(&remove_ids.clone().unwrap_or_default()))?;
             // A failed copy is reported for that artifact only; the lock error text stays.
             let locked = |message| harneo_core::Error::Update { message };
             Ok::<_, String>(plan.run(

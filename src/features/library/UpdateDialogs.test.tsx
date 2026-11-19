@@ -286,7 +286,7 @@ describe("UpdateAllDialog", () => {
       ),
     ).toBeInTheDocument();
     expect(calls.find((c) => c.cmd === "update_all")?.args).toEqual({
-      removeRemoved: true,
+      removeIds: ["id-p", "id-s"],
     });
   });
 

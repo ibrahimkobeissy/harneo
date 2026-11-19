@@ -385,7 +385,18 @@ fn apply(
     let by_id: HashMap<&str, &LibraryItem> = items.iter().map(|i| (i.id.as_str(), i)).collect();
     if named.is_empty() {
         let (_, gone) = entries(library, items)?;
-        let reports = library.update_all_with(remove_deleted)?;
+        // No prompt in the CLI: `--remove-deleted` is the confirmation for what is removed now.
+        let confirmed: Vec<String> = if remove_deleted {
+            library
+                .removed_at_source_plan()?
+                .artifacts
+                .into_iter()
+                .map(|item| item.id)
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let reports = library.update_all_with(&confirmed)?;
         // Imported artifacts were not in the library when `items` was read.
         let after = all_items(library)?;
         let found: HashMap<&str, &LibraryItem> = after.iter().map(|i| (i.id.as_str(), i)).collect();

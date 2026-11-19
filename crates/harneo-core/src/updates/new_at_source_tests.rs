@@ -175,11 +175,21 @@ fn update_all_deletes_what_is_removed_at_source_only_with_the_flag() -> TestResu
     assert_eq!(plan.artifacts.len(), 1);
     assert_eq!(plan.artifacts[0].id, b);
 
-    // Without the flag nothing is deleted.
+    // Without a confirmation nothing is deleted.
     assert!(f.library.update_all()?.is_empty());
     assert!(f.library.detail(&b).is_ok());
 
-    let reports = f.library.update_all_with(true)?;
+    // An id the user never confirmed is left alone, and a confirmed id that is not removed at
+    // its source (here `a`) is never deleted.
+    assert!(f
+        .library
+        .update_all_with(&["0000000000000000".to_owned()])?
+        .is_empty());
+    assert!(f.library.detail(&b).is_ok());
+    assert!(f.library.update_all_with(&[a.clone()])?.is_empty());
+    assert!(f.library.detail(&a).is_ok());
+
+    let reports = f.library.update_all_with(&[b.clone()])?;
     assert_eq!(reports.len(), 1, "{reports:?}");
     assert_eq!(reports[0].outcome, UpdateOutcome::Removed);
     assert_eq!(reports[0].id, b);
@@ -204,7 +214,7 @@ fn layout_changed_is_never_deleted_by_update_all() -> TestResult {
         [&b],
     )?;
     assert!(f.library.removed_at_source_plan()?.artifacts.is_empty());
-    assert!(f.library.update_all_with(true)?.is_empty());
+    assert!(f.library.update_all_with(&[b.clone()])?.is_empty());
     assert!(f.library.detail(&b).is_ok());
     Ok(())
 }

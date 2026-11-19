@@ -523,7 +523,7 @@ export function UpdateAllDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = (await updateAll(removed.length > 0)) ?? [];
+      const out = (await updateAll(removed.map((item) => item.id))) ?? [];
       setReports(out);
       onUpdated();
     } catch (err) {

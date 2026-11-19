@@ -584,13 +584,13 @@ export function updateApply(
 }
 
 /**
- * Updates every outdated artifact without local edits; edited ones come back skipped. With
- * `removeRemoved` (the user confirmed the list), artifacts removed at their source are deleted.
+ * Updates every outdated artifact without local edits; edited ones come back skipped. `removeIds`
+ * are the artifacts removed at their source that the user confirmed: only those are deleted.
  */
-export function updateAll(removeRemoved = false): Promise<UpdateReport[]> {
+export function updateAll(removeIds: string[] = []): Promise<UpdateReport[]> {
   return invoke<UpdateReport[]>(
     "update_all",
-    removeRemoved ? { removeRemoved: true } : {},
+    removeIds.length > 0 ? { removeIds } : {},
   );
 }
 

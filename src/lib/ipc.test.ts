@@ -158,7 +158,7 @@ describe("update wrappers", () => {
     expect(await ipc.updateDiff("a")).toBe("r");
     expect(await ipc.updateApply("a", "upstream" as never)).toBe("r");
     expect(await ipc.updateAll()).toBe("r");
-    expect(await ipc.updateAll(true)).toBe("r");
+    expect(await ipc.updateAll(["a"])).toBe("r");
     expect(await ipc.updateRemovedPlan()).toBe("r");
     expect(calls).toEqual([
       { cmd: "updates_check", args: { scope: { type: "all" } } },
@@ -170,7 +170,7 @@ describe("update wrappers", () => {
       { cmd: "update_diff", args: { id: "a" } },
       { cmd: "update_apply", args: { id: "a", choice: "upstream" } },
       { cmd: "update_all", args: {} },
-      { cmd: "update_all", args: { removeRemoved: true } },
+      { cmd: "update_all", args: { removeIds: ["a"] } },
       { cmd: "update_removed_plan", args: {} },
     ]);
   });

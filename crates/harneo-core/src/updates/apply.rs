@@ -577,9 +577,10 @@ impl Library {
     }
 
     /// *Update all*: the outdated artifacts without local edits as jobs, the edited ones as
-    /// skipped reports (they ask Yours or Upstream one by one). With `remove_removed` (the user
-    /// confirmed), the artifacts removed at their source are deleted too (decision 9).
-    pub fn plan_update_all(&self, remove_removed: bool) -> Result<UpdateAllPlan> {
+    /// skipped reports (they ask Yours or Upstream one by one). `confirmed_removals` are the ids
+    /// the user confirmed for deletion (decision 9): only those of them still removed at their
+    /// source are deleted, so a check between the confirm and the run never adds to the list.
+    pub fn plan_update_all(&self, confirmed_removals: &[String]) -> Result<UpdateAllPlan> {
         let ids: Vec<String> = {
             let mut stmt = self.store.conn.prepare(
                 "SELECT artifact_id FROM upstream WHERE state = 'outdated' ORDER BY artifact_id",
@@ -601,10 +602,13 @@ impl Library {
             }
         }
         let imports = self.import_jobs()?;
-        let removals = if remove_removed {
+        let removals = if confirmed_removals.is_empty() {
+            Vec::new()
+        } else {
             self.removed_at_source_plan()?
                 .artifacts
                 .into_iter()
+                .filter(|item| confirmed_removals.contains(&item.id))
                 .map(|item| {
                     let mut report =
                         UpdateReport::new(&item.id, UpdateOutcome::Removed, (None, None));
@@ -616,8 +620,6 @@ impl Library {
                     report
                 })
                 .collect()
-        } else {
-            Vec::new()
         };
         Ok(UpdateAllPlan {
             jobs,
@@ -631,13 +633,13 @@ impl Library {
     /// the skipped ones included. Holds whatever lock the caller has; the app uses
     /// [`Library::plan_update_all`] and applies each copy separately.
     pub fn update_all(&mut self) -> Result<Vec<UpdateReport>> {
-        self.update_all_with(false)
+        self.update_all_with(&[])
     }
 
-    /// [`Library::update_all`], which also deletes the artifacts removed at their source when
-    /// `remove_removed` is set (the caller asked the user first).
-    pub fn update_all_with(&mut self, remove_removed: bool) -> Result<Vec<UpdateReport>> {
-        let plan = self.plan_update_all(remove_removed)?;
+    /// [`Library::update_all`], which also deletes `confirmed_removals`, the artifacts removed at
+    /// their source that the caller had the user confirm (see [`Library::plan_update_all`]).
+    pub fn update_all_with(&mut self, confirmed_removals: &[String]) -> Result<Vec<UpdateReport>> {
+        let plan = self.plan_update_all(confirmed_removals)?;
         // The closures need the library, one at a time: the plan runs them in turn.
         let library = std::cell::RefCell::new(self);
         Ok(plan.run(
