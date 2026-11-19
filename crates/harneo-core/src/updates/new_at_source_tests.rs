@@ -1,7 +1,7 @@
 //! *Update all* imports what is new at a source, except what the user deleted (decision 8).
 //! Local git repositories only; Claude is never involved.
 
-use super::tests::{agent, commit, fixture, write, Fixture, TestResult};
+use super::tests::{agent, commit, fixture, git, write, Fixture, TestResult};
 use super::*;
 use crate::artifact::ArtifactKind;
 use crate::library::{Source, TagChoices};
@@ -159,5 +159,52 @@ fn a_new_local_artifact_is_imported_without_a_commit() -> TestResult {
     assert_eq!(reports[0].outcome, UpdateOutcome::Imported);
     let detail = library.detail(&reports[0].id)?;
     assert!(detail.artifact.metadata.get(IMPORTED_COMMIT).is_none());
+    Ok(())
+}
+
+#[test]
+fn update_all_deletes_what_is_removed_at_source_only_with_the_flag() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    let (a, b) = (f.id_of("a")?, f.id_of("b")?);
+    git(f.repo.path(), &["rm", "-q", "agents/b.md"])?;
+    commit(f.repo.path(), "drop b")?;
+    f.library.check_updates(&CheckScope::All)?;
+
+    let plan = f.library.removed_at_source_plan()?;
+    assert_eq!(plan.artifacts.len(), 1);
+    assert_eq!(plan.artifacts[0].id, b);
+
+    // Without the flag nothing is deleted.
+    assert!(f.library.update_all()?.is_empty());
+    assert!(f.library.detail(&b).is_ok());
+
+    let reports = f.library.update_all_with(true)?;
+    assert_eq!(reports.len(), 1, "{reports:?}");
+    assert_eq!(reports[0].outcome, UpdateOutcome::Removed);
+    assert_eq!(reports[0].id, b);
+    assert_eq!(reports[0].name.as_deref(), Some("b"));
+    assert_eq!(reports[0].source_path.as_deref(), Some("agents/b.md"));
+    assert!(f.library.detail(&b).is_err(), "deleted");
+    assert!(f.library.detail(&a).is_ok());
+    assert_eq!(removed(&f)?, 1, "the delete left a tombstone");
+    Ok(())
+}
+
+#[test]
+fn layout_changed_is_never_deleted_by_update_all() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    let b = f.id_of("b")?;
+    git(f.repo.path(), &["rm", "-q", "agents/b.md"])?;
+    commit(f.repo.path(), "drop b")?;
+    f.library.check_updates(&CheckScope::All)?;
+    f.library.store.conn.execute(
+        "UPDATE upstream SET state = 'layout_changed' WHERE artifact_id = ?1",
+        [&b],
+    )?;
+    assert!(f.library.removed_at_source_plan()?.artifacts.is_empty());
+    assert!(f.library.update_all_with(true)?.is_empty());
+    assert!(f.library.detail(&b).is_ok());
     Ok(())
 }

@@ -318,3 +318,8 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.removedList {
+  margin: var(--space-xs) 0;
+  padding-left: var(--space-lg);
+}

@@ -676,6 +676,33 @@ mod update_cli {
     }
 
     #[test]
+    fn removed_at_source_is_listed_and_deleted_only_with_the_flag() -> TestResult {
+        let (repo, data) = seeded()?;
+        std::fs::remove_file(repo.path().join("agents/b.md"))?;
+        git(repo.path(), &["add", "-A"])?;
+        git(repo.path(), &["commit", "-q", "-m", "drop b"])?;
+        with_data(data.path())
+            .arg("update")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("kept b (agent)"))
+            .stdout(predicate::str::contains("--remove-deleted"));
+        assert!(
+            stored(data.path(), "b").is_ok(),
+            "not deleted without the flag"
+        );
+        with_data(data.path())
+            .args(["update", "--remove-deleted"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("deleted b (agent)"))
+            .stdout(predicate::str::contains("Deleted 1 removed at source"));
+        assert!(stored(data.path(), "b").is_err());
+        assert!(stored(data.path(), "a").is_ok());
+        Ok(())
+    }
+
+    #[test]
     fn a_named_artifact_is_updated_alone_and_json_has_a_summary() -> TestResult {
         let (repo, data) = seeded()?;
         commit_agent(repo.path(), "a", "two")?;

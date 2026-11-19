@@ -606,14 +606,19 @@ pub async fn update_apply(
 }
 
 /// Updates every outdated artifact without local edits (the edited ones come back as skipped)
-/// and imports the artifacts new at their sources.
+/// and imports the artifacts new at their sources. With `remove_removed` (the user confirmed
+/// the list from `update_removed_plan`), it also deletes the ones removed at their source.
 #[tauri::command]
-pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
+pub async fn update_all(
+    app: AppHandle,
+    remove_removed: Option<bool>,
+) -> Result<Vec<UpdateReport>, String> {
     let reports = tauri::async_runtime::spawn_blocking({
         let app = app.clone();
         move || {
             let state = app.state::<LibraryState>();
-            let plan = state.with(|library| library.plan_update_all())?;
+            let plan =
+                state.with(|library| library.plan_update_all(remove_removed.unwrap_or(false)))?;
             // A failed copy is reported for that artifact only; the lock error text stays.
             let locked = |message| harneo_core::Error::Update { message };
             Ok::<_, String>(plan.run(
@@ -627,6 +632,11 @@ pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
                         .with_mut(|library| library.finish_import(files))
                         .map_err(locked)
                 },
+                |ids| {
+                    state
+                        .with_mut(|library| library.remove_many(ids))
+                        .map_err(locked)
+                },
             ))
         }
     })
@@ -634,6 +644,13 @@ pub async fn update_all(app: AppHandle) -> Result<Vec<UpdateReport>, String> {
     .map_err(|e| e.to_string())??;
     spawn_confirm_pending(&app);
     Ok(reports)
+}
+
+/// The artifacts removed at their source, with the profiles that use each: what *Update all*
+/// lists in its confirm before deleting them.
+#[tauri::command]
+pub fn update_removed_plan(state: State<'_, LibraryState>) -> Result<RemovalPlan, String> {
+    state.with(|library| library.removed_at_source_plan())
 }
 
 // --- Links, bundles and settings ---------------------------------------------------------

@@ -103,6 +103,7 @@ pub fn run() {
             commands::update_diff,
             commands::update_apply,
             commands::update_all,
+            commands::update_removed_plan,
             commands::settings_get,
             commands::settings_set,
             commands::claude_cli_status,

@@ -237,6 +237,88 @@ describe("UpdateAllDialog", () => {
     ).toBeInTheDocument();
   });
 
+  it("lists artifacts removed at source with their profiles, deletes them on confirm and lists them", async () => {
+    const user = userEvent.setup();
+    const calls: { cmd: string; args: unknown }[] = [];
+    mockIPC((cmd, args) => {
+      calls.push({ cmd, args });
+      if (cmd === "library_list") return page(rows);
+      if (cmd === "update_removed_plan")
+        return {
+          artifacts: [
+            {
+              id: "id-p",
+              kind: "skill",
+              name: "plan",
+              profiles: [{ id: 1n, name: "Heavy", version: 1 }],
+            },
+            { id: "id-s", kind: "skill", name: "spec", profiles: [] },
+          ],
+        };
+      if (cmd === "update_all")
+        return [
+          report("id-a", "updated"),
+          report("id-p", "removed", { name: "plan" }),
+          report("id-s", "removed", { name: "spec" }),
+        ];
+      return undefined;
+    });
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    const list = await within(dialog).findByRole("list", {
+      name: "Removed at source",
+    });
+    expect(list).toHaveTextContent("plan (used by Heavy)");
+    expect(list).toHaveTextContent("spec");
+    expect(dialog).toHaveTextContent(
+      "Removed at source, will be deleted from the library",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Update 3" }));
+    expect(
+      await within(dialog).findByText(
+        "Deleted 2 removed at source: plan, spec.",
+      ),
+    ).toBeInTheDocument();
+    expect(calls.find((c) => c.cmd === "update_all")?.args).toEqual({
+      removeRemoved: true,
+    });
+  });
+
+  it("cancelling the confirm deletes nothing", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const calls: string[] = [];
+    mockIPC((cmd) => {
+      calls.push(cmd);
+      if (cmd === "library_list") return page(rows);
+      if (cmd === "update_removed_plan")
+        return {
+          artifacts: [
+            { id: "id-p", kind: "skill", name: "plan", profiles: [] },
+          ],
+        };
+      return undefined;
+    });
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={onClose}
+        onUpdated={() => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    await within(dialog).findByRole("list", { name: "Removed at source" });
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
+    expect(calls).not.toContain("update_all");
+  });
+
   it("can import new artifacts when nothing is outdated", async () => {
     mockIPC((cmd) => (cmd === "library_list" ? page([]) : undefined));
     render(

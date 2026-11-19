@@ -583,9 +583,20 @@ export function updateApply(
   return invoke<UpdateReport>("update_apply", { id, choice });
 }
 
-/** Updates every outdated artifact without local edits; edited ones come back skipped. */
-export function updateAll(): Promise<UpdateReport[]> {
-  return invoke<UpdateReport[]>("update_all");
+/**
+ * Updates every outdated artifact without local edits; edited ones come back skipped. With
+ * `removeRemoved` (the user confirmed the list), artifacts removed at their source are deleted.
+ */
+export function updateAll(removeRemoved = false): Promise<UpdateReport[]> {
+  return invoke<UpdateReport[]>(
+    "update_all",
+    removeRemoved ? { removeRemoved: true } : {},
+  );
+}
+
+/** The artifacts removed at their source, with the profiles using each: what Update all deletes. */
+export function updateRemovedPlan(): Promise<RemovalPlan> {
+  return invoke<RemovalPlan>("update_removed_plan");
 }
 /** Calls `handler` as a detection pass moves through its batches; resolves with the stop function. */
 export function onBundlesDetectProgress(

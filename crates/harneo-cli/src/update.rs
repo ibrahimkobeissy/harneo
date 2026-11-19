@@ -23,6 +23,10 @@ pub struct UpdateArgs {
     /// Print the result as JSON.
     #[arg(long)]
     json: bool,
+    /// Also delete the artifacts removed at their source (they are only listed otherwise).
+    /// Only for a run over everything, not for named artifacts.
+    #[arg(long, conflicts_with_all = ["check", "artifacts"])]
+    remove_deleted: bool,
     /// Update only these artifacts (id or name); all outdated ones when none is given.
     artifacts: Vec<String>,
 }
@@ -68,7 +72,8 @@ struct ItemResult {
     id: String,
     name: String,
     kind: String,
-    /// `updated`, `skippedLocalEdits`, `failed`, `notOutdated`, `imported` or `notPlaced`.
+    /// `updated`, `skippedLocalEdits`, `failed`, `notOutdated`, `imported`, `notPlaced`,
+    /// `removed` (deleted, as it is gone at its source) or `removedUpstream` (gone, kept).
     outcome: String,
     from_version: Option<String>,
     to_version: Option<String>,
@@ -85,6 +90,8 @@ struct Summary {
     imported: u32,
     /// New at their source, but the stored layout cannot place them.
     not_placed: u32,
+    /// Removed at their source and deleted (`--remove-deleted`).
+    removed: u32,
 }
 
 #[derive(Serialize)]
@@ -283,6 +290,16 @@ fn render_update(output: &UpdateOutput) -> String {
             "imported" => {
                 let _ = writeln!(out, "imported {} ({})  new at source", r.name, r.kind);
             }
+            "removed" => {
+                let _ = writeln!(out, "deleted {} ({})  removed at source", r.name, r.kind);
+            }
+            "removedUpstream" => {
+                let _ = writeln!(
+                    out,
+                    "kept {} ({})  removed at source: run with --remove-deleted to delete it",
+                    r.name, r.kind
+                );
+            }
             "notPlaced" => {
                 let _ = writeln!(
                     out,
@@ -307,6 +324,9 @@ fn render_update(output: &UpdateOutput) -> String {
             s.imported, s.not_placed
         );
     }
+    if s.removed > 0 {
+        let _ = writeln!(out, "Deleted {} removed at source", s.removed);
+    }
     let _ = writeln!(
         out,
         "Updated {}, skipped {} (local edits), failed {}",
@@ -319,6 +339,7 @@ fn result_of(item: &LibraryItem, report: UpdateReport) -> ItemResult {
     let outcome = match report.outcome {
         UpdateOutcome::Imported => "imported",
         UpdateOutcome::NotPlaced => "notPlaced",
+        UpdateOutcome::Removed => "removed",
         UpdateOutcome::Updated => "updated",
         UpdateOutcome::SkippedLocalEdits => "skippedLocalEdits",
         UpdateOutcome::Failed => "failed",
@@ -359,21 +380,40 @@ fn apply(
     library: &mut Library,
     items: &[LibraryItem],
     named: &[&LibraryItem],
+    remove_deleted: bool,
 ) -> anyhow::Result<Vec<ItemResult>> {
     let by_id: HashMap<&str, &LibraryItem> = items.iter().map(|i| (i.id.as_str(), i)).collect();
     if named.is_empty() {
-        let reports = library.update_all()?;
+        let (_, gone) = entries(library, items)?;
+        let reports = library.update_all_with(remove_deleted)?;
         // Imported artifacts were not in the library when `items` was read.
         let after = all_items(library)?;
         let found: HashMap<&str, &LibraryItem> = after.iter().map(|i| (i.id.as_str(), i)).collect();
-        return Ok(reports
+        let mut results: Vec<ItemResult> = reports
             .into_iter()
             .filter_map(|r| match r.outcome {
                 UpdateOutcome::NotPlaced => Some(not_in_library(r)),
                 UpdateOutcome::Imported => found.get(r.id.as_str()).map(|i| result_of(i, r)),
                 _ => by_id.get(r.id.as_str()).map(|i| result_of(i, r)),
             })
-            .collect());
+            .collect();
+        if !remove_deleted {
+            // Listed, never deleted without the flag (a non-interactive run has no prompt).
+            results.extend(
+                gone.into_iter()
+                    .filter(|e| e.state == "removed")
+                    .map(|e| ItemResult {
+                        id: e.id,
+                        name: e.name,
+                        kind: e.kind,
+                        outcome: "removedUpstream".to_owned(),
+                        from_version: None,
+                        to_version: None,
+                        message: None,
+                    }),
+            );
+        }
+        return Ok(results);
     }
     let mut results = Vec::new();
     for item in named {
@@ -447,7 +487,7 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
         }
         return Ok(ExitCode::SUCCESS);
     }
-    let results = apply(&mut library, &items, &named)?;
+    let results = apply(&mut library, &items, &named, args.remove_deleted)?;
     let count = |outcome: &str| {
         u32::try_from(results.iter().filter(|r| r.outcome == outcome).count()).unwrap_or(u32::MAX)
     };
@@ -457,6 +497,7 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
         failed: count("failed"),
         imported: count("imported"),
         not_placed: count("notPlaced"),
+        removed: count("removed"),
     };
     let failed = summary.failed > 0;
     let output = UpdateOutput {
@@ -549,6 +590,7 @@ mod tests {
                 failed: 1,
                 imported: 0,
                 not_placed: 0,
+                removed: 0,
             },
         };
         let text = render_update(&output);

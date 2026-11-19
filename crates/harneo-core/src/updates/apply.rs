@@ -58,6 +58,9 @@ pub enum UpdateOutcome {
     /// *Update all*: an artifact new at its source that the layout stored for the source cannot
     /// place; it is left out, never guessed (`message` says why).
     NotPlaced,
+    /// *Update all*, confirmed: an artifact removed at its source, now deleted from the library
+    /// (`name` and `source_path` say which; `message` says why when it failed instead).
+    Removed,
 }
 
 /// The result of one update.
@@ -268,6 +271,8 @@ pub struct UpdateAllPlan {
     skipped: Vec<UpdateReport>,
     /// The sources the last check found new artifacts in (decision 8).
     imports: Vec<ImportJob>,
+    /// Artifacts removed at their source, to delete (decision 9); empty unless confirmed.
+    removals: Vec<UpdateReport>,
 }
 
 impl UpdateAllPlan {
@@ -275,11 +280,13 @@ impl UpdateAllPlan {
     /// and applies it. One failing never stops the others. Then each source with new
     /// artifacts is located (no lock) and handed to `import`, which takes the lock and imports
     /// them. Returns the updated ones, the failed ones, the ones skipped for local edits, then
-    /// what was imported or not placed.
+    /// what was imported or not placed. Last, the confirmed removals go to `remove` in one
+    /// all-or-nothing call (the library's normal delete).
     pub fn run(
         self,
         mut finish: impl FnMut(PreparedUpdate) -> Result<UpdateReport>,
         mut import: impl FnMut(SourceFiles) -> Result<Vec<UpdateReport>>,
+        remove: impl FnOnce(&[String]) -> Result<()>,
     ) -> Vec<UpdateReport> {
         let mut out = Vec::new();
         let mut skipped = self.skipped;
@@ -304,6 +311,17 @@ impl UpdateAllPlan {
             match job.run().and_then(&mut import) {
                 Ok(reports) => out.extend(reports),
                 Err(error) => out.push(job.failed(&error)),
+            }
+        }
+        if !self.removals.is_empty() {
+            let ids: Vec<String> = self.removals.iter().map(|r| r.id.clone()).collect();
+            let result = remove(&ids);
+            for mut report in self.removals {
+                if let Err(error) = &result {
+                    report.outcome = UpdateOutcome::Failed;
+                    report.message = Some(error.to_string());
+                }
+                out.push(report);
             }
         }
         out
@@ -559,8 +577,9 @@ impl Library {
     }
 
     /// *Update all*: the outdated artifacts without local edits as jobs, the edited ones as
-    /// skipped reports (they ask Yours or Upstream one by one).
-    pub fn plan_update_all(&self) -> Result<UpdateAllPlan> {
+    /// skipped reports (they ask Yours or Upstream one by one). With `remove_removed` (the user
+    /// confirmed), the artifacts removed at their source are deleted too (decision 9).
+    pub fn plan_update_all(&self, remove_removed: bool) -> Result<UpdateAllPlan> {
         let ids: Vec<String> = {
             let mut stmt = self.store.conn.prepare(
                 "SELECT artifact_id FROM upstream WHERE state = 'outdated' ORDER BY artifact_id",
@@ -582,10 +601,29 @@ impl Library {
             }
         }
         let imports = self.import_jobs()?;
+        let removals = if remove_removed {
+            self.removed_at_source_plan()?
+                .artifacts
+                .into_iter()
+                .map(|item| {
+                    let mut report =
+                        UpdateReport::new(&item.id, UpdateOutcome::Removed, (None, None));
+                    report.source_path = records::load(&self.store.conn, &item.id)
+                        .ok()
+                        .flatten()
+                        .map(|d| d.provenance.source_path);
+                    report.name = Some(item.name);
+                    report
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
         Ok(UpdateAllPlan {
             jobs,
             skipped,
             imports,
+            removals,
         })
     }
 
@@ -593,12 +631,19 @@ impl Library {
     /// the skipped ones included. Holds whatever lock the caller has; the app uses
     /// [`Library::plan_update_all`] and applies each copy separately.
     pub fn update_all(&mut self) -> Result<Vec<UpdateReport>> {
-        let plan = self.plan_update_all()?;
-        // Both closures need the library, one at a time: the plan runs them in turn.
+        self.update_all_with(false)
+    }
+
+    /// [`Library::update_all`], which also deletes the artifacts removed at their source when
+    /// `remove_removed` is set (the caller asked the user first).
+    pub fn update_all_with(&mut self, remove_removed: bool) -> Result<Vec<UpdateReport>> {
+        let plan = self.plan_update_all(remove_removed)?;
+        // The closures need the library, one at a time: the plan runs them in turn.
         let library = std::cell::RefCell::new(self);
         Ok(plan.run(
             |prepared| library.borrow_mut().finish_update(prepared),
             |files| library.borrow_mut().finish_import(files),
+            |ids| library.borrow_mut().remove_many(ids),
         ))
     }
 }

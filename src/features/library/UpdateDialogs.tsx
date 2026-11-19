@@ -3,10 +3,17 @@ import type { DiffStatus } from "../../bindings/DiffStatus";
 import type { FileDiff } from "../../bindings/FileDiff";
 import type { Hunk } from "../../bindings/Hunk";
 import type { LibraryItem } from "../../bindings/LibraryItem";
+import type { RemovalItem } from "../../bindings/RemovalItem";
 import type { UpdateChoice } from "../../bindings/UpdateChoice";
 import type { UpdateReport } from "../../bindings/UpdateReport";
 import { Modal } from "../../app/Modal";
-import { libraryList, updateAll, updateApply, updateDiff } from "../../lib/ipc";
+import {
+  libraryList,
+  updateAll,
+  updateApply,
+  updateDiff,
+  updateRemovedPlan,
+} from "../../lib/ipc";
 import { Button, Radio } from "../../ui";
 import styles from "./Updates.module.css";
 import { useEscape } from "./useEscape";
@@ -461,9 +468,23 @@ export function UpdateAllDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reports, setReports] = useState<UpdateReport[] | null>(null);
+  // Removed at source: deleted by this update, once confirmed. A failed lookup deletes nothing.
+  const [removed, setRemoved] = useState<RemovalItem[]>([]);
   useEscape(() => {
     if (!busy) onClose();
   });
+  useEffect(() => {
+    let current = true;
+    updateRemovedPlan().then(
+      (plan) => {
+        if (current) setRemoved(plan?.artifacts ?? []);
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
   useEffect(() => {
     let current = true;
     libraryList({
@@ -502,7 +523,7 @@ export function UpdateAllDialog({
     setBusy(true);
     setError(null);
     try {
-      const out = (await updateAll()) ?? [];
+      const out = (await updateAll(removed.length > 0)) ?? [];
       setReports(out);
       onUpdated();
     } catch (err) {
@@ -517,13 +538,16 @@ export function UpdateAllDialog({
   const skipped =
     reports?.filter((r) => r.outcome === "skippedLocalEdits") ?? [];
   const failed = reports?.filter((r) => r.outcome === "failed") ?? [];
+  const deleted = reports?.filter((r) => r.outcome === "removed") ?? [];
+  const inProfiles = removed.filter((a) => a.profiles.length > 0);
+  const total = clean.length + newAtSource + removed.length;
   return (
     <Modal label="Update all">
       <div className={styles.dialog}>
         <h2>
           {reports
             ? "Update finished"
-            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}${newAtSource > 0 ? ` and import ${newAtSource} new` : ""}?`}
+            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}${newAtSource > 0 ? ` and import ${newAtSource} new` : ""}${removed.length > 0 ? ` and delete ${removed.length} removed at source` : ""}?`}
         </h2>
         {!reports && (
           <>
@@ -566,6 +590,36 @@ export function UpdateAllDialog({
                   </p>
                 </div>
               )}
+              {removed.length > 0 && (
+                <div className={styles.callout} data-tone="warn" role="note">
+                  <div>
+                    <p>Removed at source, will be deleted from the library:</p>
+                    <ul
+                      className={styles.removedList}
+                      aria-label="Removed at source"
+                    >
+                      {removed.map((a) => (
+                        <li key={a.id}>
+                          {a.name}
+                          {a.profiles.length > 0 && (
+                            <span>
+                              {" "}
+                              (used by{" "}
+                              {a.profiles.map((p) => p.name).join(", ")})
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    {inProfiles.length > 0 && (
+                      <p>
+                        Profiles that use them get a new version without them.
+                        The originals at their sources are not touched.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
               {edited.length > 0 && (
                 <div className={styles.callout} data-tone="warn" role="note">
                   <p>
@@ -591,6 +645,12 @@ export function UpdateAllDialog({
                 {imported.map((r) => r.name ?? r.id).join(", ")}.
               </p>
             )}
+            {deleted.length > 0 && (
+              <p>
+                Deleted {deleted.length} removed at source:{" "}
+                {deleted.map((r) => r.name ?? r.id).join(", ")}.
+              </p>
+            )}
             {notPlaced.map((r) => (
               <p key={r.id}>
                 Not placed {r.name ?? r.sourcePath ?? r.id}:{" "}
@@ -605,7 +665,7 @@ export function UpdateAllDialog({
             )}
             {failed.map((r) => (
               <p key={r.id} className={styles.error}>
-                {nameOf(r.id)}: {r.message ?? "the update failed"}
+                {r.name ?? nameOf(r.id)}: {r.message ?? "the update failed"}
               </p>
             ))}
           </div>
@@ -628,9 +688,9 @@ export function UpdateAllDialog({
               <Button
                 variant="primary"
                 onClick={() => void run()}
-                disabled={busy || clean.length + newAtSource === 0}
+                disabled={busy || total === 0}
               >
-                Update {clean.length + newAtSource}
+                Update {total}
               </Button>
             </>
           )}

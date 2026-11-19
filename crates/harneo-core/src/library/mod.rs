@@ -1036,6 +1036,41 @@ gone or no longer parses",
         }
         Ok(RemovalPlan { artifacts })
     }
+
+    /// The artifacts the last check found removed at their source (not *layout changed*), with
+    /// the profiles that install each: what *Update all* deletes once confirmed.
+    pub fn removed_at_source_plan(&self) -> Result<RemovalPlan> {
+        let rows = self
+            .store
+            .conn
+            .prepare(
+                "SELECT a.id, a.kind, a.name FROM artifacts a \
+                 JOIN upstream u ON u.artifact_id = a.id WHERE u.state = 'removed' \
+                 ORDER BY a.name COLLATE NOCASE, a.id",
+            )?
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut membership = self.profile_membership()?;
+        let mut artifacts = Vec::with_capacity(rows.len());
+        for (id, kind, name) in rows {
+            let kind: crate::artifact::ArtifactKind =
+                serde_json::from_value(serde_json::Value::String(kind))?;
+            let profiles = membership.remove(&id).unwrap_or_default();
+            artifacts.push(RemovalItem {
+                id,
+                kind,
+                name,
+                profiles,
+            });
+        }
+        Ok(RemovalPlan { artifacts })
+    }
 }
 
 /// One artifact a bulk delete would remove.
