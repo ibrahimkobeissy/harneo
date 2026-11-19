@@ -544,3 +544,4 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#306](https://github.com/ibrahimkobeissy/harneo/issues/306) Update all imports artifacts new at the source, except ones the user deleted
 - [#307](https://github.com/ibrahimkobeissy/harneo/issues/307) Update all deletes artifacts removed at the source, after one confirmation
 - [#308](https://github.com/ibrahimkobeissy/harneo/issues/308) Detect renames at the source and carry over tags, profiles and usage
+- [#309](https://github.com/ibrahimkobeissy/harneo/issues/309) Check counts identical copies at other paths as new at the source forever
