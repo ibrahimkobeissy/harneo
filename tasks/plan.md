@@ -541,3 +541,6 @@ BU1 ─┬─ BU2 ─┬─ BU4 ─┐                       US1 ─┬─ US2 �
 - [#295](https://github.com/ibrahimkobeissy/harneo/issues/295) Split any plugin into parts kept as library items (ADR-008)
 - [#296](https://github.com/ibrahimkobeissy/harneo/issues/296) Scaffold a plugin's parts as a trimmed plugin in .claude/skills (ADR-008)
 - [#297](https://github.com/ibrahimkobeissy/harneo/issues/297) Show when a kept plugin part needs a dropped one (ADR-008)
+- [#306](https://github.com/ibrahimkobeissy/harneo/issues/306) Update all imports artifacts new at the source, except ones the user deleted
+- [#307](https://github.com/ibrahimkobeissy/harneo/issues/307) Update all deletes artifacts removed at the source, after one confirmation
+- [#308](https://github.com/ibrahimkobeissy/harneo/issues/308) Detect renames at the source and carry over tags, profiles and usage
