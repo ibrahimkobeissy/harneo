@@ -283,3 +283,23 @@ fn importing_through_the_import_flow_lowers_the_count() -> TestResult {
     assert_eq!(stored_new(&f)?, 1);
     Ok(())
 }
+
+#[test]
+fn update_all_never_imports_a_copy_of_a_held_artifact() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    // `.claude/agents/a.md` sorts before the held `agents/a.md`, so the preview keeps it as the
+    // group's candidate; it is still the artifact the library holds, not a new one.
+    write(f.repo.path(), ".claude/agents/a.md", &agent("a", "one"))?;
+    write(f.repo.path(), "agents/fresh.md", &agent("fresh", "x"))?;
+    commit(f.repo.path(), "a copy and a new one")?;
+    f.library.check_updates(&CheckScope::All)?;
+    let reports = f.library.update_all()?;
+    let imported: Vec<_> = reports
+        .iter()
+        .filter(|r| r.outcome == UpdateOutcome::Imported)
+        .filter_map(|r| r.source_path.as_deref())
+        .collect();
+    assert_eq!(imported, ["agents/fresh.md"], "{reports:?}");
+    Ok(())
+}

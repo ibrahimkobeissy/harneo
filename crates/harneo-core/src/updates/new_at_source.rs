@@ -150,10 +150,19 @@ impl Library {
                     .insert(IMPORTED_COMMIT.to_owned(), Value::String(commit.clone()));
             }
         }
+        // A candidate folding an identical copy the library already holds (at another path) is
+        // that same artifact, not a new one: the preview keeps the smallest path of a group.
+        let held: std::collections::HashSet<String> = {
+            let mut stmt =
+                conn.prepare("SELECT source_path FROM artifacts WHERE source_id = ?1")?;
+            let rows = stmt.query_map(rusqlite::params![record.id], |r| r.get(0))?;
+            rows.collect::<std::result::Result<_, _>>()?
+        };
         let new: Vec<&Candidate> = preview
             .candidates
             .iter()
             .filter(|c| !c.already_in_library && !removed.contains(&c.artifact.path))
+            .filter(|c| !c.copies.iter().any(|path| held.contains(path)))
             .collect();
         let placed = Placed {
             root: &located.root,
