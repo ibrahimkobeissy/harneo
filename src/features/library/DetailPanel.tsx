@@ -18,6 +18,7 @@ import type { Audit } from "../../bindings/Audit";
 import type { Diagnostic } from "../../bindings/Diagnostic";
 import type { Reference } from "../../bindings/Reference";
 import type { Links } from "../../bindings/Links";
+import type { UpdateReport } from "../../bindings/UpdateReport";
 import type { UpdateStatus } from "../../bindings/UpdateStatus";
 import { Modal } from "../../app/Modal";
 import {
@@ -155,11 +156,38 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 /** The drawer's notice that the artifact changed at its source, with the Update button. */
 function UpdateCallout({
   status,
+  name,
   onUpdate,
 }: {
   status: UpdateStatus | null;
+  name: string;
   onUpdate: (status: UpdateStatus) => void;
 }) {
+  if (status !== null && status.state === "renamed")
+    return (
+      <section className={styles.sec} aria-label="Renamed at source">
+        <div className={updates.callout} data-tone="warn">
+          <CircleArrowUp size={16} aria-hidden="true" />
+          <div className={updates.calloutBody}>
+            <b>
+              {status.renamedTo
+                ? `Renamed at source: ${name} → ${status.renamedTo}`
+                : "Renamed at source"}
+            </b>
+            <p>
+              Applying it moves its tags, collections, links, profiles and usage
+              to the new name.
+              {status.localEdits
+                ? " You edited this artifact locally, so you'll confirm first."
+                : ""}
+            </p>
+          </div>
+          <Button small onClick={() => onUpdate(status)}>
+            Update
+          </Button>
+        </div>
+      </section>
+    );
   if (status === null || status.state !== "outdated") return null;
   const step = versionStep(status.fromVersion, status.toVersion);
   return (
@@ -241,6 +269,13 @@ function SourceSection({
             </span>{" "}
             <Badge tone="warn">
               {update.toVersion ? `${update.toVersion} available` : "changed"}
+            </Badge>
+          </Row>
+        )}
+        {update !== null && update.state === "renamed" && (
+          <Row label="Upstream">
+            <Badge tone="warn">
+              {`Renamed at source: ${detail.artifact.name} → ${update.renamedTo ?? "?"}`}
             </Badge>
           </Row>
         )}
@@ -573,6 +608,17 @@ export function DetailPanel({
   });
   // The status the dialog opened with: it must outlive the refresh that follows an update.
   const [updating, setUpdating] = useState<UpdateStatus | null>(null);
+  // A rename replaces the artifact: this id is gone, so the panel closes with the dialog.
+  const [renamed, setRenamed] = useState(false);
+  const afterUpdate = (report: UpdateReport) => {
+    onUpdated();
+    if (report.outcome === "renamed") setRenamed(true);
+    else setTick((n) => n + 1);
+  };
+  const closeUpdate = () => {
+    setUpdating(null);
+    if (renamed) onClose();
+  };
   const load = useDetail(id, tick);
   const update = useUpdateStatus(id, tick);
   const detail = load.status === "ready" ? load.detail : null;
@@ -787,7 +833,11 @@ export function DetailPanel({
           )}
           {detail && (
             <>
-              <UpdateCallout status={update} onUpdate={setUpdating} />
+              <UpdateCallout
+                status={update}
+                name={detail.artifact.name}
+                onUpdate={setUpdating}
+              />
               <section className={styles.sec}>
                 <p className={styles.desc}>
                   {detail.artifact.description ?? "No description."}
@@ -880,11 +930,8 @@ export function DetailPanel({
             id={id}
             name={detail.artifact.name}
             toVersion={updating.toVersion}
-            onClose={() => setUpdating(null)}
-            onUpdated={() => {
-              setTick((n) => n + 1);
-              onUpdated();
-            }}
+            onClose={closeUpdate}
+            onUpdated={afterUpdate}
           />
         ) : (
           <UpdateDialog
@@ -892,11 +939,9 @@ export function DetailPanel({
             name={detail.artifact.name}
             fromVersion={updating.fromVersion}
             toVersion={updating.toVersion}
-            onClose={() => setUpdating(null)}
-            onUpdated={() => {
-              setTick((n) => n + 1);
-              onUpdated();
-            }}
+            renamedTo={updating.renamedTo ?? null}
+            onClose={closeUpdate}
+            onUpdated={afterUpdate}
           />
         ))}
       {viewing !== null && (

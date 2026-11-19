@@ -61,6 +61,10 @@ pub enum UpdateOutcome {
     /// *Update all*, confirmed: an artifact removed at its source, now deleted from the library
     /// (`name` and `source_path` say which; `message` says why when it failed instead).
     Removed,
+    /// An artifact renamed at its source: the library now holds it under its new name, path and
+    /// id, with the tags, collections, links, profiles, installed files and usage of the old
+    /// one (`id` is the old id; `name` and `source_path` are the new ones).
+    Renamed,
 }
 
 /// The result of one update.
@@ -124,6 +128,16 @@ pub struct UpdateJob {
     plugin_needs: Option<Vec<String>>,
     /// The other parts of its plugin the part names, as recorded at import.
     plugin_uses: Vec<String>,
+    /// A rename (decision 10): the artifact is looked for at its new path, and copied under
+    /// the id that path gives it.
+    rename: Option<RenameTarget>,
+}
+
+/// Where an artifact renamed at its source went.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct RenameTarget {
+    pub(super) id: String,
+    pub(super) path: String,
 }
 
 /// The state the update was prepared against: the `upstream` row and the library copy.
@@ -137,18 +151,20 @@ struct Seen {
 /// The upstream copy, staged and audited, waiting to be swapped in.
 #[derive(Debug)]
 pub struct PreparedUpdate {
-    id: String,
-    artifact: Artifact,
-    staging: tempfile::TempDir,
+    pub(super) id: String,
+    pub(super) artifact: Artifact,
+    pub(super) staging: tempfile::TempDir,
     current: PathBuf,
-    audit: Audit,
-    copy_digest: String,
-    replaced_secret_keys: Vec<String>,
+    pub(super) audit: Audit,
+    pub(super) copy_digest: String,
+    pub(super) replaced_secret_keys: Vec<String>,
     versions: (Option<String>, Option<String>),
     protect_edits: bool,
     seen: Seen,
     /// A plugin part's record, read again from the source: saved with the part.
-    plugin: Option<(String, plugin_record::Built)>,
+    pub(super) plugin: Option<(String, plugin_record::Built)>,
+    /// For a rename, the new artifact: the staged copy is under its id.
+    pub(super) rename: Option<RenameTarget>,
 }
 
 fn io_error(path: &Path, source: io::Error) -> Error {
@@ -199,16 +215,17 @@ impl UpdateJob {
             .ok_or_else(|| Error::Update {
                 message: "it is gone from its source".to_owned(),
             })?;
+        let staged_id = self.rename.as_ref().map_or(&self.id, |r| &r.id);
         let staging = tempfile::Builder::new()
             .prefix(".update-")
             .tempdir_in(&self.library_root)
             .map_err(|e| io_error(&self.library_root, e))?;
-        let staged = staging.path().join(&self.id);
+        let staged = staging.path().join(staged_id);
         fs::create_dir(&staged).map_err(|e| io_error(&staged, e))?;
         let copied = copy_artifact(
             &located.root,
             &artifact,
-            &self.id,
+            staged_id,
             &staged,
             hooks,
             copy_limit(self.large_files),
@@ -253,14 +270,28 @@ impl UpdateJob {
             protect_edits: self.protect_edits,
             seen: self.seen.clone(),
             plugin,
+            rename: self.rename.clone(),
         })
     }
 }
 
 impl PreparedUpdate {
+    pub(super) fn seen_copy_digest(&self) -> Option<String> {
+        self.seen.copy_digest.clone()
+    }
+
+    pub(super) fn protect_edits(&self) -> bool {
+        self.protect_edits
+    }
+
+    pub(super) fn versions(&self) -> (Option<String>, Option<String>) {
+        self.versions.clone()
+    }
+
     /// What the update would change: the staged upstream copy against the library copy.
     pub fn diff(&self) -> Result<Vec<FileDiff>> {
-        diff_dirs(&self.current, &self.staging.path().join(&self.id))
+        let staged = self.rename.as_ref().map_or(&self.id, |r| &r.id);
+        diff_dirs(&self.current, &self.staging.path().join(staged))
     }
 }
 
@@ -340,6 +371,11 @@ impl Library {
             .ok_or_else(|| Error::NotInLibrary { id: id.to_owned() })?;
         let (state, from, to) = self.flagged(id)?;
         refuse_gone(&state)?;
+        let rename = if state == "renamed" {
+            Some(self.rename_target(&detail)?)
+        } else {
+            None
+        };
         let current = self.store.artifacts_dir().join(id);
         let seen = Seen {
             state,
@@ -372,7 +408,9 @@ impl Library {
             current: self.store.artifacts_dir().join(id),
             id: id.to_owned(),
             source: detail.provenance.source,
-            source_path: detail.provenance.source_path,
+            source_path: rename
+                .as_ref()
+                .map_or(detail.provenance.source_path, |r| r.path.clone()),
             large_files,
             layout,
             versions: (from, to),
@@ -380,6 +418,7 @@ impl Library {
             seen,
             plugin_needs: plugin_record::needs_of(&detail.artifact),
             plugin_uses: plugin_record::uses_of(&detail.artifact),
+            rename,
         })
     }
 
@@ -425,7 +464,7 @@ impl Library {
     }
 
     /// The row of `upstream` for `id`: its state and versions; an error when there is none.
-    fn flagged(&self, id: &str) -> Result<(String, Option<String>, Option<String>)> {
+    pub(super) fn flagged(&self, id: &str) -> Result<(String, Option<String>, Option<String>)> {
         self.store
             .conn
             .query_row(
@@ -464,10 +503,13 @@ impl Library {
     fn keep_mine(&self, id: &str) -> Result<UpdateReport> {
         let (state, from, to) = self.flagged(id)?;
         refuse_gone(&state)?;
-        self.store.conn.execute(
-            "UPDATE upstream SET state = 'skipped' WHERE artifact_id = ?1",
-            params![id],
-        )?;
+        // A rename has nothing to keep: the artifact stays as it is until it is applied.
+        if state != "renamed" {
+            self.store.conn.execute(
+                "UPDATE upstream SET state = 'skipped' WHERE artifact_id = ?1",
+                params![id],
+            )?;
+        }
         Ok(UpdateReport::new(id, UpdateOutcome::Kept, (from, to)))
     }
 
@@ -483,6 +525,9 @@ impl Library {
         hooks: &dyn ImportHooks,
     ) -> Result<UpdateReport> {
         let id = prepared.id.clone();
+        if prepared.rename.is_some() {
+            return self.finish_rename(prepared, hooks);
+        }
         self.check_still_current(&prepared)?;
         let edited = self.has_local_edits(&id)?;
         if edited && prepared.protect_edits {
@@ -583,7 +628,8 @@ impl Library {
     pub fn plan_update_all(&self, confirmed_removals: &[String]) -> Result<UpdateAllPlan> {
         let ids: Vec<String> = {
             let mut stmt = self.store.conn.prepare(
-                "SELECT artifact_id FROM upstream WHERE state = 'outdated' ORDER BY artifact_id",
+                "SELECT artifact_id FROM upstream WHERE state IN ('outdated', 'renamed')
+                 ORDER BY artifact_id",
             )?;
             let rows = stmt.query_map([], |r| r.get(0))?;
             rows.collect::<std::result::Result<_, _>>()?

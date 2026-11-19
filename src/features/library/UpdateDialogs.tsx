@@ -4,6 +4,7 @@ import type { FileDiff } from "../../bindings/FileDiff";
 import type { Hunk } from "../../bindings/Hunk";
 import type { LibraryItem } from "../../bindings/LibraryItem";
 import type { RemovalItem } from "../../bindings/RemovalItem";
+import type { RenameItem } from "../../bindings/RenameItem";
 import type { UpdateChoice } from "../../bindings/UpdateChoice";
 import type { UpdateReport } from "../../bindings/UpdateReport";
 import { Modal } from "../../app/Modal";
@@ -13,6 +14,7 @@ import {
   updateApply,
   updateDiff,
   updateRemovedPlan,
+  updateRenamedPlan,
 } from "../../lib/ipc";
 import { Button, Radio } from "../../ui";
 import styles from "./Updates.module.css";
@@ -144,7 +146,9 @@ function Outcome({ report }: { report: UpdateReport }) {
       <p>
         {report.outcome === "kept"
           ? "Kept your version. This upstream change is skipped until the source changes again."
-          : `Updated the library copy${report.toVersion ? ` to ${report.toVersion}` : ""}. Projects get it when you re-apply or switch their profile.`}
+          : report.outcome === "renamed"
+            ? `Renamed to ${report.name ?? "its new name"}. Its tags, collections, links, profiles and usage moved with it.`
+            : `Updated the library copy${report.toVersion ? ` to ${report.toVersion}` : ""}. Projects get it when you re-apply or switch their profile.`}
       </p>
       {report.backup && (
         <p>
@@ -162,6 +166,7 @@ export function UpdateDialog({
   name,
   fromVersion,
   toVersion,
+  renamedTo = null,
   onClose,
   onUpdated,
 }: {
@@ -169,6 +174,8 @@ export function UpdateDialog({
   name: string;
   fromVersion: string | null;
   toVersion: string | null;
+  /** Set when the artifact was renamed at its source: the new name. */
+  renamedTo?: string | null;
   onClose: () => void;
   onUpdated: (report: UpdateReport) => void;
 }) {
@@ -194,12 +201,19 @@ export function UpdateDialog({
   }
   const step = versionStep(fromVersion, toVersion);
   return (
-    <Modal label={`Update ${name}`}>
+    <Modal label={renamedTo ? `Rename ${name}` : `Update ${name}`}>
       <div className={styles.dialog}>
-        <h2>{step ? `Update ${name}: ${step}` : `Update ${name}`}</h2>
+        <h2>
+          {renamedTo
+            ? `Renamed at source: ${name} → ${renamedTo}`
+            : step
+              ? `Update ${name}: ${step}`
+              : `Update ${name}`}
+        </h2>
         <p className={styles.sub}>
-          Updates the library copy from its source. Projects get it when you
-          re-apply or switch their profile.
+          {renamedTo
+            ? "Imports it under the new name and moves its tags, collections, links, profiles and usage over, then removes the old copy. Projects get it when you re-apply or switch their profile."
+            : "Updates the library copy from its source. Projects get it when you re-apply or switch their profile."}
         </p>
         <div className={styles.scroll}>
           <Loading diffs={diffs} />
@@ -239,7 +253,7 @@ export function UpdateDialog({
                 onClick={() => void apply()}
                 disabled={busy || diffs.status !== "ready"}
               >
-                Update library copy
+                {renamedTo ? "Apply rename" : "Update library copy"}
               </Button>
             </>
           )}
@@ -470,9 +484,23 @@ export function UpdateAllDialog({
   const [reports, setReports] = useState<UpdateReport[] | null>(null);
   // Removed at source: deleted by this update, once confirmed. A failed lookup deletes nothing.
   const [removed, setRemoved] = useState<RemovalItem[]>([]);
+  // Renamed at source: moved over to the new name by this update, nothing is lost.
+  const [renames, setRenames] = useState<RenameItem[]>([]);
   useEscape(() => {
     if (!busy) onClose();
   });
+  useEffect(() => {
+    let current = true;
+    updateRenamedPlan().then(
+      (plan) => {
+        if (current) setRenames(plan?.renames ?? []);
+      },
+      () => {},
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
   useEffect(() => {
     let current = true;
     updateRemovedPlan().then(
@@ -539,15 +567,19 @@ export function UpdateAllDialog({
     reports?.filter((r) => r.outcome === "skippedLocalEdits") ?? [];
   const failed = reports?.filter((r) => r.outcome === "failed") ?? [];
   const deleted = reports?.filter((r) => r.outcome === "removed") ?? [];
+  const renamedDone = reports?.filter((r) => r.outcome === "renamed") ?? [];
+  const oldName = (id: string) => renames.find((r) => r.id === id)?.name ?? id;
+  const applicable = renames.filter((r) => !r.localEdits);
+  const editedRenames = renames.filter((r) => r.localEdits);
   const inProfiles = removed.filter((a) => a.profiles.length > 0);
-  const total = clean.length + newAtSource + removed.length;
+  const total = clean.length + newAtSource + removed.length + applicable.length;
   return (
     <Modal label="Update all">
       <div className={styles.dialog}>
         <h2>
           {reports
             ? "Update finished"
-            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}${newAtSource > 0 ? ` and import ${newAtSource} new` : ""}${removed.length > 0 ? ` and delete ${removed.length} removed at source` : ""}?`}
+            : `Update ${items.length} ${items.length === 1 ? "artifact" : "artifacts"}${newAtSource > 0 ? ` and import ${newAtSource} new` : ""}${applicable.length > 0 ? ` and apply ${applicable.length} ${applicable.length === 1 ? "rename" : "renames"}` : ""}${removed.length > 0 ? ` and delete ${removed.length} removed at source` : ""}?`}
         </h2>
         {!reports && (
           <>
@@ -590,6 +622,26 @@ export function UpdateAllDialog({
                   </p>
                 </div>
               )}
+              {applicable.length > 0 && (
+                <div className={styles.callout} data-tone="neutral" role="note">
+                  <div>
+                    <p>
+                      Renamed at source. Each moves its tags, collections,
+                      profiles and usage to the new name; nothing is lost:
+                    </p>
+                    <ul
+                      className={styles.removedList}
+                      aria-label="Renamed at source"
+                    >
+                      {applicable.map((r) => (
+                        <li key={r.id}>
+                          {r.name} → {r.newName}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
               {removed.length > 0 && (
                 <div className={styles.callout} data-tone="warn" role="note">
                   <div>
@@ -620,6 +672,19 @@ export function UpdateAllDialog({
                   </div>
                 </div>
               )}
+              {editedRenames.length > 0 && (
+                <div className={styles.callout} data-tone="warn" role="note">
+                  <p>
+                    {editedNames(editedRenames.map((r) => r.name))}{" "}
+                    {editedRenames.length === 1 ? "was" : "were"} renamed at
+                    source and {editedRenames.length === 1 ? "has" : "have"}{" "}
+                    local edits, so{" "}
+                    {editedRenames.length === 1 ? "it is" : "they are"} skipped;
+                    apply {editedRenames.length === 1 ? "it" : "them"} one by
+                    one to choose.
+                  </p>
+                </div>
+              )}
               {edited.length > 0 && (
                 <div className={styles.callout} data-tone="warn" role="note">
                   <p>
@@ -643,6 +708,15 @@ export function UpdateAllDialog({
               <p>
                 Imported {imported.length} new at source:{" "}
                 {imported.map((r) => r.name ?? r.id).join(", ")}.
+              </p>
+            )}
+            {renamedDone.length > 0 && (
+              <p>
+                Renamed at source:{" "}
+                {renamedDone
+                  .map((r) => `${oldName(r.id)} → ${r.name ?? r.id}`)
+                  .join(", ")}
+                .
               </p>
             )}
             {deleted.length > 0 && (

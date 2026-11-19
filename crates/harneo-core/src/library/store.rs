@@ -419,9 +419,34 @@ CREATE TABLE removed_paths (
 ALTER TABLE sources ADD COLUMN new_upstream INTEGER NOT NULL DEFAULT 0;
 ";
 
+/// Renames at the source (decision 10 of `spec/updates.md`): `upstream` gains the `renamed`
+/// state, with the new path and name in the source on the old artifact's row. SQLite cannot
+/// alter a CHECK, so the table is rebuilt with its rows.
+const V18: &str = "
+CREATE TABLE upstream_new (
+    artifact_id     TEXT PRIMARY KEY REFERENCES artifacts(id) ON DELETE CASCADE,
+    state           TEXT NOT NULL
+        CHECK (state IN ('outdated', 'removed', 'skipped', 'layout_changed', 'renamed')),
+    upstream_digest TEXT,
+    upstream_commit TEXT,
+    from_version    TEXT,
+    to_version      TEXT,
+    checked_at      INTEGER NOT NULL,
+    renamed_path    TEXT,
+    renamed_name    TEXT
+) STRICT;
+INSERT INTO upstream_new
+    (artifact_id, state, upstream_digest, upstream_commit, from_version, to_version, checked_at)
+SELECT artifact_id, state, upstream_digest, upstream_commit, from_version, to_version, checked_at
+FROM upstream;
+DROP TABLE upstream;
+ALTER TABLE upstream_new RENAME TO upstream;
+CREATE INDEX upstream_state ON upstream(state);
+";
+
 /// Forward-only: `MIGRATIONS[n]` takes the schema from version `n` to `n + 1`.
 const MIGRATIONS: &[&str] = &[
-    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17,
+    V1, V2, V3, V4, V5, V6, V7, V8, V9, V10, V11, V12, V13, V14, V15, V16, V17, V18,
 ];
 
 /// The schema version this build writes.

@@ -144,6 +144,7 @@ fn only_the_artifact_whose_own_files_changed_is_outdated() -> TestResult {
     assert_eq!(
         f.one(&report),
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,
@@ -205,6 +206,7 @@ fn an_unchanged_remote_is_not_cloned_and_a_moved_one_is() -> TestResult {
     assert_eq!(
         f.one(&report),
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,
@@ -289,6 +291,7 @@ fn removed_and_new_upstream_are_reported() -> TestResult {
     assert_eq!(
         f.one(&report),
         SourceResult::Changed {
+            renamed: 0,
             outdated: 0,
             removed: 1,
             layout_changed: 0,
@@ -326,6 +329,7 @@ fn an_unreachable_source_does_not_stop_the_others() -> TestResult {
     assert_eq!(unreachable, 1, "{report:?}");
     assert!(report.sources.iter().any(|s| s.result
         == SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,
@@ -451,6 +455,7 @@ fn a_local_source_is_rescanned_in_place() -> TestResult {
     assert_eq!(
         report.sources[0].result,
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,

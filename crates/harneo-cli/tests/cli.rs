@@ -587,7 +587,7 @@ mod update_cli {
             .stdout(predicate::str::contains("b (agent)  "))
             .stdout(predicate::str::contains(" → "))
             .stdout(predicate::str::contains(
-                "1 outdated, 0 removed upstream, 0 source errors",
+                "1 outdated, 0 removed upstream, 0 renamed, 0 source errors",
             ))
             .stdout(predicate::str::contains("a (agent)").not());
         let output = with_data(data.path())
@@ -698,6 +698,34 @@ mod update_cli {
             .stdout(predicate::str::contains("deleted b (agent)"))
             .stdout(predicate::str::contains("Deleted 1 removed at source"));
         assert!(stored(data.path(), "b").is_err());
+        assert!(stored(data.path(), "a").is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn a_rename_at_source_is_listed_and_applied_by_update() -> TestResult {
+        let (repo, data) = seeded()?;
+        git(repo.path(), &["mv", "agents/b.md", "agents/b2.md"])?;
+        std::fs::write(
+            repo.path().join("agents/b2.md"),
+            "---\nname: b2\ndescription: b agent\n---\none\n",
+        )?;
+        git(repo.path(), &["add", "-A"])?;
+        git(repo.path(), &["commit", "-q", "-m", "rename b"])?;
+        with_data(data.path())
+            .args(["update", "--check"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("renamed at source: b → b2"))
+            .stdout(predicate::str::contains("0 removed upstream, 1 renamed"));
+        with_data(data.path())
+            .arg("update")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("renamed b (agent)"))
+            .stdout(predicate::str::contains("Renamed 1 at source"));
+        assert!(stored(data.path(), "b").is_err());
+        assert!(stored(data.path(), "b2").is_ok());
         assert!(stored(data.path(), "a").is_ok());
         Ok(())
     }

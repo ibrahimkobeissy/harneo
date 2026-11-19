@@ -41,6 +41,11 @@ outdated: number,
  */
 newAtSource: number, 
 /**
+ * Artifacts the last checks found renamed at their source: *Update all* moves everything
+ * over to the new name. Over every source, whatever the filters.
+ */
+renamedAtSource: number, 
+/**
  * In `Status` order; only statuses present among the artifacts the other filters keep, plus
  * selected ones at 0.
  */

@@ -25,6 +25,7 @@ import type { Links } from "../bindings/Links";
 import type { Detection } from "../bindings/Detection";
 import type { Filter } from "../bindings/Filter";
 import type { RemovalPlan } from "../bindings/RemovalPlan";
+import type { RenamePlan } from "../bindings/RenamePlan";
 import type { UnpackOutcome } from "../bindings/UnpackOutcome";
 import type { PartNeed } from "../bindings/PartNeed";
 import type { Page } from "../bindings/Page";
@@ -597,6 +598,11 @@ export function updateAll(removeIds: string[] = []): Promise<UpdateReport[]> {
 /** The artifacts removed at their source, with the profiles using each: what Update all deletes. */
 export function updateRemovedPlan(): Promise<RemovalPlan> {
   return invoke<RemovalPlan>("update_removed_plan");
+}
+
+/** The artifacts renamed at their source, with their new names: what Update all moves over. */
+export function updateRenamedPlan(): Promise<RenamePlan> {
+  return invoke<RenamePlan>("update_renamed_plan");
 }
 /** Calls `handler` as a detection pass moves through its batches; resolves with the stop function. */
 export function onBundlesDetectProgress(

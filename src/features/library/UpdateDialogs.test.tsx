@@ -290,6 +290,60 @@ describe("UpdateAllDialog", () => {
     });
   });
 
+  it("lists renames at source as their own group and reports them", async () => {
+    const user = userEvent.setup();
+    mockIPC((cmd) => {
+      if (cmd === "library_list") return page([]);
+      if (cmd === "update_renamed_plan")
+        return {
+          renames: [
+            {
+              id: "id-old",
+              kind: "skill",
+              name: "old",
+              newName: "fresh",
+              localEdits: false,
+            },
+            {
+              id: "id-mine",
+              kind: "skill",
+              name: "mine",
+              newName: "mine2",
+              localEdits: true,
+            },
+          ],
+        };
+      if (cmd === "update_all")
+        return [report("id-old", "renamed", { name: "fresh" })];
+      return undefined;
+    });
+    render(
+      <UpdateAllDialog
+        newAtSource={0}
+        onClose={() => {}}
+        onUpdated={() => {}}
+      />,
+    );
+    const dialog = await screen.findByRole("dialog", { name: "Update all" });
+    const list = await within(dialog).findByRole("list", {
+      name: "Renamed at source",
+    });
+    expect(list).toHaveTextContent("old → fresh");
+    expect(list).not.toHaveTextContent("mine");
+    expect(dialog).toHaveTextContent(
+      "mine was renamed at source and has local edits",
+    );
+    expect(
+      screen.getByRole("heading", {
+        name: "Update 0 artifacts and apply 1 rename?",
+      }),
+    ).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Update 1" }));
+    expect(
+      await within(dialog).findByText("Renamed at source: old → fresh."),
+    ).toBeInTheDocument();
+  });
+
   it("cancelling the confirm deletes nothing", async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

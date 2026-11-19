@@ -653,6 +653,14 @@ pub fn update_removed_plan(state: State<'_, LibraryState>) -> Result<RemovalPlan
     state.with(|library| library.removed_at_source_plan())
 }
 
+/// The artifacts renamed at their source, with their new names: what *Update all* moves over.
+#[tauri::command]
+pub fn update_renamed_plan(
+    state: State<'_, LibraryState>,
+) -> Result<harneo_core::updates::RenamePlan, String> {
+    state.with(|library| library.renamed_at_source_plan())
+}
+
 // --- Links, bundles and settings ---------------------------------------------------------
 
 /// What an artifact needs and what needs it.

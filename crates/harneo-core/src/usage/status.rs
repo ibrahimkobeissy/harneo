@@ -145,18 +145,33 @@ pub(crate) fn tracked_sql(a: &str) -> String {
     format!("{a}.kind IN {TRACKED}")
 }
 
+/// Whether the use row aliased `u` is of the artifact row aliased `a`: by its kind and name, or
+/// by a name the artifact had before it was renamed at its source (`usage.aliases`). Every
+/// query that counts use by name goes through this.
+pub(crate) fn same_artifact_sql(u: &str, a: &str) -> String {
+    // One IN over the artifact's names, not an OR, so the (kind, name, day) index still serves it.
+    format!(
+        "({u}.kind = {a}.kind AND {u}.name IN (SELECT {a}.name UNION ALL \
+         SELECT al.alias FROM usage.aliases al WHERE al.kind = {a}.kind AND al.name = {a}.name))"
+    )
+}
+
 /// Distinct sessions in the last 8 weeks that used the artifact row aliased `a`.
 pub(crate) fn sessions_sql(a: &str) -> String {
     format!(
         "(SELECT COUNT(DISTINCT u.session_id) FROM usage.uses u \
-         WHERE u.kind = {a}.kind AND u.name = {a}.name AND u.day >= {})",
+         WHERE {} AND u.day >= {})",
+        same_artifact_sql("u", a),
         window_start()
     )
 }
 
 /// The most recent day the artifact row aliased `a` was used.
 pub(crate) fn last_used_sql(a: &str) -> String {
-    format!("(SELECT MAX(u.day) FROM usage.uses u WHERE u.kind = {a}.kind AND u.name = {a}.name)")
+    format!(
+        "(SELECT MAX(u.day) FROM usage.uses u WHERE {})",
+        same_artifact_sql("u", a)
+    )
 }
 
 /// The status of the artifact row aliased `a` (columns `id`, `kind`, `name`, `trust_score`,
@@ -169,12 +184,13 @@ pub(crate) fn status_sql(a: &str) -> String {
               THEN 'findings' \
          WHEN {outdated} THEN 'outdated' \
          WHEN {tracked} AND NOT EXISTS (SELECT 1 FROM usage.uses u \
-              WHERE u.kind = {a}.kind AND u.name = {a}.name \
+              WHERE {same} \
                 AND u.day >= date('now', '-' || ({weeks} * 7 - 1) || ' days')) \
               THEN (CASE WHEN {a}.imported_at < CAST(strftime('%s', 'now') AS INTEGER) - {weeks} * 604800 \
                          THEN 'unused' ELSE 'notUsedYet' END) \
          ELSE 'current' END)",
         outdated = outdated_sql(a),
         tracked = tracked_sql(a),
+        same = same_artifact_sql("u", a),
     )
 }

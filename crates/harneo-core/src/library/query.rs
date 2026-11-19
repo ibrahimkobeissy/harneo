@@ -244,6 +244,9 @@ pub struct Facets {
     /// Artifacts the last checks found new at their sources (not in the library, not deleted
     /// by the user): *Update all* imports them. Over every source, whatever the filters.
     pub new_at_source: u32,
+    /// Artifacts the last checks found renamed at their source: *Update all* moves everything
+    /// over to the new name. Over every source, whatever the filters.
+    pub renamed_at_source: u32,
     /// In `Status` order; only statuses present among the artifacts the other filters keep, plus
     /// selected ones at 0.
     pub statuses: Vec<StatusCount>,
@@ -848,8 +851,14 @@ fn facets(conn: &Connection, filter: &Filter, scope: Option<&Scope>) -> Result<F
         [],
         |r| r.get(0),
     )?;
+    let renamed_at_source: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM upstream WHERE state = 'renamed'",
+        [],
+        |r| r.get(0),
+    )?;
     Ok(Facets {
         new_at_source: count(new_at_source),
+        renamed_at_source: count(renamed_at_source),
         auto: count(kept - manual),
         manual_only: count(manual),
         statuses,

@@ -350,6 +350,7 @@ fn a_check_in_three_steps_matches_the_one_call() -> TestResult {
     assert_eq!(
         report.sources[0].result,
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,

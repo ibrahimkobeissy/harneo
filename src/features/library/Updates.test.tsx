@@ -12,6 +12,7 @@ import type { UpdateReport } from "../../bindings/UpdateReport";
 import type { UpdateStatus } from "../../bindings/UpdateStatus";
 import { item, page } from "../../test/library";
 import { LibraryScreen } from ".";
+import { UpdateTag } from "./ItemMeta";
 
 const diff: FileDiff[] = [
   {
@@ -119,6 +120,7 @@ function setup(
     fromVersion: "3.4.0",
     toVersion: "3.4.1",
     localEdits,
+    ...(state === "renamed" ? { renamedTo: "ship" } : {}),
   };
   mockIPC((cmd, args) => {
     const a = (args ?? {}) as Record<string, unknown>;
@@ -183,6 +185,8 @@ function setup(
       case "update_apply":
         calls.push(`apply:${String(choice)}`);
         outdated = false;
+        if (state === "renamed")
+          return report(String(id), "renamed", { name: "ship" });
         return report(String(id), choice === "keepMine" ? "kept" : "updated", {
           fromVersion: "3.4.0",
           toVersion: "3.4.1",
@@ -222,6 +226,45 @@ function setup(
 }
 
 describe("updates in the library", () => {
+  it("shows a rename at the source in the card badge", () => {
+    render(
+      <UpdateTag
+        item={item("release", {
+          update: { toVersion: null, localEdits: false, renamedTo: "ship" },
+        })}
+      />,
+    );
+    const badge = screen.getByText("Renamed");
+    expect(badge).toHaveAttribute("title", "Renamed at source: release → ship");
+  });
+
+  it("applies a rename from the drawer and closes it with the dialog", async () => {
+    const user = userEvent.setup();
+    setup("/library?open=id-release", false, "renamed");
+    const panel = await screen.findByRole("dialog", {
+      name: "release details",
+    });
+    expect(
+      await within(panel).findAllByText("Renamed at source: release → ship"),
+    ).not.toHaveLength(0);
+    await user.click(within(panel).getByRole("button", { name: "Update" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Rename release",
+    });
+    await user.click(
+      await within(dialog).findByRole("button", { name: "Apply rename" }),
+    );
+    expect(await within(dialog).findByRole("status")).toHaveTextContent(
+      "Renamed to ship. Its tags, collections, links, profiles and usage moved with it.",
+    );
+    await user.click(within(dialog).getByRole("button", { name: "Done" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "release details" }),
+      ).toBeNull(),
+    );
+  });
+
   it("shows the badge, with and without a version, and says the version only once", async () => {
     setup("/library");
     expect(await screen.findByText("Update 3.4.1")).toBeInTheDocument();

@@ -440,6 +440,7 @@ export function LibraryScreen({
               check={check}
               outdated={page.facets.outdated}
               newAtSource={page.facets.newAtSource}
+              renamed={page.facets.renamedAtSource}
               onUpdateAll={() => setUpdatingAll(true)}
             />
           )}

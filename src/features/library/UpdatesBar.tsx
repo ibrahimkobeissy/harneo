@@ -25,11 +25,14 @@ export function UpdatesControls({
   check,
   outdated,
   newAtSource,
+  renamed = 0,
   onUpdateAll,
 }: {
   check: Check;
   outdated: number;
   newAtSource: number;
+  /** Artifacts renamed at their source: Update all moves everything over to the new name. */
+  renamed?: number;
   onUpdateAll: () => void;
 }) {
   return (
@@ -59,10 +62,15 @@ export function UpdatesControls({
           {newAtSource} new at source
         </span>
       )}
-      {outdated + newAtSource > 0 && (
+      {renamed > 0 && (
+        <span title="Artifacts renamed in their source. Update all moves their tags, collections, profiles and usage to the new name.">
+          {renamed} renamed at source
+        </span>
+      )}
+      {outdated + newAtSource + renamed > 0 && (
         <Button small onClick={onUpdateAll}>
           <CircleArrowUp size={14} aria-hidden="true" />
-          Update all ({outdated + newAtSource})
+          Update all ({outdated + newAtSource + renamed})
         </Button>
       )}
     </span>

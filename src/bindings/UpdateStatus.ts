@@ -17,4 +17,8 @@ toVersion: string | null,
 /**
  * The library copy differs from what was stored at import.
  */
-localEdits: boolean, };
+localEdits: boolean, 
+/**
+ * For a renamed artifact, its new name in the source.
+ */
+renamedTo?: string, };

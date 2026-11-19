@@ -268,6 +268,7 @@ async function setup(path: string, opts: Opts = {}) {
           withFindings: 0,
           outdated: 0,
           newAtSource: 0,
+          renamedAtSource: 0,
           auto: items.length,
           manualOnly: 0,
           statuses: [],

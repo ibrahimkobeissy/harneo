@@ -160,6 +160,7 @@ describe("update wrappers", () => {
     expect(await ipc.updateAll()).toBe("r");
     expect(await ipc.updateAll(["a"])).toBe("r");
     expect(await ipc.updateRemovedPlan()).toBe("r");
+    expect(await ipc.updateRenamedPlan()).toBe("r");
     expect(calls).toEqual([
       { cmd: "updates_check", args: { scope: { type: "all" } } },
       {
@@ -172,6 +173,7 @@ describe("update wrappers", () => {
       { cmd: "update_all", args: {} },
       { cmd: "update_all", args: { removeIds: ["a"] } },
       { cmd: "update_removed_plan", args: {} },
+      { cmd: "update_renamed_plan", args: {} },
     ]);
   });
 });

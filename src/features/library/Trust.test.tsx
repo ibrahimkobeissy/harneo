@@ -104,6 +104,7 @@ function setup(path = "/library") {
             withFindings: 1,
             outdated: 0,
             newAtSource: 0,
+            renamedAtSource: 0,
             auto: 0,
             manualOnly: 0,
             statuses: [],

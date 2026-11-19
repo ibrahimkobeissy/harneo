@@ -32,6 +32,8 @@ struct SourceWork {
     layout: StoredLayout,
     /// Paths the user removed from the library: never counted as new at the source.
     removed: std::collections::HashSet<String>,
+    /// The source's import opted in to large files, as a copy of it would store them.
+    large_files: bool,
 }
 
 /// What looking at the sources found, ready to be written by [`Library::finish_check`].
@@ -85,6 +87,12 @@ enum Judged {
     },
     LayoutChanged {
         from: Option<String>,
+    },
+    /// Gone from its path and new at another with the same contents (decision 10).
+    Renamed {
+        from: Option<String>,
+        path: String,
+        name: String,
     },
 }
 
@@ -141,6 +149,13 @@ impl CheckJob {
             Upstream::Unchanged => return Found::Unchanged,
             Upstream::Scanned { commit, scanned } => (commit, scanned),
         };
+        let known_paths: Vec<&str> = work.stored.iter().map(|s| s.source_path.as_str()).collect();
+        let fresh: Vec<&Artifact> = scanned
+            .artifacts
+            .iter()
+            .filter(|a| !known_paths.contains(&a.path.as_str()) && !work.removed.contains(&a.path))
+            .collect();
+        let pairs = self.renames(work, &scanned.artifacts, &fresh);
         let mut judgements = Vec::new();
         for item in work
             .stored
@@ -152,7 +167,13 @@ impl CheckJob {
                 .iter()
                 .find(|a| a.path == item.source_path);
             let from_commit = imported_commit(&item.artifact, source);
+            let renamed = pairs.iter().find(|p| p.removed_id == item.id);
             let what = match classify(item, found) {
+                Verdict::Removed if renamed.is_some() => Judged::Renamed {
+                    from: versions(&item.artifact, None, None, None).0,
+                    path: renamed.map(|p| p.path.clone()).unwrap_or_default(),
+                    name: renamed.map(|p| p.name.clone()).unwrap_or_default(),
+                },
                 Verdict::Current => Judged::Current,
                 Verdict::Outdated(upstream) => {
                     let (from, to) = versions(
@@ -180,12 +201,7 @@ impl CheckJob {
                 what,
             });
         }
-        let known_paths: Vec<&str> = work.stored.iter().map(|s| s.source_path.as_str()).collect();
-        let new_upstream = scanned
-            .artifacts
-            .iter()
-            .filter(|a| !known_paths.contains(&a.path.as_str()) && !work.removed.contains(&a.path))
-            .count();
+        let new_upstream = fresh.len().saturating_sub(pairs.len());
         Found::Scanned {
             commit,
             judgements,
@@ -194,6 +210,46 @@ impl CheckJob {
             unplaced_overflow: scanned.unplaced_overflow,
             advance: self.only.is_none(),
         }
+    }
+}
+
+impl CheckJob {
+    /// The renames among the artifacts removed from and new in a source (decision 10). Needs the
+    /// source's files, so it only looks when there is both a removed and a new artifact.
+    fn renames(
+        &self,
+        work: &SourceWork,
+        scanned: &[Artifact],
+        fresh: &[&Artifact],
+    ) -> Vec<renames::Pair> {
+        if fresh.is_empty() {
+            return Vec::new();
+        }
+        let removed: Vec<&Stored> = work
+            .stored
+            .iter()
+            .filter(|s| {
+                matches!(
+                    classify(s, scanned.iter().find(|a| a.path == s.source_path)),
+                    Verdict::Removed
+                )
+            })
+            .collect();
+        if removed.is_empty() {
+            return Vec::new();
+        }
+        let Ok(located) =
+            remote::locate(&self.git, &self.session, &self.library_root, &work.source)
+        else {
+            return Vec::new();
+        };
+        renames::find(
+            &self.library_root,
+            &located.root,
+            work.large_files,
+            &removed,
+            fresh,
+        )
     }
 }
 
@@ -235,8 +291,14 @@ impl Library {
                 }
             }
             let removed = records::removed_paths(conn, &source.id)?;
+            let large_files: bool = conn.query_row(
+                "SELECT large_files FROM sources WHERE id = ?1",
+                params![source.id],
+                |r| r.get(0),
+            )?;
             sources.push(SourceWork {
                 removed,
+                large_files,
                 source,
                 remote_commit,
                 stored,
@@ -340,6 +402,7 @@ impl Library {
                                 from_version: from,
                                 to_version: to,
                                 checked_at: now,
+                                renamed: None,
                             },
                         )?;
                     }
@@ -354,6 +417,20 @@ impl Library {
                         from_version: from,
                         to_version: None,
                         checked_at: now,
+                        renamed: None,
+                    },
+                )?,
+                Judged::Renamed { from, path, name } => write_row(
+                    &tx,
+                    &NewRow {
+                        id,
+                        state: UpstreamState::Renamed,
+                        upstream_digest: None,
+                        upstream_commit: &commit,
+                        from_version: from,
+                        to_version: None,
+                        checked_at: now,
+                        renamed: Some((path, name)),
                     },
                 )?,
                 Judged::Removed { from } => write_row(
@@ -366,6 +443,7 @@ impl Library {
                         from_version: from,
                         to_version: None,
                         checked_at: now,
+                        renamed: None,
                     },
                 )?,
             }

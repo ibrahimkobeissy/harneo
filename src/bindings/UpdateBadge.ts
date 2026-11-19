@@ -3,4 +3,8 @@
 /**
  * What a card shows for an outdated artifact.
  */
-export type UpdateBadge = { toVersion: string | null, localEdits: boolean, };
+export type UpdateBadge = { toVersion: string | null, localEdits: boolean, 
+/**
+ * Set instead of a version when the artifact was renamed at its source: the new name.
+ */
+renamedTo?: string, };

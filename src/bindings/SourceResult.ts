@@ -20,4 +20,8 @@ layoutChanged: number,
 /**
  * Artifacts in the source that are not in the library.
  */
-newUpstream: number, } | { "type": "unreachable", reason: string, } | { "type": "missing" };
+newUpstream: number, 
+/**
+ * Artifacts of the library renamed at the source (decision 10).
+ */
+renamed: number, } | { "type": "unreachable", reason: string, } | { "type": "missing" };

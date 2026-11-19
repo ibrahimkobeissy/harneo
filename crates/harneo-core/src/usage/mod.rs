@@ -51,6 +51,9 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 /// Weeks the usage window covers.
 pub const WEEKS: usize = 8;
 
+/// Version 3 adds `aliases`: the names an artifact had before it was renamed at its source
+/// (`alias`), by the name it has now (`name`), so uses logged under either count for it.
+///
 /// Version 2 adds `log_files.head_hash`: a hash of the first bytes read, to notice a file
 /// rewritten to the same size.
 ///
@@ -83,6 +86,15 @@ CREATE INDEX uses_day ON uses(day);
 ",
     "
 ALTER TABLE log_files ADD COLUMN head_hash INTEGER NOT NULL DEFAULT 0;
+",
+    "
+CREATE TABLE aliases (
+    kind  TEXT NOT NULL,
+    alias TEXT NOT NULL,
+    name  TEXT NOT NULL,
+    PRIMARY KEY (kind, alias)
+) STRICT;
+CREATE INDEX aliases_name ON aliases(kind, name);
 ",
 ];
 
@@ -172,7 +184,8 @@ impl UsageIndex {
         let conn = self.connect()?;
         let kind = kind_key(kind);
         let mut stmt = conn.prepare(
-            "SELECT session_id, day, project_path FROM uses WHERE kind = ?1 AND name = ?2",
+            "SELECT session_id, day, project_path FROM uses WHERE kind = ?1 AND name IN
+               (SELECT ?2 UNION ALL SELECT alias FROM aliases WHERE kind = ?1 AND name = ?2)",
         )?;
         let rows = stmt.query_map(params![kind, name], |r| {
             Ok((
@@ -229,6 +242,34 @@ impl UsageIndex {
             weekly,
         })
     }
+}
+
+/// Records that the artifact of `kind` called `old` is now called `new`, so uses logged under
+/// either name count for it. `conn` is a connection with the usage index attached as `usage`
+/// (the library's). Earlier aliases of `old` move to `new` too, and a name that is the artifact's
+/// own again stops being an alias.
+pub(crate) fn add_alias(conn: &Connection, kind: ArtifactKind, old: &str, new: &str) -> Result<()> {
+    if old == new {
+        return Ok(());
+    }
+    let kind = kind_key(kind);
+    conn.execute(
+        "UPDATE usage.aliases SET name = ?3 WHERE kind = ?1 AND name = ?2",
+        params![kind, old, new],
+    )?;
+    conn.execute(
+        "INSERT OR REPLACE INTO usage.aliases (kind, alias, name) VALUES (?1, ?2, ?3)",
+        params![kind, old, new],
+    )?;
+    conn.execute(
+        "DELETE FROM usage.aliases WHERE kind = ?1 AND alias = name",
+        params![kind],
+    )?;
+    conn.execute(
+        "DELETE FROM usage.aliases WHERE kind = ?1 AND alias = ?2",
+        params![kind, new],
+    )?;
+    Ok(())
 }
 
 fn migrate(conn: &mut Connection) -> Result<()> {

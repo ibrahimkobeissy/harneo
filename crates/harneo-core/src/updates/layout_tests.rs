@@ -135,6 +135,7 @@ fn an_update_replays_a_claude_entry_and_never_calls_claude() -> TestResult {
     assert_eq!(
         report.sources[0].result,
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,
@@ -164,6 +165,7 @@ fn a_claude_path_removed_upstream_is_layout_changed_and_cannot_be_updated() -> T
     assert_eq!(
         report.sources[0].result,
         SourceResult::Changed {
+            renamed: 0,
             outdated: 0,
             removed: 0,
             layout_changed: 1,
@@ -234,6 +236,7 @@ fn rows_without_a_stored_layout_update_as_before() -> TestResult {
     assert_eq!(
         report.sources[0].result,
         SourceResult::Changed {
+            renamed: 0,
             outdated: 1,
             removed: 0,
             layout_changed: 0,

@@ -18,6 +18,14 @@ export function sourceText(item: LibraryItem): string {
 export function UpdateTag({ item }: { item: LibraryItem }) {
   const { update } = item;
   if (update === null) return null;
+  if (update.renamedTo)
+    return (
+      <Badge tone="warn">
+        <span title={`Renamed at source: ${item.name} → ${update.renamedTo}`}>
+          Renamed
+        </span>
+      </Badge>
+    );
   return (
     <Badge tone="warn">
       <span

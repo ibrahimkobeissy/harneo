@@ -12,6 +12,7 @@
 //! digest existed get it on their first check and count as unedited.
 
 mod apply;
+mod apply_rename;
 #[cfg(test)]
 mod apply_tests;
 mod check;
@@ -26,6 +27,9 @@ mod new_at_source_tests;
 pub(crate) mod remote;
 #[cfg(test)]
 mod remote_tests;
+#[cfg(test)]
+mod rename_tests;
+mod renames;
 #[cfg(test)]
 mod status_tests;
 #[cfg(test)]
@@ -51,6 +55,7 @@ use crate::library::records::{self, SourceRecord};
 use crate::library::{Library, LibraryItem};
 pub(crate) use apply::backup_copy;
 pub use apply::{UpdateAllPlan, UpdateChoice, UpdateJob, UpdateOutcome, UpdateReport};
+pub use apply_rename::{RenameItem, RenamePlan};
 pub use check::{CheckJob, CheckOutcome};
 pub(crate) use diff::hunks;
 pub use diff::{DiffLine, DiffStatus, FileDiff, Hunk, LineKind};
@@ -96,6 +101,8 @@ pub enum SourceResult {
         /// Artifacts in the source that are not in the library.
         #[serde(rename = "newUpstream")]
         new_upstream: u32,
+        /// Artifacts of the library renamed at the source (decision 10).
+        renamed: u32,
     },
     /// Offline, no access, unknown branch, git missing or too slow. Others were still checked.
     Unreachable { reason: String },
@@ -140,15 +147,26 @@ pub enum UpstreamState {
     /// A path Claude placed is gone or no longer parses: shown like removed, with *Ask Claude
     /// again*. Stored as `layout_changed`.
     LayoutChanged,
+    /// Gone from the source at this path, and there as a new artifact whose contents are the
+    /// same (decision 10): applying it moves everything over to the new one.
+    Renamed,
 }
 
 impl UpstreamState {
+    /// Whether taking upstream does something for this state: an outdated copy is replaced, a
+    /// renamed one is moved over to its new name.
+    #[must_use]
+    pub fn is_applicable(self) -> bool {
+        matches!(self, Self::Outdated | Self::Renamed)
+    }
+
     fn as_str(self) -> &'static str {
         match self {
             Self::Outdated => "outdated",
             Self::Removed => "removed",
             Self::Skipped => "skipped",
             Self::LayoutChanged => "layout_changed",
+            Self::Renamed => "renamed",
         }
     }
 
@@ -157,6 +175,7 @@ impl UpstreamState {
             "removed" => Self::Removed,
             "skipped" => Self::Skipped,
             "layout_changed" => Self::LayoutChanged,
+            "renamed" => Self::Renamed,
             _ => Self::Outdated,
         }
     }
@@ -175,6 +194,10 @@ pub struct UpdateStatus {
     pub to_version: Option<String>,
     /// The library copy differs from what was stored at import.
     pub local_edits: bool,
+    /// For a renamed artifact, its new name in the source.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub renamed_to: Option<String>,
 }
 
 /// What a card shows for an outdated artifact.
@@ -184,6 +207,10 @@ pub struct UpdateStatus {
 pub struct UpdateBadge {
     pub to_version: Option<String>,
     pub local_edits: bool,
+    /// Set instead of a version when the artifact was renamed at its source: the new name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub renamed_to: Option<String>,
 }
 
 /// A stored artifact as the check sees it.
@@ -345,18 +372,20 @@ impl Library {
         }
         let row = conn
             .query_row(
-                "SELECT state, from_version, to_version FROM upstream WHERE artifact_id = ?1",
+                "SELECT state, from_version, to_version, renamed_name FROM upstream
+                 WHERE artifact_id = ?1",
                 params![id],
                 |r| {
                     Ok((
                         r.get::<_, String>(0)?,
                         r.get::<_, Option<String>>(1)?,
                         r.get::<_, Option<String>>(2)?,
+                        r.get::<_, Option<String>>(3)?,
                     ))
                 },
             )
             .optional()?;
-        let Some((state, from_version, to_version)) = row else {
+        let Some((state, from_version, to_version, renamed_to)) = row else {
             return Ok(None);
         };
         Ok(Some(UpdateStatus {
@@ -364,6 +393,7 @@ impl Library {
             from_version,
             to_version,
             local_edits: self.has_local_edits(id)?,
+            renamed_to,
         }))
     }
 
@@ -406,23 +436,30 @@ impl Library {
             return Ok(());
         }
         let mut stmt = self.store.conn.prepare_cached(
-            "SELECT to_version FROM upstream WHERE artifact_id = ?1 AND state = 'outdated'",
+            "SELECT to_version, renamed_name FROM upstream
+             WHERE artifact_id = ?1 AND state IN ('outdated', 'renamed')",
         )?;
-        let mut badges: HashMap<String, Option<String>> = HashMap::new();
+        let mut badges: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
         for item in items.iter() {
             let found = stmt
-                .query_row(params![item.id], |r| r.get::<_, Option<String>>(0))
+                .query_row(params![item.id], |r| {
+                    Ok((
+                        r.get::<_, Option<String>>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                    ))
+                })
                 .optional()?;
-            if let Some(to_version) = found {
-                badges.insert(item.id.clone(), to_version);
+            if let Some(found) = found {
+                badges.insert(item.id.clone(), found);
             }
         }
         drop(stmt);
         for item in items {
-            if let Some(to_version) = badges.remove(&item.id) {
+            if let Some((to_version, renamed_to)) = badges.remove(&item.id) {
                 item.update = Some(UpdateBadge {
                     to_version,
                     local_edits: self.has_local_edits(&item.id)?,
+                    renamed_to,
                 });
             }
         }
@@ -506,14 +543,16 @@ struct NewRow<'a> {
     from_version: Option<String>,
     to_version: Option<String>,
     checked_at: i64,
+    /// For a rename: the new path and name in the source.
+    renamed: Option<(String, String)>,
 }
 
 fn write_row(conn: &Connection, row: &NewRow<'_>) -> Result<()> {
     conn.execute(
         "INSERT OR REPLACE INTO upstream
             (artifact_id, state, upstream_digest, upstream_commit, from_version, to_version,
-             checked_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             checked_at, renamed_path, renamed_name)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             row.id,
             row.state.as_str(),
@@ -521,7 +560,9 @@ fn write_row(conn: &Connection, row: &NewRow<'_>) -> Result<()> {
             row.upstream_commit,
             row.from_version,
             row.to_version,
-            row.checked_at
+            row.checked_at,
+            row.renamed.as_ref().map(|r| &r.0),
+            row.renamed.as_ref().map(|r| &r.1),
         ],
     )?;
     Ok(())
@@ -542,12 +583,13 @@ fn result_from_table(
         )?;
         Ok(u32::try_from(n).unwrap_or(u32::MAX))
     };
-    let (outdated, removed, layout_changed) = (
+    let (outdated, removed, layout_changed, renamed) = (
         count("outdated")?,
         count("removed")?,
         count("layout_changed")?,
+        count("renamed")?,
     );
-    if outdated + removed + layout_changed + new_upstream == 0 {
+    if outdated + removed + layout_changed + renamed + new_upstream == 0 {
         return Ok(SourceResult::Current);
     }
     Ok(SourceResult::Changed {
@@ -555,5 +597,6 @@ fn result_from_table(
         removed,
         layout_changed,
         new_upstream,
+        renamed,
     })
 }

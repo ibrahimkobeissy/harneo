@@ -38,11 +38,14 @@ struct Entry {
     id: String,
     name: String,
     kind: String,
-    /// `outdated`, `removed` or `layout_changed`.
+    /// `outdated`, `removed`, `layout_changed` or `renamed`.
     state: String,
     from_version: Option<String>,
     to_version: Option<String>,
     local_edits: bool,
+    /// For `renamed`: the new name in the source.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    renamed_to: Option<String>,
 }
 
 /// A source the check could not read.
@@ -59,6 +62,8 @@ struct SourceError {
 struct CheckOutput {
     outdated: Vec<Entry>,
     removed: Vec<Entry>,
+    /// Renamed at their source; `harneo update` moves everything over to the new name.
+    renamed: Vec<Entry>,
     /// How many artifacts the sources hold that the library does not (and did not delete);
     /// `harneo update` imports them.
     new_at_source: u32,
@@ -73,11 +78,15 @@ struct ItemResult {
     name: String,
     kind: String,
     /// `updated`, `skippedLocalEdits`, `failed`, `notOutdated`, `imported`, `notPlaced`,
-    /// `removed` (deleted, as it is gone at its source) or `removedUpstream` (gone, kept).
+    /// `removed` (deleted, as it is gone at its source), `removedUpstream` (gone, kept) or
+    /// `renamed` (moved over to its new name, see `newName`).
     outcome: String,
     from_version: Option<String>,
     to_version: Option<String>,
     message: Option<String>,
+    /// For `renamed`: the new name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    new_name: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -92,6 +101,8 @@ struct Summary {
     not_placed: u32,
     /// Removed at their source and deleted (`--remove-deleted`).
     removed: u32,
+    /// Renamed at their source, now under the new name.
+    renamed: u32,
 }
 
 #[derive(Serialize)]
@@ -182,8 +193,11 @@ fn new_at_source(report: &CheckReport) -> u32 {
         .sum()
 }
 
-fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<(Vec<Entry>, Vec<Entry>)> {
-    let (mut outdated, mut removed) = (Vec::new(), Vec::new());
+type Entries = (Vec<Entry>, Vec<Entry>, Vec<Entry>);
+
+/// The flagged artifacts: outdated, gone at the source (removed or layout changed), renamed.
+fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<Entries> {
+    let (mut outdated, mut removed, mut renamed) = (Vec::new(), Vec::new(), Vec::new());
     for item in items {
         let Some(status) = library.update_status(&item.id)? else {
             continue;
@@ -192,6 +206,7 @@ fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<(Vec<Entr
             UpstreamState::Outdated => "outdated",
             UpstreamState::Removed => "removed",
             UpstreamState::LayoutChanged => "layout_changed",
+            UpstreamState::Renamed => "renamed",
             UpstreamState::Skipped => continue,
         };
         let entry = Entry {
@@ -202,14 +217,15 @@ fn entries(library: &Library, items: &[LibraryItem]) -> anyhow::Result<(Vec<Entr
             from_version: status.from_version,
             to_version: status.to_version,
             local_edits: status.local_edits,
+            renamed_to: status.renamed_to,
         };
-        if status.state == UpstreamState::Outdated {
-            outdated.push(entry);
-        } else {
-            removed.push(entry);
+        match status.state {
+            UpstreamState::Outdated => outdated.push(entry),
+            UpstreamState::Renamed => renamed.push(entry),
+            _ => removed.push(entry),
         }
     }
-    Ok((outdated, removed))
+    Ok((outdated, removed, renamed))
 }
 
 fn versions(from: Option<&str>, to: Option<&str>) -> String {
@@ -249,15 +265,27 @@ fn render_check(check: &CheckOutput) -> String {
         };
         let _ = writeln!(out, "{} ({})  {what}", e.name, e.kind);
     }
+    for e in &check.renamed {
+        let edits = if e.local_edits { "  [local edits]" } else { "" };
+        let _ = writeln!(
+            out,
+            "{} ({})  renamed at source: {} → {}{edits}",
+            e.name,
+            e.kind,
+            e.name,
+            e.renamed_to.as_deref().unwrap_or("?")
+        );
+    }
     render_errors(&mut out, &check.errors);
     if check.new_at_source > 0 {
         let _ = writeln!(out, "{} new at source", check.new_at_source);
     }
     let _ = writeln!(
         out,
-        "{} outdated, {} removed upstream, {}",
+        "{} outdated, {} removed upstream, {} renamed, {}",
         check.outdated.len(),
         check.removed.len(),
+        check.renamed.len(),
         plural(check.errors.len(), "source error", "source errors"),
     );
     out
@@ -300,6 +328,16 @@ fn render_update(output: &UpdateOutput) -> String {
                     r.name, r.kind
                 );
             }
+            "renamed" => {
+                let _ = writeln!(
+                    out,
+                    "renamed {} ({})  renamed at source: {} → {}, with its tags, profiles and usage",
+                    r.name,
+                    r.kind,
+                    r.name,
+                    r.new_name.as_deref().unwrap_or("?")
+                );
+            }
             "notPlaced" => {
                 let _ = writeln!(
                     out,
@@ -327,6 +365,9 @@ fn render_update(output: &UpdateOutput) -> String {
     if s.removed > 0 {
         let _ = writeln!(out, "Deleted {} removed at source", s.removed);
     }
+    if s.renamed > 0 {
+        let _ = writeln!(out, "Renamed {} at source", s.renamed);
+    }
     let _ = writeln!(
         out,
         "Updated {}, skipped {} (local edits), failed {}",
@@ -340,6 +381,7 @@ fn result_of(item: &LibraryItem, report: UpdateReport) -> ItemResult {
         UpdateOutcome::Imported => "imported",
         UpdateOutcome::NotPlaced => "notPlaced",
         UpdateOutcome::Removed => "removed",
+        UpdateOutcome::Renamed => "renamed",
         UpdateOutcome::Updated => "updated",
         UpdateOutcome::SkippedLocalEdits => "skippedLocalEdits",
         UpdateOutcome::Failed => "failed",
@@ -353,6 +395,9 @@ fn result_of(item: &LibraryItem, report: UpdateReport) -> ItemResult {
         from_version: report.from_version,
         to_version: report.to_version,
         message: report.message,
+        new_name: (report.outcome == UpdateOutcome::Renamed)
+            .then_some(report.name)
+            .flatten(),
     }
 }
 
@@ -366,6 +411,7 @@ fn not_in_library(report: UpdateReport) -> ItemResult {
         from_version: None,
         to_version: None,
         message: report.message,
+        new_name: None,
     }
 }
 
@@ -384,7 +430,7 @@ fn apply(
 ) -> anyhow::Result<Vec<ItemResult>> {
     let by_id: HashMap<&str, &LibraryItem> = items.iter().map(|i| (i.id.as_str(), i)).collect();
     if named.is_empty() {
-        let (_, gone) = entries(library, items)?;
+        let (_, gone, _) = entries(library, items)?;
         // No prompt in the CLI: `--remove-deleted` is the confirmation for what is removed now.
         let confirmed: Vec<String> = if remove_deleted {
             library
@@ -421,6 +467,7 @@ fn apply(
                         from_version: None,
                         to_version: None,
                         message: None,
+                        new_name: None,
                     }),
             );
         }
@@ -430,7 +477,7 @@ fn apply(
     for item in named {
         let status = library.update_status(&item.id)?;
         let report = match status {
-            Some(s) if s.state == UpstreamState::Outdated && s.local_edits => UpdateReport {
+            Some(s) if s.state.is_applicable() && s.local_edits => UpdateReport {
                 id: item.id.clone(),
                 outcome: UpdateOutcome::SkippedLocalEdits,
                 backup: None,
@@ -440,7 +487,7 @@ fn apply(
                 name: None,
                 source_path: None,
             },
-            Some(s) if s.state == UpstreamState::Outdated => {
+            Some(s) if s.state.is_applicable() => {
                 match library.update(&item.id, UpdateChoice::TakeUpstream) {
                     Ok(report) => report,
                     Err(error) => UpdateReport {
@@ -484,10 +531,11 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
     let report = library.check_updates(&CheckScope::All)?;
     let errors = source_errors(&report, &items);
     if args.check {
-        let (outdated, removed) = entries(&library, &items)?;
+        let (outdated, removed, renamed) = entries(&library, &items)?;
         let check = CheckOutput {
             outdated,
             removed,
+            renamed,
             new_at_source: new_at_source(&report),
             errors,
         };
@@ -509,6 +557,7 @@ pub fn run(args: &UpdateArgs, out: &mut impl Write) -> anyhow::Result<ExitCode> 
         imported: count("imported"),
         not_placed: count("notPlaced"),
         removed: count("removed"),
+        renamed: count("renamed"),
     };
     let failed = summary.failed > 0;
     let output = UpdateOutput {
@@ -541,6 +590,7 @@ mod tests {
             from_version: from.map(str::to_owned),
             to_version: to.map(str::to_owned),
             local_edits,
+            renamed_to: None,
         }
     }
 
@@ -557,6 +607,13 @@ mod tests {
                 moved.state = "layout_changed".into();
                 moved
             }],
+            renamed: vec![{
+                let mut moved = entry(false, None, None);
+                moved.name = "old".into();
+                moved.state = "renamed".into();
+                moved.renamed_to = Some("new".into());
+                moved
+            }],
             new_at_source: 0,
             errors: vec![SourceError {
                 id: "s1".into(),
@@ -570,7 +627,8 @@ mod tests {
         assert!(text.contains("plan (skill)  removed upstream\n"));
         assert!(text.contains("moved (skill)  layout changed upstream\n"));
         assert!(text.contains("source me/repo (s1): unreachable: offline\n"));
-        assert!(text.ends_with("2 outdated, 2 removed upstream, 1 source error\n"));
+        assert!(text.contains("old (skill)  renamed at source: old → new\n"));
+        assert!(text.ends_with("2 outdated, 2 removed upstream, 1 renamed, 1 source error\n"));
     }
 
     fn item_result(outcome: &str, message: Option<&str>) -> ItemResult {
@@ -582,6 +640,7 @@ mod tests {
             from_version: Some("a".into()),
             to_version: None,
             message: message.map(str::to_owned),
+            new_name: (outcome == "renamed").then(|| "new".to_owned()),
         }
     }
 
@@ -593,6 +652,7 @@ mod tests {
                 item_result("skippedLocalEdits", None),
                 item_result("failed", Some("boom")),
                 item_result("notOutdated", None),
+                item_result("renamed", None),
             ],
             errors: Vec::new(),
             summary: Summary {
@@ -602,6 +662,7 @@ mod tests {
                 imported: 0,
                 not_placed: 0,
                 removed: 0,
+                renamed: 1,
             },
         };
         let text = render_update(&output);
@@ -609,6 +670,8 @@ mod tests {
         assert!(text.contains("update it in the app to choose"));
         assert!(text.contains("failed plan (skill): boom\n"));
         assert!(text.contains("plan (skill): nothing to update\n"));
+        assert!(text.contains("renamed plan (skill)  renamed at source: plan → new, with"));
+        assert!(text.contains("Renamed 1 at source\n"));
         assert!(text.ends_with("Updated 1, skipped 1 (local edits), failed 1\n"));
     }
 }

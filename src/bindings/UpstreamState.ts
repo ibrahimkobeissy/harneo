@@ -3,4 +3,4 @@
 /**
  * How an artifact differs from its source.
  */
-export type UpstreamState = "outdated" | "removed" | "skipped" | "layoutChanged";
+export type UpstreamState = "outdated" | "removed" | "skipped" | "layoutChanged" | "renamed";

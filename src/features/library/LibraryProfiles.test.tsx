@@ -102,6 +102,7 @@ function setup(path: string, backend: Backend = {}) {
               withFindings: 0,
               outdated: 0,
               newAtSource: 0,
+              renamedAtSource: 0,
               statuses: [],
               auto: 3,
               manualOnly: 1,

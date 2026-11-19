@@ -22,6 +22,16 @@ use crate::library::git::GitConfig;
 use crate::library::records::{self, SourceRecord};
 use crate::library::{ids, Candidate, Library, NoHooks, Placed, Preview, Source};
 
+/// The new paths of the artifacts of `source_id` the last check found renamed.
+fn renamed_paths(conn: &rusqlite::Connection, source_id: &str) -> Result<Vec<String>> {
+    let mut stmt = conn.prepare(
+        "SELECT u.renamed_path FROM upstream u JOIN artifacts a ON a.id = u.artifact_id
+         WHERE a.source_id = ?1 AND u.state = 'renamed' AND u.renamed_path IS NOT NULL",
+    )?;
+    let rows = stmt.query_map([source_id], |r| r.get(0))?;
+    Ok(rows.collect::<std::result::Result<_, _>>()?)
+}
+
 /// A source the last check found new artifacts in. Owns everything, so it can leave the lock.
 #[derive(Debug)]
 pub struct ImportJob {
@@ -124,7 +134,9 @@ impl Library {
             ..ScanOptions::default()
         };
         let mut preview = self.scan_candidates(&source, &identity, &located.root, &options)?;
-        let removed = records::removed_paths(conn, &record.id)?;
+        let mut removed = records::removed_paths(conn, &record.id)?;
+        // The new place of a renamed artifact is not new: applying the rename imports it.
+        removed.extend(renamed_paths(conn, &record.id)?);
         let large_files: bool = conn.query_row(
             "SELECT large_files FROM sources WHERE id = ?1",
             rusqlite::params![record.id],

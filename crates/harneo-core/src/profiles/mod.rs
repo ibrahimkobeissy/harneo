@@ -242,6 +242,34 @@ impl ProfileSpec {
             || self.manual_only.contains_key(id)
     }
 
+    /// The spec with `old` replaced by `new` wherever it is, in the same place.
+    fn replacing(&self, old: &str, new: &str) -> Self {
+        let swap = |id: &String| {
+            if id == old {
+                new.to_owned()
+            } else {
+                id.clone()
+            }
+        };
+        Self {
+            items: self.items.iter().map(swap).collect(),
+            settings: self.settings.as_ref().map(swap),
+            mcp: self
+                .mcp
+                .iter()
+                .map(|m| McpChoice {
+                    artifact: swap(&m.artifact),
+                    env: m.env.clone(),
+                })
+                .collect(),
+            manual_only: self
+                .manual_only
+                .iter()
+                .map(|(k, v)| (swap(k), *v))
+                .collect(),
+        }
+    }
+
     /// Takes `id` out of every place it can be.
     fn without(&self, id: &str) -> Self {
         Self {
@@ -376,6 +404,24 @@ pub(crate) fn remove_artifacts(conn: &Connection, artifacts: &[&str]) -> Result<
         if artifacts.iter().any(|a| spec.mentions(a)) {
             let pruned = artifacts.iter().fold(spec, |s, a| s.without(a));
             insert_version(conn, id, version + 1, &pruned, at)?;
+        }
+    }
+    Ok(())
+}
+
+/// Gives every profile whose current version holds `old` one new version that holds `new` in its
+/// place (an artifact renamed at its source). Runs inside the library's rename transaction.
+pub(crate) fn replace_artifact(conn: &Connection, old: &str, new: &str) -> Result<()> {
+    let ids = conn
+        .prepare("SELECT id FROM profiles ORDER BY id")?
+        .query_map([], |r| r.get::<_, ProfileId>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let at = records::now();
+    for id in ids {
+        let version = row(conn, id)?.current_version;
+        let spec = spec_of(conn, id, version)?;
+        if spec.mentions(old) {
+            insert_version(conn, id, version + 1, &spec.replacing(old, new), at)?;
         }
     }
     Ok(())
