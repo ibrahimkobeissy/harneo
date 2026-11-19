@@ -41,6 +41,7 @@
     ]
   },
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "Bash(bash .claude/skills/security-guardrails/scripts/install-gitleaks-hook.sh)"
     ],
