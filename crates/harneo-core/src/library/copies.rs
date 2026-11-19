@@ -5,7 +5,7 @@
 //! (`None` never collapses); copies are compared by [`content_key`], which hashes paths
 //! relative to the artifact's own folder.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::Path;
@@ -13,7 +13,7 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 
 use super::Candidate;
-use crate::artifact::ArtifactKind;
+use crate::artifact::{Artifact, ArtifactKind};
 
 const DUPLICATE_NAME: &str = "scan.duplicate-name";
 
@@ -82,6 +82,35 @@ pub(super) fn collapse_copies(root: &Path, candidates: Vec<Candidate>) -> Vec<Ca
         }
     }
     kept
+}
+
+/// The artifacts of `fresh` that are identical copies (same kind, name and content, as in
+/// [`collapse_copies`]) of one in `held`, or of another in `fresh` with a smaller path. The
+/// update check uses it to count each new artifact once, the way the import preview folds them.
+pub(crate) fn fold_fresh<'a>(
+    root: &Path,
+    held: &[&Artifact],
+    fresh: &[&'a Artifact],
+) -> Vec<&'a Artifact> {
+    let key = |a: &Artifact| {
+        a.digest
+            .is_some()
+            .then(|| (a.kind, a.name.clone(), content_key(root, a)))
+    };
+    let held_keys: HashSet<_> = held.iter().filter_map(|a| key(a)).collect();
+    let keyed: Vec<_> = fresh.iter().map(|a| (*a, key(a))).collect();
+    keyed
+        .iter()
+        .filter(|(a, k)| {
+            k.as_ref().is_some_and(|k| {
+                held_keys.contains(k)
+                    || keyed
+                        .iter()
+                        .any(|(b, o)| o.as_ref() == Some(k) && b.path < a.path)
+            })
+        })
+        .map(|(a, _)| *a)
+        .collect()
 }
 
 /// SHA-256 over the artifact's files, each named relative to the artifact's own path, so the

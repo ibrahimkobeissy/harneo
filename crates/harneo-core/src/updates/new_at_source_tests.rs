@@ -224,3 +224,62 @@ fn layout_changed_is_never_deleted_by_update_all() -> TestResult {
     assert!(f.library.detail(&b).is_ok());
     Ok(())
 }
+
+fn stored_new(f: &Fixture) -> Result<i64> {
+    Ok(f.library.store.conn.query_row(
+        "SELECT COALESCE(SUM(new_upstream), 0) FROM sources",
+        [],
+        |r| r.get(0),
+    )?)
+}
+
+#[test]
+fn an_identical_copy_at_another_path_is_not_new() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    // The same agent at a second path, and one new agent twice at two more.
+    write(f.repo.path(), ".claude/agents/a.md", &agent("a", "one"))?;
+    write(
+        f.repo.path(),
+        ".claude/agents/fresh.md",
+        &agent("fresh", "x"),
+    )?;
+    write(f.repo.path(), "agents/fresh.md", &agent("fresh", "x"))?;
+    commit(f.repo.path(), "copies")?;
+    let report = f.library.check_updates(&CheckScope::All)?;
+    assert_eq!(new_count(&f, &report), 1, "{report:?}");
+    Ok(())
+}
+
+#[test]
+fn a_copy_of_an_imported_artifact_alone_counts_zero() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    write(f.repo.path(), ".claude/agents/a.md", &agent("a", "one"))?;
+    commit(f.repo.path(), "copy of a")?;
+    let report = f.library.check_updates(&CheckScope::All)?;
+    assert_eq!(f.one(&report), SourceResult::Current);
+    Ok(())
+}
+
+#[test]
+fn importing_through_the_import_flow_lowers_the_count() -> TestResult {
+    let mut f = fixture()?;
+    f.import(None, None)?;
+    write(f.repo.path(), "agents/n1.md", &agent("n1", "x"))?;
+    write(f.repo.path(), "agents/n2.md", &agent("n2", "x"))?;
+    commit(f.repo.path(), "two new")?;
+    f.library.check_updates(&CheckScope::All)?;
+    assert_eq!(stored_new(&f)?, 2);
+    let source = Source::parse_git(&f.url, None, None)?;
+    let preview = f.library.preview(&source)?;
+    let one: Vec<String> = preview
+        .candidates
+        .iter()
+        .filter(|c| c.artifact.name == "n1")
+        .map(|c| c.id.clone())
+        .collect();
+    f.library.import(&preview, &one, &TagChoices::new())?;
+    assert_eq!(stored_new(&f)?, 1);
+    Ok(())
+}

@@ -155,6 +155,7 @@ impl CheckJob {
             .iter()
             .filter(|a| !known_paths.contains(&a.path.as_str()) && !work.removed.contains(&a.path))
             .collect();
+        let fresh = self.without_copies(work, &scanned.artifacts, fresh);
         let pairs = self.renames(work, &scanned.artifacts, &fresh);
         let mut judgements = Vec::new();
         for item in work
@@ -214,6 +215,34 @@ impl CheckJob {
 }
 
 impl CheckJob {
+    /// `fresh` without the identical copies of an artifact the library holds or of another new
+    /// path, which the import preview folds too (decision 8). Reads the source's files, so it
+    /// only looks when something is new.
+    fn without_copies<'a>(
+        &self,
+        work: &SourceWork,
+        scanned: &[Artifact],
+        fresh: Vec<&'a Artifact>,
+    ) -> Vec<&'a Artifact> {
+        if fresh.is_empty() {
+            return fresh;
+        }
+        let Ok(located) =
+            remote::locate(&self.git, &self.session, &self.library_root, &work.source)
+        else {
+            return fresh;
+        };
+        let held: Vec<&Artifact> = scanned
+            .iter()
+            .filter(|a| work.stored.iter().any(|s| s.source_path == a.path))
+            .collect();
+        let folded = crate::library::fold_fresh(&located.root, &held, &fresh);
+        fresh
+            .into_iter()
+            .filter(|a| !folded.iter().any(|f| std::ptr::eq(*f, *a)))
+            .collect()
+    }
+
     /// The renames among the artifacts removed from and new in a source (decision 10). Needs the
     /// source's files, so it only looks when there is both a removed and a new artifact.
     fn renames(

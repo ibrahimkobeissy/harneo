@@ -86,6 +86,7 @@ pub use collections::{Collection, CollectionKind};
 pub use confirm::{
     ArtifactConfirmation, ConfirmJob, ConfirmOutcome, ConfirmProgress, ConfirmScope,
 };
+pub(crate) use copies::fold_fresh;
 pub use copy::LARGE_FILE_CEILING;
 pub(crate) use copy::{copy_artifact, copy_limit, ImportHooks, NoHooks};
 pub(crate) use copy::{is_executable, make_executable, rewrite, safe_join, stored_view};
@@ -824,6 +825,11 @@ gone or no longer parses",
             }
             return Err(error);
         }
+        // The paths just imported no longer count as new at the source.
+        self.store.conn.execute(
+            "UPDATE sources SET new_upstream = MAX(new_upstream - ?2, 0) WHERE id = ?1",
+            rusqlite::params![source_id, i64::try_from(fresh.len()).unwrap_or(i64::MAX)],
+        )?;
         report.imported = fresh.iter().map(|c| c.id.clone()).collect();
         Ok(report)
     }
