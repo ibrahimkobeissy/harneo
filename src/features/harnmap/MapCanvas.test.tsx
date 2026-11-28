@@ -4,7 +4,7 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { fixtures, heavy } from "./fixtures";
 import { MapCanvas } from "./MapCanvas";
-import { sourceOf } from "./tooltip";
+import { sourceOf } from "./tooltipData";
 import {
   clampZoom,
   DEFAULT_VIEW,
