@@ -10,7 +10,7 @@ import {
   profilesList,
 } from "../../lib/ipc";
 import { Badge, Button, EmptyState, Kbd, Screen } from "../../ui";
-import { labelOf, useTemplates } from "./category";
+import { labelOf, useTemplates } from "./categoryData";
 import { CloneDialog } from "./CloneDialog";
 import { Dialog } from "./Dialog";
 import { dropDraft, NEW_PROFILE, newProfileDraft, type Draft } from "./drafts";

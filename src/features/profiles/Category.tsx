@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { CategoryId } from "../../bindings/CategoryId";
 import type { Template } from "../../bindings/Template";
 import { Button } from "../../ui";
-import { categoryHint, customPreview, labelOf } from "./category";
+import { categoryHint, customPreview, labelOf } from "./categoryData";
 import styles from "./Category.module.css";
 import { Dialog, NameField } from "./Dialog";
 import { ShapeThumb } from "./ShapeThumb";

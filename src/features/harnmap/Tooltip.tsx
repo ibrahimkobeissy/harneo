@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Fact } from "../../bindings/Fact";
 import type { Placement } from "../../bindings/Placement";
 import styles from "./MapCanvas.module.css";
-import { sourceOf, type Source } from "./tooltip";
+import { sourceOf, type Source } from "./tooltipData";
 
 function Tag({ source, label }: { source: Source; label?: string }) {
   return (

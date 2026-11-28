@@ -30,7 +30,7 @@ import {
 import styles from "./Builder.module.css";
 import { Cart } from "./Cart";
 import { CategoryConfirm, CategoryMenu, NewProfileDialog } from "./Category";
-import { labelOf, useTemplates } from "./category";
+import { labelOf, useTemplates } from "./categoryData";
 import { RemoveDialog, type RemoveAsk } from "./RemoveDialog";
 import { dropDraft, draftFor, keepDraft } from "./drafts";
 import { LeaveGuard } from "./LeaveGuard";
